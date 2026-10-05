@@ -1,0 +1,19 @@
+name: lock-test
+# Temporary: checks that only the owner's pushes to main and v* tags can run
+# on the self-hosted runner. Deleted with its branch.
+on:
+  push:
+    branches: [ci-lock-test]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  forced:
+    # What a pull request could write: straight onto omarchy.
+    runs-on: [self-hosted, omarchy]
+    steps:
+      - run: echo "LOCK BROKEN - this step ran on ${{ runner.name }}"
+  chosen:
+    runs-on: ${{ (vars.SELF_HOSTED == 'true' && github.event_name == 'push' && github.actor == github.repository_owner) && fromJSON('["self-hosted","omarchy"]') || 'ubuntu-latest' }}
+    steps:
+      - run: echo "ran on ${{ runner.environment }} ${{ runner.name }}"
