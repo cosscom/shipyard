@@ -24,30 +24,41 @@ function saveBoxes(boxes) {
   } catch {}
 }
 let boxes = MOCK ? mockBoxes() : loadBoxes();
+let toastTimer = 0;
 
 // A pairing link carries boxes in the fragment, which never reaches a
 // server: #pair=<base64url of [{name,url,token}]>. Keep them, then drop the
-// fragment so the token is not left in history.
-(function pairFromLink() {
-  const m = location.hash.match(/^#pair=([A-Za-z0-9_-]+)/);
-  if (!m) return;
+// fragment so the token is not left in history. The same link can be pasted
+// on the Pair screen: a Home Screen app keeps its own storage, apart from the
+// browser that opened the link, and has no address bar to open it in.
+function pairFrom(text) {
+  const m = String(text).match(/#pair=([A-Za-z0-9_-]+)/);
+  if (!m) return false;
   try {
     const json = atob(m[1].replace(/-/g, "+").replace(/_/g, "/"));
     let list = JSON.parse(json);
     if (!Array.isArray(list)) list = [list];
+    let added = 0;
     for (const b of list) {
       if (!b || !b.url || !b.token) continue;
       const url = new URL(b.url).origin;
       boxes = boxes.filter((x) => x.url !== url);
       boxes.push({ name: String(b.name || new URL(url).hostname), url, token: String(b.token) });
+      added++;
     }
+    if (!added) throw new Error("no boxes");
     saveBoxes(boxes);
-    toast(list.length === 1 ? "Paired with " + list[0].name : "Paired with " + list.length + " boxes");
+    toast(added === 1 ? "Paired with " + list[0].name : "Paired with " + added + " boxes");
+    return true;
   } catch {
     toast("That pairing link is damaged. Scan the code again.");
+    return false;
   }
+}
+if (/^#pair=/.test(location.hash)) {
+  pairFrom(location.hash);
   history.replaceState(null, "", location.pathname + location.search);
-})();
+}
 
 // --- talking to boxes -------------------------------------------------------
 
@@ -394,6 +405,7 @@ function showPairing() {
       <li>Turn on phone access for your boxes.</li>
       <li>Scan the code with this phone's camera.</li>
     </ol>
+    <div class="compose"><textarea id="pairlink" rows="1" placeholder="Or paste a pairing link" autocapitalize="off" autocomplete="off" spellcheck="false"></textarea><button class="btn" id="pair" type="button">Pair</button></div>
     <p class="note">This phone needs to be on the same tailnet as your boxes (the Tailscale app).</p>
   </div>`;
 }
@@ -404,7 +416,8 @@ function showBoxes() {
   main.innerHTML = `<div class="boxes">${boxes
     .map((b, i) => `<div class="boxrow"><div><b>${esc(b.name)}</b><br><span>${esc(b.url)}</span></div><button class="btn ghost" type="button" data-forget="${i}">Forget</button></div>`)
     .join("")}</div>
-    <p class="note">To add a box, scan its code from Berth → Settings → Phone. Forgetting a box only removes it from this phone; turn phone access off in Berth to stop it answering.</p>`;
+    <div class="compose"><textarea id="pairlink" rows="1" placeholder="Or paste a pairing link" autocapitalize="off" autocomplete="off" spellcheck="false"></textarea><button class="btn" id="pair" type="button">Pair</button></div>
+    <p class="note">To add a box, scan its code from Berth → Settings → Phone, or paste its link. Forgetting a box only removes it from this phone; turn phone access off in Berth to stop it answering.</p>`;
 }
 
 // --- routing and chrome ---------------------------------------------------------
@@ -452,7 +465,6 @@ function setBar(title, sub, state) {
   }
 }
 
-let toastTimer = 0;
 function toast(msg) {
   let t = document.querySelector(".toast");
   if (!t) {
@@ -467,8 +479,13 @@ function toast(msg) {
 }
 
 $("back").addEventListener("click", () => {
-  if (history.length > 1) history.back();
-  else location.hash = "";
+  location.hash = "";
+});
+main.addEventListener("click", (e) => {
+  if (e.target.id !== "pair") return;
+  const field = $("pairlink");
+  if (pairFrom(field.value)) render();
+  else if (!/#pair=/.test(field.value)) toast("Paste the whole link from Berth → Settings → Phone.");
 });
 main.addEventListener("click", (e) => {
   const p = e.target.closest("[data-pick]");
