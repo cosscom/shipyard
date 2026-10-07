@@ -221,8 +221,9 @@ that truly needs `sudo`'s password on the box, and only for that step.
 ### In the app
 
 **Add a box › Or let Shipyard set it up over SSH** takes `user@host`, with
-**Agents** right below it: Claude Code is ticked; Codex, Cursor Agent and
-OpenCode are there to add, and your choice is remembered for the next box.
+**Agents** right below it: Claude Code is ticked; Codex, Cursor Agent,
+OpenCode and Grok CLI are there to add, and your choice is remembered for
+the next box.
 **Install and pair** on a machine [on your tailnet](#on-your-tailnet) has the
 same choice. **Set up** opens a compact dialog with a short checklist:
 Connect, Install berthd, tmux and git, the agents, Agent integrations, Pair.
@@ -351,8 +352,10 @@ What each step does:
   - Codex, its release binary from
     [github.com/openai/codex](https://github.com/openai/codex/releases),
     pinned to a version and checked against its sha256;
-  - Cursor Agent and OpenCode with their own installers (over HTTPS; neither
-    publishes checksums for them).
+  - Cursor Agent, OpenCode and Grok CLI with their own installers (over
+    HTTPS; none of them publish checksums). Grok's is xAI's
+    (`curl -fsSL https://x.ai/cli/install.sh | bash`), which puts the
+    binary in `~/.grok/bin`; Shipyard links it into `~/.local/bin`.
 
   Gemini CLI isn't offered: it installs with npm and needs Node.js 20 or
   newer, which Shipyard doesn't install. Install Node, then
@@ -399,7 +402,7 @@ Options:
 | Flag | What it does |
 | --- | --- |
 | `--name N` | What to call the box in Shipyard (default: its hostname). It becomes part of URLs like `3000.N.localhost`. |
-| `--agents LIST` | The agent CLIs to install: `claude`, `codex`, `cursor`, `opencode`, comma-separated, or `none` (default `claude`). |
+| `--agents LIST` | The agent CLIs to install: `claude`, `codex`, `cursor`, `opencode`, `grok`, comma-separated, or `none` (default `claude`). |
 | `--guided` | Show the whole plan first, wait for Enter, and run every step in one terminal (what Team setup does). Without it, steps run on their own and only one that needs `sudo`'s password asks. |
 | `--yes` | Ask nothing, and stop with the command to run where `sudo` would ask for a password. |
 | `--from STEP` | Start from a step (`berthd`, `linger`, `tools`, `agents`, `integrations`, `pair`), keeping the ones before it. It still connects first. |

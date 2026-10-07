@@ -33,6 +33,7 @@ const INSTALL: Record<string, string> = {
   gemini: "npm install -g @google/gemini-cli",
   cursor: "curl https://cursor.com/install -fsS | bash",
   omp: "bun install -g @oh-my-pi/pi-coding-agent",
+  grok: "curl -fsSL https://x.ai/cli/install.sh | bash",
 };
 
 const BUILTIN: Pick<AgentPreset, "id" | "name">[] = [
@@ -42,6 +43,7 @@ const BUILTIN: Pick<AgentPreset, "id" | "name">[] = [
   { id: "gemini", name: "Gemini CLI" },
   { id: "cursor", name: "Cursor Agent" },
   { id: "omp", name: "oh-my-pi" },
+  { id: "grok", name: "Grok CLI" },
 ];
 
 export function AgentsSection() {

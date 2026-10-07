@@ -11,6 +11,16 @@ again.
 
 ## Unreleased
 
+- **Grok CLI.** `grok` (xAI Grok Build) is a built-in agent preset: first
+  prompt as the last argument, `--model` and `--effort` as on the CLI.
+  `berthd integrations install grok` writes session-state hooks to
+  `~/.grok/hooks/berth.json`. Skills and MCP are not installed for Grok
+  yet. The guided install and `berthd agents install grok` run xAI's own
+  installer (`curl -fsSL https://x.ai/cli/install.sh | bash`) and link
+  `~/.grok/bin/grok` into `~/.local/bin`. See
+  [First agent](/getting-started/first-agent) and
+  [agent integrations](/guides/agent-integrations).
+
 - **A box with a full hostname is named by its first label.** A cloud VM
   whose hostname is `devbox.europe-north1-a.c.example.internal` called itself
   by all of it: the phone and notifications showed the whole name, and it

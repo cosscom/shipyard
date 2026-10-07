@@ -126,7 +126,7 @@ func TestLogTail(t *testing.T) {
 // finds, and the advice for the others, are integrations' tests.)
 func TestInstallSetsUpIntegrationsForAgentsOnThisBox(t *testing.T) {
 	home, path := t.TempDir(), t.TempDir()
-	for _, tool := range []string{"claude", "codex", "cursor-agent"} {
+	for _, tool := range []string{"claude", "codex", "cursor-agent", "grok"} {
 		os.WriteFile(filepath.Join(path, tool), []byte("#!/bin/sh\n"), 0o755)
 	}
 	t.Setenv("HOME", home)
@@ -137,7 +137,7 @@ func TestInstallSetsUpIntegrationsForAgentsOnThisBox(t *testing.T) {
 	if err != nil || !strings.Contains(string(settings), "/home/alex/.local/bin/berthd hook claude Stop") {
 		t.Fatalf("settings.json = %s, %v", settings, err)
 	}
-	for _, want := range []string{"Claude Code: hooks and 7 skills in ~/.claude", "hooks added in", "Codex: hooks in ~/.codex; 7 skills in", "notify added in", "Cursor: hooks added"} {
+	for _, want := range []string{"Claude Code: hooks and 7 skills in ~/.claude", "hooks added in", "Codex: hooks in ~/.codex; 7 skills in", "notify added in", "Cursor: hooks added", "Grok CLI: hooks added"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output missing %q:\n%s", want, out.String())
 		}

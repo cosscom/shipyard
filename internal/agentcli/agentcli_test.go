@@ -51,6 +51,8 @@ func newFake(t *testing.T) *fake {
 				exe(t, filepath.Join(home, ".local", "bin", "cursor-agent"))
 			case strings.Contains(string(script), "opencode"):
 				exe(t, filepath.Join(home, ".opencode", "bin", "opencode"))
+			case strings.Contains(string(script), "grok"):
+				exe(t, filepath.Join(home, ".grok", "bin", "grok"))
 			}
 			return nil
 		},
@@ -64,6 +66,7 @@ func newFake(t *testing.T) *fake {
 	f.files[claudeInstaller] = []byte("echo claude installer")
 	f.files[cursorInstaller] = []byte("echo cursor installer")
 	f.files[opencodeInstaller] = []byte("echo opencode installer")
+	f.files[grokInstaller] = []byte("echo grok installer")
 	return f
 }
 
@@ -105,6 +108,28 @@ func TestOpencodeIsLinkedIntoLocalBin(t *testing.T) {
 	link, err := os.Readlink(filepath.Join(f.Home, ".local", "bin", "opencode"))
 	if err != nil || link != filepath.Join(f.Home, ".opencode", "bin", "opencode") {
 		t.Errorf("link = %q %v", link, err)
+	}
+}
+
+func TestGrokIsLinkedIntoLocalBin(t *testing.T) {
+	f := newFake(t)
+	res, err := f.Install(context.Background(), "grok")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Already || res.Path != filepath.Join(f.Home, ".local", "bin", "grok") {
+		t.Errorf("result = %+v", res)
+	}
+	if !reflect.DeepEqual(f.fetched, []string{"https://x.ai/cli/install.sh"}) || len(f.ran) != 1 || !strings.HasPrefix(f.ran[0], "bash echo grok installer") {
+		t.Errorf("fetched %v, ran %v", f.fetched, f.ran)
+	}
+	link, err := os.Readlink(filepath.Join(f.Home, ".local", "bin", "grok"))
+	if err != nil || link != filepath.Join(f.Home, ".grok", "bin", "grok") {
+		t.Errorf("link = %q %v", link, err)
+	}
+	res, err = f.Install(context.Background(), "grok")
+	if err != nil || !res.Already || len(f.fetched) != 1 || len(f.ran) != 1 {
+		t.Errorf("second install: %+v %v; fetched %v ran %v", res, err, f.fetched, f.ran)
 	}
 }
 
@@ -179,6 +204,9 @@ func TestParseList(t *testing.T) {
 	}
 	if Names([]string{"claude", "codex", "cursor"}) != "Claude Code, Codex and Cursor Agent" {
 		t.Errorf("names = %q", Names([]string{"claude", "codex", "cursor"}))
+	}
+	if got, err := ParseList("grok"); err != nil || !reflect.DeepEqual(got, []string{"grok"}) {
+		t.Errorf("grok: %v %v", got, err)
 	}
 }
 

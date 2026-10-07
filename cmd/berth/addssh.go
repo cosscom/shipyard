@@ -83,7 +83,7 @@ func addSSHSteps(l laptop, args []string) error {
 	identity := fs.String("identity", "", "an SSH private key file to log in with (as ssh -i)")
 	trustKey := fs.String("trust-host-key", "", "trust the box's host key if its fingerprint is this SHA256:… (a new box only; a changed key is never trusted)")
 	noIntegrations := fs.Bool("no-integrations", false, "don't install hooks and skills for the agent CLIs on the box")
-	agentList := fs.String("agents", strings.Join(agentcli.Defaults(), ","), "agent CLIs to install on the box: claude, codex, cursor, opencode, or none")
+	agentList := fs.String("agents", strings.Join(agentcli.Defaults(), ","), "agent CLIs to install on the box: claude, codex, cursor, opencode, grok, or none")
 	yes := fs.Bool("yes", false, "ask nothing: don't wait for Enter, and stop with the command to run where sudo would ask for a password")
 	guidedFlag := fs.Bool("guided", false, "show the whole plan first, wait for Enter, and run every step in one terminal; without it, steps run on their own and only one that needs sudo's password asks")
 	from := fs.String("from", "", "start from this step (connect, berthd, linger, tools, agents, integrations, pair); the ones before it are kept")

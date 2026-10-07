@@ -177,6 +177,7 @@ var agentInstalls = map[string]string{
 	"gemini":   "npm install -g @google/gemini-cli",
 	"cursor":   "curl https://cursor.com/install -fsS | bash",
 	"omp":      "bun install -g @oh-my-pi/pi-coding-agent",
+	"grok":     "curl -fsSL https://x.ai/cli/install.sh | bash",
 }
 
 // tmuxRequirement is whether tmux is here and, when it isn't, how to get it.

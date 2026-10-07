@@ -155,7 +155,7 @@ config for the project.
 
 `agents` adds ways to start agents in this repository, or replaces a
 built-in one with the same `id` (`claude`, `codex`, `opencode`, `gemini`,
-`cursor`). A first prompt goes at the end of `command`, or after
+`cursor`, `grok`). A first prompt goes at the end of `command`, or after
 `prompt_flag` if the agent needs one.
 
 ### Models and effort
@@ -170,6 +170,7 @@ Shipyard passes them with each CLI's own flags, checked against its `--help`:
 | `codex` | `--model` | `-c model_reasoning_effort=` (minimal, low, medium, high) | none: Codex's default |
 | `opencode`, `cursor` | `--model` | none | none |
 | `omp` | `--model` | `--thinking` (low, medium, high, xhigh, max) | none: omp's default |
+| `grok` | `--model` | `--effort` (none, minimal, low, medium, high, xhigh, max) | none: Grok's default |
 
 Unset means the CLI's default. A value must be a plain name (letters,
 digits, `.` `_` `:` `/` `-`); anything else is refused, so nothing reaches a
