@@ -1,8 +1,8 @@
 // Package agentcli installs the agent CLIs Shipyard runs (Claude Code, Codex,
-// Cursor Agent, OpenCode) on a box, as the box's user, without sudo, into
-// ~/.local/bin. Each install checks first and does nothing when the agent
-// is already there, so running it again is safe. Signing in stays the
-// person's own: nothing here touches an agent's login.
+// Cursor Agent, OpenCode, Grok CLI) on a box, as the box's user, without
+// sudo, into ~/.local/bin. Each install checks first and does nothing when
+// the agent is already there, so running it again is safe. Signing in stays
+// the person's own: nothing here touches an agent's login.
 package agentcli
 
 import (
@@ -59,6 +59,7 @@ const (
 	claudeInstaller   = "https://claude.ai/install.sh"
 	cursorInstaller   = "https://cursor.com/install"
 	opencodeInstaller = "https://opencode.ai/install"
+	grokInstaller     = "https://x.ai/cli/install.sh"
 )
 
 // Catalog is every agent CLI the add-a-box screen lists, in its order.
@@ -75,6 +76,9 @@ var Catalog = []Agent{
 	{ID: "opencode", Name: "OpenCode", Command: "opencode", Offered: true,
 		Install:  "curl -fsSL " + opencodeInstaller + " | bash -s -- --no-modify-path",
 		Verified: "OpenCode's installer, over HTTPS; it publishes no checksums for it"},
+	{ID: "grok", Name: "Grok CLI", Command: "grok", Offered: true,
+		Install:  "curl -fsSL " + grokInstaller + " | bash",
+		Verified: "xAI's installer, over HTTPS; xAI publishes no checksums for it"},
 	{ID: "gemini", Name: "Gemini CLI", Command: "gemini",
 		Install: "npm install -g @google/gemini-cli",
 		Why:     "it installs with npm and needs Node.js 20 or newer, which Shipyard doesn't install; install Node, then run the command"},
@@ -218,6 +222,9 @@ func (in *Installer) findInstalled(a Agent) (string, bool) {
 	if a.ID == "opencode" {
 		dirs = append(dirs, filepath.Join(in.Home, ".opencode", "bin"))
 	}
+	if a.ID == "grok" {
+		dirs = append(dirs, filepath.Join(in.Home, ".grok", "bin"))
+	}
 	if a.ID == "claude" {
 		dirs = append(dirs, filepath.Join(in.Home, ".claude", "local"))
 	}
@@ -263,6 +270,11 @@ func (in *Installer) Install(ctx context.Context, id string) (Result, error) {
 		err = in.script(ctx, a, opencodeInstaller, "--no-modify-path")
 		if err == nil {
 			err = in.linkOpencode()
+		}
+	case "grok":
+		err = in.script(ctx, a, grokInstaller)
+		if err == nil {
+			err = in.linkGrok()
 		}
 	}
 	if err != nil {
@@ -407,11 +419,22 @@ func (in *Installer) codex(ctx context.Context) error {
 // linkOpencode puts opencode, which its installer keeps in ~/.opencode/bin,
 // in ~/.local/bin beside the others, so one PATH entry finds every agent.
 func (in *Installer) linkOpencode() error {
-	src := filepath.Join(in.Home, ".opencode", "bin", "opencode")
+	return in.linkHomeBin("opencode", filepath.Join(".opencode", "bin", "opencode"))
+}
+
+// linkGrok puts grok, which xAI's installer keeps in ~/.grok/bin, in
+// ~/.local/bin beside the others. The installer may already have linked it
+// there when ~/.local/bin was on PATH; this covers the rest.
+func (in *Installer) linkGrok() error {
+	return in.linkHomeBin("grok", filepath.Join(".grok", "bin", "grok"))
+}
+
+func (in *Installer) linkHomeBin(command, rel string) error {
+	src := filepath.Join(in.Home, rel)
 	if !executable(src) {
 		return nil
 	}
-	dest := filepath.Join(in.BinDir(), "opencode")
+	dest := filepath.Join(in.BinDir(), command)
 	if _, err := os.Lstat(dest); err == nil {
 		return nil
 	}

@@ -64,8 +64,8 @@ type Setup struct {
 	Docs    string `json:"docs,omitempty"`
 	Box     Box    `json:"box"`
 	// Agents are the agent CLIs every engineer's box gets ("claude",
-	// "codex", "cursor", "opencode"), installed by Shipyard as a step of its
-	// own. Signing in to each stays the engineer's.
+	// "codex", "cursor", "opencode", "grok"), installed by Shipyard as a
+	// step of its own. Signing in to each stays the engineer's.
 	Agents   []string  `json:"agents,omitempty"`
 	Projects []Project `json:"projects"`
 	Keys     KeySet    `json:"keys,omitempty"`
@@ -382,7 +382,7 @@ func (s *Setup) Validate() error {
 	}
 	for _, a := range s.Agents {
 		if a == "none" || strings.ContainsAny(a, ", ") {
-			return fmt.Errorf("agents: %q is not an agent id (claude, codex, cursor, opencode)", a)
+			return fmt.Errorf("agents: %q is not an agent id (claude, codex, cursor, opencode, grok)", a)
 		}
 	}
 	ids, repos := map[string]bool{}, map[string]bool{}

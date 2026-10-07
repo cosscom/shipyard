@@ -67,7 +67,7 @@ const usage = `berthd — the berth daemon for a development box
                                           (--check: only say whether it can read now)
   berthd mcp                              A stdio MCP server of berth's tools for agents on this box
                                           (integrations install adds it to Claude, Codex and Gemini)
-  berthd agents install [--integrations] [--markers] claude|codex|cursor|opencode ...
+  berthd agents install [--integrations] [--markers] claude|codex|cursor|opencode|grok ...
                                           Install agent CLIs into ~/.local/bin, without sudo (each is
                                           skipped when it is already here)
   berthd agents list [--json]             Which agent CLIs are here, and how to add the others

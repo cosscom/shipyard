@@ -167,11 +167,11 @@ after the team's steps and before GitHub, like the GitHub and 1Password
 steps: **Claude Code and Codex on devbox**, which runs `berthd agents
 install --integrations claude codex` in the same terminal. They go in
 `~/.local/bin` without sudo (Claude Code with its native installer, Codex
-from its pinned GitHub release with its sha256 checked, Cursor Agent and
-OpenCode with their own installers), each skipped when it is already there,
-and then their hooks and skills. Signing in stays the engineer's: each agent
-asks the first time it starts. `gemini` is refused: it needs Node.js and npm,
-which a team's own step can install.
+from its pinned GitHub release with its sha256 checked, Cursor Agent,
+OpenCode and Grok CLI with their own installers), each skipped when it is
+already there, and then their hooks and skills. Signing in stays the
+engineer's: each agent asks the first time it starts. `gemini` is refused:
+it needs Node.js and npm, which a team's own step can install.
 
 ### What the box needs first
 
@@ -322,7 +322,7 @@ branch is offered as an update, like the org's own.
 | `box.os` | the systems the script supports; shown, not enforced |
 | `box.script` | a path inside `.berth`; see below |
 | `box.steps[]` | `id` (a subcommand of the script), `title`, `detail`, `sudo` (it asks for the password). `all`, `check`, `plan`, `agents`, `github` and `1password` are reserved |
-| `agents` | optional: the agent CLIs Shipyard installs on the box as its own step, `claude`, `codex`, `cursor` and `opencode` ([above](#agent-clis-on-the-box)) |
+| `agents` | optional: the agent CLIs Shipyard installs on the box as its own step, `claude`, `codex`, `cursor`, `opencode` and `grok` ([above](#agent-clis-on-the-box)) |
 | `box.settings` | values the team keeps in one place for its script (versions, ports), name → string. Each reaches the script, and each project's `init`, as `BERTH_SETTING_<NAME>`. Names are letters, digits and `_`; values are one line, at most 4096 bytes; at most 64 settings |
 | `projects[]` | `id` (the project's name on the box), `repo` (`owner/name`), `path` (default `~/code/<id>`), `required`, `kit`, `init`, `init_detail`, `first_task` |
 | `projects[].id` | lowercase letters, digits and dashes, not starting or ending with a dash. It is part of every worktree's URL (`<worktree>.<id>.<box>.localhost`), so an id with a dot is refused: for `acme/acme.com`, use `"id": "site"` with `"path": "~/code/acme.com"` to keep the folder. (An org without a `.berth` names each picked repo this way itself: `acme.com` becomes `acme-com`.) |

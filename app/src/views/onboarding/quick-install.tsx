@@ -236,7 +236,7 @@ export function InlineAgents({ value, onChange, disabled }: { value: string[]; o
   );
 }
 
-const ORDER = ["claude", "codex", "cursor", "opencode"];
+const ORDER = ["claude", "codex", "cursor", "opencode", "grok", "gemini"];
 const order = (id: string) => (ORDER.indexOf(id) + 1 || 99) as number;
 const busyHint = (v: string[]) => (v.length === 0 ? <span className="text-muted-foreground">none: add them later in Settings</span> : null);
 

@@ -1,6 +1,6 @@
 ---
 title: Agent integrations
-description: Claude Code, Codex, Cursor, Gemini CLI and OpenCode hooks, the skills Shipyard teaches agents, and announcing events from any tool.
+description: Claude Code, Codex, Cursor, Gemini CLI, OpenCode and Grok CLI hooks, the skills Shipyard teaches agents, and announcing events from any tool.
 ---
 
 Shipyard works with the tools around it in both directions: tools drive
@@ -10,7 +10,7 @@ between two tools.
 
 ## Agent tools → Shipyard
 
-### Claude Code, Codex, Cursor, Gemini CLI, OpenCode
+### Claude Code, Codex, Cursor, Gemini CLI, OpenCode, Grok CLI
 
 ```sh
 berth integrations install claude     # on a laptop
@@ -44,6 +44,12 @@ with the command that installs them.
   `AfterAgent` / `SessionEnd` hooks in `~/.gemini/settings.json`.
 - **OpenCode**: a small plugin, `~/.config/opencode/plugin/berth.js`, that
   runs the hook when a session gets busy, asks for a permission, or goes idle.
+- **Grok CLI**: `SessionStart` / `UserPromptSubmit` / `PostToolUse` /
+  `Notification` / `Stop` / `StopFailure` / `StopCancelled` / `SessionEnd`
+  hooks in `~/.grok/hooks/berth.json`. Only `permission_prompt` (and
+  Claude-compatible question types) mean "needs you"; `idle_prompt` and
+  `task_complete` settle a turn that never reported `Stop`, and are not
+  questions. Grok Build has no skill or MCP install path in Shipyard yet.
 
 ### Every account
 

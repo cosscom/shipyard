@@ -62,7 +62,7 @@ function where(e: BerthEvent, names?: Names): string {
   return path ? path.split("/").filter(Boolean).slice(-1)[0] : "";
 }
 
-const AGENTS: Record<string, string> = { claude: "Claude", codex: "Codex", opencode: "OpenCode", gemini: "Gemini", cursor: "Cursor" };
+const AGENTS: Record<string, string> = { claude: "Claude", codex: "Codex", opencode: "OpenCode", gemini: "Gemini", cursor: "Cursor", grok: "Grok" };
 const agentName = (a: string) => AGENTS[a] ?? (a || "An agent");
 
 interface Line {

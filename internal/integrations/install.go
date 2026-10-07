@@ -89,6 +89,27 @@ func InstallGeminiHooks(path, bin string) (bool, error) {
 	})
 }
 
+// GrokHookEvents are the Grok CLI hooks berth installs. They are Claude
+// Code's names plus StopCancelled, which Grok fires instead of Stop when a
+// turn is interrupted or a permission is refused.
+var GrokHookEvents = []string{"SessionStart", "UserPromptSubmit", "PostToolUse", "Notification", "Stop", "StopFailure", "StopCancelled", "SessionEnd"}
+
+// InstallGrokHooks adds berth's hooks to a Grok CLI hook file
+// (~/.grok/hooks/berth.json), keeping every existing setting and hook.
+func InstallGrokHooks(path, bin string) (bool, error) {
+	f, rel := fileAt(path)
+	return editJSON(f, rel, func(root map[string]any) bool {
+		hooks := object(root, "hooks")
+		changed := false
+		for _, event := range GrokHookEvents {
+			if addNested(hooks, event, hookCommand(bin, "grok", event)) {
+				changed = true
+			}
+		}
+		return changed
+	})
+}
+
 // InstallOpenCodePlugin writes berth's OpenCode plugin. It is berth's own
 // file, so it is replaced when it differs.
 func InstallOpenCodePlugin(path, bin string) (bool, error) {

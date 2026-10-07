@@ -24,6 +24,7 @@ export const MOCK_AGENTS: AgentChoice[] = [
   { id: "codex", name: "Codex", command: "codex", offered: true, install: "codex 0.160.1 from github.com/openai/codex/releases → ~/.local/bin/codex", verified: "pinned to 0.160.1 and checked against its sha256" },
   { id: "cursor", name: "Cursor Agent", command: "cursor-agent", offered: true, install: "curl -fsS https://cursor.com/install | bash", verified: "Cursor's installer, over HTTPS; Cursor publishes no checksums for it" },
   { id: "opencode", name: "OpenCode", command: "opencode", offered: true, install: "curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path", verified: "OpenCode's installer, over HTTPS; it publishes no checksums for it" },
+  { id: "grok", name: "Grok CLI", command: "grok", offered: true, install: "curl -fsSL https://x.ai/cli/install.sh | bash", verified: "xAI's installer, over HTTPS; xAI publishes no checksums for it" },
   {
     id: "gemini",
     name: "Gemini CLI",

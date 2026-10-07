@@ -43,7 +43,7 @@ import (
 )
 
 // Commands are the agent CLIs Shipyard starts, looked for together.
-var Commands = []string{"claude", "codex", "opencode", "gemini", "cursor-agent", "pi"}
+var Commands = []string{"claude", "codex", "opencode", "gemini", "cursor-agent", "pi", "grok"}
 
 // Found is where an agent's command is.
 type Found struct {
@@ -411,6 +411,8 @@ func agentDirs(home, name string) []string {
 		return []string{filepath.Join(home, ".claude", "local")}
 	case "opencode":
 		return []string{filepath.Join(home, ".opencode", "bin")}
+	case "grok":
+		return []string{filepath.Join(home, ".grok", "bin")}
 	}
 	return nil
 }

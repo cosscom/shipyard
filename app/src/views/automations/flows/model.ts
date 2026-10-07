@@ -52,7 +52,7 @@ const TRIGGER_PHRASE: Record<string, string> = {
   "box.upgraded": "the box is upgraded",
 };
 
-const AGENT_NAME: Record<string, string> = { claude: "Claude", codex: "Codex", opencode: "OpenCode", gemini: "Gemini", cursor: "Cursor" };
+const AGENT_NAME: Record<string, string> = { claude: "Claude", codex: "Codex", opencode: "OpenCode", gemini: "Gemini", cursor: "Cursor", grok: "Grok" };
 export const agentName = (id?: string) => (id ? (AGENT_NAME[id] ?? id) : "an agent");
 
 export const GITHUB_ONS: { on: GitHubOn; label: string; phrase: string; fields: string[] }[] = [

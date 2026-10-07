@@ -48,7 +48,7 @@ curl -fsSL https://berthd.app/install | sh
 It downloads `berthd` from the [latest release](https://github.com/cosscom/shipyard/releases/latest),
 checks it against the release's checksums, installs it for that user (no
 root), starts it as a systemd user service (launchd on macOS), installs the
-hooks that let Claude Code, Codex and Cursor report their state
+hooks that let Claude Code, Codex, Cursor, Grok and others report their state
 (`--no-integrations` skips them), and prints a pairing link. The link works
 once, for ten minutes. Run it again to upgrade in place; `sh -s -- --help`
 lists the options.

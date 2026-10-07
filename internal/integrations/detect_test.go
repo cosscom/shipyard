@@ -40,7 +40,7 @@ func TestDetectFindsToolsOnPathAndInHome(t *testing.T) {
 	os.MkdirAll(filepath.Join(home, ".cursor"), 0o755)
 
 	present, missing := Detect(home)
-	if ids(present) != "claude codex" || ids(missing) != "cursor gemini opencode" {
+	if ids(present) != "claude codex" || ids(missing) != "cursor gemini opencode grok" {
 		t.Fatalf("present %q, missing %q", ids(present), ids(missing))
 	}
 }
@@ -66,7 +66,7 @@ func TestInstallDetectedInstallsOnlyWhatIsThereAndOnlyOnce(t *testing.T) {
 		"Claude Code: hooks and 7 skills in ~/.claude\n    hooks added in ~/.claude/settings.json",
 		"Codex: hooks in ~/.codex; 7 skills in ~/.agents/skills",
 		"notify added in ~/.codex/config.toml",
-		"Not found: Cursor Agent, Gemini CLI, OpenCode. After installing one, run: berthd integrations install cursor|gemini|opencode",
+		"Not found: Cursor Agent, Gemini CLI, OpenCode, Grok CLI. After installing one, run: berthd integrations install cursor|gemini|opencode|grok",
 	} {
 		if !strings.Contains(first, want) {
 			t.Errorf("output missing %q:\n%s", want, first)
@@ -107,8 +107,8 @@ func TestInstallDetectedWithNoAgentsSaysHowToAddThemLater(t *testing.T) {
 	if err := InstallDetected(home, "/usr/local/bin/berthd", "/usr/local/bin/berthd", &out); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "No agent CLIs found (claude, codex, cursor-agent, gemini, opencode)") ||
-		!strings.Contains(out.String(), "/usr/local/bin/berthd integrations install claude|codex|cursor|gemini|opencode") {
+	if !strings.Contains(out.String(), "No agent CLIs found (claude, codex, cursor-agent, gemini, opencode, grok)") ||
+		!strings.Contains(out.String(), "/usr/local/bin/berthd integrations install claude|codex|cursor|gemini|opencode|grok") {
 		t.Fatalf("output:\n%s", out.String())
 	}
 	if entries, _ := os.ReadDir(home); len(entries) != 0 {
