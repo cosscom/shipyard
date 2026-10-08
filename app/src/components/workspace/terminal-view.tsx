@@ -435,7 +435,10 @@ export function TerminalView({ box, session, agent, command, wsKey, tab, pane, v
   const blocked = state === "offline" || state === "ended";
   return (
     <div className="relative min-h-0 flex-1" style={{ background: theme.terminal.background }} onMouseDown={onFocus}>
-      <div ref={host} data-terminal className={cn("absolute inset-0 overflow-hidden px-3 pt-2 pb-1 transition-opacity [&_canvas]:block", blocked && "pointer-events-none", state === "offline" && "opacity-40", state === "ended" && "invisible")} />
+      {/* ghostty-web makes its mount contenteditable, so the browser's own
+          caret would blink beside the canvas, down the pane's left edge.
+          The terminal draws its cursor itself. */}
+      <div ref={host} data-terminal className={cn("absolute inset-0 caret-transparent overflow-hidden px-3 pt-2 pb-1 transition-opacity [&_canvas]:block", blocked && "pointer-events-none", state === "offline" && "opacity-40", state === "ended" && "invisible")} />
       {state === "offline" && <BoxOffline box={box} state={boxState} onRetry={() => setRetry((n) => n + 1)} />}
       {stoppedService && state !== "ended" && state !== "offline" && <ServiceStopped box={box} session={stoppedService} />}
       {state === "ended" && <SessionEnded box={box} session={session} agent={agent} command={command} wsKey={wsKey} tab={tab} pane={pane} onClose={onClose} />}
