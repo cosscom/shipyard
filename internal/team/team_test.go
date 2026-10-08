@@ -315,6 +315,11 @@ func TestAgents(t *testing.T) {
 	if err != nil || len(warnings) != 0 || strings.Join(s.Agents, ",") != "claude,codex" {
 		t.Fatalf("agents: %v %v %v", s, warnings, err)
 	}
+	doc = strings.Replace(minimal, `"name":"Acme"`, `"name":"Acme","agents":["grok"]`, 1)
+	s, warnings, err = Parse([]byte(doc))
+	if err != nil || len(warnings) != 0 || strings.Join(s.Agents, ",") != "grok" {
+		t.Fatalf("grok: %v %v %v", s, warnings, err)
+	}
 	for in, want := range map[string]string{
 		`["gemini"]`:       "Node.js",
 		`["vim"]`:          "not an agent",

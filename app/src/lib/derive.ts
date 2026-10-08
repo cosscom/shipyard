@@ -5,7 +5,7 @@ import type { Location, Session, Stats, Worktree } from "@/lib/api";
 // or "idle" for a plain shell.
 export type SessionState = "ready" | "running" | "waiting" | "finished" | "exited" | "idle";
 
-export const AGENTS = ["claude", "codex", "opencode", "gemini", "pi", "cursor-agent"];
+export const AGENTS = ["claude", "codex", "opencode", "gemini", "pi", "cursor-agent", "grok"];
 
 export function agentOf(s: Session): string | undefined {
   // A service's terminal runs no agent, whatever its command.
@@ -148,7 +148,7 @@ export function sortedWorktrees(loc: Location): Worktree[] {
   return [...(loc.worktrees ?? [])].sort((a, b) => Number(!!b.main) - Number(!!a.main) || a.name.localeCompare(b.name));
 }
 
-const labels: Record<string, string> = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode", gemini: "Gemini", pi: "Pi", "cursor-agent": "Cursor Agent", cursor: "Cursor Agent" };
+const labels: Record<string, string> = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode", gemini: "Gemini", pi: "Pi", "cursor-agent": "Cursor Agent", cursor: "Cursor Agent", grok: "Grok CLI" };
 
 // agentLabel is an agent's product name: "claude" → "Claude Code".
 export const agentLabel = (a: string) => labels[a] ?? a.charAt(0).toUpperCase() + a.slice(1);

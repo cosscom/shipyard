@@ -131,6 +131,19 @@ func TestNewAgentHooksInstallOnceAndKeepOtherSettings(t *testing.T) {
 	if !strings.Contains(string(b), `"/opt/berthd"} hook opencode`) {
 		t.Fatalf("plugin = %s", b)
 	}
+	grok := filepath.Join(dir, "grok.json")
+	if changed, err := InstallGrokHooks(grok, "/opt/berthd"); !changed || err != nil {
+		t.Fatalf("grok: %v %v", changed, err)
+	}
+	if changed, _ := InstallGrokHooks(grok, "/opt/berthd"); changed {
+		t.Fatal("grok hooks were added twice")
+	}
+	b, _ = os.ReadFile(grok)
+	for _, ev := range GrokHookEvents {
+		if !strings.Contains(string(b), "hook grok "+ev) {
+			t.Errorf("grok settings lack %s", ev)
+		}
+	}
 	claude := filepath.Join(dir, "claude.json")
 	InstallClaudeHooks(claude, "/opt/berthd")
 	b, _ = os.ReadFile(claude)

@@ -145,6 +145,10 @@ func TestParseProbe(t *testing.T) {
 	if p.OS != "linux" || p.Arch != "arm64" || p.UID != 1000 || p.Tmux || p.Git || p.Manager != "apt-get" || p.Linger != "no" || !p.Sudo || p.SudoNoPassword || !p.Agents["claude"] || p.Agents["codex"] || !p.Tailnet || p.Listen != "100.64.0.2:7444" {
 		t.Errorf("probe = %+v", p)
 	}
+	g, err := ParseProbe("os Linux\narch x86_64\nuid 1000\nuser demo\nhome /home/demo\nagent grok\n")
+	if err != nil || !g.Agents["grok"] {
+		t.Errorf("grok probe = %+v %v", g, err)
+	}
 	for _, bad := range []string{"", "os Plan9\narch x86_64\nuid 1\n", "os Linux\narch riscv64\nuid 1\n"} {
 		if _, err := ParseProbe(bad); err == nil {
 			t.Errorf("%q parsed", bad)

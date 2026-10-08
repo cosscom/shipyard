@@ -63,7 +63,7 @@ func For(name string) (*Adapter, bool) {
 
 // All lists the adapters, for the API and docs.
 func All() []*Adapter {
-	return []*Adapter{Claude, Codex, Cursor, Gemini, OpenCode, Screen}
+	return []*Adapter{Claude, Codex, Cursor, Gemini, OpenCode, Grok, Screen}
 }
 
 // CapsFor is an agent's capabilities: the screen's for anything unknown.

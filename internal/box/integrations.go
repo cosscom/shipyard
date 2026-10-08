@@ -68,7 +68,7 @@ func (b *Box) installIntegrations(w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 	if _, ok := integrations.ToolByID(req.Tool); !ok {
-		return badRequest("unknown tool %q; use claude, codex or cursor", req.Tool)
+		return badRequest("unknown tool %q; use %s or all", req.Tool, strings.Join(integrations.AllTools, ", "))
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {

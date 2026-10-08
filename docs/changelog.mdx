@@ -9,6 +9,18 @@ upgrades with `berth upgrade BOX`, or by running the
 [install command](/getting-started/add-a-box#with-the-install-command)
 again.
 
+## Unreleased
+
+- **Grok CLI.** `grok` (xAI Grok Build) is a built-in agent preset: first
+  prompt as the last argument, `--model` and `--effort` as on the CLI.
+  `berthd integrations install grok` writes session-state hooks to
+  `~/.grok/hooks/berth.json`. Skills and MCP are not installed for Grok
+  yet. The guided install and `berthd agents install grok` run xAI's own
+  installer (`curl -fsSL https://x.ai/cli/install.sh | bash`) and link
+  `~/.grok/bin/grok` into `~/.local/bin`. See
+  [First agent](/getting-started/first-agent) and
+  [agent integrations](/guides/agent-integrations).
+
 ## v0.3.11
 
 Most of this needs each box's new `berthd`: use **Update all** in the status

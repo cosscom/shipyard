@@ -308,7 +308,7 @@ function AgentPicker({ choices, value, onChange, installed = [] }: { choices: Ag
   );
 }
 
-const ORDER = ["claude", "codex", "cursor", "opencode", "gemini"];
+const ORDER = ["claude", "codex", "cursor", "opencode", "grok", "gemini"];
 const order = (id: string) => (ORDER.indexOf(id) + 1 || 99) as number;
 
 function PlanRow({ step, n, bundledTmux }: { step: InstallPlanStep; n: number; bundledTmux: boolean }) {
@@ -1031,7 +1031,7 @@ function Banner({ run, ready, readyLabel, onReady, onBack, agents }: { run: Inst
 }
 
 export function agentNames(ids: string[]) {
-  const n = ids.map((id) => ({ claude: "Claude Code", codex: "Codex", cursor: "Cursor Agent", opencode: "OpenCode" })[id] ?? id);
+  const n = ids.map((id) => ({ claude: "Claude Code", codex: "Codex", cursor: "Cursor Agent", opencode: "OpenCode", grok: "Grok CLI" })[id] ?? id);
   return n.length <= 1 ? (n[0] ?? "") : `${n.slice(0, -1).join(", ")} and ${n[n.length - 1]}`;
 }
 

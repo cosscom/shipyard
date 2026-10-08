@@ -39,7 +39,9 @@ type AgentPreset struct {
 // The model and effort flags are each CLI's own, from its --help: Claude
 // Code's --model takes aliases (opus, sonnet, haiku) and --effort low to max;
 // Codex takes -m/--model and its reasoning effort as the config key
-// model_reasoning_effort; OpenCode and Cursor Agent take --model.
+// model_reasoning_effort; OpenCode and Cursor Agent take --model; Grok CLI
+// takes --model and --effort (none through max, only the levels the model
+// advertises). Grok's first prompt is the last argument, like Claude.
 var builtinAgents = []AgentPreset{
 	{ID: "claude", Name: "Claude Code", Command: "claude", ModelFlag: "--model", EffortFlag: "--effort",
 		Models: []string{"opus", "sonnet", "haiku"}, Efforts: []string{"low", "medium", "high", "xhigh", "max"}},
@@ -48,6 +50,8 @@ var builtinAgents = []AgentPreset{
 	{ID: "opencode", Name: "OpenCode", Command: "opencode", PromptFlag: "--prompt", ModelFlag: "--model"},
 	{ID: "gemini", Name: "Gemini CLI", Command: "gemini", PromptFlag: "-i"},
 	{ID: "cursor", Name: "Cursor Agent", Command: "cursor-agent", ModelFlag: "--model"},
+	{ID: "grok", Name: "Grok CLI", Command: "grok", ModelFlag: "--model", EffortFlag: "--effort",
+		Efforts: []string{"none", "minimal", "low", "medium", "high", "xhigh", "max"}},
 }
 
 // Presets are the built-in agents this box has, then the location's own from

@@ -11,7 +11,7 @@ import { activateTab, findSession, focusPane, openTab, refOf, removePane, select
 // that worktree, and never takes the keyboard from them; otherwise a
 // notification offers to open it.
 
-const agentNames: Record<string, string> = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode", gemini: "Gemini", cursor: "Cursor" };
+const agentNames: Record<string, string> = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode", gemini: "Gemini", cursor: "Cursor", grok: "Grok CLI" };
 
 function agentLabel(box: string, agent?: string): string {
   if (!agent) return "A terminal";

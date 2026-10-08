@@ -40,6 +40,9 @@ var Tools = []Tool{
 		hookFile: filepath.Join(".gemini", "settings.json"), hookMarker: "hook gemini AfterAgent"},
 	{ID: "opencode", Name: "OpenCode", Command: "opencode", configDir: filepath.Join(".config", "opencode"),
 		hookFile: filepath.Join(".config", "opencode", "plugin", "berth.js"), hookMarker: "hook opencode"},
+	{ID: "grok", Name: "Grok CLI", Command: "grok", configDir: ".grok",
+		hookFile: filepath.Join(".grok", "hooks", "berth.json"), hookMarker: "hook grok",
+		currentMarker: "hook grok StopCancelled"},
 }
 
 // ToolByID finds a tool by its ID.

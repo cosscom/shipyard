@@ -19,7 +19,7 @@ const Usage = `Integrations
   %[1]s integrations [status]
                          Where Shipyard's hooks and skills are, per agent
                          and per Claude Code or Codex account
-  %[1]s integrations install claude|cursor|codex|gemini|opencode|all|present
+  %[1]s integrations install claude|cursor|codex|gemini|opencode|grok|all|present
                          Install Shipyard's skills and agent hooks for a
                          tool, in every account folder it has
   %[1]s hook TOOL EVENT [PAYLOAD]
@@ -74,7 +74,7 @@ func Install(args []string, bin string, out io.Writer) error {
 		return nil
 	}
 	if len(args) < 2 || args[0] != "install" {
-		return errors.New("usage: integrations [status] | integrations install claude|cursor|codex|gemini|opencode|all|present")
+		return errors.New("usage: integrations [status] | integrations install claude|cursor|codex|gemini|opencode|grok|all|present")
 	}
 	tools := args[1:]
 	if len(tools) == 1 && tools[0] == "all" {
@@ -131,8 +131,15 @@ func InstallTool(home, tool, bin string, out io.Writer) error {
 			return err
 		}
 		fmt.Fprintf(out, "OpenCode: plugin %s at %s\n", verb(changed), plugin)
+	case "grok":
+		hooks := filepath.Join(home, ".grok", "hooks", "berth.json")
+		changed, err := InstallGrokHooks(hooks, bin)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "Grok CLI: hooks %s in %s\n", verb(changed), hooks)
 	default:
-		return fmt.Errorf("unknown tool %q; use claude, cursor, codex, gemini, opencode, or all", tool)
+		return fmt.Errorf("unknown tool %q; use claude, cursor, codex, gemini, opencode, grok, all, or present", tool)
 	}
 	return nil
 }
@@ -186,7 +193,7 @@ func verb(changed bool) string {
 }
 
 // AllTools are the agents `integrations install all` covers.
-var AllTools = []string{"claude", "cursor", "codex", "gemini", "opencode"}
+var AllTools = []string{"claude", "cursor", "codex", "gemini", "opencode", "grok"}
 
 var validSession = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,62}$`)
 

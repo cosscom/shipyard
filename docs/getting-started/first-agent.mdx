@@ -24,7 +24,7 @@ my-box**). Or run, from the laptop:
 ssh me@my-box '~/.local/bin/berthd integrations install claude'
 ```
 
-Use `codex`, `cursor` or `all` for other agents. For Codex this sets
+Use `codex`, `cursor`, `grok` or `all` for other agents. For Codex this sets
 `notify` in `~/.codex/config.toml`, unless you already use it for something
 else; then it prints the line to change yourself. The full path matters: a
 command over SSH may not have `~/.local/bin`, where berthd lives, on its
@@ -63,6 +63,7 @@ The built-in agents, offered when their command is installed on the box:
 | `opencode` | OpenCode | `opencode --prompt …` |
 | `gemini` | Gemini CLI | `gemini -i …` |
 | `cursor` | Cursor Agent | `cursor-agent` |
+| `grok` | Grok CLI | `grok` |
 
 A repository can add its own or replace these in
 [`.berth/config.json`](/reference/config#agents).

@@ -18,7 +18,7 @@ import (
 	"github.com/cosscom/shipyard/internal/service"
 )
 
-const agentsUsage = "usage: berthd agents install [--integrations] [--markers] claude|codex|cursor|opencode ... | berthd agents list [--json]"
+const agentsUsage = "usage: berthd agents install [--integrations] [--markers] claude|codex|cursor|opencode|grok ... | berthd agents list [--json]"
 
 // agents installs agent CLIs here, as this user, into ~/.local/bin, with no
 // sudo: `berthd agents install claude codex`. The guided install runs it on

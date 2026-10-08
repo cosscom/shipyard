@@ -128,7 +128,7 @@ const GITHUB_STEP: PlanStep = {
   commands: ["gh auth status || gh auth login --hostname github.com --git-protocol https --web", "gh auth setup-git", "# a device code: you enter it at github.com/login/device; this computer's sign-in is never copied"],
 };
 
-const AGENT_NAMES: Record<string, string> = { claude: "Claude Code", codex: "Codex", cursor: "Cursor Agent", opencode: "OpenCode" };
+const AGENT_NAMES: Record<string, string> = { claude: "Claude Code", codex: "Codex", cursor: "Cursor Agent", opencode: "OpenCode", grok: "Grok CLI" };
 const agentsStep = (ids: string[]): PlanStep => {
   const names = ids.map((id) => AGENT_NAMES[id] ?? id);
   return {

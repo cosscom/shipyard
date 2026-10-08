@@ -54,7 +54,7 @@ type Agent struct {
 }
 
 // agentTools are the process names counted as agents.
-var agentTools = map[string]string{"claude": "claude", "codex": "codex", "cursor-agent": "cursor"}
+var agentTools = map[string]string{"claude": "claude", "codex": "codex", "cursor-agent": "cursor", "grok": "grok"}
 
 func (b *Box) handleStats(w http.ResponseWriter, r *http.Request) error {
 	s := collectStats("/proc")
