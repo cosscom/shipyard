@@ -1,4 +1,4 @@
-import { FolderIcon, FolderPlusIcon, GitBranchIcon, GitBranchPlusIcon, HouseIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
+import { FolderIcon, FolderPlusIcon, GitBranchIcon, GitBranchPlusIcon, HouseIcon, LayoutGridIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
 import { type KeyboardEvent, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { create } from "zustand";
 
@@ -394,6 +394,7 @@ function SwitcherList({ front, close }: { front?: string; close(): void }) {
           Add a project
         </button>
         <button type="button" onClick={() => (close(), openSwitcher())} className="inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-[13px] hover:bg-accent">
+          <LayoutGridIcon className="size-3.5" />
           Every agent
           <Kbd className="h-4.5 text-[10px]">⌃⇥</Kbd>
         </button>
