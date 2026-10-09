@@ -35,7 +35,9 @@ import { isContextMenuKey, openContextMenu } from "@/lib/context-menu-key";
 // also the window's drag handle. A tab that is not split has no pane header,
 // so its pane's actions sit at the strip's right. A tab drags (tab-drag.tsx)
 // to another place in the strip or into a split beside a pane.
-export function TabStrip() {
+// The command layout (components/command) puts its own pieces at the
+// strip's ends and names the worktree itself, so it hides the breadcrumb.
+export function TabStrip({ lead, trail, noBreadcrumb }: { lead?: React.ReactNode; trail?: React.ReactNode; noBreadcrumb?: boolean } = {}) {
   const key = useWorkspaces((s) => s.current);
   const ws = useWorkspaces((s) => (s.current ? s.spaces[s.current] : undefined));
   // Tab groups (Labs): with more than one worktree in the strip, each one's
@@ -104,6 +106,7 @@ export function TabStrip() {
 
   return (
     <div data-tauri-drag-region data-tab-bar className="flex h-10 shrink-0 items-stretch border-b bg-sidebar">
+      {lead}
       {/* Tabs scroll when they do not fit (a wheel scrolls them sideways),
           with a fade at each end that has more; + stays just after them,
           outside the scroller, so it never scrolls away. */}
@@ -176,7 +179,7 @@ export function TabStrip() {
           )}
           {/* With groups, the solid label already names the worktree in
               front; the breadcrumb only speaks up for a guest pane. */}
-          {hereRef && !(grouped && hereKey === key) && (
+          {hereRef && !noBreadcrumb && !(grouped && hereKey === key) && (
             <Tip label={`${hereTitle && !hereRef.main ? `${hereRef.worktree} · ` : ""}${hereRef.box}:${hereRef.path}`} side="bottom">
               <span data-tauri-drag-region className="flex max-w-56 items-center gap-1.5 truncate">
                 <WtDot wsKey={hereKey} />
@@ -198,6 +201,7 @@ export function TabStrip() {
           )}
         </div>
       )}
+      {trail && <div className="flex shrink-0 items-center border-l">{trail}</div>}
     </div>
   );
 }

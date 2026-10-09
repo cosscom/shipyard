@@ -66,6 +66,9 @@ import { HomeView } from "@/views/home/home-view";
 import { usePrefs } from "@/lib/prefs";
 import { placeLabel } from "@/lib/worktree-names";
 import { useRescueRemovedFocus } from "@/lib/focus-home";
+import { CommandHeader } from "@/components/command/command-header";
+import { CommandCoach, HeldKeys } from "@/components/command/hint-layer";
+import { startCommandNav, useCommandLayout } from "@/lib/command-nav";
 
 // The live demo's guide and script (pnpm build:demo); not in the app.
 const DemoGuide = __BERTH_DEMO__ ? lazy(() => import("@/demo/guide")) : null;
@@ -99,6 +102,10 @@ export default function App() {
   const workspace = view.kind === "workspace";
   // Labs: zen (⌘.) puts away the sidebar, the tab strip and the status bar.
   const zen = usePrefs((p) => p.labs && p.zen);
+  // Labs › Layout › Command: no sidebar; one line across the top and the
+  // switcher (⌘K) instead (components/command).
+  const command = useCommandLayout();
+  useEffect(() => (command ? startCommandNav() : undefined), [command]);
   // Without the status bar, what floats over its corner (toasts, the loops
   // panel) comes down to the window's edge.
   useEffect(() => document.documentElement.style.setProperty("--berth-status-h", zen ? "0px" : "26px"), [zen]);
@@ -159,7 +166,7 @@ export default function App() {
         <div className="flex h-svh flex-col overflow-hidden bg-background text-foreground">
           {fakeTrafficLights() && <FakeTrafficLights />}
           <div className="flex min-h-0 flex-1">
-            {!zen && (
+            {!zen && !command && (
               <Disconnectable>
                 <AppSidebar />
               </Disconnectable>
@@ -167,6 +174,11 @@ export default function App() {
             <div className="relative flex min-w-0 flex-1 flex-col">
               {zen && !onboarding ? (
                 <ZenBar />
+              ) : command ? (
+                <Disconnectable className="shrink-0 flex-col" label="Tab bar">
+                  {workspace && !onHome && <WorkspaceHeading />}
+                  <CommandHeader />
+                </Disconnectable>
               ) : workspace && !onboarding ? (
                 <Disconnectable className="shrink-0 flex-col" label="Tab bar">
                   {!onHome && <WorkspaceHeading />}
@@ -211,6 +223,12 @@ export default function App() {
           <NotificationCenter />
           <WhatsNewDialog />
         </ErrorBoundary>
+        {command && (
+          <ErrorBoundary scope="the command layout's hints">
+            <CommandCoach />
+            <HeldKeys />
+          </ErrorBoundary>
+        )}
         <FileDropGuard />
         <Announcer />
         {DemoGuide && (

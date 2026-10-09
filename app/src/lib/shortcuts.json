@@ -36,6 +36,11 @@
     { "id": "add-group", "group": "Go", "label": "Add a worktree's tabs as a group", "keys": "⌥-click in the sidebar", "labs": true },
     { "id": "prev-group", "group": "Go", "label": "Previous tab group", "keys": "⌃⇧⇥", "accel": "Ctrl+Shift+Tab", "sep": true, "labs": true },
     { "id": "next-group", "group": "Go", "label": "Next tab group", "keys": "⌃⌥⇥", "accel": "Ctrl+Alt+Tab", "labs": true },
+    { "id": "back", "group": "Go", "label": "Back", "keys": "⌘[", "sep": true, "labs": true, "layout": "command", "what": "The place you were before: a worktree, Home or a view (command layout)" },
+    { "id": "forward", "group": "Go", "label": "Forward", "keys": "⌘]", "labs": true, "layout": "command", "what": "Forward again after going back (command layout)" },
+    { "id": "next-waiting", "group": "Go", "label": "Next agent that needs you", "keys": "⌘E", "labs": true, "layout": "command", "what": "Go to the agent waiting longest for you; again for the next one (command layout)" },
+    { "id": "pinned", "group": "Go", "label": "Pinned worktree", "keys": "⌘1–9", "labs": true, "layout": "command", "what": "A pinned worktree by its number; ⌘↵ in the switcher pins one, and ⌃1–9 picks a tab (command layout)" },
+    { "id": "settings", "group": "Go", "label": "Settings", "keys": "⌘,", "labs": true, "layout": "command", "what": "Open Settings (command layout)" },
     { "id": "shortcuts", "group": "Help", "label": "Keyboard shortcuts", "keys": "⌘/", "accel": "CmdOrCtrl+/" }
   ]
 }

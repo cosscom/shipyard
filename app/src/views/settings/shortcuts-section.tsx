@@ -7,6 +7,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { isTauri } from "@/lib/api";
 import { IS_LINUX, LINUX_TERMINAL_KEYS, platformKeys } from "@/lib/platform";
 import { usePrefs } from "@/lib/prefs";
+import { useCommandLayout } from "@/lib/command-nav";
 import { describe, SHORTCUT_GROUPS, SHORTCUTS } from "@/lib/shortcuts";
 import { SettingsGroup, SettingsPage, SettingsRow } from "@/views/settings/rows";
 
@@ -15,6 +16,7 @@ import { SettingsGroup, SettingsPage, SettingsRow } from "@/views/settings/rows"
 export function ShortcutsSection() {
   const [query, setQuery] = useState("");
   const labs = usePrefs((p) => p.labs);
+  const command = useCommandLayout();
   const q = query.trim().toLowerCase();
   const grouped = SHORTCUT_GROUPS.map((title) => ({
     title,
@@ -36,7 +38,7 @@ export function ShortcutsSection() {
           {g.items.map((s) => (
             <SettingsRow key={s.id} label={describe(s)} className="min-h-10 py-2">
               <span className="flex items-center gap-2">
-                {s.labs && !labs && <Badge variant="outline">Labs</Badge>}
+                {s.layout ? !command && <Badge variant="outline">Command layout</Badge> : s.labs && !labs && <Badge variant="outline">Labs</Badge>}
                 <Kbd>{s.keys}</Kbd>
               </span>
             </SettingsRow>

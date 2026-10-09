@@ -24,6 +24,7 @@ import { findLeaf, leaves, paneWorktree } from "@/lib/layout";
 import { paneKey, toggleDrawer } from "@/lib/devtools";
 import { isOnboardingActive } from "@/views/onboarding/onboarding-state";
 import { firstFocusable, rescueFocus } from "@/lib/focus-home";
+import { commandLayoutOn, goPin, nextWaiting, step, toggleLast, usedKey } from "@/lib/command-nav";
 
 // The app's shortcuts (lib/shortcuts.json) come two ways: as keys, caught on
 // the window before a terminal sees them, and, in the Mac app, from the menu
@@ -134,6 +135,12 @@ function run(id: string, from: "key" | "menu", arg?: number | Dir): boolean {
       toggleNotifications();
       return true;
     case "palette":
+      if (commandLayoutOn()) usedKey("palette");
+      // The command layout: ⌘K twice goes back to the last place.
+      if (s.paletteOpen && commandLayoutOn()) {
+        if (!toggleLast()) s.setPaletteOpen(false);
+        return true;
+      }
       if (useFiles.getState().pickerOpen) setPickerOpen(false);
       s.setPaletteOpen(!s.paletteOpen);
       return true;
@@ -189,6 +196,25 @@ function run(id: string, from: "key" | "menu", arg?: number | Dir): boolean {
       return true;
     case "shortcuts":
       toggleShortcuts();
+      return true;
+    // The command layout's ways around (lib/command-nav.ts); elsewhere the
+    // keys go on to the page.
+    case "back":
+    case "forward":
+      if (!commandLayoutOn()) return false;
+      step(id === "back" ? -1 : 1);
+      return true;
+    case "next-waiting":
+      if (!commandLayoutOn()) return false;
+      usedKey("next-waiting");
+      return nextWaiting();
+    case "pinned":
+      if (!commandLayoutOn()) return false;
+      usedKey("pinned");
+      return goPin(Number(arg));
+    case "settings":
+      if (!commandLayoutOn()) return false;
+      s.setView({ kind: "settings" });
       return true;
   }
   return false;
@@ -256,7 +282,12 @@ function fromKey(e: KeyboardEvent): [string, (number | Dir)?] | undefined {
   if (key === "=" || key === "+" || e.code === "NumpadAdd") return ["zoom-in"];
   if (key === "-" || key === "_" || key === "−" || e.code === "NumpadSubtract") return ["zoom-out"];
   if (key === "0" || e.code === "Numpad0") return ["zoom-reset"];
-  if (/^[1-9]$/.test(key)) return ["tab", Number(key)];
+  // In the command layout ⌘1–9 are pinned worktrees, and ⌃1–9 the tabs.
+  if (/^[1-9]$/.test(key)) return [commandLayoutOn() ? "pinned" : "tab", Number(key)];
+  if (key === "[" && !shift) return ["back"];
+  if (key === "]" && !shift) return ["forward"];
+  if (key === "e" && !shift) return ["next-waiting"];
+  if (key === "," && !shift) return ["settings"];
   return undefined;
 }
 
@@ -269,7 +300,8 @@ function fromKey(e: KeyboardEvent): [string, (number | Dir)?] | undefined {
 function fromLinuxKey(e: KeyboardEvent): [string, (number | Dir)?] | undefined {
   const inTerminal = e.target instanceof Element && !!e.target.closest("[data-terminal]");
   if (!inTerminal || e.altKey) return fromKey(e);
-  const letter = /^Key[A-Z]$/.test(e.code) || e.key === "\\";
+  // Ctrl+[ is the shell's escape.
+  const letter = /^Key[A-Z]$/.test(e.code) || e.key === "\\" || e.key === "[" || e.key === "]";
   if (!letter) return fromKey(e);
   if (!e.shiftKey) return undefined;
   if (e.code === "KeyC" || e.code === "KeyV") return undefined;
@@ -281,7 +313,8 @@ function fromLinuxKey(e: KeyboardEvent): [string, (number | Dir)?] | undefined {
 // fromMenu is the shortcut a menu bar item's id is ("tab-3" is tab 3).
 function fromMenu(id: string): [string, number?] {
   const m = /^tab-(\d)$/.exec(id);
-  return m ? ["tab", Number(m[1])] : [id];
+  // The menu's Tab n is a pinned worktree in the command layout, as ⌘n is.
+  return m ? [commandLayoutOn() ? "pinned" : "tab", Number(m[1])] : [id];
 }
 
 export function useShortcuts() {
@@ -299,6 +332,13 @@ export function useShortcuts() {
       // the page's or the terminal's.
       if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && /^Digit[1-5]$/.test(e.code)) {
         if (!runShortcut("compare-lane", "key", Number(e.code.slice(5)))) return;
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      // The command layout gives ⌘1–9 to pinned worktrees; ⌃1–9 pick a tab.
+      if (!IS_LINUX && e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && /^Digit[1-9]$/.test(e.code) && commandLayoutOn()) {
+        if (!runShortcut("tab", "key", Number(e.code.slice(5)))) return;
         e.preventDefault();
         e.stopPropagation();
         return;

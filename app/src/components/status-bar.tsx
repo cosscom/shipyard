@@ -13,6 +13,7 @@ import { viaRoute } from "@/lib/box-routes";
 import { useOutdatedBoxes } from "@/lib/outdated";
 import { AGENT_WORDS, BOX_WORDS, boxState } from "@/lib/state-model";
 import { useStore } from "@/lib/store";
+import { useCommandLayout } from "@/lib/command-nav";
 import { restartToUpdate, useAgentRestart, useUpdater } from "@/lib/updater";
 import { cn } from "@/lib/utils";
 import { PluginBoundary, pluginContexts } from "@/plugins/plugin-boundary";
@@ -34,6 +35,9 @@ export function StatusBar() {
   const items = useRegistry((s) => s.statusBarItems);
   const [syncing, setSyncing] = useState(false);
   const go = useStore((s) => s.setView);
+  // The command layout says where you are and how the agents are doing in
+  // its top line; the bar keeps to the boxes.
+  const command = useCommandLayout();
 
   const outdated = useOutdatedBoxes();
   const online = status?.boxes.filter((b) => b.state === "online") ?? [];
@@ -66,7 +70,7 @@ export function StatusBar() {
             Agent unreachable
           </span>
         </Tip>
-      ) : (
+      ) : command ? null /* the command layout's top line has them */ : (
         <>
           {counts.waiting > 0 && (
             <Item className="text-warning-foreground dark:text-warning" onClick={() => go({ kind: "dashboard" })} tip="Agents waiting for your answer or permission">
@@ -79,7 +83,7 @@ export function StatusBar() {
           </Item>
         </>
       )}
-      <WorktreeItem />
+      {!command && <WorktreeItem />}
       <TeamStatusItem />
       <QueueIndicator />
       {items

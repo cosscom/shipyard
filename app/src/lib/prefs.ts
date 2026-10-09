@@ -46,6 +46,20 @@ export interface Prefs {
   // Labs: zen (⌘.): no sidebar or status bar, a switcher for a tab strip,
   // agents as conversations.
   zen: boolean;
+  // Labs: how the window gets around. "sidebar" (the default) keeps the
+  // sidebar of places and projects; "command" gives the whole window to the
+  // worktree, with one header line and a switcher (⌘K) for everything else
+  // (components/command).
+  layout: "sidebar" | "command";
+  // The command layout's pinned worktrees (workspace keys), ⌘1–9 in order.
+  pins: string[];
+  // The command layout's first-run card was put away.
+  commandCoachSeen: boolean;
+  // The command layout's one-time tips already given ("next-waiting").
+  commandTips: string[];
+  // How often each command-layout key was used: its keycap leaves the top
+  // line once it's known (components/command).
+  commandKeyUses: Record<string, number>;
   // Update a box's berthd as soon as Shipyard ships a newer one
   // (lib/outdated.ts). Off: the status bar offers it instead.
   autoUpdateBoxes: boolean;
@@ -94,6 +108,11 @@ const DEFAULTS: Prefs = {
   labsChosen: false,
   agentView: "terminal",
   zen: false,
+  layout: "sidebar",
+  pins: [],
+  commandCoachSeen: false,
+  commandTips: [],
+  commandKeyUses: {},
   autoUpdateBoxes: false,
   chatBackground: DEFAULT_CHAT_BACKGROUND,
   chatWidth: "default",
@@ -149,12 +168,15 @@ usePrefs.subscribe((p) => save("berth.prefs", { ...p, version: PREFS_VERSION }))
 // The migration is kept at once, not only on the next change.
 save("berth.prefs", { ...usePrefs.getState(), version: PREFS_VERSION });
 
-// ?labs=1 turns Labs on, ?zen=1 zen, and ?view=conversation opens agents
+// ?labs=1 turns Labs on, ?zen=1 zen, ?layout=command the command layout,
+// and ?view=conversation opens agents
 // as conversations, for the demo.
 {
   const q = new URLSearchParams(location.search);
   if (q.has("labs")) usePrefs.setState({ labs: q.get("labs") !== "0" });
   if (q.has("zen")) usePrefs.setState({ zen: q.get("zen") !== "0" });
+  const layout = q.get("layout");
+  if (layout === "sidebar" || layout === "command") usePrefs.setState({ layout });
   const v = q.get("view");
   if (v === "terminal" || v === "conversation") usePrefs.setState({ agentView: v });
 }

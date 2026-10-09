@@ -7,7 +7,7 @@
 export const OWN_ITEMS = ["new-worktree", "new-terminal", "new-browser", "open-editor", "split-worktree", "zen", "dashboard", "notifications", "shortcuts", "rename"] as const;
 
 // These it lists as the shortcut table names them; labs ones with Labs on.
-export const FROM_TABLE = ["files", "split-right", "split-down", "compare", "close-pane", "close-group", "file-tree", "devtools", "sidebar", "zoom-in", "zoom-out", "zoom-reset", "compare-swap", "prev-group", "next-group"] as const;
+export const FROM_TABLE = ["files", "split-right", "split-down", "compare", "close-pane", "close-group", "file-tree", "devtools", "sidebar", "zoom-in", "zoom-out", "zoom-reset", "compare-swap", "prev-group", "next-group", "back", "forward", "next-waiting", "settings"] as const;
 
 // And these it doesn't, because they act on where the keyboard already is,
 // or are ⌘K itself.
@@ -23,4 +23,5 @@ export const NOT_IN_PALETTE: Record<string, string> = {
   "stop-agent": "stops the agent of the reply box the keyboard is in (its Stop button does too)",
   fold: "on the sidebar's project the keyboard is on",
   menu: "opens the menu of the row the keyboard is on",
+  pinned: "a pinned worktree by its number; ⌘K lists the pins with their numbers",
 };

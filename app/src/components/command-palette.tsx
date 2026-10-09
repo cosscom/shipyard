@@ -36,7 +36,7 @@ import {
 } from "lucide-react";
 import { isMock } from "@/hooks/use-berth-connection";
 import { openAddKit } from "@/views/kits/kits-store";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AgentIcon, StateGlyph } from "@/components/agent-glyph";
 import {
@@ -69,6 +69,7 @@ import { openBroadcast, openPromptPicker } from "@/lib/prompts";
 import { quietNow, setDoNotDisturb, setNotificationsOpen } from "@/lib/notifications";
 import { usePrefs } from "@/lib/prefs";
 import { useStore } from "@/lib/store";
+import { cn } from "@/lib/utils";
 import { isLink, teamRef } from "@/lib/team-ref";
 import { loginUrl, loginUserLabel, useLoginConfig, worktreeOrigin } from "@/lib/login-users";
 import { openReviewSheet } from "@/lib/pr-review";
@@ -85,6 +86,9 @@ import { openAddBox } from "@/views/onboarding/add-box-dialog";
 import { openAttempts, openComposer } from "@/lib/composer";
 import { defaultScope } from "@/views/automations/flows/project-label";
 import { placeLabel, worktreeLabel } from "@/lib/worktree-names";
+import { agentItem, type SwitchItem, switcherGroups, SwitcherPreview, SwitchRow, useSwitcherAnswers, worktreeItem } from "@/components/command/switcher";
+import { showCommandKeys } from "@/components/command/hint-layer";
+import { togglePin, useCommandLayout } from "@/lib/command-nav";
 
 // Settings' sections ⌘K goes to, with words they answer to besides their name.
 const SETTINGS_SECTIONS: [SettingsSectionId, string, string][] = [
@@ -130,6 +134,13 @@ interface Item {
   // Highlighting a theme previews it.
   theme?: string;
   run(): void;
+  // The command layout's switcher: an agent or worktree it previews and
+  // pins, a second line, an age (components/command/switcher.tsx).
+  agent?: SwitchItem["agent"];
+  wt?: string;
+  sub?: string;
+  when?: string;
+  kind?: boolean;
 }
 
 interface Group {
@@ -157,6 +168,13 @@ export function CommandPalette() {
   const here = useHereRef();
   const login = useLoginConfig(here?.box, here?.location);
   const [query, setQuery] = useState("");
+  // The command layout makes ⌘K its switcher: wider, agents first, with a
+  // preview of the item under the keyboard.
+  const command = useCommandLayout();
+  const pins = usePrefs((p) => p.pins);
+  const [highlighted, setHighlighted] = useState<Item>();
+  // The empty switcher by state (who needs you first) or by project and box.
+  const [by, setBy] = useState<"state" | "place">("state");
   // The theme in use when the palette opened, to put back after a preview.
   const before = useRef<string | undefined>(undefined);
 
@@ -164,8 +182,19 @@ export function CommandPalette() {
     if (!keepTheme && before.current && useStore.getState().themeId !== before.current) useStore.getState().setTheme(before.current);
     before.current = undefined;
     setQuery("");
+    setHighlighted(undefined);
     setOpen(false);
   };
+
+  // Shut from outside (⌘E, ⌘1–9 while it is open): start afresh next time.
+  useEffect(() => {
+    if (open) return;
+    setQuery("");
+    setHighlighted(undefined);
+  }, [open]);
+
+  // The places change rarely, but useArrangedNav is new on every render.
+  const navKey = JSON.stringify([nav.pinned, nav.more, nav.hidden].map((l) => l.map((n) => [n.id, n.active, n.badge?.count])));
 
   const groups = useMemo<Group[]>(() => {
     const st = useStore.getState();
@@ -248,6 +277,15 @@ export function CommandPalette() {
       { value: "settings-developer", label: "Developer settings", icon: slot(<CodeIcon />), run: go(() => st.setView({ kind: "settings", section: "developer" })) },
       // Each part of Settings, by name ("appearance", "theme", "terminal").
       ...SETTINGS_SECTIONS.map(([section, label, words]) => ({ value: `settings ${section} ${words}`, label: `Settings: ${label}`, icon: slot(<SettingsIcon />), run: go(() => st.setView({ kind: "settings", section })) })),
+      ...(command
+        ? [
+            { value: "command layout keys hints shortcuts help", label: "Show the command layout's keys", icon: slot(<KeyboardIcon />), run: go(showCommandKeys) },
+            ...(hereRef() && !hereRef()!.main
+              ? [{ value: "pin unpin this worktree", label: pins.includes(`${hereRef()!.box}:${hereRef()!.path}`) ? "Unpin this worktree" : "Pin this worktree to ⌘1–9", icon: slot(<GitBranchIcon />), run: go(() => togglePin(`${hereRef()!.box}:${hereRef()!.path}`)) }]
+              : []),
+            { value: "layout sidebar back to the sidebar labs", label: "Go back to the sidebar layout", icon: slot(<SlidersHorizontalIcon />), run: go(() => usePrefs.setState({ layout: "sidebar" })) },
+          ]
+        : []),
       { value: "customize-sidebar", label: "Customize sidebar…", icon: slot(<SlidersHorizontalIcon />), run: go(() => openCustomize()) },
       { value: "refresh", label: "Refresh everything", icon: slot(<RefreshCwIcon />), run: go(() => void st.refreshAll()) },
       { value: "reload-plugins", label: "Reload plugins", icon: slot(<PuzzleIcon />), run: go(() => st.client && void loadPlugins(st.client)) },
@@ -361,6 +399,20 @@ export function CommandPalette() {
       run: go(n.go),
     }));
 
+    // The command layout's places: every one the sidebar's nav lists, then
+    // Settings; the actions don't repeat them.
+    const places: Item[] = command ? [...nav.pinned, ...nav.more, ...nav.hidden].map((n) => ({ value: `place:${n.id}`, label: n.label, detail: n.badge?.title, icon: slot(n.icon), shortcut: n.id === "dashboard" ? keysFor("dashboard") : undefined, run: go(n.go) })) : [];
+    if (command) {
+      places.push({ value: "place:settings", label: "Settings", icon: slot(<SettingsIcon />), shortcut: "⌘,", run: go(() => st.setView({ kind: "settings" })) });
+      const named = new Set(places.map((p) => p.label));
+      for (let i = actions.length - 1; i >= 0; i--) if (named.has(actions[i].label)) actions.splice(i, 1);
+    }
+    if (!q && command) {
+      return [
+        ...switcherGroups({ sessions, spaces, recent: recentWorktrees(spaces, 8), places, go, focus: (b, n) => void focusSession(b, n), by }),
+        { value: "Actions", items: actions },
+      ];
+    }
     if (!q) {
       const waiting = sessions.filter((s) => s.state === "waiting").map(sessionItem);
       const recent: Item[] = recentWorktrees(spaces, 5).map((w) => ({
@@ -384,6 +436,23 @@ export function CommandPalette() {
       ...(url ? [{ value: `open:${url}`, label: `Open ${q} in a browser tab`, detail: url, icon: slot(<ArrowUpRightIcon />), run: go(() => openBrowserAt(url)) }] : []),
       { value: `new-worktree:${q}`, label: `New task from "${q}"`, icon: slot(<GitBranchPlusIcon />), run: go(() => st.openNewWorktree({ name: q })) },
     ];
+    if (command) {
+      const pinOf = (box: string, path: string) => pins.indexOf(`${box}:${path}`) + 1 || undefined;
+      const wts: Item[] = online.flatMap((box) => (boxes[box]?.locations ?? []).flatMap((loc) => sortedWorktrees(loc).map((wt) => worktreeItem(box, loc, wt, go, { pin: pinOf(box, wt.path) }))));
+      const mixed = new Set(sessions.map((e) => agentOf(e.session)).filter(Boolean)).size > 1;
+      const agents: Item[] = sessions.filter((e) => agentOf(e.session)).map((e) => agentItem(e, go, (b, n) => void focusSession(b, n), mixed));
+      const shells = sessions.filter((e) => !agentOf(e.session)).map(sessionItem);
+      return [
+        { value: "Agents", items: agents },
+        { value: "Worktrees", items: wts },
+        { value: "Go to", items: places },
+        { value: "Terminals", items: shells },
+        { value: "Actions", items: actions },
+        { value: "Plugins", items: pluginItems },
+        { value: "Themes", items: themeItems },
+        { value: "Create", items: make },
+      ].filter((g) => g.items.length);
+    }
     return [
       { value: "Sessions", items: sessions.map(sessionItem) },
       { value: "Worktrees", items: worktreeItems },
@@ -395,7 +464,7 @@ export function CommandPalette() {
     ].filter((g) => g.items.length);
     // close is stable enough: it only reads refs and store setters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessions, boxes, status, themes, themeId, spaces, pluginCommands, query, nav.hidden, open, login]);
+  }, [sessions, boxes, status, themes, themeId, spaces, pluginCommands, query, navKey, open, login, command, pins, by]);
 
   return (
     <CommandDialog
@@ -405,13 +474,16 @@ export function CommandPalette() {
         else close();
       }}
     >
-      <CommandDialogPopup aria-label="Search and commands">
+      <CommandDialogPopup aria-label={command ? "Switcher" : "Search and commands"} data-testid={command ? "switcher" : undefined} className={cn(command && "max-h-[min(640px,80vh)] max-w-[880px]")}>
         <Command
           items={groups}
           value={query}
           onValueChange={setQuery}
           itemToStringValue={(i: unknown) => `${(i as Item).label} ${(i as Item).detail ?? ""} ${(i as Item).search ?? ""}`}
           onItemHighlighted={(i: unknown) => {
+            // By its value: the list is rebuilt as agents change, and the
+            // preview reads them live anyway.
+            if (command) setHighlighted((prev) => (prev?.value === (i as Item | undefined)?.value ? prev : (i as Item | undefined)));
             // Highlighting a theme previews it; closing without choosing puts
             // the old one back.
             const t = (i as Item | undefined)?.theme;
@@ -420,15 +492,73 @@ export function CommandPalette() {
             useStore.getState().setTheme(t);
           }}
         >
-          <CommandInput aria-label="Search sessions, worktrees and commands" placeholder="Jump to a session, worktree, or command…" />
-          <CommandPanel>
+          <CommandInput
+            aria-label="Search sessions, worktrees and commands"
+            placeholder={command ? "Go to an agent, worktree, view or command…" : "Jump to a session, worktree, or command…"}
+            onKeyDown={(e) => {
+              // ⇥ in the empty switcher: by state, or by project and box.
+              if (command && e.key === "Tab" && !e.shiftKey && !e.metaKey && !query.trim()) {
+                e.preventDefault();
+                setBy((b) => (b === "state" ? "place" : "state"));
+                return;
+              }
+              // ⌥A and ⌥D answer the permission the agent under the
+              // keyboard asks for (its preview's Allow once and Deny).
+              if (command && e.altKey && !e.metaKey && (e.code === "KeyA" || e.code === "KeyD")) {
+                const a = useSwitcherAnswers.getState();
+                const fn = e.code === "KeyA" ? a.allow : a.deny;
+                if (fn) {
+                  e.preventDefault();
+                  fn();
+                }
+                return;
+              }
+              // ⌘↵ pins the worktree under the keyboard to ⌘1–9, or unpins it.
+              if (!command || !e.metaKey || e.key !== "Enter" || !highlighted?.wt) return;
+              e.preventDefault();
+              (e as unknown as { preventBaseUIHandler?: () => void }).preventBaseUIHandler?.();
+              togglePin(highlighted.wt);
+            }}
+          />
+          {command && !query.trim() && (
+            <div role="group" aria-label="Group by" className="absolute top-3 right-4 z-10 flex items-center gap-0.5 rounded-lg bg-muted p-0.5 text-xs">
+              {(["state", "place"] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  aria-pressed={by === k}
+                  data-testid={`switcher-by-${k}`}
+                  onClick={() => setBy(k)}
+                  className={cn("rounded-md px-2 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring", by === k ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground")}
+                >
+                  {k === "state" ? "By state" : "By project"}
+                </button>
+              ))}
+              <Kbd className="mx-1 h-4.5 bg-transparent text-[10px]">⇥</Kbd>
+            </div>
+          )}
+          <CommandPanel className={cn(command && "flex min-h-0 flex-1")}>
+            <div className={cn(command && "flex min-h-0 min-w-0 flex-1 flex-col")}>
             <CommandEmpty>Nothing matches.</CommandEmpty>
             <CommandList>
               {(group: Group) => (
                 <CommandGroup key={group.value} items={group.items}>
                   <CommandGroupLabel>{group.value}</CommandGroupLabel>
                   <CommandCollection>
-                    {(item: Item) => (
+                    {(item: Item) =>
+                      command ? (
+                        <CommandItem key={item.value} value={item} data-testid="switcher-item" data-value={item.value} className={cn("gap-2.5", item.sub && "py-1.5")} onClick={() => item.run()}>
+                          {item.theme || item.trailing ? (
+                            <>
+                              {item.icon}
+                              <span className="truncate">{item.label}</span>
+                              {item.trailing}
+                            </>
+                          ) : (
+                            <SwitchRow item={item} />
+                          )}
+                        </CommandItem>
+                      ) : (
                       <CommandItem key={item.value} value={item} className="gap-2" onClick={() => item.run()}>
                         {item.icon}
                         <span className="truncate">{item.label}</span>
@@ -436,17 +566,25 @@ export function CommandPalette() {
                         {item.trailing}
                         {item.shortcut && <Kbd className={item.detail ? "" : "ml-auto"}>{item.shortcut}</Kbd>}
                       </CommandItem>
-                    )}
+                      )
+                    }
                   </CommandCollection>
                 </CommandGroup>
               )}
             </CommandList>
+            </div>
+            {command && <SwitcherPreview item={highlighted} />}
           </CommandPanel>
           <CommandFooter className="text-[11px] text-muted-foreground">
             <span className="flex items-center gap-1">
               <Kbd>↑</Kbd>
               <Kbd>↓</Kbd> to move, <Kbd>↵</Kbd> to open
             </span>
+            {command && (
+              <span className="flex items-center gap-1">
+                <Kbd>⌘↵</Kbd> pin, <Kbd>⌘K</Kbd> again for the last place
+              </span>
+            )}
             <span className="flex items-center gap-1">
               <Kbd>esc</Kbd> to close
             </span>

@@ -109,6 +109,19 @@ export const scenes: Scene[] = [
     },
   },
   {
+    // Labs › Layout › Command (components/command): no sidebar, the top
+    // line, and the switcher with its preview.
+    id: "command-switcher",
+    async run(app, theme) {
+      await app.open({ theme, prefs: { commandCoachSeen: true } });
+      const labs = await app.openSettings("labs");
+      await labs.getByRole("button", { name: "Command", exact: true }).click();
+      await expect(app.page.getByTestId("command-where")).toBeVisible();
+      await app.page.keyboard.press("Meta+k");
+      await expect(app.page.getByTestId("switcher-preview")).toBeVisible();
+    },
+  },
+  {
     // What's new (components/whats-new), its first and its key-hint slide.
     id: "whats-new",
     key: true,

@@ -20,6 +20,8 @@ export interface Shortcut {
   what?: string;
   // Only with Labs on.
   labs?: boolean;
+  // Only in that layout (Labs › Layout).
+  layout?: "command";
 }
 
 export const SHORTCUTS = table.shortcuts as Shortcut[];
@@ -32,3 +34,6 @@ export const describe = (s: Shortcut) => s.what ?? s.label.replace(/…$/, "");
 
 // keysFor is the keys of a shortcut, for a menu item or a hint to show.
 export const keysFor = (id: string) => SHORTCUTS.find((s) => s.id === id)?.keys;
+
+// shortcutLive says whether a shortcut does something with these prefs.
+export const shortcutLive = (s: Shortcut, p: { labs: boolean; layout: string; zen: boolean }) => (!s.labs || p.labs) && (!s.layout || (p.labs && !p.zen && p.layout === s.layout));
