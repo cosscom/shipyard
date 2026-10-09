@@ -1,4 +1,4 @@
-import { DynamicIcon, iconNames, type IconName } from "lucide-react/dynamic";
+import { lazy, Suspense } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,21 +34,16 @@ import { cn } from "@/lib/utils";
 import { WidgetEmpty, WidgetRow, WidgetSkeleton } from "@/views/home/widgets/parts";
 import { PluginPage, ViewHeader } from "@/views/view-header";
 
-const known = new Set<string>(iconNames);
-
-// iconName turns "PanelsTopLeft" or "panels-top-left" into lucide's name.
-export function iconName(name: string): IconName | undefined {
-  const kebab = name
-    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-    .replace(/([A-Z])([A-Z][a-z])/g, "$1-$2")
-    .toLowerCase();
-  return known.has(kebab) ? (kebab as IconName) : undefined;
-}
+const NamedIcon = lazy(() => import("@/plugins/dynamic-icon"));
 
 // Icon draws any lucide icon by name, for plugins and their sidebar items.
+// Like lucide's DynamicIcon it draws nothing until the icon has loaded.
 export function Icon({ name, className }: { name: string; className?: string }) {
-  const n = iconName(name);
-  return n ? <DynamicIcon name={n} className={className} /> : <DynamicIcon name="puzzle" className={className} />;
+  return (
+    <Suspense fallback={null}>
+      <NamedIcon name={name} className={className} />
+    </Suspense>
+  );
 }
 
 // pluginUi is what @berth/plugin/ui resolves to inside a plugin.
