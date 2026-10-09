@@ -31,7 +31,8 @@ import { HomeTabs } from "@/components/workspace/home-tabs";
 import { BoxPicker } from "@/components/box-picker";
 import { FakeTrafficLights, ZenBar } from "@/components/workspace/zen";
 import { Announcer } from "@/components/announcer";
-import { fakeTrafficLights } from "@/lib/api";
+import { fakeTrafficLights, hasTrafficLights } from "@/lib/api";
+import { useLayout } from "@/components/layouts/registry";
 import { useBerthConnection } from "@/hooks/use-berth-connection";
 import { useShortcuts } from "@/hooks/use-shortcuts";
 import { useWindowTitle } from "@/hooks/use-window-title";
@@ -99,9 +100,19 @@ export default function App() {
   const workspace = view.kind === "workspace";
   // Labs: zen (⌘.) puts away the sidebar, the tab strip and the status bar.
   const zen = usePrefs((p) => p.labs && p.zen);
+  // Labs: the window's layout (components/layouts/registry.ts). Zen, when
+  // on, puts away whatever it has.
+  const layout = useLayout();
+  const Side = layout.side === undefined ? AppSidebar : layout.side;
+  const Bottom = layout.bottom === undefined ? StatusBar : layout.bottom;
+  const Top = layout.top;
+  const Overlay = layout.overlay;
+  // Nothing at the left or top: the strip leaves the window's buttons room.
+  const bare = !zen && !Side && !Top && hasTrafficLights();
   // Without the status bar, what floats over its corner (toasts, the loops
   // panel) comes down to the window's edge.
-  useEffect(() => document.documentElement.style.setProperty("--berth-status-h", zen ? "0px" : "26px"), [zen]);
+  const statusH = zen ? "0px" : Bottom === StatusBar ? "26px" : Bottom ? "var(--berth-bottom-h, 26px)" : "0px";
+  useEffect(() => document.documentElement.style.setProperty("--berth-status-h", statusH), [statusH]);
   // The keyboard is never dropped on <body> by what had it going away.
   useRescueRemovedFocus();
   // Onboarding has no tabs yet, so it gets the plain strip, not the tab strip.
@@ -158,21 +169,30 @@ export default function App() {
       <ToastProvider position="bottom-right" viewportClassName="max-w-88 data-[position=bottom-right]:bottom-[max(calc(var(--berth-status-h,26px)+12px+var(--berth-loops-h,0px)),var(--berth-bar-lift,0px))] data-[position=bottom-right]:right-3 data-[position=bottom-left]:bottom-[calc(var(--berth-status-h,26px)+12px)] data-[position=bottom-left]:left-3 data-[position=top-left]:top-3 data-[position=top-left]:left-3 data-[position=top-right]:top-3 data-[position=top-right]:right-3">
         <div className="flex h-svh flex-col overflow-hidden bg-background text-foreground">
           {fakeTrafficLights() && <FakeTrafficLights />}
+          {!zen && Top && (
+            <Disconnectable className="shrink-0 flex-col">
+              <Top />
+            </Disconnectable>
+          )}
           <div className="flex min-h-0 flex-1">
-            {!zen && (
+            {!zen && Side && (
               <Disconnectable>
-                <AppSidebar />
+                <Side />
               </Disconnectable>
             )}
-            <div className="relative flex min-w-0 flex-1 flex-col">
+            <div className="relative flex min-w-0 flex-1 flex-col" data-bare={bare || undefined}>
               {zen && !onboarding ? (
                 <ZenBar />
               ) : workspace && !onboarding ? (
-                <Disconnectable className="shrink-0 flex-col" label="Tab bar">
+                <Disconnectable className={cn("shrink-0 flex-col", bare && "bg-sidebar pl-[84px] shadow-[inset_0_-1px_0_var(--border)]")} label="Tab bar">
                   {!onHome && <WorkspaceHeading />}
                   {onHome ? <HomeTabs /> : <TabStrip />}
                 </Disconnectable>
-              ) : !workspace ? null /* every other view's ViewHeader is the strip */ : (
+              ) : !workspace ? (
+                // Every other view's ViewHeader is the strip; bare, the
+                // window's buttons get a strip of their own over it.
+                bare ? <div data-tauri-drag-region className="h-8 shrink-0 bg-sidebar/40" /> : null
+              ) : (
                 // Onboarding names itself; the strip only drags the window.
                 <div data-tauri-drag-region className="h-10 shrink-0 bg-background" />
               )}
@@ -187,7 +207,7 @@ export default function App() {
               </main>
             </div>
           </div>
-          {!zen && <StatusBar />}
+          {!zen && Bottom && <Bottom />}
         </div>
         <ErrorBoundary scope="a dialog">
           <CommandPalette />
@@ -210,6 +230,7 @@ export default function App() {
           <PrReviewSheet />
           <NotificationCenter />
           <WhatsNewDialog />
+          {!zen && Overlay && <Overlay />}
         </ErrorBoundary>
         <FileDropGuard />
         <Announcer />
