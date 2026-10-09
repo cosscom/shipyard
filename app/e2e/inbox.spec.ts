@@ -34,11 +34,11 @@ test("the inbox lists agents by what they need, and the keyboard triages them", 
   await page.keyboard.press("k");
   await expect(cursorRow(app)).toHaveAttribute("data-id", "devl/checkout-fix-claude");
 
-  // e puts it away, the cursor goes to the next row; z brings it back.
+  // e clears it away, the cursor goes to the next row; z brings it back.
   await page.keyboard.press("e");
   await expect(page.locator("[data-testid=inbox-row][data-id='devl/checkout-fix-claude']")).toHaveCount(0);
   await expect(cursorRow(app)).toHaveAttribute("data-id", second!);
-  await expect(page.getByTestId("inbox-show-done")).toContainText("1 marked done");
+  await expect(page.getByTestId("inbox-show-done")).toContainText("1 cleared");
   await page.keyboard.press("z");
   await expect(page.locator("[data-testid=inbox-row][data-id='devl/checkout-fix-claude']")).toBeVisible();
   await expect(page.getByTestId("inbox-show-done")).toHaveCount(0);
@@ -64,6 +64,18 @@ test("the inbox lists agents by what they need, and the keyboard triages them", 
     await page.keyboard.press("ControlOrMeta+j");
     await expect(page.locator("[data-inbox-row]:focus")).toHaveCount(1, { timeout: 1000 });
   }).toPass();
+  // Another worktree, then b goes back to the last one.
+  const other = page.locator("[data-testid=inbox-row]:not([data-id='devl/checkout-fix-claude'])").first();
+  const otherId = await other.getAttribute("data-id");
+  await other.locator("[data-inbox-row]").click();
+  await expect(other).toHaveAttribute("data-open", "true");
+  await expect(async () => {
+    await page.keyboard.press("ControlOrMeta+j");
+    await expect(page.locator("[data-inbox-row]:focus")).toHaveCount(1, { timeout: 1000 });
+  }).toPass();
+  await page.keyboard.press("b");
+  await expect(page.locator("[data-testid=inbox-row][data-id='devl/checkout-fix-claude']")).toHaveAttribute("data-open", "true");
+  await expect(page.locator(`[data-testid=inbox-row][data-id='${otherId}']`)).not.toHaveAttribute("data-open", "true");
 });
 
 test("New task brings the composer forward and starts work", async ({ app }) => {
@@ -120,8 +132,14 @@ test("a narrow window folds the list while a worktree is open, and ⌘J lays it 
   await expect(page.getByTestId("inbox")).toBeHidden();
   await page.getByTestId("inbox-unfold").click();
   await expect(page.getByTestId("inbox")).toBeVisible();
+  // The list has the keyboard once it is drawn.
+  await expect(page.locator("[data-inbox-row]:focus")).toHaveCount(1);
   // Picking a row puts it away again.
-  await page.locator("[data-inbox-row]").nth(2).click();
+  const pick = page.locator("[data-testid=inbox-row][data-state=running]").first();
+  const id = await pick.getAttribute("data-id");
+  await pick.locator("[data-inbox-row]").click();
   await expect(page.getByTestId("inbox")).toBeHidden();
+  await expect(page.locator(`[role=tab][aria-selected=true][data-ws]`)).toBeVisible();
+  expect(id).toBeTruthy();
   await expect(page.getByTestId("inbox-strip")).toBeVisible();
 });

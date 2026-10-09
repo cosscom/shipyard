@@ -8,7 +8,7 @@ import { usePrefs } from "@/lib/prefs";
 import { useProjects } from "@/lib/project-groups";
 import { load, save } from "@/lib/storage";
 import { useStore } from "@/lib/store";
-import { goHome } from "@/lib/workspaces";
+import { goHome, homeBox, refFor, selectWorktree, useWorkspaces } from "@/lib/workspaces";
 import { worktreeLabel } from "@/lib/worktree-names";
 
 // The inbox's own state: which row the cursor is on, what was marked done,
@@ -33,8 +33,10 @@ interface InboxState extends Saved {
   focusAsk: number;
   // Bumped to ask the home composer to take the keyboard (c, New task).
   composeAsk: number;
-  // The last row marked done, for undo (z).
+  // The last row cleared, for undo (z).
   last?: { id: string; since: string };
+  // The worktree before the one in front, for b (back).
+  previous?: string;
 }
 
 const saved = load<Partial<Saved>>(KEY, {}) ?? {};
@@ -52,6 +54,21 @@ export const useInbox = create<InboxState>()(() => ({
 useInbox.subscribe((s, prev) => {
   if (s.done !== prev.done || s.filter !== prev.filter || s.tab !== prev.tab) save(KEY, { done: s.done, filter: s.filter, tab: s.tab });
 });
+
+// The worktree before this one, as a browser's back remembers it.
+useWorkspaces.subscribe((s, prev) => {
+  if (s.current === prev.current || !prev.current || homeBox(prev.current)) return;
+  if (s.current && homeBox(s.current)) return;
+  useInbox.setState({ previous: prev.current });
+});
+
+// goBack opens the worktree that was in front before this one.
+export function goBack(): boolean {
+  const ref = refFor(useInbox.getState().previous);
+  if (!ref) return false;
+  selectWorktree(ref);
+  return true;
+}
 
 export const inboxOn = () => {
   const p = usePrefs.getState();

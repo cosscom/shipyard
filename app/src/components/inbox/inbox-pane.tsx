@@ -14,7 +14,7 @@ import {
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Scene } from "@/components/art/scenes";
-import { compose, useInbox, useInboxItems } from "@/components/inbox/inbox-state";
+import { compose, goBack, useInbox, useInboxItems } from "@/components/inbox/inbox-state";
 import { InboxRow } from "@/components/inbox/inbox-row";
 import { NotificationBell } from "@/components/notifications/notification-center";
 import { MoreItems, useArrangedNav } from "@/components/sidebar/nav";
@@ -57,8 +57,8 @@ const alwaysOpen: SidebarContextProps = {
   toggleSidebar: () => {},
 };
 
-// Recent shows this many until asked for the rest.
-const RECENT = 3;
+// Recent shows this many (one line each) until asked for the rest.
+const RECENT = 12;
 
 export function InboxPane() {
   const collapsed = usePrefs((p) => p.sidebarCollapsed);
@@ -132,24 +132,24 @@ function InboxList({ overlay }: { overlay?: boolean }) {
           )}
         </div>
 
-        <div className="flex flex-col gap-1.5 px-2.5 pb-2">
+        <div className="flex gap-1.5 px-2.5 pb-2">
           <button
             type="button"
             data-testid="inbox-compose"
             onClick={compose}
-            className="flex h-8 w-full items-center gap-2 rounded-lg border border-sidebar-border bg-background px-2.5 font-medium text-[13px] text-foreground shadow-xs/5 outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-8 min-w-0 flex-[1.15] items-center gap-2 rounded-lg border border-sidebar-border bg-background px-2.5 font-medium text-[13px] text-foreground shadow-xs/5 outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <SquarePenIcon className="size-3.5 text-muted-foreground" />
-            <span className="flex-1 text-left">New task</span>
+            <SquarePenIcon className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate text-left">New task</span>
             <Kbd className="h-4.5 text-[10px]">C</Kbd>
           </button>
           <button
             type="button"
             onClick={() => useStore.getState().setPaletteOpen(true)}
-            className="flex h-7 w-full items-center gap-2 rounded-lg border border-sidebar-border bg-background/50 px-2 text-[13px] text-muted-foreground hover:bg-sidebar-accent"
+            className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-sidebar-border bg-background/50 px-2 text-[13px] text-muted-foreground hover:bg-sidebar-accent"
           >
-            <SearchIcon className="size-3.5" />
-            <span className="flex-1 text-left">Search</span>
+            <SearchIcon className="size-3.5 shrink-0" />
+            <span className="min-w-0 flex-1 truncate text-left">Search</span>
             <Kbd className="h-4.5 text-[10px]">⌘K</Kbd>
           </button>
         </div>
@@ -202,6 +202,8 @@ function TriageList() {
   const statusBoxes = useStore((s) => s.status?.boxes ?? NONE);
   const offline = useMemo(() => statusBoxes.filter((b) => b.state !== "online").map((b) => b.name), [statusBoxes]);
   const [allRecent, setAllRecent] = useState(false);
+  // Home has its own legend; the strip at the foot is for elsewhere.
+  const onHome = useWorkspaces((s) => !s.current) && inWorkspace;
   // ? shows every key at the list's foot, until pressed again.
   const [allKeys, setAllKeys] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
@@ -252,7 +254,7 @@ function TriageList() {
       if (listRef.current?.contains(document.activeElement)) focusRow(next);
       else useInbox.setState({ cursor: next });
       toastManager.add({
-        title: "Marked done",
+        title: "Cleared",
         description: `${it.title}. It comes back if the agent needs you again.`,
         actionProps: { children: "Undo", onClick: () => undoDone() },
       });
@@ -323,6 +325,10 @@ function TriageList() {
           e.preventDefault();
           compose();
           return;
+        case "b":
+          e.preventDefault();
+          goBack();
+          return;
         case "/":
           e.preventDefault();
           useStore.getState().setPaletteOpen(true);
@@ -350,7 +356,9 @@ function TriageList() {
       data-testid="inbox-list"
       onPointerEnter={() => holdOn("pointer", true)}
       onPointerLeave={() => holdOn("pointer", false)}
-      onFocus={() => holdOn("focus", true)}
+      // The keyboard holds the rows once it is used in the list, not when
+      // the list is merely given it on arrival.
+      onKeyDown={() => holdOn("focus", true)}
       onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node | null) && holdOn("focus", false)}
       className="peer/list min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pt-1 pb-3"
     >
@@ -402,7 +410,7 @@ function TriageList() {
         <div className="mt-3 flex flex-col gap-1 px-2 text-[11px] text-muted-foreground">
           {hidden > 0 && (
             <button type="button" data-testid="inbox-show-done" onClick={() => useInbox.setState((s) => ({ showDone: !s.showDone }))} className="self-start hover:text-foreground">
-              {showDone ? `Hide ${hidden} marked done` : `${hidden} marked done · show`}
+              {showDone ? `Hide ${hidden} cleared` : `${hidden} cleared · show`}
             </button>
           )}
           {offline.length > 0 && <span>{offline.length === 1 ? `${offline[0]} is offline: its agents aren't listed` : `${offline.length} boxes offline: their agents aren't listed`}</span>}
@@ -412,7 +420,7 @@ function TriageList() {
     {/* While the list has the keyboard: its keys, quietly, at its foot. */}
     <div
       data-testid="inbox-keys"
-      className={cn("shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1 overflow-hidden border-sidebar-border border-t px-3 py-1.5 text-[11px] text-muted-foreground", allKeys ? "flex" : "hidden flex-nowrap peer-focus-within/list:flex")}
+      className={cn("shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1 overflow-hidden border-sidebar-border border-t px-3 py-1.5 text-[11px] text-muted-foreground", allKeys ? "flex" : onHome ? "hidden" : "hidden flex-nowrap peer-focus-within/list:flex")}
     >
       {(allKeys ? ALL_KEYS : HINTS).map(([k, w]) => (
         <span key={k} className="flex shrink-0 items-center gap-1 whitespace-nowrap">
@@ -428,16 +436,17 @@ function TriageList() {
 const HINTS: [string, string][] = [
   ["j k", "move"],
   ["↵", "open"],
-  ["e", "done"],
-  ["y n", "answer"],
+  ["e", "clear"],
+  ["b", "back"],
   ["?", "keys"],
 ];
 
 const ALL_KEYS: [string, string][] = [
   ["j k", "move"],
   ["↵", "open"],
-  ["e", "done"],
+  ["e", "clear"],
   ["z", "undo"],
+  ["b", "last worktree"],
   ["y", "allow"],
   ["n", "deny"],
   ["c", "new task"],

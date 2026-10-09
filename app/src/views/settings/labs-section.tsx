@@ -15,7 +15,7 @@ export function LabsSection() {
           <Switch checked={labs} onCheckedChange={(on) => setPrefs({ labs: on, labsChosen: true })} />
         </SettingsRow>
         {labs && (
-          <SettingsRow label="Layout" description="Sidebar: places and projects down the left. Inbox: every agent in one list, what needs you on top, with the worktree you open beside it (j k to move, ↵ to open, e for done).">
+          <SettingsRow label="Layout" description="Sidebar: places and projects down the left. Inbox: every agent in one list, what needs you on top, with the worktree you open beside it (j k to move, ↵ to open, e to clear).">
             <Segmented
               value={layout}
               options={[

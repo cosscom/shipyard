@@ -17,9 +17,10 @@ const BAND = "clamp(180px, 40vh, 400px)";
 const KEYS: [string, string][] = [
   ["j k", "move"],
   ["↵", "open"],
-  ["e", "done"],
+  ["e", "clear"],
   ["z", "undo"],
   ["y n", "allow, deny"],
+  ["b", "last worktree"],
   ["c", "new task"],
   ["⌘J", "back to the list"],
   ["?", "all keys"],

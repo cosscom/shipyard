@@ -1,9 +1,8 @@
-import { CheckIcon, CornerDownLeftIcon, Undo2Icon } from "lucide-react";
+import { CornerDownLeftIcon } from "lucide-react";
 import { memo, useState } from "react";
 
 import { AgentIcon } from "@/components/agent-glyph";
 import { toastError } from "@/components/error-note";
-import { Tip } from "@/components/tip";
 import { Button } from "@/components/ui/button";
 import { boxApi } from "@/lib/api";
 import { agentLabel } from "@/lib/derive";
@@ -51,6 +50,9 @@ const place = (it: InboxItem) => {
   return it.worktree && it.worktree !== it.title ? `${it.project} › ${it.worktree}` : it.project;
 };
 
+// short is a one-line row's place: the worktree alone, or the project.
+const short = (it: InboxItem) => (it.main ? (it.title === it.project ? "main" : `${it.project} › main`) : it.worktree && it.worktree !== it.title ? it.worktree : it.project);
+
 export const InboxRow = memo(function InboxRow({ it, cursor, open, done, live, onOpen, onDone, onFocus }: RowProps) {
   const s = it.session;
   const waiting = it.state === "waiting";
@@ -86,8 +88,11 @@ export const InboxRow = memo(function InboxRow({ it, cursor, open, done, live, o
   }
   // A working agent's step shares the place's line, so the row stays two.
   const doing = it.state === "running" ? step?.now : undefined;
-  // The cursor on an ask shows all of it: nothing is allowed unread.
+  // A command with Allow beside it is never cut short: three lines on any
+  // row, all of it under the cursor. Nothing is allowed unread.
   const full = cursor && waiting && mono;
+  const wrap = waiting && mono;
+  const compact = it.section === "recent";
 
   const when = it.state === "running" && step?.elapsed ? step.elapsed : shortAgo(it.since);
   const words = `${agentLabel(it.agent)} in ${place(it)}${it.boxMatters ? ` on ${it.box}` : ""}: ${it.title}. ${sessionWord(it.state)}${line ? `. ${line}` : ""}${doing ? `. ${doing}` : ""}`;
@@ -124,42 +129,59 @@ export const InboxRow = memo(function InboxRow({ it, cursor, open, done, live, o
           }
         }}
         className={cn(
-          "flex w-full min-w-0 items-start gap-2.5 rounded-lg px-2 py-1.5 text-left outline-none",
+          "flex w-full min-w-0 items-start gap-2.5 rounded-lg px-2 text-left outline-none",
+          compact ? "gap-[17px] py-1 pl-[12px]" : "py-1.5",
         )}
       >
-        <span className={cn("relative mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-sidebar-accent", waiting && "bg-warning/12", open && "bg-background/70")}>
-          <AgentIcon agent={it.agent} className="size-3" />
-          <Ring state={it.state} />
-        </span>
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="flex min-w-0 items-baseline gap-2">
-            <span className={cn("min-w-0 flex-1 truncate text-[13px] leading-5", it.section === "recent" ? "text-foreground/85" : "font-medium text-foreground", open && "font-medium text-foreground")}>{it.title}</span>
-            <span className={cn("shrink-0 text-[11px] tabular-nums transition-opacity group-hover/row:opacity-0 group-focus-within/row:opacity-0", waiting ? "text-warning-foreground" : "text-muted-foreground")}>{when}</span>
-          </span>
-          <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground leading-4">
-            <span className={cn("min-w-0", doing ? "max-w-[55%] shrink-0 truncate" : "truncate")}>{place(it)}</span>
-            {it.boxMatters && <span className="shrink-0 rounded-[4px] bg-muted px-1 font-mono text-[10px] text-muted-foreground leading-4">{it.box}</span>}
-            {doing && <span className="min-w-0 flex-1 truncate font-mono text-[11px]">· {doing}</span>}
-          </span>
-          {line && (
-            <span className={cn("min-w-0 leading-4", full ? "line-clamp-6 whitespace-pre-wrap break-all" : "truncate", mono ? "font-mono text-[11px]" : "text-[12px]", waiting ? "text-foreground/80" : "text-muted-foreground")}>{line}</span>
-          )}
-        </span>
+        {compact ? (
+          // Recent: one line each, so many fit (title, place, age).
+          <>
+            <span className="relative mt-[3px] inline-flex size-4 shrink-0 items-center justify-center">
+              <AgentIcon agent={it.agent} className="size-2.5" />
+              <Ring state={it.state} />
+            </span>
+            <span className="flex min-w-0 flex-1 items-baseline gap-1.5 text-[13px] leading-5">
+              <span className={cn("min-w-0 shrink truncate", open ? "font-medium text-foreground" : "text-foreground/85")}>{it.title}</span>
+              <span className="min-w-0 max-w-[40%] shrink-0 truncate text-[11px] text-muted-foreground @max-[330px]/side:hidden">{short(it)}</span>
+              <span className="ml-auto shrink-0 pl-1 text-[11px] text-muted-foreground tabular-nums transition-opacity group-hover/row:opacity-0 group-focus-within/row:opacity-0">{when}</span>
+            </span>
+          </>
+        ) : (
+          <>
+            <span className={cn("relative mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-sidebar-accent", waiting && "bg-warning/12", open && "bg-background/70")}>
+              <AgentIcon agent={it.agent} className="size-3" />
+              <Ring state={it.state} />
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="flex min-w-0 items-baseline gap-2">
+                <span className="min-w-0 flex-1 truncate font-medium text-[13px] text-foreground leading-5">{it.title}</span>
+                <span className={cn("shrink-0 text-[11px] tabular-nums transition-opacity group-hover/row:opacity-0 group-focus-within/row:opacity-0", waiting ? "text-warning-foreground" : "text-muted-foreground")}>{when}</span>
+              </span>
+              <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground leading-4">
+                <span className={cn("min-w-0", doing ? "max-w-[55%] shrink-0 truncate" : "truncate")}>{place(it)}</span>
+                {it.boxMatters && <span className="shrink-0 rounded-[4px] bg-muted px-1 font-mono text-[10px] text-muted-foreground leading-4">{it.box}</span>}
+                {doing && <span className="min-w-0 flex-1 truncate font-mono text-[11px]">· {doing}</span>}
+              </span>
+              {line && (
+                <span className={cn("min-w-0 leading-4", full ? "whitespace-pre-wrap break-all" : wrap ? "line-clamp-3 break-all" : "truncate", mono ? "font-mono text-[11px]" : "text-[12px]", waiting ? "text-foreground/80" : "text-muted-foreground")}>{line}</span>
+              )}
+            </span>
+          </>
+        )}
       </button>
 
-      {/* Hover and cursor: done, and a waiting agent's answer. */}
-      <span className="absolute top-1.5 right-1.5 flex items-center opacity-0 transition-opacity group-hover/row:opacity-100 group-focus-within/row:opacity-100 has-focus-visible:opacity-100">
-        <Tip label={done ? "Back to the inbox (e)" : "Done (e)"}>
-          <button
-            type="button"
-            tabIndex={-1}
-            aria-label={done ? `Back to the inbox: ${it.title}` : `Done: ${it.title}`}
-            onClick={() => onDone(it)}
-            className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-background hover:text-foreground"
-          >
-            {done ? <Undo2Icon className="size-3.5" /> : <CheckIcon className="size-3.5" />}
-          </button>
-        </Tip>
+      {/* Hover and cursor: clear it away (e), or bring it back. */}
+      <span className={cn("absolute right-1.5 flex items-center opacity-0 transition-opacity group-hover/row:opacity-100 group-focus-within/row:opacity-100", compact ? "top-1" : "top-1.5")}>
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={done ? `Back to the inbox: ${it.title}` : `Clear: ${it.title}`}
+          onClick={() => onDone(it)}
+          className="inline-flex h-5 items-center gap-1 rounded-md border border-sidebar-border bg-sidebar px-1.5 text-[11px] text-muted-foreground hover:bg-background hover:text-foreground"
+        >
+          {done ? "Back" : "Clear"}
+          <Key>e</Key>
+        </button>
       </span>
       {waiting && (answered || (allow && deny) || cursor) && (
         <span className="-mt-1 flex items-center justify-end gap-1 pr-2 pb-2 pl-[42px]">
