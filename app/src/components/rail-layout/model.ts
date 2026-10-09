@@ -85,7 +85,10 @@ export function initialsFor(names: string[]): Record<string, string> {
   return out;
 }
 
-const laneOf = (s?: SessionState): Lane => (s === "waiting" || s === "running" || s === "finished" ? s : "quiet");
+// Done stays news for a few hours; after that a worktree is quiet again.
+const DONE_FOR = 3 * 60 * 60 * 1000;
+const stale = (s?: Session) => !!s?.state_since && Date.now() - Date.parse(s.state_since) > DONE_FOR;
+const laneOf = (s?: SessionState, session?: Session): Lane => (s === "finished" && stale(session) ? "quiet" : s === "waiting" || s === "running" || s === "finished" ? s : "quiet");
 
 function askText(s: Session): string | undefined {
   const a = s.ask;
@@ -114,7 +117,8 @@ export function useRailProjects(): ProjectEntry[] {
           const agents = sessions
             .filter((s) => agentOf(s))
             .map((s) => ({ box: m.box.name, session: s, state: sessionState(s, d?.stats), agent: agentOf(s)! }))
-            .sort((a, b) => urgency[a.state] - urgency[b.state] || a.session.created.localeCompare(b.session.created));
+            // The most urgent first, and of those the latest to get there.
+            .sort((a, b) => urgency[a.state] - urgency[b.state] || (b.session.state_since ?? "").localeCompare(a.session.state_since ?? "") || a.session.created.localeCompare(b.session.created));
           const lead = away ? undefined : agents[0];
           const key = wsKey(m.box.name, wt.path);
           worktrees.push({
@@ -125,7 +129,7 @@ export function useRailProjects(): ProjectEntry[] {
             agents,
             others: sessions.filter((s) => !agentOf(s)),
             state: lead?.state,
-            lane: away ? "quiet" : laneOf(lead?.state),
+            lane: away ? "quiet" : laneOf(lead?.state, lead?.session),
             project: p.name,
             chip: p.members.length > 1,
             name: wt.main ? (p.members.length > 1 || (m.loc.worktrees?.length ?? 0) > 1 ? "main" : p.name) : worktreeLabel(wt),
@@ -140,7 +144,7 @@ export function useRailProjects(): ProjectEntry[] {
       // By lane, then the main checkout first, then by name: a row only
       // moves when its agents change state.
       worktrees.sort((a, b) => LANES.indexOf(a.lane) - LANES.indexOf(b.lane) || Number(!!b.wt.main) - Number(!!a.wt.main) || a.name.localeCompare(b.name) || a.box.localeCompare(b.box));
-      const count = (st: SessionState) => worktrees.reduce((n, w) => n + (w.away ? 0 : w.agents.filter((a) => a.state === st).length), 0);
+      const count = (st: SessionState) => worktrees.reduce((n, w) => n + (w.away ? 0 : w.agents.filter((a) => a.state === st && !(st === "finished" && stale(a.session))).length), 0);
       return {
         project: p,
         id: p.id,
@@ -202,6 +206,9 @@ export function useFocused(): { box: string; session?: Session; kind?: string; t
 
 // waitingAgents is every agent that needs you, in the rail's order, for
 // the title bar's "needs you" button to go through.
+// fresh is an agent still worth a dot: not done hours ago.
+export const fresh = (a: AgentEntry) => !(a.state === "finished" && stale(a.session));
+
 export function waitingAgents(projects: ProjectEntry[]): AgentEntry[] {
   return projects.flatMap((p) => p.worktrees.filter((w) => !w.away).flatMap((w) => w.agents.filter((a) => a.state === "waiting")));
 }

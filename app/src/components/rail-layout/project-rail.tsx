@@ -10,7 +10,7 @@ import { keysFor } from "@/lib/shortcuts";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { openAddBox } from "@/views/onboarding/add-box-dialog";
-import { type AgentEntry, openProject, type ProjectEntry, useRailProjects } from "@/components/rail-layout/model";
+import { type AgentEntry, fresh, openProject, type ProjectEntry, useRailProjects } from "@/components/rail-layout/model";
 import { ProjectFooter, ProjectHead, WorktreeItems } from "@/components/rail-layout/worktree-items";
 
 export const SHORT = "(max-height: 820px)";
@@ -167,7 +167,7 @@ function HomeMark({ label, icon, active, onClick, projects }: { label: string; i
           setOpen(next);
         }}
       >
-        <MenuTrigger openOnHover delay={200} closeDelay={160} data-testid="nav-home" aria-label={label} aria-current={active ? "page" : undefined} className={itemClass}>
+        <MenuTrigger openOnHover delay={450} closeDelay={160} data-testid="nav-home" aria-label={label} aria-current={active ? "page" : undefined} className={itemClass}>
           <span className={cn(iconClass, active && "bg-sidebar-accent text-foreground")}>{icon}</span>
           <Caption on={active}>{label}</Caption>
         </MenuTrigger>
@@ -218,7 +218,7 @@ function Pips({ p }: { p: ProjectEntry }) {
   const live: AgentEntry[] = p.worktrees
     .filter((w) => !w.away)
     .flatMap((w) => w.agents)
-    .filter((a) => LIVE.includes(a.state))
+    .filter((a) => LIVE.includes(a.state) && fresh(a))
     .sort((a, b) => LIVE.indexOf(a.state) - LIVE.indexOf(b.state));
   return (
     <span aria-hidden data-testid="rail-pips" className="flex h-1.5 items-center gap-[3px]">
@@ -252,7 +252,7 @@ function ProjectMark({ p, n }: { p: ProjectEntry; n: number }) {
       <Edge on={p.current} top="20px" />
       <MenuTrigger
         openOnHover
-        delay={140}
+        delay={220}
         closeDelay={160}
         data-testid="rail-project"
         data-project={p.name}
