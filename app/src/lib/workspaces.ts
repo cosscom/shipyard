@@ -28,6 +28,9 @@ export interface WsTab {
   focus: string;
   // A Compare tab's two worktrees and lanes (lib/compare.ts).
   compare?: Compare;
+  // The workspace layout (Labs, lib/deck.ts): only the focused pane shows,
+  // filling the tab; the others stay mounted behind it.
+  zoomed?: boolean;
 }
 
 export interface Workspace {
@@ -247,7 +250,7 @@ export function groupKeys(s: Pick<State, "current" | "shown" | "spaces"> = useWo
 export const isShown = (key: string) => groupKeys().includes(key);
 
 // ensure makes a workspace for a worktree that has none yet, mounted.
-function ensure(key: string): boolean {
+export function ensure(key: string): boolean {
   const ref = refFor(key);
   if (!ref) return false;
   useWorkspaces.setState((st) => ({
@@ -647,6 +650,8 @@ export function findSession(box: string, session: string): { key: string; tab: s
 // openSession shows a session: its worktree's workspace, then its pane,
 // adding a tab for it when it has none.
 export function openSession(box: string, session: Session) {
+  // The workspace layout (lib/deck.ts) brings it into the panes on screen.
+  if (opener?.(box, session.name)) return;
   const locations = useStore.getState().boxes[box]?.locations ?? [];
   const loc = locations.find((l) => l.worktrees?.some((w) => w.path === session.dir));
   const wt = loc?.worktrees?.find((w) => w.path === session.dir);
@@ -680,6 +685,40 @@ export function openSession(box: string, session: Session) {
     activateTab(now.key, now.tab);
     focusPane(now.key, now.tab, now.pane.id);
   } else openTab({ kind: "terminal", box, session: session.name }, key);
+}
+
+// opener, when set, gets first say in showing a session: true when it did.
+let opener: ((box: string, session: string) => boolean) | undefined;
+export const setSessionOpener = (fn: typeof opener) => {
+  opener = fn;
+};
+
+// setTabZoom zooms a tab's focused pane to fill it, or lets the others back.
+export function setTabZoom(key: string, tabId: string, zoomed: boolean) {
+  updateTab(key, tabId, (t) => ({ ...t, zoomed: zoomed || undefined }));
+}
+
+// setTabRoot replaces a tab's whole tree (a new arrangement of the same
+// leaves: none of them remounts).
+export function setTabRoot(key: string, tabId: string, root: PaneNode) {
+  updateTab(key, tabId, (t) => ({ ...t, root, focus: findLeaf(root, t.focus) ? t.focus : leaves(root)[0].id }));
+}
+
+// parkPane takes a pane off a tab and gives it a tab of its own in its own
+// worktree, behind whatever shows there: it keeps running and stays mounted,
+// so bringing it back is instant. False when it is the tab's only pane.
+export function parkPane(key: string, tabId: string, paneId: string): boolean {
+  const s = useWorkspaces.getState();
+  const t = s.spaces[key]?.tabs.find((x) => x.id === tabId);
+  const l = t && findLeaf(t.root, paneId);
+  const rest = t && remove(t.root, paneId);
+  if (!l || !rest) return false;
+  const owner = paneWorktree(key, l);
+  if (owner !== key && !ensure(owner)) return false;
+  const { wt: _wt, ...alone } = l;
+  updateTab(key, tabId, (x) => ({ ...x, root: rest, focus: x.focus === paneId ? leaves(rest)[0].id : x.focus }));
+  update(owner, (ws) => ({ ...ws, tabs: [...ws.tabs, { id: newId(), root: alone, focus: alone.id }] }));
+  return true;
 }
 
 export function rememberUrl(url: string) {

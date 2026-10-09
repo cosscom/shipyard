@@ -24,6 +24,8 @@ import { findLeaf, leaves, paneWorktree } from "@/lib/layout";
 import { paneKey, toggleDrawer } from "@/lib/devtools";
 import { isOnboardingActive } from "@/views/onboarding/onboarding-state";
 import { firstFocusable, rescueFocus } from "@/lib/focus-home";
+import { deckOn, showDeck, swapFocused, toggleZoom, useDecks } from "@/lib/deck";
+import { toggleSwitcher } from "@/components/deck/deck-strip";
 
 // The app's shortcuts (lib/shortcuts.json) come two ways: as keys, caught on
 // the window before a terminal sees them, and, in the Mac app, from the menu
@@ -167,6 +169,12 @@ function run(id: string, from: "key" | "menu", arg?: number | Dir): boolean {
       return true;
     }
     case "tab": {
+      // The workspace layout: its workspaces, in the bar's order.
+      if (deckOn()) {
+        const d = useDecks.getState().decks[Number(arg) - 1];
+        if (d) showDeck(d.id);
+        return !!d;
+      }
       // Counted across the whole strip, every unfolded group's tabs.
       const t = stripTab(Number(arg));
       if (!t) return false;
@@ -190,6 +198,16 @@ function run(id: string, from: "key" | "menu", arg?: number | Dir): boolean {
     case "shortcuts":
       toggleShortcuts();
       return true;
+    case "deck-switcher":
+      if (!deckOn()) return false;
+      toggleSwitcher();
+      return true;
+    case "deck-zoom":
+      return deckOn() && toggleZoom();
+    case "deck-swap":
+      // Outside the workspace layout ⌘⌥⇧ and an arrow moves, as ⌘⌥ does.
+      if (!deckOn()) return run("focus", from, arg);
+      return swapFocused(arg as Dir);
   }
   return false;
 }
@@ -232,13 +250,15 @@ export function runShortcut(id: string, from: "key" | "menu", arg?: number | Dir
 function fromKey(e: KeyboardEvent): [string, (number | Dir)?] | undefined {
   // With ⌥ the key is the character it types (⌥D is ∂), so go by its code.
   if (e.altKey) {
-    if (e.key in arrows) return ["focus", arrows[e.key]];
+    if (e.key in arrows) return [e.shiftKey ? "deck-swap" : "focus", arrows[e.key]];
     if (e.shiftKey) return undefined;
     return e.code === "KeyD" ? ["split-worktree"] : e.code === "KeyC" ? ["compare"] : e.code === "KeyS" ? ["compare-swap"] : e.code === "KeyI" ? ["devtools"] : undefined;
   }
   const key = e.key.toLowerCase();
   const shift = e.shiftKey;
   if (key === ".") return ["zen"];
+  if (key === "enter" && shift) return ["deck-zoom"];
+  if (key === "e" && !shift) return ["deck-switcher"];
   if (key === "\\") return ["sidebar"];
   if (key === "/" && !shift) return ["shortcuts"];
   if (key === "k") return ["palette"];

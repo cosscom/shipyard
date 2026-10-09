@@ -6,10 +6,16 @@ import { Pane } from "@/components/workspace/pane";
 import { DragGhost, DropOverlay } from "@/components/workspace/tab-drag";
 import { shownSides, sides } from "@/lib/compare";
 import { type Divider, layout, mixed } from "@/lib/layout";
+import { useDeckOn } from "@/lib/deck";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import { resizeSplit, useWorkspaces } from "@/lib/workspaces";
 
 const pct = (n: number) => `${n * 100}%`;
+
+// Below this the workspace layout shows one pane at a time, the strip
+// holding the rest.
+export const DECK_NARROW = "(max-width: 899px)";
 
 // PaneLayer draws every pane of every workspace opened since launch, in one
 // flat list positioned from each tab's split tree. Keeping them in one list,
@@ -28,6 +34,10 @@ export function PaneLayer({ showing }: { showing: boolean }) {
   const stateOf = (k: string) => states[compared.indexOf(k)] ?? "ok";
   // In a tiny window a Compare tab's sides stack, each the tab's full width.
   const tiny = useTiny();
+  // The workspace layout (lib/deck.ts): every pane has its header, and a
+  // zoomed tab, or any tab in a narrow window, shows its focused pane alone.
+  const deck = useDeckOn();
+  const narrow = useMediaQuery(DECK_NARROW);
 
   const items = mounted.flatMap((key) => {
     const ws = spaces[key];
@@ -72,23 +82,33 @@ export function PaneLayer({ showing }: { showing: boolean }) {
         ];
       }
       const { leaves, dividers } = layout(tab.root);
-      const split = leaves.length > 1;
+      const split = leaves.length > 1 || deck;
       const several = mixed(tab.root, key);
+      const zoomed = deck && leaves.length > 1 && (!!tab.zoomed || narrow);
+      const whole = { x: 0, y: 0, w: 1, h: 1 };
       return [
-        ...leaves.map(({ leaf, rect }) => (
-          <div
-            key={leaf.id}
-            data-testid="pane"
-            data-pane-kind={leaf.content.kind}
-            // Where the keyboard goes home to when what had it closes (lib/focus-home.ts).
-            data-pane-focused={visible && tab.focus === leaf.id ? "" : undefined}
-            className={cn("absolute overflow-hidden", rect.x > 0 && "border-l", rect.y > 0 && "border-t")}
-            style={{ left: pct(rect.x), top: pct(rect.y), width: pct(rect.w), height: pct(rect.h), display: visible ? "block" : "none" }}
-          >
-            <Pane wsKey={key} tab={tab.id} pane={leaf} visible={visible} focused={tab.focus === leaf.id} split={split} mixed={several} />
-          </div>
-        )),
-        ...(visible ? dividers.map((d) => <DividerHandle key={d.id} d={d} area={area} onRatio={(r) => resizeSplit(key, tab.id, d.id, r)} />) : []),
+        ...leaves.map(({ leaf, rect: at }) => {
+          const hidden = zoomed && tab.focus !== leaf.id;
+          const rect = zoomed ? whole : at;
+          const on = visible && !hidden;
+          return (
+            <div
+              key={leaf.id}
+              data-testid="pane"
+              data-pane-kind={leaf.content.kind}
+              // Where the keyboard goes home to when what had it closes (lib/focus-home.ts).
+              data-pane-focused={on && tab.focus === leaf.id ? "" : undefined}
+              data-zoomed={zoomed && on ? "" : undefined}
+              className={cn("absolute overflow-hidden", rect.x > 0 && "border-l", rect.y > 0 && "border-t")}
+              style={{ left: pct(rect.x), top: pct(rect.y), width: pct(rect.w), height: pct(rect.h), display: on ? "block" : "none" }}
+            >
+              <Pane wsKey={key} tab={tab.id} pane={leaf} visible={on} focused={tab.focus === leaf.id} split={split} mixed={several} />
+              {/* The workspace layout: a quiet ring says which pane has the keyboard. */}
+              {deck && !zoomed && leaves.length > 1 && tab.focus === leaf.id && <span aria-hidden className="pointer-events-none absolute inset-0 z-20 border border-ring/45" />}
+            </div>
+          );
+        }),
+        ...(visible && !zoomed ? dividers.map((d) => <DividerHandle key={d.id} d={d} area={area} onRatio={(r) => resizeSplit(key, tab.id, d.id, r)} />) : []),
       ];
     });
   });

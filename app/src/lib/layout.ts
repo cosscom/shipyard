@@ -266,3 +266,29 @@ export function moveBetween<S extends SpaceLike>(
   out[dst.key] = { ...to, tabs: to.tabs.map((x) => (x === d ? { ...x, root: place(d.root, dst.pane, dst.side, moved), focus } : x)), active: d.id };
   return out;
 }
+
+// How a workspace's panes are tiled (lib/deck.ts): side by side in equal
+// columns, or as a grid (two beside each other; three as one beside two
+// stacked; four as two over two).
+export type Arrangement = "columns" | "grid";
+
+const node = (dir: "row" | "col", ratio: number, a: PaneNode, b: PaneNode): PaneNode => ({ kind: "split", id: newId(), dir, ratio, a, b });
+
+// evenly lays nodes out one after another in dir, each the same size.
+function evenly(nodes: PaneNode[], dir: "row" | "col"): PaneNode {
+  if (nodes.length === 1) return nodes[0];
+  return node(dir, 1 / nodes.length, nodes[0], evenly(nodes.slice(1), dir));
+}
+
+// tile arranges leaves, in order, as how says. Leaves keep their ids, so
+// nothing they show is remounted; only the splits are new.
+export function tile(ls: Leaf[], how: Arrangement): PaneNode | undefined {
+  if (!ls.length) return undefined;
+  if (ls.length === 1) return ls[0];
+  if (how === "columns" || ls.length === 2) return evenly(ls, "row");
+  if (ls.length === 3) return node("row", 0.5, ls[0], node("col", 0.5, ls[1], ls[2]));
+  const cols = Math.ceil(Math.sqrt(ls.length));
+  const rows: PaneNode[] = [];
+  for (let i = 0; i < ls.length; i += cols) rows.push(evenly(ls.slice(i, i + cols), "row"));
+  return evenly(rows, "col");
+}

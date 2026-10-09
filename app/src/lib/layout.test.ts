@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { adopt, bounds, leaf, leaves, mixed, moveBetween, movePane, type PaneNode, paneWorktree, place, remove, sessionsShown, sideAt, split, swap, worktreesOf } from "./layout.ts";
+import { adopt, bounds, leaf, leaves, mixed, moveBetween, movePane, type PaneNode, paneWorktree, place, remove, sessionsShown, sideAt, split, swap, tile, worktreesOf, layout } from "./layout.ts";
 
 const term = (s: string) => leaf({ kind: "terminal", box: "b", session: s });
 const names = (n: PaneNode) => leaves(n).map((l) => (l.content.kind === "terminal" ? l.content.session : "?"));
@@ -161,4 +161,26 @@ test("moveBetween takes one pane out and leaves the rest of its tab", () => {
   assert.equal(got[A].active, "t2");
   // Into its own tab, or onto itself, makes no sense.
   assert.equal(moveBetween(spaces, { key: A, tab: "t1", pane: b.id }, { key: A, tab: "t1", pane: a.id, side: "left" }), undefined);
+});
+
+test("tile lays panes out in even columns, keeping their ids", () => {
+  const ls = [1, 2, 3, 4].map(() => leaf({ kind: "browser", url: "" }));
+  const t = tile(ls, "columns")!;
+  const rects = layout(t).leaves;
+  assert.deepEqual(rects.map((r) => r.leaf.id), ls.map((l) => l.id));
+  for (const r of rects) {
+    assert.ok(Math.abs(r.rect.w - 0.25) < 1e-9);
+    assert.equal(r.rect.h, 1);
+  }
+});
+
+test("tile's grid puts three as one beside two, four as two over two", () => {
+  const ls = [1, 2, 3, 4].map(() => leaf({ kind: "browser", url: "" }));
+  const three = layout(tile(ls.slice(0, 3), "grid")!).leaves.map((l) => l.rect);
+  assert.deepEqual(three[0], { x: 0, y: 0, w: 0.5, h: 1 });
+  assert.deepEqual(three[2], { x: 0.5, y: 0.5, w: 0.5, h: 0.5 });
+  const four = layout(tile(ls, "grid")!).leaves.map((l) => l.rect);
+  assert.deepEqual(four.map((r) => [r.x, r.y]), [[0, 0], [0.5, 0], [0, 0.5], [0.5, 0.5]]);
+  assert.equal(tile([], "grid"), undefined);
+  assert.equal(tile(ls.slice(0, 1), "grid"), ls[0]);
 });

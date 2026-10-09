@@ -23,4 +23,7 @@ export const NOT_IN_PALETTE: Record<string, string> = {
   "stop-agent": "stops the agent of the reply box the keyboard is in (its Stop button does too)",
   fold: "on the sidebar's project the keyboard is on",
   menu: "opens the menu of the row the keyboard is on",
+  "deck-switcher": "the workspace layout's finder; ⌘K finds the same agents and worktrees",
+  "deck-zoom": "zooms the pane the keyboard is in (its header has a button for it)",
+  "deck-swap": "moves the pane the keyboard is in",
 };

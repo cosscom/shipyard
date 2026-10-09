@@ -31,6 +31,9 @@ import { HomeTabs } from "@/components/workspace/home-tabs";
 import { BoxPicker } from "@/components/box-picker";
 import { FakeTrafficLights, ZenBar } from "@/components/workspace/zen";
 import { Announcer } from "@/components/announcer";
+import { DeckBar } from "@/components/deck/deck-bar";
+import { DeckEmpty, DeckStrip, DeckSwitcher } from "@/components/deck/deck-strip";
+import { deckTab, useDeckOn, useDecks } from "@/lib/deck";
 import { fakeTrafficLights } from "@/lib/api";
 import { useBerthConnection } from "@/hooks/use-berth-connection";
 import { useShortcuts } from "@/hooks/use-shortcuts";
@@ -97,8 +100,12 @@ export default function App() {
   useTeamWatch();
   const view = useStore((s) => s.view);
   const workspace = view.kind === "workspace";
+  // Labs: the workspace layout (lib/deck.ts) has no sidebar or tab strip:
+  // named workspaces of panes across the top, other agents in a strip below.
+  const deckOn = useDeckOn();
   // Labs: zen (⌘.) puts away the sidebar, the tab strip and the status bar.
-  const zen = usePrefs((p) => p.labs && p.zen);
+  // The workspace layout has its own way, so zen stays out of it.
+  const zen = usePrefs((p) => p.labs && p.zen) && !deckOn;
   // Without the status bar, what floats over its corner (toasts, the loops
   // panel) comes down to the window's edge.
   useEffect(() => document.documentElement.style.setProperty("--berth-status-h", zen ? "0px" : "26px"), [zen]);
@@ -106,6 +113,7 @@ export default function App() {
   useRescueRemovedFocus();
   // Onboarding has no tabs yet, so it gets the plain strip, not the tab strip.
   const onboarding = useOnboardingActive();
+  const deck = deckOn && !onboarding;
   // Home (no worktree, or a box's home terminals over it) has its own strip.
   const onHome = useWorkspaces((s) => !s.current || !!homeBox(s.current));
   const connected = useStore((s) => !!s.client);
@@ -158,6 +166,24 @@ export default function App() {
       <ToastProvider position="bottom-right" viewportClassName="max-w-88 data-[position=bottom-right]:bottom-[max(calc(var(--berth-status-h,26px)+12px+var(--berth-loops-h,0px)),var(--berth-bar-lift,0px))] data-[position=bottom-right]:right-3 data-[position=bottom-left]:bottom-[calc(var(--berth-status-h,26px)+12px)] data-[position=bottom-left]:left-3 data-[position=top-left]:top-3 data-[position=top-left]:left-3 data-[position=top-right]:top-3 data-[position=top-right]:right-3">
         <div className="flex h-svh flex-col overflow-hidden bg-background text-foreground">
           {fakeTrafficLights() && <FakeTrafficLights />}
+          {deck ? (
+            <>
+              <Disconnectable className="shrink-0 flex-col" label="Workspaces">
+                <DeckBar />
+              </Disconnectable>
+              <main className="relative min-h-0 flex-1">
+                <TreeDockFrame showing={workspace}>
+                  <PaneLayer showing={workspace} />
+                </TreeDockFrame>
+                <ErrorBoundary key={view.kind} scope={viewTitles[view.kind as keyof typeof viewTitles] || (view.kind === "workspace" ? "the workspace" : undefined)} onLeave={view.kind === "workspace" ? undefined : () => useStore.getState().setView({ kind: "workspace" })}>
+                  <MainView />
+                </ErrorBoundary>
+              </main>
+              <Disconnectable className="shrink-0 flex-col" label="Agents not on screen">
+                <DeckStrip />
+              </Disconnectable>
+            </>
+          ) : (
           <div className="flex min-h-0 flex-1">
             {!zen && (
               <Disconnectable>
@@ -187,6 +213,7 @@ export default function App() {
               </main>
             </div>
           </div>
+          )}
           {!zen && <StatusBar />}
         </div>
         <ErrorBoundary scope="a dialog">
@@ -210,6 +237,7 @@ export default function App() {
           <PrReviewSheet />
           <NotificationCenter />
           <WhatsNewDialog />
+          {deck && <DeckSwitcher />}
         </ErrorBoundary>
         <FileDropGuard />
         <Announcer />
@@ -230,7 +258,14 @@ function MainView() {
   const ws = useWorkspaces((s) => (s.current ? s.spaces[s.current] : undefined));
   const home = useWorkspaces((s) => !!homeBox(s.current));
   const onboarding = useOnboardingActive();
-  const zen = usePrefs((p) => p.labs && p.zen);
+  const deckOn = useDeckOn();
+  const zen = usePrefs((p) => p.labs && p.zen) && !deckOn;
+  // The workspace in front with no panes yet (the layout's own empty page).
+  const emptyDeck = useDecks((d) => {
+    if (!deckOn || d.home) return undefined;
+    const a = d.decks.find((x) => x.id === d.active);
+    return a && !deckTab(a) ? a.name : undefined;
+  });
 
   if (!client) return <Connecting state={connection.state} error={connection.error} />;
   // A new account starts here; Settings and the other views stay reachable.
@@ -243,6 +278,7 @@ function MainView() {
   }
   if (view.kind === "workspace") {
     // A box's home terminals show over Home, which shows again without them.
+    if (!ws && emptyDeck) return <DeckEmpty name={emptyDeck} />;
     if (!ws || home) return ws?.tabs.length ? null : <NoWorktree />;
     return ws.tabs.length ? null : <Launcher worktree={ws.ref} />;
   }

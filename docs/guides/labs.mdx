@@ -4,7 +4,8 @@ description: Newer ideas in the app, on by default; Settings → Labs turns them
 ---
 
 Labs holds ideas that are still being tried: the harbour home, agents as
-conversations, zen, and worktrees side by side. They are on by default since v0.3.1, and may change
+conversations, zen, and worktrees side by side, on by default since v0.3.1,
+and a workspace layout you can pick instead of the sidebar. They may change
 or go away. Settings → Labs turns them off, and that choice is kept.
 
 ## Harbour home
@@ -245,6 +246,38 @@ then your agents (who needs you first), then worktrees, then Search, Keyboard
 shortcuts, Settings and Leave zen. ⌘K searches everything. ⌘. again brings
 it all back, and the app remembers which you left it in. In the Mac app, Zen
 is also under View in the menu bar.
+
+## Workspace layout
+
+Settings › Labs › Layout › **Workspaces** trades the sidebar for live panes
+you arrange, as in tmux or Zellij. The bar across the top holds Home, your
+named workspaces (double-click one to rename it, right-click to close it;
+nothing in it stops) and **+** for another, then how the panes are tiled
+(side by side, a grid, or zoomed), New task, Search, Review, Automations and
+Settings.
+
+A workspace holds up to four panes, each an agent from any project on any
+box, with its worktree and box in its header. One that needs you has a warm
+header that says so, and its workspace's tab counts it.
+
+The strip along the bottom holds every agent not on screen, the ones that
+need you first. Click one to bring it in beside the others (once there are
+four, it takes the focused pane's place), ⌥-click to put it in the focused
+pane's place, or drag it onto a pane: an edge puts it beside, the middle
+swaps. A pane's header puts it back in the strip; it keeps running.
+Opening an agent any other way (a notification, ⌘K, a new task) brings it
+into the workspace in front too.
+
+| Keys | What it does |
+| --- | --- |
+| ⌘1–9 | Go to workspace 1–9 |
+| ⌘E | Find any agent or worktree; ↵ brings it in, ⌥↵ in the focused pane's place |
+| ⌘⌥ and an arrow | Move between panes |
+| ⌘⌥⇧ and an arrow | Swap the focused pane with its neighbour |
+| ⌘⇧↵ | Zoom the focused pane, or show them all again |
+
+In a window narrower than 900 pixels a workspace shows one pane at a time,
+and its others wait at the start of the strip.
 
 ## Worktrees side by side
 

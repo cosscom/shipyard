@@ -6,6 +6,7 @@ import { startSession } from "@/lib/actions";
 import { bounds, layout, leaf, leaves, movePane, place, type Rect, type Side, sideAt, swap } from "@/lib/layout";
 import { usePrefs } from "@/lib/prefs";
 import { cn } from "@/lib/utils";
+import { dropSession } from "@/lib/deck";
 import { addGroup, bringSession, leadAgent, moveInto, moveTab, paneBeside, paneToTab, splitKey, tabIntoPane, useWorkspaces } from "@/lib/workspaces";
 
 // Dragging a tab from the strip, or a pane by its header, as in VS Code. Over
@@ -27,7 +28,13 @@ import { addGroup, bringSession, leadAgent, moveInto, moveTab, paneBeside, paneT
 // only becomes a drag after a few pixels, so clicks still click. Escape, or
 // the window losing focus, cancels.
 
-export type DragSource = { kind: "tab"; key: string; tab: string } | { kind: "pane"; key: string; tab: string; pane: string } | { kind: "worktree"; key: string };
+// session: an agent from the workspace layout's strip (components/deck): on
+// a pane's edge it comes in beside it, on its middle in its place.
+export type DragSource =
+  | { kind: "tab"; key: string; tab: string }
+  | { kind: "pane"; key: string; tab: string; pane: string }
+  | { kind: "worktree"; key: string }
+  | { kind: "session"; key: string; box: string; session: string };
 
 type Target =
   | { kind: "pane"; tab: string; pane: string; side: Side | "center"; rect: Rect; label: string }
@@ -125,6 +132,7 @@ const inside = (r: DOMRect, x: number) => x >= r.left && x <= r.right;
 // the tab showing, or nothing a drop would change.
 function hit(source: DragSource, x: number, y: number): Target | undefined {
   const { current, spaces } = useWorkspaces.getState();
+  if (source.kind === "session") return hitSession(source, x, y);
   const own = source.kind === "worktree" ? undefined : spaces[source.key];
   if (source.kind !== "worktree" && !own) return undefined;
   if (source.kind === "worktree" && !usePrefs.getState().labs) return undefined;
@@ -206,8 +214,37 @@ function hit(source: DragSource, x: number, y: number): Target | undefined {
   return rect && { kind: "pane", tab: tab.id, pane: over.leaf.id, side, rect, label };
 }
 
+// hitSession is where an agent from the strip would land: beside a pane of
+// the workspace in front, in its place (its middle), or alone in an empty
+// one.
+function hitSession(_source: Extract<DragSource, { kind: "session" }>, x: number, y: number): Target | undefined {
+  const { current, spaces } = useWorkspaces.getState();
+  const area = document.querySelector<HTMLElement>("[data-pane-area]")?.getBoundingClientRect();
+  if (!area || x < area.left || x > area.right || y < area.top || y > area.bottom) return undefined;
+  const shown = current ? spaces[current] : undefined;
+  const tab = shown?.tabs.find((t) => t.id === shown.active);
+  const whole = { x: 0, y: 0, w: 1, h: 1 };
+  if (!tab) return { kind: "pane", tab: "", pane: "", side: "center", rect: whole, label: "Open here" };
+  if (tab.compare) return undefined;
+  const fx = (x - area.left) / area.width;
+  const fy = (y - area.top) / area.height;
+  const zoomed = tab.zoomed ? layout(tab.root).leaves.find((l) => l.leaf.id === tab.focus) : undefined;
+  const over = zoomed ? { leaf: zoomed.leaf, rect: whole } : layout(tab.root).leaves.find(({ rect: r }) => fx >= r.x && fx <= r.x + r.w && fy >= r.y && fy <= r.y + r.h);
+  if (!over) return undefined;
+  const r = over.rect;
+  const side = sideAt((fx - r.x) / r.w, (fy - r.y) / r.h, true);
+  if (side === "center") return { kind: "pane", tab: tab.id, pane: over.leaf.id, side, rect: r, label: "In its place" };
+  const ghost = leaf({ kind: "starting", label: "" });
+  const rect = zoomed ? { ...whole, ...(side === "left" ? { w: 0.5 } : side === "right" ? { x: 0.5, w: 0.5 } : side === "top" ? { h: 0.5 } : { y: 0.5, h: 0.5 }) } : bounds(place(tab.root, over.leaf.id, side, ghost), [ghost.id]);
+  return rect && { kind: "pane", tab: tab.id, pane: over.leaf.id, side, rect, label: LABELS[side] };
+}
+
 function drop(source: DragSource, target: Target) {
   const { current } = useWorkspaces.getState();
+  if (source.kind === "session") {
+    if (target.kind === "pane") dropSession(source, target);
+    return;
+  }
   if (source.kind === "worktree") {
     if (target.kind === "group") addGroup(source.key, target.index);
     else if (target.kind === "pane" && target.side !== "center") splitWorktreeIn(source.key, target.tab, target.pane, target.side);

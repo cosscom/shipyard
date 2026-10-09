@@ -39,6 +39,7 @@ import { memory, memoryNote } from "@/lib/processes";
 import { cn } from "@/lib/utils";
 import { focusPane, paneBeside, paneToTab, setPaneContent, splitKey, useWorkspaces, useWorktreeRef } from "@/lib/workspaces";
 import { platformKeys } from "@/lib/platform";
+import { DeckPaneBits, useDeckOn } from "@/components/deck/deck-pane";
 
 export { agentLabel };
 
@@ -73,7 +74,10 @@ export function Pane({ wsKey, tab, pane, visible, focused, split, mixed, compare
   // worktrees, else its tab's.
   const owner = paneWorktree(wsKey, pane);
   const info = useMemo(() => ({ wsKey, tab, pane: pane.id, worktree: owner }), [wsKey, tab, pane.id, owner]);
-  const tone = useTone(mixed ? owner : undefined);
+  // The workspace layout (components/deck): every pane names its place, and
+  // worktrees wear no colours; the one accent is for an agent that needs you.
+  const deck = useDeckOn();
+  const tone = useTone(mixed && !deck ? owner : undefined);
   // Named with its worktree for screen readers: "Claude Code, search-perf".
   const { label: worktreeName } = useLabel(owner);
   // A guest pane whose worktree was archived or removed: say so, and let it
@@ -89,6 +93,7 @@ export function Pane({ wsKey, tab, pane, visible, focused, split, mixed, compare
   // Remember what runs here, so the pane can name it and start it again
   // once the session itself is gone.
   const agent = session ? agentOf(session) : undefined;
+  const needsYou = useStore((s) => deck && !!session && sessionState(session, s.boxes[(c as { box: string }).box]?.stats) === "waiting");
   const view = usePaneView(pane);
   // Lifted: being dragged by its header, so it fades while it moves.
   const lifted = useTabDrag((s) => s.source?.kind === "pane" && s.source.pane === pane.id);
@@ -111,17 +116,27 @@ export function Pane({ wsKey, tab, pane, visible, focused, split, mixed, compare
           // the pane's worktree, and the focus line is in that one's colour.
           <div
             onPointerDown={(e) => armDrag(e, { kind: "pane", key: wsKey, tab, pane: pane.id }, (c.kind === "terminal" && (session?.title?.trim() || c.title)) || paneLabel(c, agent), <PaneIcon content={c} agent={agent} className="size-3" />)}
-            className={cn("group/header flex h-7 shrink-0 items-center gap-1.5 border-b px-2 text-xs", focused ? "bg-accent/50 text-foreground shadow-[inset_0_2px_0_var(--ring)]" : "text-muted-foreground")}
+            data-needs-you={needsYou ? "" : undefined}
+            className={cn(
+              "group/header flex h-7 shrink-0 items-center gap-1.5 border-b px-2 text-xs",
+              focused ? "bg-accent/50 text-foreground shadow-[inset_0_2px_0_var(--ring)]" : "text-muted-foreground",
+              deck && "@container h-8",
+              needsYou && "bg-warning/8 shadow-[inset_0_2px_0_color-mix(in_oklab,var(--warning)_70%,transparent)]",
+            )}
             style={tone ? { boxShadow: focused ? `inset 0 2px 0 ${tone}` : `inset 0 1px 0 color-mix(in oklab, ${tone} 50%, transparent)` } : undefined}
           >
             {tone && <WtChip wsKey={owner} />}
-            <PaneTitle pane={pane} />
-            <div className={cn("ml-auto flex items-center transition-opacity", focused ? "opacity-100" : "opacity-0 group-hover/header:opacity-100 focus-within:opacity-100")}>
-              <PaneActions wsKey={wsKey} tab={tab} pane={pane} onClose={close} closable focused={focused} />
+            <PaneTitle pane={pane} bare={deck} />
+            {deck && <DeckPaneBits owner={owner} needsYou={needsYou} />}
+            {/* In the workspace layout the actions show on hover, so a
+                narrow pane's header is all name. */}
+            <div className={cn("ml-auto flex items-center transition-opacity", deck ? "hidden shrink-0 group-hover/header:flex group-focus-within/header:flex" : focused ? "opacity-100" : "opacity-0 group-hover/header:opacity-100 focus-within:opacity-100")}>
+              {deck && <DeckPaneBits owner={owner} pane={pane.id} focused={focused} actions />}
+              <PaneActions wsKey={wsKey} tab={tab} pane={pane} onClose={close} closable focused={focused} compact={deck} />
             </div>
           </div>
         )}
-        <div className={cn("relative flex min-h-0 flex-1 flex-col transition-opacity", split && !focused && "opacity-85", lifted && "opacity-40")}>
+        <div className={cn("relative flex min-h-0 flex-1 flex-col transition-opacity", split && !focused && !deck && "opacity-85", lifted && "opacity-40")}>
           {gone && <GonePane name={gone} onClose={close} />}
           {/* Under a chat the terminal is out of reach: Tab never lands in its
               hidden input, where it would type a tab and keep the focus. */}
@@ -299,7 +314,7 @@ export function PaneIcon({ content, agent, className }: { content: Leaf["content
   return <AgentIcon agent={agent ?? (c.kind === "terminal" ? c.agent : undefined)} className={cn("size-3", className)} />;
 }
 
-function PaneTitle({ pane }: { pane: Leaf }) {
+function PaneTitle({ pane, bare }: { pane: Leaf; bare?: boolean }) {
   const c = pane.content;
   const session = useStore((s) => (c.kind === "terminal" ? s.boxes[c.box]?.sessions?.find((x) => x.name === c.session) : undefined));
   const stats = useStore((s) => (c.kind === "terminal" ? s.boxes[c.box]?.stats : undefined));
@@ -308,7 +323,8 @@ function PaneTitle({ pane }: { pane: Leaf }) {
   const named = useStore((s) => (c.kind === "terminal" && session ? sessionName(session, { sessions: s.boxes[c.box]?.sessions }) : undefined));
   const agent = session ? agentOf(session) : undefined;
   const label = named ?? paneLabel(c, agent);
-  const secondary = session ? sessionAgent(session) : "";
+  // Bare (the workspace layout): the agent's icon says which it is.
+  const secondary = session && !bare ? sessionAgent(session) : "";
   // Honest about what it can't know: nothing while the box is away, ended
   // once the box no longer lists the session.
   const away = useStore((s) => c.kind === "terminal" && !!s.status && s.status.boxes.find((b) => b.name === c.box)?.state !== "online");
