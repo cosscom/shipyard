@@ -1,5 +1,7 @@
 import type { ComponentType } from "react";
 
+import { AgentSwitcher } from "@/components/layouts/switcher";
+import { TopBar } from "@/components/layouts/topbar";
 import { usePrefs } from "@/lib/prefs";
 
 // The window's layouts (Labs). Settings › Labs › Layout lists them, prefs
@@ -34,6 +36,14 @@ export const DEFAULT_LAYOUT = "sidebar";
 
 export const LAYOUTS: Layout[] = [
   { id: "sidebar", label: "Sidebar", description: "Places, then every project and its worktrees down the left. The app as it is." },
+  {
+    id: "topbar",
+    label: "Top bar",
+    description: "No sidebar: the project you're in and your open worktrees as tabs across the top, what needs you beside them, and ⌃⇥ to see every agent at once.",
+    side: null,
+    top: TopBar,
+    overlay: AgentSwitcher,
+  },
 ];
 
 // layoutById is a layout by its id; one this Shipyard doesn't know (a

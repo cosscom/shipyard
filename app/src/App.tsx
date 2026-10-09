@@ -119,6 +119,8 @@ export default function App() {
   const onboarding = useOnboardingActive();
   // Home (no worktree, or a box's home terminals over it) has its own strip.
   const onHome = useWorkspaces((s) => !s.current || !!homeBox(s.current));
+  // Terminals open in a box's home, which Home's strip holds.
+  const homeTerminals = useWorkspaces((s) => Object.keys(s.spaces).some((k) => !!homeBox(k) && s.spaces[k].tabs.length > 0));
   const connected = useStore((s) => !!s.client);
   // Until onboarding is done it is the whole window: no sidebar, status
   // bar, palette or shortcuts to wander off through.
@@ -186,7 +188,8 @@ export default function App() {
               ) : workspace && !onboarding ? (
                 <Disconnectable className={cn("shrink-0 flex-col", bare && "bg-sidebar pl-[84px] shadow-[inset_0_-1px_0_var(--border)]")} label="Tab bar">
                   {!onHome && <WorkspaceHeading />}
-                  {onHome ? <HomeTabs /> : <TabStrip />}
+                  {/* Under a top bar, Home's strip shows only with terminals in it. */}
+                  {onHome ? !Top || homeTerminals ? <HomeTabs /> : null : <TabStrip />}
                 </Disconnectable>
               ) : !workspace ? (
                 // Every other view's ViewHeader is the strip; bare, the

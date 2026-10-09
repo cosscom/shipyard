@@ -208,7 +208,7 @@ export function WorkingWidget() {
 // useLiveStep is what a working agent's screen says it is doing: its step
 // ("Running pnpm test…"), what that step printed last, and its status
 // line's clock. Read every 12s while the row is on screen.
-function useLiveStep(box: string, session: string, agent: string, enabled: boolean) {
+export function useLiveStep(box: string, session: string, agent: string, enabled: boolean) {
   const client = useStore((s) => s.client);
   const [step, setStep] = useState<{ now?: string; sub?: string; elapsed?: string }>();
   useEffect(() => {
