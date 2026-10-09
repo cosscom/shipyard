@@ -25,6 +25,17 @@ export function openSwitcher() {
 const LANES: Lane[] = ["waiting", "running", "finished", "recent"];
 const ROW = 2;
 
+// The pointer picks a card only once it moves: the switcher opening under a
+// resting pointer mustn't take the pick from the keyboard.
+let rest: { x: number; y: number } | undefined;
+function pointerMoved(e: React.MouseEvent) {
+  if (!rest) {
+    rest = { x: e.clientX, y: e.clientY };
+    return false;
+  }
+  return Math.abs(e.clientX - rest.x) + Math.abs(e.clientY - rest.y) > 4;
+}
+
 const close = () => useSwitcher.setState({ open: false, held: false });
 
 export function AgentSwitcher() {
@@ -103,7 +114,10 @@ export function AgentSwitcher() {
     };
   }, []);
 
-  if (!open) return null;
+  if (!open) {
+    rest = undefined;
+    return null;
+  }
   return (
     <div
       role="dialog"
@@ -169,7 +183,7 @@ function Card({ it, picked, onPick, onOpen }: { it: Item; picked: boolean; onPic
       data-testid="switcher-card"
       data-item={it.id}
       data-picked={picked || undefined}
-      onMouseEnter={onPick}
+      onMouseMove={(e) => pointerMoved(e) && onPick()}
       onClick={onOpen}
       className={cn(
         "flex min-w-0 flex-col gap-1 rounded-xl border bg-card p-2.5 text-left outline-none transition-colors",
