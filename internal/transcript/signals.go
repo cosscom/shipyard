@@ -174,40 +174,33 @@ func (c *conv) interrupted(text string) bool {
 // --- Claude Code ---
 
 // claudeExtra are the fields of a Claude Code line the signals read, past
-// the ones the conversation does.
+// the ones the conversation does. The parser decodes them with the line
+// (claudeLine).
 type claudeExtra struct {
-	Subtype        string          `json:"subtype"`
-	Level          string          `json:"level"`
-	PermissionMode string          `json:"permissionMode"`
-	Effort         string          `json:"effort"`
-	IsAPIError     bool            `json:"isApiErrorMessage"`
-	Error          json.RawMessage `json:"error"`
-	RetryAttempt   int             `json:"retryAttempt"`
-	MaxRetries     int             `json:"maxRetries"`
-	Attachment     json.RawMessage `json:"attachment"`
-	ToolUseResult  json.RawMessage `json:"toolUseResult"`
-	Message        struct {
-		Model   string `json:"model"`
-		Content json.RawMessage
-		Usage   *struct {
-			Input       int `json:"input_tokens"`
-			CacheCreate int `json:"cache_creation_input_tokens"`
-			CacheRead   int `json:"cache_read_input_tokens"`
-		} `json:"usage"`
-	} `json:"message"`
+	Subtype        string
+	Level          string
+	PermissionMode string
+	Effort         string
+	IsAPIError     bool
+	Error          json.RawMessage
+	RetryAttempt   int
+	MaxRetries     int
+	Attachment     json.RawMessage
+	Message        claudeMessage
 }
 
-// claudeSignals reads what a Claude Code line says about the agent. It
-// reports true when the line is wholly a signal and the conversation
-// should not read it as a message too (an API error's synthetic reply).
-func claudeSignals(c *conv, typ string, b []byte, at int64) bool {
+// claudeSignals reads what a Claude Code line says about the agent: x is
+// the line's fields, or nil when one is not of the type they read (the line
+// is no signal then). It reports true when the line is wholly a signal and
+// the conversation should not read it as a message too (an API error's
+// synthetic reply).
+func claudeSignals(c *conv, typ string, x *claudeExtra, b []byte, at int64) bool {
 	// A tool's result or a prompt is read only when it holds what the
 	// signals want: most are long and say nothing about the agent.
 	if typ == "user" && !bytes.Contains(b, []byte(`"permissionMode"`)) && !bytes.Contains(b, []byte("[Request interrupted by user")) && !bytes.Contains(b, []byte("<task-notification>")) {
 		return false
 	}
-	var x claudeExtra
-	if json.Unmarshal(b, &x) != nil {
+	if x == nil {
 		return false
 	}
 	if x.PermissionMode != "" {

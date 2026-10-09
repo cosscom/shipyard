@@ -185,7 +185,7 @@ func (b *Box) sessionControls(w http.ResponseWriter, r *http.Request) error {
 	agent := controlAgent(sess)
 	out := Controls{Agent: agent}
 	if !sess.Exited {
-		screen, err := b.Sessions.Screen(r.Context(), sess.Name, 0)
+		screen, err := b.Sessions.capture(r.Context(), sess.Name, 0)
 		if err != nil {
 			return err
 		}

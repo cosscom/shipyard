@@ -257,13 +257,21 @@ func (c *conv) add(it Item) int {
 		c.items[n-1].pending = nil
 	}
 	it.Off = c.lineOff
-	c.items = append(c.items, it)
 	n := keep
 	if c.limit > 0 {
 		n = c.limit
 	}
+	// The window slides along a backing array with room for n more: the
+	// oldest item drops off by reslicing, and only when the array is full
+	// do the kept items move to a fresh one. Copying the whole window for
+	// every item past n made opening a long conversation quadratic.
+	if len(c.items) == cap(c.items) && len(c.items) >= n {
+		c.items = append(make([]Item, 0, 2*n), c.items...)
+	}
+	c.items = append(c.items, it)
 	if over := len(c.items) - n; over > 0 {
-		c.items = append(c.items[:0:0], c.items[over:]...)
+		clear(c.items[:over]) // let what they hold go
+		c.items = c.items[over:]
 		c.base += over
 	}
 	return c.base + len(c.items) - 1
@@ -359,8 +367,16 @@ func (c *conv) helper(m CrewMember) {
 	}
 }
 
+// readers are the 64 KB buffers files are followed through, kept between
+// reads: every open chat reads its file every few seconds.
+var readers = sync.Pool{New: func() any { return bufio.NewReaderSize(nil, 64<<10) }}
+
 // read follows the file from where it left off.
 func (c *conv) read(path string) error {
+	// Nothing new, the usual answer to a chat's poll, needs no open.
+	if st, err := os.Stat(path); err == nil && st.Size() == c.offset {
+		return nil
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		return err
@@ -369,6 +385,9 @@ func (c *conv) read(path string) error {
 	st, err := f.Stat()
 	if err != nil {
 		return err
+	}
+	if st.Size() == c.offset {
+		return nil
 	}
 	if st.Size() < c.offset { // replaced or truncated: start again
 		*c = conv{source: c.source, dir: c.dir, p: c.p, side: c.side, byTool: map[string]int{}, crewByID: map[string]int{}, gen: gens.Add(1)}
@@ -380,7 +399,12 @@ func (c *conv) read(path string) error {
 	if _, err := f.Seek(c.offset, io.SeekStart); err != nil {
 		return err
 	}
-	r := bufio.NewReaderSize(f, 64<<10)
+	r := readers.Get().(*bufio.Reader)
+	r.Reset(f)
+	defer func() {
+		r.Reset(nil)
+		readers.Put(r)
+	}()
 	skipFirst := c.truncated && c.offset > 0 && len(c.items) == 0 && c.partial == nil
 	for {
 		if len(c.partial) == 0 {

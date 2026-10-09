@@ -177,7 +177,7 @@ func (b *Box) atStartupQuestion(ctx context.Context, sess Session) bool {
 		s, _ := v.(*startup).get()
 		return s == startAsking
 	}
-	screen, err := b.Sessions.Screen(ctx, sess.Name, 0)
+	screen, err := b.Sessions.capture(ctx, sess.Name, 0)
 	if err != nil {
 		return false
 	}
@@ -227,7 +227,7 @@ func (b *Box) watchStartup(from string, sess Session, st *startup) {
 		if err != nil || cur.Exited {
 			return
 		}
-		screen, err := b.Sessions.Screen(ctx, sess.Name, 0)
+		screen, err := b.Sessions.capture(ctx, sess.Name, 0)
 		if err != nil {
 			return
 		}
