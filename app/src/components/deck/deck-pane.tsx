@@ -36,12 +36,7 @@ export function DeckPaneBits({ owner, needsYou, pane, focused, actions }: { owne
           </button>
         </Tip>
         <Tip label={<Keys label="Put away, to the strip" />}>
-          <button
-            type="button"
-            aria-label="Put away"
-            onClick={() => park(pane)}
-            className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-3.5"
-          >
+          <button type="button" aria-label="Put away" onClick={() => park(pane)} className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-3.5">
             <ArrowDownToLineIcon />
           </button>
         </Tip>
@@ -53,10 +48,7 @@ export function DeckPaneBits({ owner, needsYou, pane, focused, actions }: { owne
   return (
     <>
       {place && (
-        <span data-testid="pane-place" className="min-w-0 shrink-[3] truncate text-muted-foreground @max-[22rem]:hidden">
-          <span aria-hidden className="mx-0.5 opacity-50">
-            ·
-          </span>
+        <span data-testid="pane-place" className="ml-1 min-w-0 shrink-[3] truncate text-muted-foreground @max-[22rem]:hidden">
           {place}
           <span className="ml-1.5 rounded-sm border px-1 py-px font-mono text-[10px] text-muted-foreground/80 @max-[30rem]:hidden">{box}</span>
         </span>

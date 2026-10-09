@@ -138,6 +138,8 @@ export function Pane({ wsKey, tab, pane, visible, focused, split, mixed, compare
         )}
         <div className={cn("relative flex min-h-0 flex-1 flex-col transition-opacity", split && !focused && !deck && "opacity-85", lifted && "opacity-40")}>
           {gone && <GonePane name={gone} onClose={close} />}
+          {/* The workspace layout: what scrolls up fades under the header rather than being cut. */}
+          {deck && view === "conversation" && <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 z-20 h-3 bg-linear-to-b from-background to-transparent" />}
           {/* Under a chat the terminal is out of reach: Tab never lands in its
               hidden input, where it would type a tab and keep the focus. */}
           {c.kind === "terminal" && (
@@ -339,7 +341,8 @@ function PaneTitle({ pane, bare }: { pane: Leaf; bare?: boolean }) {
         <PaneIcon content={c} agent={agent} />
         <span className="truncate">{label}</span>
         {secondary && <span className="shrink-0 text-muted-foreground">{secondary}</span>}
-        {state && <StateGlyph state={state} className="size-3" />}
+        {/* Bare: "Needs you" beside it says waiting, once. */}
+        {state && !(bare && state === "waiting") && <StateGlyph state={state} className="size-3" />}
         {near && session?.usage && (
           <span data-testid="pane-memory" className="flex shrink-0 items-center gap-1 text-[11px] text-warning-foreground tabular-nums dark:text-warning">
             <GaugeIcon className="size-3" aria-hidden />

@@ -82,6 +82,9 @@ test("a worktree opens from the strip or ⌘E, beside the others or in the focus
   await page.getByTestId("deck-tray").click();
   const tray = page.getByTestId("deck-tray-panel");
   await expect(tray).toContainText("old-vps");
+  // Projects fold to a line of counts; one that needs you starts open.
+  await expect(tray.getByRole("button", { name: /Fix checkout webhook retries/ })).toBeVisible();
+  await tray.getByRole("button", { name: /^evals/ }).click();
   await tray.getByRole("button", { name: /Tune the judge prompt/ }).click();
   await expect(tray).toBeHidden();
   await expect(app.panes).toHaveCount(3);
@@ -90,11 +93,12 @@ test("a worktree opens from the strip or ⌘E, beside the others or in the focus
 
 test("a new task lands in a new pane, another workspace starts empty, and Settings is a click away", async ({ app }) => {
   const { page } = app;
-  await chip(app, "devl/search-perf-claude").click();
+  await chip(app, "devl/qa-deck-codex").click();
   await expect(app.panes).toHaveCount(1);
 
   await page.locator("[data-deck-bar]").getByRole("button", { name: /New task/ }).click();
-  const composer = page.getByRole("dialog");
+  // The composer, not a toast that an agent needs you (also a dialog).
+  const composer = page.getByRole("dialog").filter({ has: page.getByRole("button", { name: /^Start/ }) });
   await composer.getByRole("textbox").first().fill("say hello");
   await composer.getByRole("button", { name: /^Start/ }).click();
   await expect(composer).toBeHidden();
@@ -113,5 +117,21 @@ test("a new task lands in a new pane, another workspace starts empty, and Settin
   const labs = await app.openSettings("labs");
   await expect(labs.getByRole("radio", { name: "Workspaces" }).or(labs.getByRole("button", { name: "Workspaces" })).first()).toBeVisible();
   await page.locator("[data-deck-bar]").getByRole("button", { name: "Close" }).click();
+  await expect(app.panes).toHaveCount(2);
+});
+
+test("⌘J brings in who has waited longest, and the strip's card says what the next one asks", async ({ app }) => {
+  const { page } = app;
+  await expect(chip(app, "devl/checkout-fix-claude")).toBeVisible();
+  await page.keyboard.press("Meta+j");
+  await expect(app.panes).toHaveCount(1);
+  await expect(paneAt(app, "checkout-fix")).toBeVisible();
+  // The other one that needs you is pinned in the strip; its card answers it.
+  await chip(app, "gpu/shop-claude").hover();
+  const card = page.getByTestId("ask-card");
+  await expect(card).toBeVisible();
+  await expect(card).toContainText("Plan the checkout release");
+  await expect(card.getByRole("button", { name: "Answer here" })).toBeVisible();
+  await card.getByRole("button", { name: "Answer here" }).click();
   await expect(app.panes).toHaveCount(2);
 });

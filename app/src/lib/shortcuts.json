@@ -18,7 +18,7 @@
     { "id": "file-tree", "group": "View", "label": "Files panel", "keys": "⌘⇧E", "accel": "CmdOrCtrl+Shift+E", "what": "Show or hide the worktree's files beside its tabs: everything, or what the agent changed this turn" },
     { "id": "devtools", "group": "View", "label": "Console and network", "keys": "⌘⌥I", "accel": "CmdOrCtrl+Alt+I", "what": "In a Browser tab: show or hide the page's Console and Network drawer" },
     { "id": "sidebar", "group": "View", "label": "Show or hide the sidebar", "keys": "⌘\\", "accel": "CmdOrCtrl+\\" },
-    { "id": "dashboard", "group": "View", "label": "Agent Dashboard", "keys": "⌘J", "accel": "CmdOrCtrl+J" },
+    { "id": "dashboard", "group": "View", "label": "Agent Dashboard", "keys": "⌘J", "accel": "CmdOrCtrl+J", "what": "The Agent Dashboard; in the workspace layout, bring in the agent that has waited longest for you" },
     { "id": "notifications", "group": "View", "label": "Notifications", "keys": "⌘⇧N", "accel": "CmdOrCtrl+Shift+N" },
     { "id": "zoom-in", "group": "View", "label": "Zoom in", "keys": "⌘+", "accel": "CmdOrCtrl+=", "sep": true },
     { "id": "zoom-out", "group": "View", "label": "Zoom out", "keys": "⌘−", "accel": "CmdOrCtrl+-" },

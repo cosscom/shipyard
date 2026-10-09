@@ -1,5 +1,5 @@
-import { ChevronUpIcon, FolderIcon, GitBranchIcon, GitBranchPlusIcon, HouseIcon, LayersIcon, SearchIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronRightIcon, ChevronUpIcon, FolderIcon, GitBranchIcon, GitBranchPlusIcon, HouseIcon, LayersIcon, SearchIcon } from "lucide-react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { create } from "zustand";
 
 import { AgentIcon, StateGlyph } from "@/components/agent-glyph";
@@ -14,7 +14,12 @@ import { DECK_NARROW } from "@/components/workspace/pane-layer";
 import { type SessionEntry, useAllSessions } from "@/hooks/use-agent-counts";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { runShortcut } from "@/hooks/use-shortcuts";
-import { openInDeck, openWorktreeInDeck, type Placement } from "@/lib/deck";
+import { toastError } from "@/components/error-note";
+import { PreviewCard, PreviewCardPopup, PreviewCardTrigger } from "@/components/ui/preview-card";
+import { boxApi } from "@/lib/api";
+import { frontDeck, openInDeck, openWorktreeInDeck, type Placement, useDecks } from "@/lib/deck";
+import { permissionChoices } from "@/lib/screen";
+import { useAsk } from "@/lib/transcript-feed";
 import { agentOf, type SessionState, sessionName, sortedWorktrees, worktreeOf } from "@/lib/derive";
 import { ago } from "@/lib/format";
 import { leaves } from "@/lib/layout";
@@ -105,33 +110,66 @@ export function DeckStrip() {
   // The first few that need you never scroll out of sight.
   const pinned = rest.filter((a) => a.e.state === "waiting").slice(0, 3);
   const lead = rest.filter((a) => !pinned.includes(a));
-  const scroller = useRef<HTMLDivElement>(null);
-  const shape = lead.map((a) => a.e.session.name).join(" ");
-  // What it shows changed (one was brought in): back to its start.
-  useEffect(() => {
-    if (scroller.current) scroller.current.scrollLeft = 0;
+  const row = useRef<HTMLDivElement>(null);
+  const shape = `${lead.map((a) => a.e.session.name).join(" ")}|${behind.length}`;
+  // As many chips as fit whole; the rest are counted in "+N", which opens
+  // the tray. Nothing is ever cut off mid-word.
+  const [fits, setFits] = useState(Number.POSITIVE_INFINITY);
+  useLayoutEffect(() => {
+    const el = row.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.clientWidth;
+      let n = 0;
+      for (const k of el.querySelectorAll<HTMLElement>("[data-lead]")) {
+        if (k.offsetLeft + k.offsetWidth > w + 1) break;
+        n++;
+      }
+      setFits(n);
+    };
+    measure();
+    // The row and each chip: a chip grows once its font has loaded.
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    for (const k of el.querySelectorAll<HTMLElement>("[data-lead]")) ro.observe(k);
+    void document.fonts?.ready.then(measure);
+    return () => ro.disconnect();
   }, [shape]);
+  const more = Math.max(0, lead.length - fits);
   const waiting = elsewhere.filter((a) => a.e.state === "waiting").length;
+  const deckName = useDecks((d) => frontDeck(undefined, d)?.name) ?? "this workspace";
   return (
     <div data-deck-strip role="toolbar" aria-label="Agents not on screen" className="flex h-10 shrink-0 items-center gap-2 border-t bg-background pr-2 pl-3">
       <Tray agents={agents} visible={showing.visible} count={elsewhere.length + behind.length} waiting={waiting} />
+      {behind.length > 0 && (
+        <>
+          {behind.map((a) => (
+            <Chip key={`behind:${a.e.box}/${a.e.session.name}`} a={a} here={deckName} onOpen={() => focusBehind(showing, a)} />
+          ))}
+          <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-border" />
+        </>
+      )}
       {pinned.map((a) => (
-        <Chip key={`${a.e.box}/${a.e.session.name}`} a={a} onOpen={(how) => openInDeck(a.e.box, a.e.session.name, how)} />
+        <AskCard key={`${a.e.box}/${a.e.session.name}`} a={a} />
       ))}
-      <div ref={scroller} className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)]">
-        {behind.length > 0 && (
-          <>
-            {behind.map((a) => (
-              <Chip key={`behind:${a.e.box}/${a.e.session.name}`} a={a} here onOpen={() => focusBehind(showing, a)} />
-            ))}
-            <span aria-hidden className="mx-1 h-4 w-px shrink-0 bg-border" />
-          </>
-        )}
-        {lead.map((a) => (
-          <Chip key={`${a.e.box}/${a.e.session.name}`} a={a} onOpen={(how) => openInDeck(a.e.box, a.e.session.name, how)} />
+      <div ref={row} className="relative flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+        {lead.map((a, i) => (
+          <span key={`${a.e.box}/${a.e.session.name}`} data-lead className={cn("flex shrink-0", i >= fits && "invisible")} aria-hidden={i >= fits || undefined}>
+            <Chip a={a} onOpen={(how) => openInDeck(a.e.box, a.e.session.name, how)} />
+          </span>
         ))}
         {!elsewhere.length && !behind.length && !pinned.length && <span className="text-muted-foreground text-xs">Every agent is on screen.</span>}
       </div>
+      {more > 0 && (
+        <button
+          type="button"
+          data-testid="strip-more"
+          onClick={() => useTray.setState({ open: true })}
+          className="flex h-7 shrink-0 items-center rounded-md px-2 text-muted-foreground text-xs tabular-nums outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          +{more} more
+        </button>
+      )}
       {quiet.length > 0 && <Quiet agents={quiet} />}
       <Tip label="Every agent and worktree, to type into">
         <Button size="sm" variant="ghost" className="shrink-0 text-muted-foreground" data-testid="deck-switcher-open" onClick={() => openSwitcher()}>
@@ -149,7 +187,15 @@ export function DeckStrip() {
 function Quiet({ agents }: { agents: StripAgent[] }) {
   return (
     <Menu>
-      <MenuTrigger render={<button type="button" data-testid="strip-quiet" className="flex h-7 shrink-0 cursor-default items-center gap-1.5 rounded-md border border-transparent px-2 text-muted-foreground text-xs outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent" />}>
+      <MenuTrigger
+        render={
+          <button
+            type="button"
+            data-testid="strip-quiet"
+            className="flex h-7 shrink-0 cursor-default items-center gap-1.5 rounded-md border border-transparent px-2 text-muted-foreground text-xs outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
+          />
+        }
+      >
         <StateGlyph state="ready" className="size-3" />
         {agents.length} ready
       </MenuTrigger>
@@ -171,6 +217,80 @@ function Quiet({ agents }: { agents: StripAgent[] }) {
   );
 }
 
+// The tray's open state: its label opens it, and so does the strip's "+N".
+const useTray = create<{ open: boolean }>(() => ({ open: false }));
+
+const QUESTION_TOOLS = /^(AskUserQuestion|request_user_input|ExitPlanMode)$/;
+
+// AskCard is a chip of an agent that needs you, whose hover card says what
+// it asks and, for a permission, answers it there (Deny, Allow once), as
+// Home's Needs you does: no need to bring it in to say yes.
+function AskCard({ a }: { a: StripAgent }) {
+  const [open, setOpen] = useState(false);
+  const client = useStore((st) => st.client);
+  const s = a.e.session;
+  const tool = s.ask?.tool;
+  const question = !tool || QUESTION_TOOLS.test(tool);
+  const ask = useAsk(a.e.box, s.name, open && !question, s.state_since);
+  const choices = ask && !ask.form ? permissionChoices(ask.choices) : undefined;
+  const allow = choices?.find((c) => c.label === "Allow");
+  const deny = choices?.find((c) => c.label === "Deny");
+  const [sent, setSent] = useState<{ at?: string; label: string }>();
+  const answered = sent && sent.at === s.state_since ? sent.label : undefined;
+  const detail = tool && !question ? [tool === "Bash" ? "" : tool, s.ask?.input].filter(Boolean).join(" ") : s.ask?.message || ask?.detail || (question ? "Asks you a question" : "Waiting for you");
+  const answer = (key: string, label: string) => {
+    if (!client) return;
+    setSent({ at: s.state_since, label });
+    boxApi.send(client, a.e.box, s.name, key, false, { when: "now", force: true }).catch((err) => {
+      setSent(undefined);
+      toastError(err, { title: "Couldn't answer", box: a.e.box });
+    });
+  };
+  const bring = (how: Placement) => {
+    setOpen(false);
+    openInDeck(a.e.box, s.name, how);
+  };
+  return (
+    <PreviewCard open={open} onOpenChange={setOpen}>
+      <PreviewCardTrigger delay={300} render={<span className="flex shrink-0" />}>
+        <ChipButton a={a} needs onOpen={bring} />
+      </PreviewCardTrigger>
+      <PreviewCardPopup align="start" sideOffset={8} className="w-88 p-3" data-testid="ask-card">
+        <div className="flex w-full min-w-0 flex-col gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <StateGlyph state="waiting" />
+            <span className="min-w-0 flex-1 truncate font-medium">{a.title}</span>
+            <span className="shrink-0 text-muted-foreground text-xs">
+              {a.place} · {a.e.box}
+            </span>
+          </div>
+          <p className={cn("text-muted-foreground text-xs", tool && !question && "break-all font-mono text-[11px]")}>{detail}</p>
+          <div className="flex items-center gap-1.5">
+            {answered ? (
+              <span className="text-muted-foreground text-xs">{answered === "Deny" ? "Denied" : "Allowed"} · resuming</span>
+            ) : (
+              allow &&
+              deny && (
+                <>
+                  <Button size="xs" variant="outline" onClick={() => answer(deny.key, "Deny")} aria-label={`Deny: ${a.title}`}>
+                    Deny
+                  </Button>
+                  <Button size="xs" onClick={() => answer(allow.key, "Allow")} aria-label={`Allow once: ${a.title}`}>
+                    Allow once
+                  </Button>
+                </>
+              )
+            )}
+            <Button size="xs" variant="ghost" className="ml-auto" onClick={() => bring("auto")}>
+              {question ? "Answer here" : "Bring in"}
+            </Button>
+          </div>
+        </div>
+      </PreviewCardPopup>
+    </PreviewCard>
+  );
+}
+
 function focusBehind(showing: ReturnType<typeof useShowing>, a: StripAgent) {
   const l = showing.tab && leaves(showing.tab.root).find((x) => x.content.kind === "terminal" && x.content.box === a.e.box && x.content.session === a.e.session.name);
   if (l && showing.key && showing.tab) focusPane(showing.key, showing.tab.id, l.id);
@@ -181,7 +301,12 @@ function focusBehind(showing: ReturnType<typeof useShowing>, a: StripAgent) {
 // had them, with the offline boxes said so. Click an agent, or a worktree,
 // to bring it in.
 function Tray({ agents, visible, count, waiting }: { agents: StripAgent[]; visible: Set<string>; count: number; waiting: number }) {
-  const [open, setOpen] = useState(false);
+  const open = useTray((t) => t.open);
+  const setOpen = (o: boolean) => useTray.setState({ open: o });
+  // Projects show folded to a line of counts; one with an agent that needs
+  // you starts unfolded.
+  const [unfolded, setUnfolded] = useState<Set<string>>(new Set());
+  const [folded, setFolded] = useState<Set<string>>(new Set());
   const boxes = useStore((s) => s.boxes);
   const status = useStore((s) => s.status);
   const all = status?.boxes ?? [];
@@ -225,68 +350,126 @@ function Tray({ agents, visible, count, waiting }: { agents: StripAgent[]; visib
           </span>
         </div>
         <div data-testid="deck-tray-panel" className="max-h-[min(60vh,32rem)] overflow-y-auto py-1.5 text-sm [mask-image:linear-gradient(to_bottom,black_calc(100%-20px),transparent)]">
-          {[...all].sort((x, y) => Number(x.state !== "online") - Number(y.state !== "online")).map((b) => {
-            const online = b.state === "online";
-            const locs = (boxes[b.name]?.locations ?? []).filter((l) => l.worktrees?.length);
-            return (
-              <section key={b.name} className="px-1.5 pb-1">
-                <h3 className={cn("flex items-center gap-2 px-2 pt-2 pb-1 font-semibold text-xs", online ? "text-foreground" : "text-muted-foreground")}>
-                  <span className={cn("size-2 rounded-full", online ? "bg-success" : "bg-muted-foreground/40")} />
-                  <span className="font-mono">{b.name}</span>
-                  {!online && <span className="font-normal">offline</span>}
-                </h3>
-                {online &&
-                  locs.map((loc) => (
-                    <div key={loc.name} className="mb-1">
-                      <div className="ml-1 flex items-center gap-1.5 px-2 py-1 text-muted-foreground text-xs">
-                        <FolderIcon className="size-3.5" />
-                        <span>{loc.name}</span>
-                      </div>
-                      {sortedWorktrees(loc).map((wt) => {
-                        const here = agents.filter((a) => a.e.box === b.name && a.e.session.dir === wt.path);
-                        const key = wsKey(b.name, wt.path);
-                        return (
-                          <div key={wt.path} className="ml-4 border-l pl-2">
-                            <button
-                              type="button"
-                              onClick={bring(() => {
-                                if (!openWorktreeInDeck(key)) selectWorktree(refOf(b.name, loc, wt));
-                              })}
-                              className="flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-muted-foreground text-xs outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                            >
-                              {wt.main ? <HouseIcon className="size-3.5" /> : <GitBranchIcon className="size-3.5" />}
-                              <span className="truncate">{wt.main ? "main" : worktreeLabel(wt)}</span>
-                              {!here.length && <span className="ml-auto text-muted-foreground/70">no agent</span>}
-                            </button>
-                            {here.map((a) => {
-                              const on = visible.has(`${a.e.box}/${a.e.session.name}`);
+          {[...all]
+            .sort((x, y) => Number(x.state !== "online") - Number(y.state !== "online"))
+            .map((b) => {
+              const online = b.state === "online";
+              const locs = (boxes[b.name]?.locations ?? []).filter((l) => l.worktrees?.length);
+              return (
+                <section key={b.name} className="px-1.5 pb-1">
+                  <h3 className={cn("flex items-center gap-2 px-2 pt-2 pb-1 font-semibold text-xs", online ? "text-foreground" : "text-muted-foreground")}>
+                    <span className={cn("size-2 rounded-full", online ? "bg-success" : "bg-muted-foreground/40")} />
+                    <span className="font-mono">{b.name}</span>
+                    {!online && <span className="font-normal">offline</span>}
+                  </h3>
+                  {online &&
+                    locs.map((loc) => {
+                      const pk = `${b.name}/${loc.name}`;
+                      const paths = new Set((loc.worktrees ?? []).map((w) => w.path));
+                      const pa = agents.filter((a) => a.e.box === b.name && paths.has(a.e.session.dir ?? ""));
+                      const n = (st: string) => pa.filter((a) => a.e.state === st).length;
+                      const isOpen = unfolded.has(pk) || (n("waiting") > 0 && !folded.has(pk));
+                      const toggle = () => {
+                        const u = new Set(unfolded);
+                        const f = new Set(folded);
+                        if (isOpen) {
+                          u.delete(pk);
+                          f.add(pk);
+                        } else {
+                          u.add(pk);
+                          f.delete(pk);
+                        }
+                        setUnfolded(u);
+                        setFolded(f);
+                      };
+                      return (
+                        <div key={loc.name} className="mb-0.5">
+                          <button
+                            type="button"
+                            aria-expanded={isOpen}
+                            onClick={toggle}
+                            className="ml-1 flex h-7 w-[calc(100%-4px)] items-center gap-1.5 rounded-md px-2 text-left text-xs outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            <ChevronRightIcon className={cn("size-3 text-muted-foreground transition-transform", isOpen && "rotate-90")} />
+                            <FolderIcon className="size-3.5 text-muted-foreground" />
+                            <span className="font-medium">{loc.name}</span>
+                            <span className="text-muted-foreground">
+                              {loc.worktrees?.length} worktree{loc.worktrees?.length === 1 ? "" : "s"}
+                            </span>
+                            <span className="ml-auto flex items-center gap-2.5 text-muted-foreground tabular-nums">
+                              {n("waiting") > 0 && (
+                                <span className="flex items-center gap-1 text-warning-foreground">
+                                  <StateGlyph state="waiting" className="size-3" />
+                                  {n("waiting")}
+                                </span>
+                              )}
+                              {n("running") > 0 && (
+                                <span className="flex items-center gap-1">
+                                  <StateGlyph state="running" className="size-3" />
+                                  {n("running")}
+                                </span>
+                              )}
+                              {n("finished") > 0 && (
+                                <span className="flex items-center gap-1">
+                                  <StateGlyph state="finished" className="size-3" />
+                                  {n("finished")}
+                                </span>
+                              )}
+                              {n("ready") + n("idle") > 0 && (
+                                <span className="flex items-center gap-1">
+                                  <StateGlyph state="ready" className="size-3" />
+                                  {n("ready") + n("idle")}
+                                </span>
+                              )}
+                            </span>
+                          </button>
+                          {isOpen &&
+                            sortedWorktrees(loc).map((wt) => {
+                              const here = agents.filter((a) => a.e.box === b.name && a.e.session.dir === wt.path);
+                              const key = wsKey(b.name, wt.path);
                               return (
-                                <button
-                                  key={a.e.session.name}
-                                  type="button"
-                                  onClick={bring(() => openInDeck(a.e.box, a.e.session.name))}
-                                  className={cn(
-                                    "flex h-7 w-full items-center gap-2 rounded-md px-2 pl-6 text-left text-xs outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring",
-                                    a.e.state === "waiting" && "bg-warning/8",
-                                  )}
-                                >
-                                  <StateGlyph state={a.e.state} className="size-3" />
-                                  <span className="min-w-0 truncate">{a.title}</span>
-                                  <span className="ml-auto flex shrink-0 items-center gap-2 text-muted-foreground">
-                                    {on && "on screen"}
-                                    <AgentIcon agent={agentOf(a.e.session)} className="size-3" />
-                                  </span>
-                                </button>
+                                <div key={wt.path} className="ml-4 border-l pl-2">
+                                  <button
+                                    type="button"
+                                    onClick={bring(() => {
+                                      if (!openWorktreeInDeck(key)) selectWorktree(refOf(b.name, loc, wt));
+                                    })}
+                                    className="flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-muted-foreground text-xs outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                                  >
+                                    {wt.main ? <HouseIcon className="size-3.5" /> : <GitBranchIcon className="size-3.5" />}
+                                    <span className="truncate">{wt.main ? "main" : worktreeLabel(wt)}</span>
+                                    {!here.length && <span className="ml-auto text-muted-foreground/70">no agent</span>}
+                                  </button>
+                                  {here.map((a) => {
+                                    const on = visible.has(`${a.e.box}/${a.e.session.name}`);
+                                    return (
+                                      <button
+                                        key={a.e.session.name}
+                                        type="button"
+                                        onClick={bring(() => openInDeck(a.e.box, a.e.session.name))}
+                                        className={cn(
+                                          "flex h-7 w-full items-center gap-2 rounded-md px-2 pl-6 text-left text-xs outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring",
+                                          a.e.state === "waiting" && "bg-warning/8",
+                                        )}
+                                      >
+                                        <StateGlyph state={a.e.state} className="size-3" />
+                                        <span className="min-w-0 truncate">{a.title}</span>
+                                        <span className="ml-auto flex shrink-0 items-center gap-2 text-muted-foreground">
+                                          {on && "on screen"}
+                                          <AgentIcon agent={agentOf(a.e.session)} className="size-3" />
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
                               );
                             })}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))}
-              </section>
-            );
-          })}
+                        </div>
+                      );
+                    })}
+                </section>
+              );
+            })}
         </div>
         <p className="border-t px-3.5 py-2 text-muted-foreground text-xs">Click brings it in · ⌥-click swaps it with the focused pane</p>
       </PopoverPopup>
@@ -294,8 +477,10 @@ function Tray({ agents, visible, count, waiting }: { agents: StripAgent[]; visib
   );
 }
 
-function Chip({ a, here, onOpen }: { a: StripAgent; here?: boolean; onOpen(how: Placement): void }) {
+function Chip({ a, here, onOpen, bare }: { a: StripAgent; here?: string; onOpen(how: Placement): void; bare?: boolean }) {
   const needs = a.e.state === "waiting";
+  const button = <ChipButton a={a} here={here} onOpen={onOpen} needs={needs} />;
+  if (bare) return button;
   return (
     <Tip
       label={
@@ -303,30 +488,37 @@ function Chip({ a, here, onOpen }: { a: StripAgent; here?: boolean; onOpen(how: 
           <span>
             {a.title} · {a.place} on {a.e.box}
           </span>
-          <span className="text-muted-foreground">{here ? "In this workspace, behind the one showing" : "Click to bring in · ⌥-click for the focused pane's place · or drag onto a pane"}</span>
+          <span className="text-muted-foreground">{here ? `In ${here}, behind the one showing` : "Click to bring in · ⌥-click for the focused pane's place · or drag onto a pane"}</span>
         </span>
       }
       side="top"
     >
-      <button
-        type="button"
-        data-testid="strip-agent"
-        data-session={`${a.e.box}/${a.e.session.name}`}
-        data-state={a.e.state}
-        onPointerDown={(e) => armDrag(e, { kind: "session", key: a.key, box: a.e.box, session: a.e.session.name }, a.title, <StateGlyph state={a.e.state} className="size-3" />)}
-        onClick={(e) => onOpen(e.altKey ? "replace" : "auto")}
-        className={cn(
-          "flex h-7 max-w-72 shrink-0 cursor-default items-center gap-1.5 rounded-md border px-2 text-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-          here ? "border-dashed border-foreground/30 bg-transparent hover:bg-accent" : needs ? "border-warning/35 bg-warning/8 hover:bg-warning/14" : "border-transparent bg-muted/60 hover:bg-accent",
-        )}
-      >
-        {here && <span className="shrink-0 text-[10px] text-muted-foreground uppercase tracking-wide">Here</span>}
-        <StateGlyph state={a.e.state} className="size-3" />
-        <span className="min-w-0 truncate font-medium text-foreground">{a.title}</span>
-        <span className="min-w-0 shrink-[2] truncate text-muted-foreground">{a.place}</span>
-        {needs && <span className="shrink-0 text-[11px] text-warning-foreground tabular-nums">{ago(a.e.session.state_since ?? a.e.session.created).replace(/ ago$/, "")}</span>}
-      </button>
+      {button}
     </Tip>
+  );
+}
+
+function ChipButton({ a, here, onOpen, needs, ...rest }: { a: StripAgent; here?: string; onOpen(how: Placement): void; needs: boolean } & React.HTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      {...rest}
+      type="button"
+      data-testid="strip-agent"
+      data-session={`${a.e.box}/${a.e.session.name}`}
+      data-state={a.e.state}
+      onPointerDown={(e) => armDrag(e, { kind: "session", key: a.key, box: a.e.box, session: a.e.session.name }, a.title, <StateGlyph state={a.e.state} className="size-3" />)}
+      onClick={(e) => onOpen(e.altKey ? "replace" : "auto")}
+      className={cn(
+        "flex h-7 max-w-60 shrink-0 cursor-default items-center gap-1.5 rounded-md border px-2 text-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+        here ? "border-dashed border-foreground/30 bg-transparent hover:bg-accent" : needs ? "border-warning/35 bg-warning/8 hover:bg-warning/14" : "border-transparent bg-muted/60 hover:bg-accent",
+      )}
+    >
+      {here && <span className="shrink-0 text-[11px] text-muted-foreground">In {here}</span>}
+      <StateGlyph state={a.e.state} className="size-3" />
+      <span className="min-w-0 truncate font-medium text-foreground">{a.title}</span>
+      <span className="min-w-0 shrink-[2] truncate text-muted-foreground">{a.place}</span>
+      {needs && <span className="shrink-0 text-[11px] text-warning-foreground tabular-nums">{ago(a.e.session.state_since ?? a.e.session.created).replace(/ ago$/, "")}</span>}
+    </button>
   );
 }
 

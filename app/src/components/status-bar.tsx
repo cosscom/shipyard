@@ -20,7 +20,7 @@ import { PluginBoundary, pluginContexts } from "@/plugins/plugin-boundary";
 import { TeamStatusItem } from "@/views/team/team-entry";
 import { useRegistry } from "@/plugins/registry";
 import { openRenameWorktree } from "@/components/sidebar/rename-worktree";
-import { homeBox, useWorkspaces } from "@/lib/workspaces";
+import { homeBox, useHereRef, useWorkspaces } from "@/lib/workspaces";
 import { findWorktree } from "@/lib/worktree-names";
 
 // StatusBar is the strip along the bottom: what agents are doing on the
@@ -156,7 +156,11 @@ export function StatusBar() {
 // WorktreeItem names the worktree in front, by its display name when it
 // has one, and renames it when clicked.
 function WorktreeItem() {
-  const at = useWorkspaces((s) => (s.current && !homeBox(s.current) ? s.spaces[s.current]?.ref : undefined));
+  // The workspace layout mixes worktrees in one tab: the focused pane's.
+  const deck = useDeckOn();
+  const here = useHereRef();
+  const front = useWorkspaces((s) => (s.current && !homeBox(s.current) ? s.spaces[s.current]?.ref : undefined));
+  const at = deck ? here : front;
   const inWorkspace = useStore((s) => s.view.kind === "workspace");
   const boxes = useStore((s) => s.boxes);
   const found = at?.path ? findWorktree(at.box, at.path, boxes) : undefined;

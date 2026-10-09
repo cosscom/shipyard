@@ -112,7 +112,13 @@ export function DeckBar() {
                 <LayoutGridIcon className="size-4" />
               </ToggleGroupItem>
             </Tip>
-            <Tip label={<span className="flex items-center gap-2">Zoom the focused pane <span className="text-muted-foreground">{platformKeys("⌘⇧↵")}</span></span>}>
+            <Tip
+              label={
+                <span className="flex items-center gap-2">
+                  Zoom the focused pane <span className="text-muted-foreground">{platformKeys("⌘⇧↵")}</span>
+                </span>
+              }
+            >
               <ToggleGroupItem value="zoom" aria-label="Zoom" className="h-7! min-w-8! px-1.5!">
                 <Maximize2Icon className="size-3.5" />
               </ToggleGroupItem>
@@ -126,7 +132,13 @@ export function DeckBar() {
         <span className="max-[999px]:hidden">New task</span>
         <Kbd className="max-[999px]:hidden">⌘N</Kbd>
       </Button>
-      <Tip label={<span className="flex items-center gap-2">Search everything <span className="text-muted-foreground">⌘K</span></span>}>
+      <Tip
+        label={
+          <span className="flex items-center gap-2">
+            Search everything <span className="text-muted-foreground">⌘K</span>
+          </span>
+        }
+      >
         <Button size="icon-sm" variant="ghost" aria-label="Search" onClick={() => useStore.getState().setPaletteOpen(true)}>
           <SearchIcon />
         </Button>
@@ -134,7 +146,15 @@ export function DeckBar() {
       <Places />
       <NotificationBell />
       <Tip label="Settings">
-        <Button size="icon-sm" variant="ghost" data-testid="nav-settings" aria-label="Settings" aria-current={settings ? "page" : undefined} className="aria-[current=page]:bg-accent" onClick={() => useStore.getState().setView({ kind: "settings" })}>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          data-testid="nav-settings"
+          aria-label="Settings"
+          aria-current={settings ? "page" : undefined}
+          className="aria-[current=page]:bg-accent"
+          onClick={() => useStore.getState().setView({ kind: "settings" })}
+        >
           <SettingsIcon />
         </Button>
       </Tip>
@@ -155,7 +175,7 @@ function Places() {
         <Tip label={review.badge ? review.badge.title : "Review"}>
           <Button size="sm" variant="ghost" data-testid="nav-review" aria-label="Review" aria-current={review.active ? "page" : undefined} className="relative gap-1 px-2 aria-[current=page]:bg-accent" onClick={review.go}>
             <InboxIcon />
-            <span className="max-[1199px]:sr-only">Review</span>
+            <span className="max-[999px]:sr-only">Review</span>
             {review.badge && <span className="text-muted-foreground text-xs tabular-nums">{review.badge.count}</span>}
           </Button>
         </Tip>
@@ -164,7 +184,7 @@ function Places() {
         <Tip label="Automations">
           <Button size="sm" variant="ghost" data-testid="nav-automations" aria-label="Automations" aria-current={automations.active ? "page" : undefined} className="gap-1 px-2 aria-[current=page]:bg-accent" onClick={automations.go}>
             <WorkflowIcon />
-            <span className="max-[1199px]:sr-only">Automations</span>
+            <span className="max-[999px]:sr-only">Automations</span>
           </Button>
         </Tip>
       )}
@@ -215,30 +235,41 @@ function DeckTab({ deck, index, on }: { deck: Deck; index: number; on: boolean }
   return (
     <ContextMenu>
       <ContextMenuTrigger render={<span className="flex shrink-0" />}>
-      <Tip label={<span className="flex items-center gap-2">{panes ? `${panes} pane${panes === 1 ? "" : "s"}` : "Empty"}{index < 9 && <span className="text-muted-foreground">{platformKeys(`⌘${index + 1}`)}</span>}</span>}>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={on}
-          data-deck={deck.name}
-          onClick={() => showDeck(deck.id)}
-          onDoubleClick={() => setEditing(true)}
-          className={cn(
-            "flex h-7 shrink-0 items-center gap-2 rounded-md px-2.5 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-            on ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-          )}
-        >
-          {index < 9 && <span aria-hidden className="font-mono text-[10px] text-muted-foreground/70 tabular-nums">{index + 1}</span>}
-          <span className="max-w-40 truncate">{deck.name}</span>
-          {/* Only what needs you is counted here; how many panes is in the tooltip. */}
-          {waiting > 0 && (
-            <span aria-label={`${waiting} need${waiting === 1 ? "s" : ""} you`} className="flex items-center gap-1 text-warning-foreground text-xs tabular-nums">
-              <span aria-hidden className="size-1.5 rounded-full bg-warning" />
-              {waiting}
+        <Tip
+          label={
+            <span className="flex items-center gap-2">
+              {panes ? `${panes} pane${panes === 1 ? "" : "s"}` : "Empty"}
+              {index < 9 && <span className="text-muted-foreground">{platformKeys(`⌘${index + 1}`)}</span>}
             </span>
-          )}
-        </button>
-      </Tip>
+          }
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={on}
+            data-deck={deck.name}
+            onClick={() => showDeck(deck.id)}
+            onDoubleClick={() => setEditing(true)}
+            className={cn(
+              "flex h-7 shrink-0 items-center gap-2 rounded-md px-2.5 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+              on ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+            )}
+          >
+            {index < 9 && (
+              <span aria-hidden className="font-mono text-[10px] text-muted-foreground/70 tabular-nums">
+                {index + 1}
+              </span>
+            )}
+            <span className="max-w-40 truncate">{deck.name}</span>
+            {/* Only what needs you is counted here; how many panes is in the tooltip. */}
+            {waiting > 0 && (
+              <span aria-label={`${waiting} need${waiting === 1 ? "s" : ""} you`} className="flex items-center gap-1 text-warning-foreground text-xs tabular-nums">
+                <span aria-hidden className="size-1.5 rounded-full bg-warning" />
+                {waiting}
+              </span>
+            )}
+          </button>
+        </Tip>
       </ContextMenuTrigger>
       <ContextMenuPopup className="min-w-44">
         <ContextMenuItem onClick={() => setEditing(true)}>

@@ -99,12 +99,14 @@ export function PaneLayer({ showing }: { showing: boolean }) {
               // Where the keyboard goes home to when what had it closes (lib/focus-home.ts).
               data-pane-focused={on && tab.focus === leaf.id ? "" : undefined}
               data-zoomed={zoomed && on ? "" : undefined}
+              // The workspace layout quiets the panes without the keyboard: no chat controls.
+              data-deck-quiet={deck && !zoomed && leaves.length > 1 && tab.focus !== leaf.id ? "" : undefined}
               className={cn("absolute overflow-hidden", rect.x > 0 && "border-l", rect.y > 0 && "border-t")}
               style={{ left: pct(rect.x), top: pct(rect.y), width: pct(rect.w), height: pct(rect.h), display: on ? "block" : "none" }}
             >
               <Pane wsKey={key} tab={tab.id} pane={leaf} visible={on} focused={tab.focus === leaf.id} split={split} mixed={several} />
               {/* The workspace layout: a quiet ring says which pane has the keyboard. */}
-              {deck && !zoomed && leaves.length > 1 && tab.focus === leaf.id && <span aria-hidden data-focus-ring className="pointer-events-none absolute inset-0 z-20 border-[1.5px] border-ring" />}
+              {deck && !zoomed && leaves.length > 1 && tab.focus === leaf.id && <span aria-hidden data-focus-ring className="pointer-events-none absolute inset-0 z-20 border-[1.5px] border-info/60" />}
             </div>
           );
         }),

@@ -393,3 +393,9 @@
 :root[data-berth-still] :is(.animate-spin, .animate-ping, .animate-pulse, .cv-shimmer)::after {
   animation-play-state: paused !important;
 }
+
+/* The workspace layout (components/deck): a pane without the keyboard keeps
+   its chat and reply box but not the row of controls under it. */
+[data-deck-quiet] [data-chat-controls] {
+  display: none;
+}

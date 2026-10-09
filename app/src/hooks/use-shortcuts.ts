@@ -24,7 +24,7 @@ import { findLeaf, leaves, paneWorktree } from "@/lib/layout";
 import { paneKey, toggleDrawer } from "@/lib/devtools";
 import { isOnboardingActive } from "@/views/onboarding/onboarding-state";
 import { firstFocusable, rescueFocus } from "@/lib/focus-home";
-import { deckOn, showDeck, swapFocused, toggleZoom, useDecks } from "@/lib/deck";
+import { deckOn, jumpToWaiting, showDeck, swapFocused, toggleZoom, useDecks } from "@/lib/deck";
 import { toggleSwitcher } from "@/components/deck/deck-strip";
 
 // The app's shortcuts (lib/shortcuts.json) come two ways: as keys, caught on
@@ -130,6 +130,8 @@ function run(id: string, from: "key" | "menu", arg?: number | Dir): boolean {
       usePrefs.setState((p) => ({ sidebarCollapsed: !p.sidebarCollapsed }));
       return true;
     case "dashboard":
+      // The workspace layout: the agent that has waited longest comes in.
+      if (deckOn() && jumpToWaiting()) return true;
       s.setView({ kind: "dashboard" });
       return true;
     case "notifications":

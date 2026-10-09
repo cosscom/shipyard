@@ -6,24 +6,7 @@ import { type Arrangement, leaf, leaves, neighbor, type Side, tile } from "@/lib
 import { usePrefs } from "@/lib/prefs";
 import { load, save } from "@/lib/storage";
 import { useStore } from "@/lib/store";
-import {
-  bringSession,
-  ensure,
-  findSession,
-  focusPane,
-  leadAgent,
-  paneBeside,
-  paneToTab,
-  parkPane,
-  refFor,
-  setSessionOpener,
-  setTabRoot,
-  setTabZoom,
-  splitKey,
-  useWorkspaces,
-  type WsTab,
-  wsKey,
-} from "@/lib/workspaces";
+import { bringSession, ensure, findSession, focusPane, leadAgent, paneBeside, paneToTab, parkPane, refFor, setSessionOpener, setTabRoot, setTabZoom, splitKey, useWorkspaces, type WsTab, wsKey } from "@/lib/workspaces";
 
 // The workspace layout (Labs, Settings › Labs › Layout): instead of a
 // sidebar, the window is named workspaces of live panes you arrange, as in
@@ -83,11 +66,7 @@ function patch(id: string, p: Partial<Deck>) {
 
 // frontDeck is the workspace showing now, if one is: its tab in front, or
 // it is empty and nothing else shows.
-export function frontDeck(
-  s: { current?: string; spaces: ReturnType<typeof useWorkspaces.getState>["spaces"] } = useWorkspaces.getState(),
-  d: DeckState = useDecks.getState(),
-  view = useStore.getState().view.kind,
-): Deck | undefined {
+export function frontDeck(s: { current?: string; spaces: ReturnType<typeof useWorkspaces.getState>["spaces"] } = useWorkspaces.getState(), d: DeckState = useDecks.getState(), view = useStore.getState().view.kind): Deck | undefined {
   if (view !== "workspace" || d.home) return undefined;
   const ws = s.current ? s.spaces[s.current] : undefined;
   if (ws) return d.decks.find((x) => x.key === s.current && x.tab === ws.active);
@@ -361,4 +340,3 @@ setSessionOpener((box, session) => (deckOn() ? openInDeck(box, session) : false)
 export function onDeck(t: WsTab | undefined, box: string, session: string): boolean {
   return !!t && leaves(t.root).some((l) => l.content.kind === "terminal" && l.content.box === box && l.content.session === session);
 }
-
