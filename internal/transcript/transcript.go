@@ -367,8 +367,16 @@ func (c *conv) helper(m CrewMember) {
 	}
 }
 
+// readers are the 64 KB buffers files are followed through, kept between
+// reads: every open chat reads its file every few seconds.
+var readers = sync.Pool{New: func() any { return bufio.NewReaderSize(nil, 64<<10) }}
+
 // read follows the file from where it left off.
 func (c *conv) read(path string) error {
+	// Nothing new, the usual answer to a chat's poll, needs no open.
+	if st, err := os.Stat(path); err == nil && st.Size() == c.offset {
+		return nil
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		return err
@@ -377,6 +385,9 @@ func (c *conv) read(path string) error {
 	st, err := f.Stat()
 	if err != nil {
 		return err
+	}
+	if st.Size() == c.offset {
+		return nil
 	}
 	if st.Size() < c.offset { // replaced or truncated: start again
 		*c = conv{source: c.source, dir: c.dir, p: c.p, side: c.side, byTool: map[string]int{}, crewByID: map[string]int{}, gen: gens.Add(1)}
@@ -388,7 +399,12 @@ func (c *conv) read(path string) error {
 	if _, err := f.Seek(c.offset, io.SeekStart); err != nil {
 		return err
 	}
-	r := bufio.NewReaderSize(f, 64<<10)
+	r := readers.Get().(*bufio.Reader)
+	r.Reset(f)
+	defer func() {
+		r.Reset(nil)
+		readers.Put(r)
+	}()
 	skipFirst := c.truncated && c.offset > 0 && len(c.items) == 0 && c.partial == nil
 	for {
 		if len(c.partial) == 0 {
