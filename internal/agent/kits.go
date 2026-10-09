@@ -390,25 +390,31 @@ func (a *Agent) installedKits(ctx context.Context) []InstalledKitOn {
 	for _, k := range a.kits() {
 		kept[k.ID] = k.Hash
 	}
-	out := []InstalledKitOn{}
+	var online []string
 	for _, b := range a.status().Boxes {
-		if b.State != StateOnline {
-			continue
+		if b.State == StateOnline {
+			online = append(online, b.Name)
 		}
-		c, ok := a.client(b.Name)
+	}
+	// Every box at once; the answers keep the boxes' order.
+	each := make([][]box.InstalledKitAt, len(online))
+	fanOut(len(online), func(i int) {
+		c, ok := a.client(online[i])
 		if !ok {
-			continue
+			return
 		}
-		var at []box.InstalledKitAt
 		cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		err := box.NewClient(c).Call(cctx, http.MethodGet, "/v1/kits", nil, &at)
-		cancel()
-		if err != nil {
-			continue
+		defer cancel()
+		var at []box.InstalledKitAt
+		if box.NewClient(c).Call(cctx, http.MethodGet, "/v1/kits", nil, &at) == nil {
+			each[i] = at
 		}
+	})
+	out := []InstalledKitOn{}
+	for n, at := range each {
 		for _, i := range at {
 			h, ok := kept[i.Kit.ID]
-			out = append(out, InstalledKitOn{Box: b.Name, InstalledKitAt: i, Outdated: ok && h != i.Kit.Hash})
+			out = append(out, InstalledKitOn{Box: online[n], InstalledKitAt: i, Outdated: ok && h != i.Kit.Hash})
 		}
 	}
 	return out

@@ -269,6 +269,8 @@ type Agent struct {
 	hostsMu sync.Mutex
 	hostsAt time.Time
 	hosts   []string
+	// boxRoutes keeps box-routes.json between changes (boxroutes.go).
+	boxRoutes statefile.Cache[map[string]BoxRoutes]
 
 	mu      sync.Mutex
 	svc     map[string]serviceCache
@@ -334,7 +336,7 @@ func Run(ctx context.Context, cfg Config) error {
 		id:       id,
 		boxes:    trust.NewStore(filepath.Join(cfg.Dir, "boxes.json")),
 		forwards: forwardStore{path: filepath.Join(cfg.Dir, "forwards.json")},
-		routes:   routeStore{path: filepath.Join(cfg.Dir, "routes.json")},
+		routes:   newRouteStore(filepath.Join(cfg.Dir, "routes.json")),
 		clients:  map[string]*boxState{},
 		seqs:     newSeqStore(cfg.Dir),
 		running:  map[string]*runningForward{},
@@ -942,7 +944,7 @@ func (a *Agent) status() Status {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	s := Status{Boxes: []BoxStatus{}, Forwards: []ForwardStatus{}, Routes: []Route{}, Proxy: a.proxySt, TeamSuggestions: suggestions}
-	if routes, err := a.routes.list(); err == nil && routes != nil {
+	if routes, err := a.routes.current(); err == nil && routes != nil {
 		s.Routes = routes
 	}
 	s.Proxy.URLPort = s.Proxy.Port

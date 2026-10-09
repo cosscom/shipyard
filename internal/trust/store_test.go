@@ -132,6 +132,64 @@ func TestACorruptStoreFailsClosedAndIsNotOverwritten(t *testing.T) {
 	}
 }
 
+// A box keeps its laptops between requests, yet a laptop that another
+// process (berthd revoke) removes is refused on its very next request, and
+// a store that turns unreadable fails closed at once.
+func TestARevokeByAnotherProcessAppliesAtOnce(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "clients.json")
+	box, cli := NewStore(path), NewStore(path)
+	alex := Peer{Name: "alex", Fingerprint: fp()}
+	sam := Peer{Name: "sam1", Fingerprint: fp()} // same length: same file size
+	if err := cli.Add(alex); err != nil {
+		t.Fatal(err)
+	}
+	for range 3 {
+		if _, ok, err := box.Trusted(alex.Fingerprint); !ok || err != nil {
+			t.Fatalf("trusted = %v, %v", ok, err)
+		}
+	}
+	if _, err := cli.Remove("alex"); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, _ := box.Trusted(alex.Fingerprint); ok {
+		t.Fatal("a revoked laptop was still trusted")
+	}
+	if err := cli.Add(alex); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, _ := box.Trusted(alex.Fingerprint); !ok {
+		t.Fatal("a paired laptop was not trusted")
+	}
+	// One peer swapped for another of the same size, straight after.
+	if _, err := cli.Remove("alex"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.Add(Peer{Name: sam.Name, Fingerprint: sam.Fingerprint, PairedAt: alex.PairedAt}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, _ := box.Trusted(alex.Fingerprint); ok {
+		t.Fatal("a replaced laptop was still trusted")
+	}
+	if _, ok, _ := box.Trusted(sam.Fingerprint); !ok {
+		t.Fatal("its replacement was not trusted")
+	}
+	if list, _ := box.List(); len(list) == 1 {
+		list[0].Fingerprint = alex.Fingerprint
+	}
+	if _, ok, _ := box.Trusted(sam.Fingerprint); !ok {
+		t.Fatal("changing a listing changed the store")
+	}
+	if err := os.WriteFile(path+".tmp", []byte("{not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(path+".tmp", path); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := box.Trusted(sam.Fingerprint); err == nil {
+		t.Fatal("a corrupt store answered a trust lookup")
+	}
+}
+
 func TestInvalidNamesAreRefused(t *testing.T) {
 	s := NewStore(filepath.Join(t.TempDir(), "boxes.json"))
 	for _, name := range []string{"", "-leading", "has space", "a/b", "ünïcode", string(make([]byte, 64))} {
