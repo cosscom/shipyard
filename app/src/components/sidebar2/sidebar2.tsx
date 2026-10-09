@@ -341,7 +341,7 @@ function ScopeButton() {
 
 // Fade is a scrolling area with a fade at an edge there is more past, so a
 // cut-off row reads as "more", not as a bug.
-function Fade({ children, className, testid, top = true }: { children: ReactNode; className?: string; testid?: string; top?: boolean }) {
+function Fade({ children, className, testid, top = true, topFade = 24 }: { children: ReactNode; className?: string; testid?: string; top?: boolean; topFade?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ top: false, bottom: false });
   const update = () => {
@@ -370,7 +370,7 @@ function Fade({ children, className, testid, top = true }: { children: ReactNode
       onScroll={update}
       data-testid={testid}
       className={cn("overflow-y-auto overscroll-contain px-2", !top && "border-t", !top && (edges.top ? "border-sidebar-border" : "border-transparent"), className)}
-      style={{ maskImage: `linear-gradient(to bottom, ${edges.top && top ? "transparent, black 24px" : "black, black"}, ${edges.bottom ? "black calc(100% - 28px), transparent" : "black, black"})` }}
+      style={{ maskImage: `linear-gradient(to bottom, ${edges.top && (top || topFade < 24) ? `transparent, black ${topFade}px` : "black, black"}, ${edges.bottom ? "black calc(100% - 28px), transparent" : "black, black"})` }}
     >
       {children}
     </RowLayer>
@@ -553,8 +553,10 @@ function Section({ id, label, count, loud, children }: { id: string; label: stri
   const folded = useS2((s) => s.folded[id] ?? false);
   return (
     <section aria-label={label} data-testid="s2-section" data-section={id} className="pt-2">
-      {/* Sticky, so a row scrolled half away still says what it is. */}
-      <SectionHead id={id} label={label} count={count} loud={loud} folded={folded} sticky />
+      {/* Sticky, so a row scrolled half away still says what it is; not
+          over Needs you, whose Allow buttons must never show without
+          the row they answer. */}
+      <SectionHead id={id} label={label} count={count} loud={loud} folded={folded} sticky={id !== "waiting"} />
       {!folded && <ul className="flex flex-col gap-px">{children}</ul>}
     </section>
   );
@@ -573,7 +575,7 @@ function MoreRow({ label, onClick }: { label: string; onClick(): void }) {
 // A row marked strongly (tint and an edge) is the agent in front; faintly,
 // a third of the tint, a worktree in front whose agent row already says so.
 const rowBase =
-  "group/r relative flex w-full scroll-my-8 gap-2 rounded-md px-2 text-left outline-none hover:bg-sidebar-accent/60 focus-visible:ring-2 focus-visible:ring-ring data-[selected=strong]:bg-sidebar-accent data-[selected=strong]:before:absolute data-[selected=strong]:before:inset-y-1 data-[selected=strong]:before:left-0 data-[selected=strong]:before:w-0.5 data-[selected=strong]:before:rounded-full data-[selected=strong]:before:bg-foreground/60 data-[selected=faint]:bg-sidebar-accent/35";
+  "group/r relative flex w-full scroll-my-8 gap-2 rounded-md px-2 text-left outline-none hover:bg-sidebar-accent/60 focus-visible:ring-2 focus-visible:ring-ring data-[selected=strong]:bg-sidebar-accent data-[selected=strong]:before:absolute data-[selected=strong]:before:inset-y-1 data-[selected=strong]:before:left-0 data-[selected=strong]:before:w-0.5 data-[selected=strong]:before:rounded-full data-[selected=strong]:before:bg-foreground/75 data-[selected=faint]:bg-sidebar-accent/35";
 
 function pinAction(key: string): Action {
   const on = useS2.getState().pinned.includes(key);
@@ -604,14 +606,14 @@ function RowName({ e, extra, away }: { e: RailAgent; extra?: number; away?: bool
   const box = several ? e.box : "";
   return (
     <>
-      <span className={cn("min-w-0 max-w-[70%] shrink-0 truncate text-[13px] leading-[18px]", away ? "text-muted-foreground" : "text-foreground")}>{name}</span>
+      <span className={cn("min-w-0 shrink truncate text-[13px] leading-[18px]", away ? "text-muted-foreground" : "text-foreground")}>{name}</span>
       {/* Where is only shown whole: a box name cut to "de…" says nothing.
-          The box stays at every width; a main checkout's project from 13.5rem. */}
-      {project && <span className="hidden shrink-0 text-[12px] text-muted-foreground @min-[13.5rem]/side:inline">· {project}</span>}
+          The box, and a main checkout's project, stay at every width. */}
+      {project && <span className="shrink-0 text-[12px] text-muted-foreground">· {project}</span>}
       {box && <span className="shrink-0 text-[12px] text-muted-foreground">· {box}</span>}
       <WtDot wsKey={e.key} className="size-1.5" />
       {extra ? (
-        <span aria-label={`and ${extra} more finished here`} className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+        <span aria-label={`and ${extra} more finished here`} className="hidden shrink-0 text-[11px] text-muted-foreground tabular-nums @min-[13.5rem]/side:inline">
           +{extra}
         </span>
       ) : null}
@@ -627,6 +629,17 @@ function NeedsRow({ e, front }: { e: RailAgent; front?: string }) {
   const ask = asks(e.session);
   const where = placeWords(e);
   const selected = e.id === front;
+  // The answer buttons show only while the row's name can be seen: never
+  // an Allow for a row scrolled out of sight.
+  const head = useRef<HTMLButtonElement>(null);
+  const [seen, setSeen] = useState(true);
+  useEffect(() => {
+    const el = head.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([x]) => setSeen(x.intersectionRatio > 0.6), { root: el.closest('[data-testid="s2-lists"]'), threshold: [0, 0.6, 1] });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   return (
     <li className="group/li relative">
       <ContextRow items={() => agentMenu(e)}>
@@ -634,6 +647,7 @@ function NeedsRow({ e, front }: { e: RailAgent; front?: string }) {
         <div data-selected={selected ? "strong" : undefined} className={cn(rowBase, "flex-col gap-0 px-0 hover:bg-sidebar-accent/60 has-[button:focus-visible]:ring-0")}>
         <Tip side="right" align="start" delay={500} className="max-w-none" label={<AgentCard e={e} />}>
           <button
+            ref={head}
             type="button"
             data-testid="s2-agent"
             data-session={`${e.box}/${e.session.name}`}
@@ -658,7 +672,7 @@ function NeedsRow({ e, front }: { e: RailAgent; front?: string }) {
             </span>
           </button>
         </Tip>
-        <Answer e={e} />
+        <Answer e={e} hidden={!seen} />
         </div>
       </ContextRow>
     </li>
@@ -670,7 +684,7 @@ const QUESTION_TOOLS = /^(AskUserQuestion|request_user_input|ExitPlanMode)$/;
 // Answer is a permission ask's Deny and Allow once, right in the row, as
 // Home has them: read from the agent's screen while it waits. A question
 // has none; the row opens it.
-function Answer({ e }: { e: RailAgent }) {
+function Answer({ e, hidden }: { e: RailAgent; hidden?: boolean }) {
   const client = useStore((st) => st.client);
   const s = e.session;
   const permission = !!s.ask?.tool && !QUESTION_TOOLS.test(s.ask.tool);
@@ -692,7 +706,7 @@ function Answer({ e }: { e: RailAgent }) {
   };
   const title = titleOf(e);
   return (
-    <span data-testid="s2-answer" className="flex items-center justify-end gap-1 pr-2 pb-1.5 pl-8">
+    <span data-testid="s2-answer" className={cn("flex items-center justify-end gap-1 pr-2 pb-1.5 pl-8", hidden && "invisible")}>
       {answered ? (
         <span className="text-[11px] text-muted-foreground">{answered === "Deny" ? "Denied" : "Allowed"} · resuming</span>
       ) : (
@@ -799,10 +813,10 @@ function WorktreeLine({ place, at, depth = 0, inProject }: { place: Place; at?: 
   const state = online ? stateOf(sessions, data) : undefined;
   const project = place.project?.name ?? loc.name;
   const name = wt.main && !inProject ? project : wtName(loc, wt);
-  const lead = sessions.filter((s) => agentOf(s) && s.title).sort((a, b) => urgency[sessionState(a, data?.stats)] - urgency[sessionState(b, data?.stats)])[0];
   const selected = isCurrent && inWorkspace ? (marked ? "faint" : "strong") : undefined;
   const glyph = state && state !== "idle" && state !== "ready" ? <StateGlyph state={state} className="size-3.5" /> : wt.main ? <HomeIcon /> : <GitBranchIcon />;
-  const dim = inProject ? lead?.title : wt.main ? "main checkout" : project;
+  // In the tree its place says enough; elsewhere, its project.
+  const dim = inProject ? undefined : wt.main ? "main checkout" : project;
   return (
     <li className="group/li relative">
       <ContextRow items={() => [pinAction(key), { type: "sep" }, ...worktreeActions(box, loc, wt)]}>
@@ -872,7 +886,7 @@ function ProjectsPanel({ open }: { open: boolean }) {
         />
       </div>
       {open && (
-        <Fade testid="s2-projects" top={false} className="min-h-0 flex-1 pb-2">
+        <Fade testid="s2-projects" top={false} topFade={14} className="min-h-0 flex-1 pb-2">
           <ul className="flex flex-col gap-px">
             {list.map((p) => (
               <ProjectRow key={p.id} p={p} />
