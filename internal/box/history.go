@@ -51,11 +51,11 @@ func olderPage(w http.ResponseWriter, r *http.Request, agent, path, dir string) 
 
 // claudeRecord is a session's Claude Code record, or why there is none.
 func (b *Box) claudeRecord(r *http.Request) (Session, string, error) {
-	sess, err := b.Sessions.Get(r.Context(), r.PathValue("name"))
+	sess, all, err := b.Sessions.getWithAll(r.Context(), r.PathValue("name"))
 	if err != nil {
 		return Session{}, "", err
 	}
-	agent, path, _ := b.transcriptFile(r, sess)
+	agent, path, _ := b.transcriptFile(r, sess, all)
 	switch {
 	case agent != "claude":
 		return sess, "", httpError{http.StatusBadRequest, "this works with Claude Code's conversations; this session runs " + firstNonEmpty(agent, "no agent")}

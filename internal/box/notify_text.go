@@ -358,7 +358,7 @@ func (h *boxNotifyHost) describe(ctx context.Context, r *Report) {
 		sumFiles(r)
 		return
 	}
-	agent, path, _ := b.transcriptFile(requestFor(ctx), sess)
+	agent, path, _ := b.transcriptFile(requestFor(ctx), sess, nil)
 	if path == "" || (agent != "claude" && agent != "codex") {
 		sumFiles(r)
 		return

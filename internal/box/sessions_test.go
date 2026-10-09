@@ -234,3 +234,46 @@ func TestScreenShowsTheSessionsOutput(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 }
+
+// A session's environment never changes, so EnvVar asks tmux once per
+// variable, an unset one included: every chat poll asks it for each agent
+// in the folder.
+func TestEnvVarAsksTmuxOnce(t *testing.T) {
+	s := testSessions(t)
+	ctx := context.Background()
+	sess, err := s.Create(ctx, "envs", "acme", t.TempDir(), "sleep 30", []string{"ACME_HOME=/srv/acme"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mu sync.Mutex
+	asked := 0
+	s.trace = func(args []string) {
+		mu.Lock()
+		defer mu.Unlock()
+		if len(args) > 0 && args[0] == "show-environment" {
+			asked++
+		}
+	}
+	for range 3 {
+		if v := s.EnvVar(ctx, sess, "ACME_HOME"); v != "/srv/acme" {
+			t.Fatalf("ACME_HOME = %q", v)
+		}
+		if v := s.EnvVar(ctx, sess, "ACME_UNSET"); v != "" {
+			t.Fatalf("ACME_UNSET = %q", v)
+		}
+	}
+	mu.Lock()
+	if asked != 2 {
+		t.Fatalf("asked tmux %d times, want 2", asked)
+	}
+	mu.Unlock()
+	// A session that is gone is not remembered as having it unset.
+	gone := Session{Name: "gone", Created: sess.Created}
+	s.EnvVar(ctx, gone, "ACME_HOME")
+	s.EnvVar(ctx, gone, "ACME_HOME")
+	mu.Lock()
+	defer mu.Unlock()
+	if asked != 4 {
+		t.Fatalf("asked tmux %d times for a gone session, want 2 more", asked-2)
+	}
+}

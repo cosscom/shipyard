@@ -130,7 +130,13 @@ func (s *Sessions) EnvVar(ctx context.Context, sess Session, key string) string 
 	}
 	out, err := s.tmux(ctx, "show-environment", "-t", "="+sess.Name, key)
 	if err != nil {
-		// Unset, or the session is gone: nothing to remember.
+		// Unset is remembered too: it is the usual answer (no account
+		// folder of its own), and every chat's poll asks it again for
+		// each agent in the folder. A session that is gone, or a tmux
+		// that failed, leaves nothing to remember.
+		if strings.Contains(string(out), "unknown variable") {
+			s.envs.Store(cacheKey, "")
+		}
 		return ""
 	}
 	v, ok := strings.CutPrefix(strings.TrimSpace(string(out)), key+"=")
@@ -420,16 +426,23 @@ func (s *Sessions) SetTitle(ctx context.Context, name, title string) error {
 }
 
 func (s *Sessions) Get(ctx context.Context, name string) (Session, error) {
+	sess, _, err := s.getWithAll(ctx, name)
+	return sess, err
+}
+
+// getWithAll is Get that also returns every session it listed, for a
+// caller that needs the others too without asking tmux again.
+func (s *Sessions) getWithAll(ctx context.Context, name string) (Session, []Session, error) {
 	all, err := s.List(ctx)
 	if err != nil {
-		return Session{}, err
+		return Session{}, nil, err
 	}
 	for _, sess := range all {
 		if sess.Name == name {
-			return sess, nil
+			return sess, all, nil
 		}
 	}
-	return Session{}, ErrUnknownSession
+	return Session{}, nil, ErrUnknownSession
 }
 
 // Kill ends a session and, in the background, everything it started
