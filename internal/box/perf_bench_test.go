@@ -195,6 +195,72 @@ func BenchmarkTurnsSave(b *testing.B) {
 	}
 }
 
+// statsBox is a box with four locations of two worktrees each, and an
+// agent's directory in the last one's second worktree.
+func statsBox(tb testing.TB) (*Box, string) {
+	tb.Helper()
+	if _, err := exec.LookPath("git"); err != nil {
+		tb.Skip("git not installed")
+	}
+	root, err := filepath.EvalSymlinks(tb.TempDir())
+	if err != nil {
+		tb.Fatal(err)
+	}
+	run := func(dir string, args ...string) {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@example.com", "GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@example.com")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			tb.Fatalf("git %v: %s", args, out)
+		}
+	}
+	bx := &Box{Name: "devbox", Locations: NewLocations(filepath.Join(root, "locations.json")), Events: &events.Bus{}}
+	var agentDir string
+	for i := range 4 {
+		repo := filepath.Join(root, fmt.Sprintf("acme%d", i))
+		os.MkdirAll(repo, 0o755)
+		run(repo, "init", "-q", "-b", "main")
+		run(repo, "commit", "-q", "--allow-empty", "-m", "init")
+		agentDir = filepath.Join(root, fmt.Sprintf("acme%d-feat", i))
+		run(repo, "worktree", "add", "-q", "-b", "feat", agentDir)
+		if _, err := bx.Locations.Add(context.Background(), fmt.Sprintf("acme%d", i), repo); err != nil {
+			tb.Fatal(err)
+		}
+	}
+	return bx, filepath.Join(agentDir, "src")
+}
+
+// An agent is placed in the same location and worktree as the full list
+// of locations names.
+func TestPlaceAgentsAsLocationsList(t *testing.T) {
+	bx, dir := statsBox(t)
+	agents := []Agent{{Tool: "claude", PID: 1, Path: dir}}
+	bx.placeAgents(context.Background(), agents)
+	locs, err := bx.Locations.List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	loc, wt := worktreeFor(locs, dir)
+	if agents[0].Location != loc || agents[0].Worktree != wt || loc != "acme3" || wt == "" || agents[0].State != "running" {
+		t.Fatalf("placed in %q/%q (%s), want %q/%q", agents[0].Location, agents[0].Worktree, agents[0].State, loc, wt)
+	}
+}
+
+// BenchmarkPlaceAgents is GET /v1/stats naming the worktree of an agent,
+// on a box with four locations: the app reads stats on every agent event.
+func BenchmarkPlaceAgents(b *testing.B) {
+	bx, dir := statsBox(b)
+	b.ReportAllocs()
+	defer cpuPerOp(b)()
+	for b.Loop() {
+		agents := []Agent{{Tool: "claude", PID: 1, Path: dir}}
+		bx.placeAgents(context.Background(), agents)
+		if agents[0].Location != "acme3" {
+			b.Fatalf("placed in %q", agents[0].Location)
+		}
+	}
+}
+
 // writeTurnRecord writes a Claude Code record whose latest turn edited
 // three files of about 20 KB each, as Claude Code keeps them.
 func writeTurnRecord(tb testing.TB, p string) {
