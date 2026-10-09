@@ -3,8 +3,8 @@ import { create } from "zustand";
 
 import { isMock } from "@/hooks/use-berth-connection";
 import { boxApi } from "@/lib/api";
+import { useFedSignals } from "@/lib/chat-signals";
 import { keyOf, useConversations } from "@/lib/conversation-store";
-import { useEventLog } from "@/lib/events";
 import { mockDemo } from "@/lib/mock";
 import { useStore } from "@/lib/store";
 import type { ToolDetail, TranscriptItem } from "@/lib/transcript";
@@ -55,49 +55,24 @@ export interface ScreenControls {
 export type NoticeItem = Extract<TranscriptItem, { kind: "notice" }>;
 
 const enc = encodeURIComponent;
-// Asking from past the end returns no items, only the crew and signals.
-const PAST_END = 1_000_000_000;
 
 export const hasControls = (box: string) => !!useStore.getState().boxes[box]?.info?.capabilities?.includes("controls");
 
-// useChatSignals reads a session's signals every few seconds while its chat
-// shows, and at once when something happens to it.
-export function useChatSignals(box: string, session: string, enabled: boolean): ChatSignals | undefined {
-  const client = useStore((s) => s.client);
+// useChatSignals is a session's signals while its chat shows. They come
+// with each read of its transcript, which the chat's feed makes anyway (on
+// open, every few seconds, and at once when something happens to it or
+// the agent writes): the feed keeps them (lib/chat-signals), so they cost
+// no read of their own.
+export function useChatSignals(box: string, session: string): ChatSignals | undefined {
   const mock = isMock();
   const [sig, setSig] = useState<ChatSignals>();
-  const latest = useEventLog((s) => s.events.find((e) => e.box === box && (e.type.startsWith("agent.") || e.type.startsWith("session.")) && (e.data?.session === session || e.data?.name === session))?.time);
-  useEffect(() => setSig(undefined), [box, session]);
+  const fed = useFedSignals((s) => s.byKey[keyOf(box, session)]);
   useEffect(() => {
-    if (mock) {
-      setSig(mockSignals(session));
-      return useMockSignals.subscribe(() => setSig(mockSignals(session)));
-    }
-    if (!client || !enabled) return;
-    let alive = true;
-    let busy = false;
-    const read = async () => {
-      if (busy || document.hidden) return;
-      busy = true;
-      try {
-        const r = await client.box<{ signals?: ChatSignals; source: string }>(box, "GET", `sessions/${enc(session)}/transcript?since=${PAST_END}`);
-        if (alive) setSig(r.signals ?? {});
-      } catch {
-        // The conversation itself says when it can't be read.
-      } finally {
-        busy = false;
-      }
-    };
-    void read();
-    const soon = window.setTimeout(() => void read(), 900);
-    const t = window.setInterval(() => void read(), 3000);
-    return () => {
-      alive = false;
-      window.clearTimeout(soon);
-      window.clearInterval(t);
-    };
-  }, [client, box, session, enabled, mock, latest]);
-  return sig;
+    if (!mock) return;
+    setSig(mockSignals(session));
+    return useMockSignals.subscribe(() => setSig(mockSignals(session)));
+  }, [box, session, mock]);
+  return mock ? sig : fed;
 }
 
 // useScreenControls reads the mode off the agent's screen when the chat
