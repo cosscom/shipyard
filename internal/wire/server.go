@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/cosscom/shipyard/internal/copybuf"
 	"github.com/cosscom/shipyard/internal/identity"
 	"github.com/cosscom/shipyard/internal/pairing"
 	"github.com/cosscom/shipyard/internal/trust"
@@ -341,12 +342,12 @@ func (s *Server) handleTCP(w http.ResponseWriter, r *http.Request) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		io.Copy(upstream, r.Body)
+		copybuf.Copy(upstream, r.Body)
 		if tc, ok := upstream.(*net.TCPConn); ok {
 			tc.CloseWrite()
 		}
 	}()
-	io.Copy(flushWriter{w: w, rc: rc}, upstream)
+	copybuf.Copy(flushWriter{w: w, rc: rc}, upstream)
 	upstream.Close()
 	r.Body.Close()
 	<-done
