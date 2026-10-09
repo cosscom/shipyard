@@ -120,28 +120,36 @@ export const visibleEntries = (s: Pick<ReviewState, "entries" | "reviewed">) => 
 
 let inflight: Promise<void> | undefined;
 
-export function refreshReview(): Promise<void> {
+// refreshReview reads the inbox again: every online box's, or only those
+// named (an event on one box changes only its inbox; a box's GET review
+// runs git in each of its worktrees with finished work).
+export function refreshReview(only?: Iterable<string>): Promise<void> {
   if (inflight) return inflight;
-  inflight = doRefresh().finally(() => {
+  inflight = doRefresh(only ? new Set(only) : undefined).finally(() => {
     inflight = undefined;
   });
   return inflight;
 }
 
-async function doRefresh() {
+async function doRefresh(only?: Set<string>) {
   const { client, status } = useStore.getState();
   if (!client || !status) return;
   useReview.setState({ loading: true });
-  const boxes = status.boxes.filter((b) => b.state === "online").map((b) => b.name);
-  const outdated: string[] = [];
-  const errors: Record<string, string> = {};
-  const runs: Record<string, FlowRun> = {};
+  const online = status.boxes.filter((b) => b.state === "online").map((b) => b.name);
+  const boxes = only ? online.filter((b) => only.has(b)) : online;
+  // The other online boxes keep what they had.
+  const kept = (box: string) => !!only && !only.has(box) && online.includes(box);
+  const was = useReview.getState();
+  const outdated: string[] = was.outdated.filter(kept);
+  const errors: Record<string, string> = Object.fromEntries(Object.entries(was.errors).filter(([b]) => kept(b)));
+  const runs: Record<string, FlowRun> = Object.fromEntries(Object.entries(was.runs).filter(([k]) => kept(k.slice(0, k.indexOf("|")))));
   const lists = await Promise.all(
     boxes.map(async (box) => {
       try {
+        // Both at once: the last check a flow ran in each worktree, if any.
+        const checks = flowsApi.runs(client, box, undefined, 50).catch(() => [] as FlowRun[]);
         const items = (await client.box<ReviewItem[] | null>(box, "GET", "review")) ?? [];
-        // The last check a flow ran in each worktree, if any.
-        const recent = await flowsApi.runs(client, box, undefined, 50).catch(() => [] as FlowRun[]);
+        const recent = await checks;
         for (const r of recent) {
           const path = r.event?.data?.path as string | undefined;
           if (!path || !r.steps.some((s) => s.kind === "run")) continue;
@@ -157,7 +165,7 @@ async function doRefresh() {
       }
     }),
   );
-  const entries = lists.flat().sort((a, b) => (b.state_since ?? "").localeCompare(a.state_since ?? ""));
+  const entries = [...useReview.getState().entries.filter((e) => kept(e.box)), ...lists.flat()].sort((a, b) => (b.state_since ?? "").localeCompare(a.state_since ?? ""));
   useReview.setState({ entries, runs, outdated, errors, loading: false, loaded: true });
   void fetchPullRequests(client, entries);
 }
@@ -204,19 +212,35 @@ export function watchReview() {
   if (started) return;
   started = true;
   let timer = 0;
-  const soon = () => {
+  // The boxes whose events came since the last read; all: every box.
+  let all = false;
+  const boxes = new Set<string>();
+  const soon = (box?: string) => {
+    if (box) boxes.add(box);
+    else all = true;
     window.clearTimeout(timer);
-    timer = window.setTimeout(() => void refreshReview(), 1500);
+    timer = window.setTimeout(() => {
+      const only = all ? undefined : [...boxes];
+      all = false;
+      boxes.clear();
+      void refreshReview(only);
+    }, 1500);
   };
   let last: BerthEvent | undefined;
   useEventLog.subscribe((s) => {
     const e = s.events[0];
     if (!e || e === last) return;
     last = e;
-    if (RELEVANT.test(e.type)) soon();
+    if (RELEVANT.test(e.type)) soon(e.box);
   });
+  const onlineOf = (st: ReturnType<typeof useStore.getState>) =>
+    (st.status?.boxes ?? [])
+      .filter((b) => b.state === "online")
+      .map((b) => b.name)
+      .join(",");
   useStore.subscribe((s, prev) => {
-    if (s.client !== prev.client || s.status?.boxes.length !== prev.status?.boxes.length) soon();
+    // A box that came back is read too.
+    if (s.client !== prev.client || s.status?.boxes.length !== prev.status?.boxes.length || (s.status !== prev.status && onlineOf(s) !== onlineOf(prev))) soon();
   });
   // A backstop to the events above, and not while the window is hidden.
   window.setInterval(() => !document.hidden && void refreshReview(), 60_000);
