@@ -417,18 +417,16 @@ const CAP = { running: 6, recent: 5 };
 // How many agents that need you show their ask in full.
 const ASKS = 3;
 
-// Body is the agents' lists and, under them, the projects. The lists come
-// first: they take what they need, up to 60% of the height (half while a project is unfolded),
-// and scroll past that; the projects take the rest and scroll, or are their
-// header alone, docked at the bottom, while folded.
+// Body is one scrolling list: the agents' sections, then the projects. Each
+// section's header sticks while its rows scroll; the Projects header sticks
+// to the bottom while the projects are below, so they are a click away
+// however many agents there are.
 function Body() {
   const all = useRailAgents();
   const scope = useS2((s) => s.scope);
   const pinned = useS2((s) => s.pinned);
   const showAll = useS2((s) => s.all);
   const projectsOpen = useS2((s) => !s.folded.projects);
-  // A project unfolded wants more of the height.
-  const anyProject = useS2((s) => Object.values(s.open).some(Boolean));
   const spaces = useWorkspaces((s) => s.spaces);
   const index = usePlaceIndex();
   const front = useFront();
@@ -487,7 +485,7 @@ function Body() {
 
   return (
     <MarkedCtx.Provider value={marked}>
-      <Fade testid="s2-lists" top={false} className={cn("min-h-16 pb-2", projectsOpen ? (anyProject ? "max-h-[50%] shrink-0" : "max-h-[60%] shrink-0") : "flex-1")}>
+      <Fade testid="s2-lists" top={false} className="min-h-0 flex-1 pb-3">
         {waiting.length > 0 && (
           <Section id="waiting" label="Needs you" count={waiting.length} loud>
             {/* The first few with their ask; past that, a line each. */}
@@ -523,19 +521,19 @@ function Body() {
             ))}
           </Section>
         )}
+        <ProjectsPanel open={projectsOpen} />
       </Fade>
-      <ProjectsPanel open={projectsOpen} />
     </MarkedCtx.Provider>
   );
 }
 
-function SectionHead({ id, label, count, loud, folded, right, sticky }: { id: string; label: string; count?: number; loud?: boolean; folded: boolean; right?: ReactNode; sticky?: boolean }) {
+function SectionHead({ id, label, count, loud, folded, right, sticky, onActivate }: { id: string; label: string; count?: number; loud?: boolean; folded: boolean; right?: ReactNode; sticky?: boolean; onActivate?: () => boolean }) {
   return (
     <div className={cn("group/head flex h-6 items-center pr-1 pl-2", sticky && "sticky top-0 z-20 bg-sidebar")}>
       <button
         type="button"
         aria-expanded={!folded}
-        onClick={() => toggleIn("folded", id)}
+        onClick={() => onActivate?.() || toggleIn("folded", id)}
         className="-ml-1 flex min-w-0 items-center gap-1.5 rounded px-1 font-medium text-[11px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         {/* Amber is "needs you" and nothing else: the dot, not the words. */}
@@ -613,8 +611,8 @@ function RowName({ e, extra, away }: { e: RailAgent; extra?: number; away?: bool
       {box && <span className="shrink-0 text-[12px] text-muted-foreground">· {box}</span>}
       <WtDot wsKey={e.key} className="size-1.5" />
       {extra ? (
-        <span aria-label={`and ${extra} more finished here`} className="hidden shrink-0 text-[11px] text-muted-foreground tabular-nums @min-[13.5rem]/side:inline">
-          +{extra}
+        <span aria-label={`${extra + 1} agents finished here`} className="hidden shrink-0 text-[11px] text-muted-foreground tabular-nums @min-[13.5rem]/side:inline">
+          ×{extra + 1}
         </span>
       ) : null}
     </>
@@ -847,18 +845,33 @@ function WorktreeLine({ place, at, depth = 0, inProject }: { place: Place; at?: 
 
 // ProjectsPanel is everything else, by project, folded: a project unfolds
 // to its worktrees with something going on (children under their parent),
-// and its quiet ones are one more click. Docked under the lists.
+// and its quiet ones are one more click. Last in the one scrolling list.
 function ProjectsPanel({ open }: { open: boolean }) {
   const { projects } = useProjects();
   const scope = useS2((s) => s.scope);
+  const head = useRef<HTMLDivElement>(null);
   const list = projects.filter((p) => scope === "all" || (scope.startsWith("p:") ? p.id === scope.slice(2) : p.members.some((m) => m.box.name === scope.slice(2))));
+  // Stuck at the bottom, the header goes to the projects instead of
+  // folding them.
+  const reveal = () => {
+    const el = head.current;
+    const sc = el?.closest('[data-testid="s2-lists"]');
+    if (!el || !sc) return false;
+    const below = el.nextElementSibling?.getBoundingClientRect().top ?? 0;
+    if (below < sc.getBoundingClientRect().bottom) return false;
+    el.nextElementSibling?.scrollIntoView({ block: "start", behavior: "smooth" });
+    return true;
+  };
   return (
-    <section aria-label="Projects" data-testid="s2-section" data-section="projects" className={cn("flex flex-col border-sidebar-border border-t pt-1", open ? "min-h-18 flex-1 basis-0" : "mt-auto shrink-0")}>
-      <div className="px-2">
+    <>
+      {/* A direct child of the scroller, so it sticks to the bottom while
+          the projects are below, and to the top while they scroll. */}
+      <div ref={head} data-testid="s2-section" data-section="projects" className="sticky top-0 bottom-0 z-30 -mx-2 mt-2 border-sidebar-border border-t bg-sidebar px-2 pt-1">
         <SectionHead
           id="projects"
           label="Projects"
           folded={!open}
+          onActivate={reveal}
           right={
             <Menu>
               <Tip label="Projects and boxes">
@@ -885,16 +898,12 @@ function ProjectsPanel({ open }: { open: boolean }) {
           }
         />
       </div>
-      {open && (
-        <Fade testid="s2-projects" top={false} topFade={14} className="min-h-0 flex-1 pb-2">
-          <ul className="flex flex-col gap-px">
-            {list.map((p) => (
-              <ProjectRow key={p.id} p={p} />
-            ))}
-          </ul>
-        </Fade>
-      )}
-    </section>
+      <ul aria-label="Projects" data-testid="s2-projects" className={cn("flex scroll-mt-8 flex-col gap-px", !open && "hidden")}>
+        {list.map((p) => (
+          <ProjectRow key={p.id} p={p} />
+        ))}
+      </ul>
+    </>
   );
 }
 
@@ -946,7 +955,7 @@ function ProjectRow({ p }: { p: Project }) {
             toggleIn("open", p.id);
           }
         }}
-        className={cn(rowBase, "sticky top-0 z-10 h-side-row items-center bg-sidebar hover:bg-[color-mix(in_oklab,var(--sidebar-accent)_60%,var(--sidebar))]")}
+        className={cn(rowBase, "sticky top-7 z-10 h-side-row items-center bg-sidebar hover:bg-[color-mix(in_oklab,var(--sidebar-accent)_60%,var(--sidebar))]")}
       >
         <span className="flex w-4 shrink-0 items-center justify-center text-muted-foreground">
           <ChevronRightIcon className={cn("size-3.5 transition-transform", open && "rotate-90")} />

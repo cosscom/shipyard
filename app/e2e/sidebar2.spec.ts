@@ -14,8 +14,7 @@ test("agents first: what needs you comes first, in words, and a click goes to th
   await expect(side).toBeVisible();
 
   // Sections in order of what they ask of you.
-  const sections = await side.getByTestId("s2-section").evaluateAll((els) => els.map((e) => e.getAttribute("data-section")));
-  expect(sections.slice(0, 3)).toEqual(["waiting", "running", "recent"]);
+  await expect.poll(() => side.getByTestId("s2-section").evaluateAll((els) => els.map((e) => e.getAttribute("data-section")).slice(0, 3))).toEqual(["waiting", "running", "recent"]);
 
   // A waiting agent says what it wants.
   const waiting = side.locator('[data-testid=s2-agent][data-session="devl/checkout-fix-claude"]');
