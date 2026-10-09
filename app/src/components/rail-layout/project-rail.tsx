@@ -1,4 +1,4 @@
-import { EllipsisIcon, FolderPlusIcon, PlusIcon, ServerIcon, ServerOffIcon, SettingsIcon } from "lucide-react";
+import { EllipsisIcon, FolderPlusIcon, PlusIcon, ServerIcon, SettingsIcon } from "lucide-react";
 import { Fragment, type ReactNode, useEffect, useState } from "react";
 
 import { MoreItems, useArrangedNav } from "@/components/sidebar/nav";
@@ -7,8 +7,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuShortcut, MenuTrigger } from "@/components/ui/menu";
 import { keysFor } from "@/lib/shortcuts";
-import { BOX_WORDS, boxState } from "@/lib/state-model";
-import { NONE, useStore } from "@/lib/store";
+import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { openAddBox } from "@/views/onboarding/add-box-dialog";
 import { type AgentEntry, openProject, type ProjectEntry, useRailProjects } from "@/components/rail-layout/model";
@@ -53,8 +52,10 @@ export function ProjectRail() {
   return (
     <nav aria-label="Projects rail" data-testid="project-rail" className="relative flex w-15 shrink-0 flex-col items-center border-sidebar-border border-r bg-sidebar pt-2 text-sidebar-foreground">
       <div className="flex flex-col items-center gap-1">
+        {/* Home's count of agents that need you is the title bar's "need
+            you" button here, said once. */}
         {top.map((n) => (
-          <PlaceButton key={n.id} id={n.id} label={n.label} icon={n.icon} active={n.active} onClick={n.go} badge={n.badge} />
+          <PlaceButton key={n.id} id={n.id} label={n.label} icon={n.icon} active={n.active} onClick={n.go} badge={n.id === "home" ? undefined : n.badge && { ...n.badge, loud: false }} />
         ))}
       </div>
       <span aria-hidden className="mt-2 h-px w-7 shrink-0 bg-sidebar-border" />
@@ -63,8 +64,9 @@ export function ProjectRail() {
           <Fragment key={p.id}>
             {/* A section's name where it starts (the sidebar's sections). */}
             {p.section && p.section !== projects[i - 1]?.section && (
-              <li data-testid="rail-section" className="w-full shrink-0 truncate px-1 pt-1 text-center font-medium text-[9px] text-muted-foreground uppercase tracking-wider">
-                {p.section}
+              <li data-testid="rail-section" className="mt-2 flex w-full shrink-0 flex-col items-center gap-1.5">
+                <span aria-hidden className="h-px w-7 bg-sidebar-border" />
+                <span className="w-full truncate px-1 text-center font-medium text-[9px] text-muted-foreground uppercase tracking-wider">{p.section}</span>
               </li>
             )}
             <li className="relative flex w-full shrink-0 justify-center">
@@ -77,15 +79,17 @@ export function ProjectRail() {
         </li>
       </ul>
       <div className="flex w-full shrink-0 flex-col items-center gap-1 border-sidebar-border border-t pt-2 pb-2">
-        <AwayBoxes />
         {bottom.map((n) => (
           <PlaceButton key={n.id} id={n.id} label={n.label} icon={n.icon} active={n.active} onClick={n.go} badge={n.badge} />
         ))}
         {more.length > 0 && (
           <Menu>
             <Tip label="More" side="right">
-              <MenuTrigger render={<button type="button" aria-label="More" data-testid="rail-more" className={cn(placeClass, more.some((n) => n.active) && "bg-sidebar-accent text-foreground")} />}>
-                <EllipsisIcon />
+              <MenuTrigger render={<button type="button" aria-label="More" data-testid="rail-more" className={itemClass} />}>
+                <span className={cn(iconClass, more.some((n) => n.active) && "bg-sidebar-accent text-foreground")}>
+                  <EllipsisIcon />
+                </span>
+                <Caption on={more.some((n) => n.active)}>More</Caption>
               </MenuTrigger>
             </Tip>
             <MenuPopup side="right" align="end" className="min-w-52">
@@ -99,8 +103,14 @@ export function ProjectRail() {
   );
 }
 
-const placeClass =
-  "relative inline-flex size-9 items-center justify-center rounded-xl text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-sidebar-accent [&_svg]:size-[18px]";
+// A place in the rail: its icon over its name, the whole of it one target.
+const itemClass = "group/item flex w-15 flex-col items-center gap-0.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const iconClass =
+  "relative inline-flex h-8 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors group-hover/item:bg-sidebar-accent group-hover/item:text-foreground group-data-popup-open/item:bg-sidebar-accent [&_svg]:size-[17px]";
+
+function Caption({ children, on }: { children: ReactNode; on?: boolean }) {
+  return <span className={cn("block w-full truncate text-center text-[9.5px] leading-3 tracking-[-0.01em]", on ? "font-medium text-foreground" : "text-muted-foreground group-hover/item:text-foreground")}>{children}</span>;
+}
 
 // Edge is the bar at the rail's left edge beside where you are.
 function Edge({ on, top = "50%" }: { on: boolean; top?: string }) {
@@ -116,11 +126,14 @@ function Edge({ on, top = "50%" }: { on: boolean; top?: string }) {
 function PlaceButton({ id, label, icon, active, onClick, badge }: { id: string; label: string; icon: ReactNode; active: boolean; onClick(e: React.MouseEvent): void; badge?: { count: number; loud?: boolean; title: string } }) {
   return (
     <div className="relative flex w-15 justify-center">
-      <Edge on={active} />
+      <Edge on={active} top="16px" />
       <Tip label={badge ? `${label} · ${badge.title}` : label} side="right">
-        <button type="button" data-testid={`nav-${id}`} aria-label={badge ? `${label}, ${badge.title}` : label} aria-current={active ? "page" : undefined} onClick={onClick} className={cn(placeClass, active && "bg-sidebar-accent text-foreground")}>
-          {icon}
-          {badge?.count ? <CountBadge count={badge.count} loud={badge.loud} /> : null}
+        <button type="button" data-testid={`nav-${id}`} aria-label={badge ? `${label}, ${badge.title}` : label} aria-current={active ? "page" : undefined} onClick={onClick} className={itemClass}>
+          <span className={cn(iconClass, active && "bg-sidebar-accent text-foreground")}>
+            {icon}
+            {badge?.count ? <CountBadge count={badge.count} loud={badge.loud} /> : null}
+          </span>
+          <Caption on={active}>{label}</Caption>
         </button>
       </Tip>
     </div>
@@ -145,9 +158,9 @@ function markLabel(p: ProjectEntry) {
   return `${p.name}${parts.length ? `, ${parts.join(", ")}` : ""}${p.online ? "" : ", box away"}`;
 }
 
-const PIPS = 4;
+const PIPS = 3;
 const LIVE = ["waiting", "running", "finished"];
-const pipColor: Record<string, string> = { waiting: "bg-warning", running: "bg-info", finished: "bg-success/80" };
+const pipColor: Record<string, string> = { waiting: "border-[1.5px] border-warning", running: "bg-info", finished: "bg-success/80" };
 
 // Pips are a dot per agent at work in a project, the ones that need you
 // first: how much is going on, and of what kind, at a glance.
@@ -158,11 +171,11 @@ function Pips({ p }: { p: ProjectEntry }) {
     .filter((a) => LIVE.includes(a.state))
     .sort((a, b) => LIVE.indexOf(a.state) - LIVE.indexOf(b.state));
   return (
-    <span aria-hidden data-testid="rail-pips" className="flex h-1.5 items-center gap-[2.5px]">
+    <span aria-hidden data-testid="rail-pips" className="flex h-1.5 items-center gap-[3px]">
       {live.slice(0, PIPS).map((a) => (
-        <span key={`${a.box}/${a.session.name}`} data-state={a.state} className={cn("size-[5px] rounded-full", pipColor[a.state])} />
+        <span key={`${a.box}/${a.session.name}`} data-state={a.state} className={cn("size-1.5 rounded-full", pipColor[a.state])} />
       ))}
-      {live.length > PIPS && <span className="font-medium text-[8px] text-muted-foreground leading-none">+{live.length - PIPS}</span>}
+      {live.length > PIPS && <span className="font-medium text-[9px] text-muted-foreground leading-none tabular-nums">+{live.length - PIPS}</span>}
     </span>
   );
 }
@@ -202,7 +215,7 @@ function ProjectMark({ p, n }: { p: ProjectEntry; n: number }) {
           className={cn(
             "relative flex size-9 items-center justify-center rounded-full bg-sidebar-accent font-semibold text-[13px] text-sidebar-foreground/80 shadow-[inset_0_0_0_1px_var(--sidebar-border)] transition-[background-color,color,box-shadow] duration-150",
             "group-hover/item:bg-foreground/12 group-hover/item:text-foreground group-data-popup-open/item:bg-foreground/12 group-data-popup-open/item:text-foreground",
-            p.current && "bg-foreground/15 text-foreground ring-[1.5px] ring-foreground/55 ring-offset-2 ring-offset-sidebar",
+            p.current && "bg-foreground/15 text-foreground",
             !p.online && "border border-muted-foreground/40 border-dashed bg-transparent text-muted-foreground shadow-none",
           )}
         >
@@ -218,24 +231,6 @@ function ProjectMark({ p, n }: { p: ProjectEntry; n: number }) {
         <ProjectFooter p={p} />
       </MenuPopup>
     </Menu>
-  );
-}
-
-// AwayBoxes is the boxes that are not online, when any is, as the sidebar
-// lists them: a mark that says how many, and Settings › Boxes to see why.
-function AwayBoxes() {
-  const boxes = useStore((s) => s.status?.boxes ?? NONE);
-  const data = useStore((s) => s.boxes);
-  const away = boxes.filter((b) => b.state !== "online");
-  if (!away.length) return null;
-  const text = away.map((b) => `${b.name} is ${BOX_WORDS[boxState(b, data[b.name])].lower}`).join(", ");
-  return (
-    <Tip label={`${text}. Its projects show dashed.`} side="right">
-      <button type="button" data-testid="rail-away" aria-label={text} onClick={() => useStore.getState().setView({ kind: "settings", section: "boxes" })} className={placeClass}>
-        <ServerOffIcon className="!size-4" />
-        <CountBadge count={away.length} />
-      </button>
-    </Tip>
   );
 }
 

@@ -1,13 +1,11 @@
 import { GitBranchIcon, GitBranchPlusIcon, HomeIcon, ListIcon, ServerOffIcon, SettingsIcon } from "lucide-react";
 
 import { AgentIcon, StateGlyph } from "@/components/agent-glyph";
-import { MenuGroup, MenuGroupLabel, MenuItem, MenuSeparator, MenuShortcut } from "@/components/ui/menu";
-import { sessionName } from "@/lib/derive";
+import { MenuGroup, MenuGroupLabel, MenuItem, MenuSeparator, MenuShortcut, MenuSub, MenuSubPopup, MenuSubTrigger } from "@/components/ui/menu";
 import { ago } from "@/lib/format";
 import { keysFor } from "@/lib/shortcuts";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { openSession } from "@/lib/workspaces";
 import { LANE_WORDS, LANES, type ProjectEntry, openWt, type WtEntry } from "@/components/rail-layout/model";
 
 // How many quiet worktrees a list shows before "All worktrees".
@@ -67,45 +65,49 @@ function WorktreeItem({ w, chip }: { w: WtEntry; chip: boolean }) {
   );
 }
 
-// AgentSubItems are a worktree's agents, when it has more than one, each
-// its own way in.
-function AgentSubItems({ w }: { w: WtEntry }) {
-  if (w.away || w.agents.length < 2) return null;
-  const sessions = w.agents.map((a) => a.session);
-  return w.agents.map((a) => (
-    <MenuItem key={a.session.name} data-testid="rail-agent-item" onClick={() => openSession(a.box, a.session)} className="min-h-6 gap-2 py-0.5 ps-9 text-xs sm:min-h-6 sm:text-xs">
-      <StateGlyph state={a.state} className="size-3" />
-      <span className="min-w-0 flex-1 truncate text-muted-foreground">{sessionName(a.session, { sessions })}</span>
-      <AgentIcon agent={a.agent} className="size-3 opacity-70" />
-    </MenuItem>
-  ));
-}
-
-// WorktreeItems lists a project's worktrees by what they need from you.
+// WorktreeItems lists a project's worktrees by what they need from you:
+// those that need you, work or are done in full, the quiet ones folded
+// into one row, so a peek stays short. A worktree's several agents are
+// the breadcrumb's to tell apart, not the peek's.
 export function WorktreeItems({ p, compact }: { p: ProjectEntry; compact?: boolean }) {
-  const groups = LANES.map((lane) => ({ lane, list: p.worktrees.filter((w) => w.lane === lane) })).filter((g) => g.list.length);
+  const groups = LANES.filter((l) => l !== "quiet").map((lane) => ({ lane, list: p.worktrees.filter((w) => w.lane === lane) })).filter((g) => g.list.length);
+  const quiet = p.worktrees.filter((w) => w.lane === "quiet");
+  const shownQuiet = quiet.slice(0, compact ? 6 : QUIET_MAX * 2);
   return (
     <>
-      {groups.map(({ lane, list }) => {
-        const shown = lane === "quiet" ? list.slice(0, compact ? 2 : QUIET_MAX) : list;
-        const more = list.length - shown.length;
-        return (
-          <MenuGroup key={lane} data-testid="rail-lane" data-lane={lane}>
-            <MenuGroupLabel className={cn("pt-2 pb-1", lane === "waiting" && "text-warning-foreground")}>{LANE_WORDS[lane]}</MenuGroupLabel>
-            {shown.map((w) => (
-              <div key={w.key}>
-                <WorktreeItem w={w} chip={p.multiBox} />
-                {!compact && <AgentSubItems w={w} />}
-              </div>
-            ))}
-            {more > 0 && (
-              <MenuItem onClick={() => useStore.getState().setView({ kind: "worktrees" })} className="ps-8.5 text-muted-foreground text-xs">
-                {more} more quiet worktree{more === 1 ? "" : "s"}…
-              </MenuItem>
-            )}
-          </MenuGroup>
-        );
-      })}
+      {groups.map(({ lane, list }) => (
+        <MenuGroup key={lane} data-testid="rail-lane" data-lane={lane}>
+          <MenuGroupLabel className={cn("pt-2 pb-1", lane === "waiting" && "text-warning-foreground")}>{LANE_WORDS[lane]}</MenuGroupLabel>
+          {list.map((w) => (
+            <WorktreeItem key={w.key} w={w} chip={p.multiBox} />
+          ))}
+        </MenuGroup>
+      ))}
+      {quiet.length > 0 && (
+        <MenuGroup data-testid="rail-lane" data-lane="quiet">
+          {groups.length > 0 && <MenuSeparator />}
+          <MenuSub>
+            <MenuSubTrigger data-testid="rail-quiet" className="text-muted-foreground">
+              <span className="flex size-4 items-center justify-center">
+                <GitBranchIcon className="size-3.5" />
+              </span>
+              <span className="min-w-0 flex-1 truncate">
+                {quiet.length} quiet worktree{quiet.length === 1 ? "" : "s"}
+              </span>
+            </MenuSubTrigger>
+            <MenuSubPopup className="w-80">
+              {shownQuiet.map((w) => (
+                <WorktreeItem key={w.key} w={w} chip={p.multiBox} />
+              ))}
+              {quiet.length > shownQuiet.length && (
+                <MenuItem onClick={() => useStore.getState().setView({ kind: "worktrees" })} className="text-muted-foreground text-xs">
+                  {quiet.length - shownQuiet.length} more…
+                </MenuItem>
+              )}
+            </MenuSubPopup>
+          </MenuSub>
+        </MenuGroup>
+      )}
     </>
   );
 }
@@ -136,15 +138,15 @@ export function ProjectFooter({ p }: { p: ProjectEntry }) {
 }
 
 // ProjectHead heads a peek: the project, its boxes, and how its agents are.
-// Its counts are of agents (the badge's and the pips'), where the lists
-// under it are of worktrees.
+// Its counts are of agents, as the badge and the dots are; the lists under
+// it are of worktrees.
 export function ProjectHead({ p, hint }: { p: ProjectEntry; hint?: React.ReactNode }) {
-  const agents = p.waiting + p.running + p.finished;
+  const parts = [p.waiting && `${p.waiting} need${p.waiting === 1 ? "s" : ""} you`, p.running && `${p.running} working`, p.finished && `${p.finished} done`].filter(Boolean);
   return (
     <div className="flex items-center gap-2 px-2 pt-1.5 pb-1">
       <span className="font-medium text-sm">{p.name}</span>
       <span className="truncate text-muted-foreground text-xs">{p.project.members.map((m) => m.box.name).join(" · ")}</span>
-      <span className="ml-auto shrink-0 text-muted-foreground text-xs">{agents ? `${agents} agent${agents === 1 ? "" : "s"} at work` : "Nothing running"}</span>
+      <span className="ml-auto shrink-0 text-muted-foreground text-xs">{parts.length ? parts.join(" · ") : "Nothing running"}</span>
       {hint}
     </div>
   );

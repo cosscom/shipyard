@@ -27,6 +27,8 @@ test("the rail peeks at a project's worktrees by state, and a click goes there",
   const fix = peek.locator('[data-testid=rail-wt][data-worktree="devl/checkout-fix"]');
   await expect(fix).toContainText("Fix checkout webhook retries");
   await expect(fix).toContainText("pnpm prisma migrate dev");
+  // Quiet worktrees fold into one row, so the peek stays short.
+  await expect(peek.getByTestId("rail-quiet")).toContainText("2 quiet worktrees");
 
   // One click: the worktree opens with its agent in front, and the
   // breadcrumb and the rail say where you are.
@@ -51,9 +53,6 @@ test("the rail peeks at a project's worktrees by state, and a click goes there",
   await expect(page.getByTestId("crumb-worktree")).toContainText("judge-v2");
   await page.keyboard.press("Control+3");
   await expect(page.getByTestId("crumb-project")).toContainText("shop");
-
-  // A box that is away is said at the rail's foot.
-  await expect(rail.getByTestId("rail-away")).toHaveAccessibleName(/old-vps is offline/);
 });
 
 test("the breadcrumb switches worktree, agent and project", async ({ app }) => {

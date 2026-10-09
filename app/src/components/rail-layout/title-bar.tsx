@@ -7,7 +7,7 @@ import { useNavItems } from "@/components/sidebar/nav";
 import { Tip } from "@/components/tip";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
-import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuSeparator, MenuShortcut, MenuTrigger } from "@/components/ui/menu";
+import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuSeparator, MenuShortcut, MenuSub, MenuSubPopup, MenuSubTrigger, MenuTrigger } from "@/components/ui/menu";
 import { useNarrow, useTiny } from "@/components/workspace/worktree-tone";
 import { agentPresets, startSession } from "@/lib/actions";
 import { hasTrafficLights } from "@/lib/api";
@@ -68,11 +68,24 @@ function NeedsYou({ compact }: { compact: boolean }) {
   const at = waiting.findIndex((a) => focused?.session && a.box === focused.box && a.session.name === focused.session.name);
   const next = waiting[(at + 1) % waiting.length];
   const label = `${waiting.length} need${waiting.length === 1 ? "s" : ""} you`;
+  const where = projects.flatMap((p) => p.worktrees.filter((w) => w.agents.includes(next)).map((w) => `${p.name} / ${w.name}`))[0];
+  const what = next.session.title?.trim() || agentLabel(next.agent);
+  const ask = next.session.ask?.input ?? next.session.ask?.message;
   return (
-    <Tip label={`Go to ${next.session.title?.trim() || agentLabel(next.agent)}${waiting.length > 1 ? ", then the next" : ""}`} side="bottom">
-      <Button size="sm" variant="ghost" data-testid="title-needs-you" aria-label={`${label}: go to the next`} onClick={() => openSession(next.box, next.session)} className="gap-1.5 text-warning-foreground hover:bg-warning/10">
+    <Tip
+      side="bottom"
+      label={
+        <span className="flex max-w-80 flex-col gap-0.5">
+          <span className="text-muted-foreground">Next{where ? ` · ${where}` : ""}</span>
+          <span className="font-medium">{what}</span>
+          {ask && <span className="line-clamp-2 font-mono text-[11px] opacity-80">{ask}</span>}
+        </span>
+      }
+    >
+      <Button size="sm" variant="ghost" data-testid="title-needs-you" aria-label={`${label}: go to ${what}`} onClick={() => openSession(next.box, next.session)} className="min-w-0 gap-1.5 text-warning-foreground hover:bg-warning/10">
         <StateGlyph state="waiting" />
-        {compact ? waiting.length : label}
+        <span className="shrink-0">{compact ? waiting.length : label}</span>
+        {!compact && where && <span className="max-w-44 truncate text-muted-foreground">· {where}</span>}
       </Button>
     </Tip>
   );
@@ -227,7 +240,7 @@ function AgentCrumb({ w }: { w: WtEntry }) {
   const name = s ? sessionName(s, { sessions }) : focused?.kind === "browser" ? "Browser" : focused?.kind === "preview" ? "Preview" : focused?.kind === "file" ? "File" : focused?.title || (w.agents.length ? `${w.agents.length} agent${w.agents.length === 1 ? "" : "s"}` : "No agent yet");
   return (
     <Menu>
-      <MenuTrigger data-testid="crumb-agent" className={cn(crumbClass, "text-muted-foreground data-popup-open:text-foreground hover:text-foreground", "min-w-12 max-w-96")}>
+      <MenuTrigger data-testid="crumb-agent" className={cn(crumbClass, "text-muted-foreground data-popup-open:text-foreground hover:text-foreground", "min-w-12 max-w-60")}>
         {s ? agent ? <AgentIcon agent={agent} /> : <SquareTerminalIcon className="size-3.5 shrink-0" /> : null}
         <span className="truncate">{name}</span>
         {state && (state === "waiting" || state === "running" || state === "finished") && <span className={cn("shrink-0 text-xs", state === "waiting" && "text-warning-foreground", state === "running" && "text-info-foreground", state === "finished" && "text-success-foreground")}>{sessionWord(state)}</span>}
@@ -262,22 +275,27 @@ function AgentCrumb({ w }: { w: WtEntry }) {
           </MenuGroup>
         )}
         {(w.agents.length > 0 || w.others.length > 0) && <MenuSeparator />}
-        <MenuGroup>
-          <MenuGroupLabel>Start here</MenuGroupLabel>
-          {presets.map((p) => (
-            <MenuItem key={p.id} onClick={() => void startSession(p.command, { kind: "tab" }, p.name)}>
-              <span className="flex size-4 items-center justify-center">
-                <AgentIcon agent={p.id} />
-              </span>
-              {p.name}
-            </MenuItem>
-          ))}
-          <MenuItem onClick={() => void startSession("")}>
-            <SquareTerminalIcon />
-            Terminal
-            <MenuShortcut>{keysFor("new-terminal")}</MenuShortcut>
-          </MenuItem>
-        </MenuGroup>
+        <MenuSub>
+          <MenuSubTrigger>
+            <PlusIcon />
+            New agent here
+          </MenuSubTrigger>
+          <MenuSubPopup className="min-w-48">
+            {presets.map((p) => (
+              <MenuItem key={p.id} onClick={() => void startSession(p.command, { kind: "tab" }, p.name)}>
+                <span className="flex size-4 items-center justify-center">
+                  <AgentIcon agent={p.id} />
+                </span>
+                {p.name}
+              </MenuItem>
+            ))}
+          </MenuSubPopup>
+        </MenuSub>
+        <MenuItem onClick={() => void startSession("")}>
+          <SquareTerminalIcon />
+          New terminal
+          <MenuShortcut>{keysFor("new-terminal")}</MenuShortcut>
+        </MenuItem>
       </MenuPopup>
     </Menu>
   );
