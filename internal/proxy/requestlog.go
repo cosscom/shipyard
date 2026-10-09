@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -60,8 +61,19 @@ type requestLog struct {
 }
 
 type hostLog struct {
+	// list holds the host's requests, oldest first: the last logLimit of
+	// them are its log (recent). It grows to twice that before the old half
+	// is dropped, in place, so logging a request costs no copy of the log.
 	list []Request
 	used time.Time
+}
+
+// recent is the host's log: its last logLimit requests, oldest first.
+func (hl *hostLog) recent() []Request {
+	if n := len(hl.list); n > logLimit {
+		return hl.list[n-logLimit:]
+	}
+	return hl.list
 }
 
 func (l *requestLog) add(req Request, hosts ...string) {
@@ -73,12 +85,10 @@ func (l *requestLog) add(req Request, hosts ...string) {
 		l.hosts = map[string]*hostLog{}
 	}
 	now := time.Now()
-	seen := map[string]bool{}
-	for _, h := range hosts {
-		if h == "" || seen[h] {
+	for i, h := range hosts {
+		if h == "" || slices.Contains(hosts[:i], h) {
 			continue
 		}
-		seen[h] = true
 		hl := l.hosts[h]
 		if hl == nil {
 			if len(l.hosts) >= logHosts {
@@ -88,10 +98,16 @@ func (l *requestLog) add(req Request, hosts ...string) {
 			l.hosts[h] = hl
 		}
 		hl.used = now
-		hl.list = append(hl.list, req)
-		if len(hl.list) > logLimit {
-			hl.list = append([]Request(nil), hl.list[len(hl.list)-logLimit:]...)
+		switch n := len(hl.list); {
+		case n == 2*logLimit:
+			copy(hl.list, hl.list[logLimit:])
+			clear(hl.list[logLimit:])
+			hl.list = hl.list[:logLimit]
+		case n == cap(hl.list):
+			// Grown by hand, to never more than the 2*logLimit it needs.
+			hl.list = append(make([]Request, 0, min(max(2*n, 16), 2*logLimit)), hl.list...)
 		}
+		hl.list = append(hl.list, req)
 	}
 }
 
@@ -115,7 +131,7 @@ func (p *Proxy) Requests(host string, after int64) ([]Request, int64) {
 	defer l.mu.Unlock()
 	out := []Request{}
 	if hl := l.hosts[hostOnly(host)]; hl != nil {
-		for _, r := range hl.list {
+		for _, r := range hl.recent() {
 			if r.Seq > after {
 				out = append(out, r)
 			}
