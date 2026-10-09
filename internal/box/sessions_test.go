@@ -240,6 +240,10 @@ func TestScreenShowsTheSessionsOutput(t *testing.T) {
 func TestGetAndCaptureIsGetAndAScreen(t *testing.T) {
 	s := testSessions(t)
 	ctx := context.Background()
+	// Set before any list starts the background sweep, which reads it.
+	var mu sync.Mutex
+	asked := map[string]int{}
+	s.trace = func(args []string) { mu.Lock(); asked[args[0]]++; mu.Unlock() }
 	if _, err := s.create(ctx, "both", "acme", t.TempDir(), "printf 'acme ready\\n'; sleep 30", "claude", nil, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -247,9 +251,6 @@ func TestGetAndCaptureIsGetAndAScreen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var mu sync.Mutex
-	asked := 0
-	s.trace = func([]string) { mu.Lock(); asked++; mu.Unlock() }
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		got, raw, err := s.getAndCapture(ctx, "both", "-J", "-e")
@@ -267,16 +268,14 @@ func TestGetAndCaptureIsGetAndAScreen(t *testing.T) {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
+	// One read is one display-message, the capture riding along in it.
 	mu.Lock()
-	if asked < 1 || asked > 100 {
-		t.Fatalf("asked tmux %d times", asked)
-	}
-	n := asked
+	clear(asked)
 	mu.Unlock()
 	s.getAndCapture(ctx, "both")
 	mu.Lock()
-	if asked-n != 1 {
-		t.Fatalf("one read asked tmux %d times, want 1", asked-n)
+	if asked["display-message"] != 1 || asked["capture-pane"] != 0 {
+		t.Fatalf("one read asked tmux %v", asked)
 	}
 	mu.Unlock()
 	if _, _, err := s.getAndCapture(ctx, "gone"); !errors.Is(err, ErrUnknownSession) {
@@ -290,10 +289,7 @@ func TestGetAndCaptureIsGetAndAScreen(t *testing.T) {
 func TestEnvVarAsksTmuxOnce(t *testing.T) {
 	s := testSessions(t)
 	ctx := context.Background()
-	sess, err := s.Create(ctx, "envs", "acme", t.TempDir(), "sleep 30", []string{"ACME_HOME=/srv/acme"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	// Set before any list starts the background sweep, which reads it.
 	var mu sync.Mutex
 	asked := 0
 	s.trace = func(args []string) {
@@ -302,6 +298,10 @@ func TestEnvVarAsksTmuxOnce(t *testing.T) {
 		if len(args) > 0 && args[0] == "show-environment" {
 			asked++
 		}
+	}
+	sess, err := s.Create(ctx, "envs", "acme", t.TempDir(), "sleep 30", []string{"ACME_HOME=/srv/acme"})
+	if err != nil {
+		t.Fatal(err)
 	}
 	for range 3 {
 		if v := s.EnvVar(ctx, sess, "ACME_HOME"); v != "/srv/acme" {
