@@ -499,6 +499,12 @@ func (s *Sessions) Screen(ctx context.Context, name string, history int) (string
 	if _, err := s.Get(ctx, name); err != nil {
 		return "", err
 	}
+	return s.capture(ctx, name, history)
+}
+
+// capture is Screen for a session the caller has just found in a list:
+// without asking tmux for the list again.
+func (s *Sessions) capture(ctx context.Context, name string, history int) (string, error) {
 	out, err := s.tmux(ctx, "capture-pane", "-p", "-J", "-t", "="+name+":", "-S", "-"+strconv.Itoa(max(history, 0)))
 	if err != nil {
 		return "", tmuxError("capture-pane", out, err)

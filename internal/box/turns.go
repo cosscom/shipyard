@@ -1562,7 +1562,8 @@ func (b *Box) pollScreens(ctx context.Context) {
 			// not a turn that ended.
 			continue
 		}
-		screen, err := b.Sessions.Screen(ctx, name, 0)
+		// Found in the list just read: capture it without listing again.
+		screen, err := b.Sessions.capture(ctx, name, 0)
 		if err != nil {
 			continue
 		}
