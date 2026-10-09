@@ -142,9 +142,12 @@ func RecordSSHRoute(dir, box, fingerprint, host, identity, forward string) error
 	})
 }
 
-// routeSettings is the settings file, read at most once per sync.
+// routeSettings is the settings file, read again only once it changes:
+// every request the app relays to a box syncs the boxes first. The map is
+// shared: callers must not change it.
 func (a *Agent) routeSettings() map[string]BoxRoutes {
-	all, err := readBoxRoutes(routeStorePath(a.cfg.Dir))
+	path := routeStorePath(a.cfg.Dir)
+	all, err := a.boxRoutes.Load(path, func() (map[string]BoxRoutes, error) { return readBoxRoutes(path) })
 	if err != nil {
 		a.cfg.Log.Printf("box routes: %v", err)
 		return map[string]BoxRoutes{}

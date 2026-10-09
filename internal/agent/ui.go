@@ -23,6 +23,7 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/cosscom/shipyard/internal/box"
+	"github.com/cosscom/shipyard/internal/copybuf"
 	"github.com/cosscom/shipyard/internal/hooks"
 	"github.com/cosscom/shipyard/internal/statefile"
 	"github.com/cosscom/shipyard/internal/terminal"
@@ -272,7 +273,8 @@ func (a *Agent) relayBox(w http.ResponseWriter, r *http.Request, c *wire.Client,
 	}
 	w.WriteHeader(resp.StatusCode)
 	rc := http.NewResponseController(w)
-	buf := make([]byte, 32<<10)
+	buf := copybuf.Pool{}.Get()
+	defer copybuf.Pool{}.Put(buf)
 	for {
 		n, err := resp.Body.Read(buf)
 		if n > 0 {
