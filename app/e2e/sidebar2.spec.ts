@@ -20,7 +20,9 @@ test("agents first: what needs you comes first, in words, and a click goes to th
   // A waiting agent says what it wants.
   const waiting = side.locator('[data-testid=s2-agent][data-session="devl/checkout-fix-claude"]');
   await expect(waiting).toHaveAttribute("data-agent-state", "waiting");
-  await expect(waiting).toContainText("Fix checkout webhook retries");
+  // Named by its worktree, as the tree names it; its task is in its name for a screen reader and in its card.
+  await expect(waiting).toContainText("checkout-fix");
+  await expect(waiting).toHaveAccessibleName(/Fix checkout webhook retries/);
   await expect(waiting).toContainText("Wants to run");
   await expect(waiting).toContainText("pnpm prisma migrate dev");
   // Only agents count as needing you; Review says its own count.
