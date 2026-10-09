@@ -1,4 +1,4 @@
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { type CSSProperties, memo, useEffect, useRef, useState } from "react";
 
 import { builtin } from "@/components/art/chat-backgrounds";
 import { type HarbourLight, useHarbourLight } from "@/components/art/harbour-art";
@@ -20,11 +20,11 @@ import "@/components/conversation/chat-background.css";
 // pointer, and draws once per change of background, effect, theme or size,
 // debounced.
 
-export function ChatBackground() {
+export const ChatBackground = memo(function ChatBackground() {
   const bg = usePrefs((p) => p.chatBackground);
   if (bg.source === "none" || (bg.source === "image" && !bg.image)) return null;
   return <Layer bg={bg} />;
-}
+});
 
 function Layer({ bg }: { bg: Bg }) {
   const wrap = useRef<HTMLDivElement>(null);

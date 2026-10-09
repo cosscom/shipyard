@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { create } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 
 import type { BoxStatus, Location } from "@/lib/api";
 import { projectKey } from "@/lib/projects";
@@ -156,9 +157,15 @@ export function deriveProjects(boxes: BoxStatus[], data: Record<string, { locati
 // useProjects is every project, live.
 export function useProjects(): { projects: Project[]; sections: string[] } {
   const boxes = useStore((s) => s.status?.boxes ?? NONE);
-  const data = useStore((s) => s.boxes);
+  // Only the boxes' locations: an agent's state changing (every few
+  // seconds on a busy box) leaves the projects, and the sidebar's rows drawn
+  // from them, as they are.
+  const locations = useStore(useShallow((s) => Object.fromEntries(Object.entries(s.boxes).map(([name, d]) => [name, d.locations]))));
   const doc = useProjectsDoc((s) => s.doc);
-  return useMemo(() => ({ projects: deriveProjects(boxes, data, doc), sections: doc.sections }), [boxes, data, doc]);
+  return useMemo(() => {
+    const data = Object.fromEntries(Object.entries(locations).map(([name, l]) => [name, { locations: l }]));
+    return { projects: deriveProjects(boxes, data, doc), sections: doc.sections };
+  }, [boxes, locations, doc]);
 }
 
 export function projectOf(box: string, location: string): Project | undefined {
