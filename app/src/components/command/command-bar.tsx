@@ -292,7 +292,8 @@ function AgentPeek({ waiting, working, all, toReview }: { waiting: SessionEntry[
   // Boxes that are away say so on a line of their own.
   const status = useStore((s) => s.status);
   const away = useMemo(() => status?.boxes.filter((b) => b.state !== "online").map((b) => b.name) ?? [], [status]);
-  const row = (e: SessionEntry) => <PeekRow key={`${e.box}/${e.session.name}`} e={e} place={placeOf(e)} />;
+  const front = useFocusedSession();
+  const row = (e: SessionEntry) => <PeekRow key={`${e.box}/${e.session.name}`} e={e} place={placeOf(e)} here={front?.box === e.box && front.name === e.session.name} />;
   const placeOf = (e: SessionEntry) => {
     const at = worktreeOf(boxes[e.box]?.locations, e.session);
     return at ? (at.worktree.main ? at.location.name : `${at.location.name} / ${worktreeLabel(at.worktree)}`) : e.session.name;
@@ -319,13 +320,14 @@ function AgentPeek({ waiting, working, all, toReview }: { waiting: SessionEntry[
                 {p.label}
               </button>
               <span className="flex min-w-0 flex-wrap items-center gap-1">
-                {p.agents.map((e) => (
+                {p.agents.filter((e) => e.state !== "finished").map((e) => (
                   <Tip key={`${e.box}/${e.session.name}`} label={`${e.session.title?.trim() || placeOf(e)} · ${sessionWord(e.state)}`} side="bottom">
                     <button type="button" aria-label={`${e.session.title?.trim() || placeOf(e)}: ${sessionWord(e.state)}`} onClick={() => void focusSession(e.box, e.session.name)} className="flex size-4 items-center justify-center rounded outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">
                       <StateGlyph state={e.state} className="size-3" />
                     </button>
                   </Tip>
                 ))}
+                <span className="ml-1 text-muted-foreground">{fleetWords(p.agents)}</span>
               </span>
             </div>
           ))}
@@ -352,9 +354,16 @@ function AgentPeek({ waiting, working, all, toReview }: { waiting: SessionEntry[
   );
 }
 
+// fleetWords says a project's agents in words: "1 needs you · 1 working ·
+// 3 done".
+function fleetWords(agents: SessionEntry[]): string {
+  const n = (st: string) => agents.filter((e) => e.state === st).length;
+  return [n("waiting") && `${n("waiting")} ${AGENT_WORDS["needs-you"].lower}`, n("running") && `${n("running")} ${AGENT_WORDS.working.lower}`, n("finished") && `${n("finished")} ${AGENT_WORDS.done.lower}`].filter(Boolean).join(" · ");
+}
+
 // PeekRow is one agent in the peek: what it asks, with Allow once and Deny
 // right there; or for one working, the last thing on its screen.
-function PeekRow({ e, place }: { e: SessionEntry; place: string }) {
+function PeekRow({ e, place, here }: { e: SessionEntry; place: string; here?: boolean }) {
   const ask = e.state === "waiting" ? e.session.ask : undefined;
   const { tail } = useScreenTail(e.box, e.session, 1, false, e.state === "running");
   const line = e.state === "running" ? tail?.[0] : undefined;
@@ -363,6 +372,7 @@ function PeekRow({ e, place }: { e: SessionEntry; place: string }) {
       <button type="button" onClick={() => void focusSession(e.box, e.session.name)} className="flex w-full min-w-0 items-center gap-2 rounded-sm text-left text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <StateGlyph state={e.state} className="size-3" />
         <span className="min-w-0 flex-1 truncate">{e.session.title?.trim() || place}</span>
+        {here && <span className="shrink-0 rounded bg-accent px-1 text-[10px] text-muted-foreground">here</span>}
         <span className="shrink-0 text-muted-foreground text-xs">{ago(e.session.state_since ?? e.session.created).replace(" ago", "")}</span>
       </button>
       <span className="flex min-w-0 flex-col items-stretch gap-1 pl-5 text-[11px] text-muted-foreground">
