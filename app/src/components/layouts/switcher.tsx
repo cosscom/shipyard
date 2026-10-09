@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { create } from "zustand";
 
 import { AgentIcon } from "@/components/agent-glyph";
-import { type Item, LANE_WORDS, openItem, shortAgo, useItems } from "@/components/layouts/model";
+import { type Item, type Lane, LANE_WORDS, openItem, shortAgo, useItems } from "@/components/layouts/model";
 import { BoxTag, ItemGlyph, useDoing } from "@/components/layouts/parts";
 import { Kbd } from "@/components/ui/kbd";
 import { type Session } from "@/lib/api";
@@ -20,6 +20,8 @@ const useSwitcher = create<{ open: boolean; index: number; held: boolean }>()(()
 export function openSwitcher() {
   useSwitcher.setState({ open: true, index: 0, held: false });
 }
+
+const LANES: Lane[] = ["waiting", "running", "finished", "recent"];
 
 const close = () => useSwitcher.setState({ open: false, held: false });
 
@@ -117,10 +119,23 @@ export function AgentSwitcher() {
         {items.length === 0 ? (
           <p className="px-1 py-8 text-center text-muted-foreground text-sm">No agents yet. Start a task with ⌘N.</p>
         ) : (
-          <div ref={grid} className="grid min-h-0 grid-cols-2 gap-2 overflow-y-auto p-0.5 md:grid-cols-3 xl:grid-cols-4">
-            {items.map((it, i) => (
-              <Card key={it.id} it={it} picked={i === index} onPick={() => useSwitcher.setState({ index: i })} onOpen={() => (close(), openItem(it))} />
-            ))}
+          <div className="flex min-h-0 flex-col gap-3 overflow-y-auto p-0.5">
+            {LANES.map((lane) => {
+              const inLane = items.map((it, i) => ({ it, i })).filter(({ it }) => it.lane === lane);
+              if (!inLane.length) return null;
+              return (
+                <section key={lane} aria-label={LANE_WORDS[lane]} data-testid="switcher-lane" data-lane={lane}>
+                  <h3 className={cn("px-1 pb-1.5 font-medium text-[11px]", lane === "waiting" ? "text-warning-foreground" : "text-muted-foreground")}>
+                    {LANE_WORDS[lane]} <span className="tabular-nums opacity-70">{inLane.length}</span>
+                  </h3>
+                  <div ref={lane === items[0]?.lane ? grid : undefined} className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4">
+                    {inLane.map(({ it, i }) => (
+                      <Card key={it.id} it={it} picked={i === index} onPick={() => useSwitcher.setState({ index: i })} onOpen={() => (close(), openItem(it))} />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
           </div>
         )}
       </div>
@@ -145,8 +160,8 @@ function Card({ it, picked, onPick, onOpen }: { it: Item; picked: boolean; onPic
       onClick={onOpen}
       className={cn(
         "flex min-w-0 flex-col gap-1 rounded-xl border bg-card p-2.5 text-left outline-none transition-colors",
-        picked ? "border-ring ring-2 ring-ring/40" : "hover:border-ring/40",
-        it.lane === "waiting" && !picked && "border-warning/45",
+        it.lane === "waiting" && "bg-warning/[0.06]",
+        picked ? "border-primary ring-2 ring-primary/35" : "hover:border-ring/50",
       )}
     >
       <span className="flex w-full min-w-0 items-center gap-1.5">
@@ -167,7 +182,10 @@ function Card({ it, picked, onPick, onOpen }: { it: Item; picked: boolean; onPic
 // Tail is the last lines of the agent's screen: a live thumbnail in words.
 function Tail({ box, session, working, fallback }: { box: string; session: Session; working: boolean; fallback?: string }) {
   const { tail } = useScreenTail(box, session, 4, working);
-  const lines = tail?.length ? tail : fallback ? [fallback] : [];
+  // An agent that has said nothing yet shows only its banner: say what it
+  // is for instead.
+  const banner = !tail?.length || tail.some((l) => /[▐▛▜▙▟█]/.test(l));
+  const lines = !banner ? tail! : [fallback ?? (session.title ? `Ready: ${session.title}` : "Ready for a prompt")];
   return (
     <span className="mt-1 flex h-[62px] flex-col overflow-hidden rounded-md bg-muted/50 px-2 py-1 font-mono text-[10.5px] text-muted-foreground leading-[14px]">
       {lines.map((l, i) => (

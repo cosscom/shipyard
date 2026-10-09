@@ -40,7 +40,7 @@ export function ItemGlyph({ i, className }: { i: Item; className?: string }) {
 // BoxTag names the box quietly, and only where it tells you something.
 export function BoxTag({ i, always }: { i: Item; always?: boolean }) {
   if (!always && !i.spansBoxes) return null;
-  return <span className="shrink-0 font-mono text-[10px] text-muted-foreground/80">{i.box}</span>;
+  return <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{i.box}</span>;
 }
 
 // SearchButton opens ⌘K.

@@ -178,7 +178,7 @@ export function TabStrip() {
               front; the breadcrumb only speaks up for a guest pane. */}
           {hereRef && !(grouped && hereKey === key) && (
             <Tip label={`${hereTitle && !hereRef.main ? `${hereRef.worktree} · ` : ""}${hereRef.box}:${hereRef.path}`} side="bottom">
-              <span data-tauri-drag-region className="flex max-w-56 items-center gap-1.5 truncate">
+              <span data-tauri-drag-region data-strip-place={hereKey === key ? "own" : "guest"} className="flex max-w-56 items-center gap-1.5 truncate">
                 <WtDot wsKey={hereKey} />
                 <span className="truncate">
                   {hereRef.location}

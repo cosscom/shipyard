@@ -100,6 +100,33 @@ export const scenes: Scene[] = [
     },
   },
   {
+    // Labs › Layout › Top bar, a worktree open in it.
+    id: "layout-topbar",
+    async run(app, theme) {
+      await app.open({ theme, prefs: { layout: "topbar" } });
+      await app.page.getByTestId("topbar-needs-you").click();
+      await expect(app.page.locator("[data-testid=topbar-tab][data-selected]")).toBeVisible();
+    },
+  },
+  {
+    id: "layout-topbar-switcher",
+    extra: true,
+    async run(app, theme) {
+      await app.open({ theme, prefs: { layout: "topbar" } });
+      await app.page.getByTestId("topbar-switcher").click();
+      await expect(app.page.getByTestId("agent-switcher")).toBeVisible();
+    },
+  },
+  {
+    id: "layout-topbar-projects",
+    extra: true,
+    async run(app, theme) {
+      await app.open({ theme, prefs: { layout: "topbar" } });
+      await app.page.getByTestId("topbar-project").click();
+      await expect(app.page.getByRole("listbox", { name: "Worktrees" })).toBeVisible();
+    },
+  },
+  {
     id: "palette",
     key: true,
     async run(app, theme) {

@@ -393,3 +393,9 @@
 :root[data-berth-still] :is(.animate-spin, .animate-ping, .animate-pulse, .cv-shimmer)::after {
   animation-play-state: paused !important;
 }
+
+/* Labs › Layout › Top bar names the worktree in front in its tabs; the
+   tab strip under it leaves out its own breadcrumb (a guest pane's stays). */
+[data-layout="topbar"] [data-strip-place="own"] {
+  display: none;
+}
