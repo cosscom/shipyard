@@ -63,7 +63,7 @@ import { FROM_TABLE } from "@/lib/palette-shortcuts";
 import { describe, keysFor, SHORTCUTS } from "@/lib/shortcuts";
 import { runShortcut } from "@/hooks/use-shortcuts";
 import { openRenameWorktree } from "@/components/sidebar/rename-worktree";
-import type { SettingsSectionId } from "@/views/settings/settings-view";
+import type { SettingsSectionId } from "@/views/settings/open";
 import { agentOf, sessionAgent, sessionName, sortedWorktrees, worktreeOf } from "@/lib/derive";
 import { openBroadcast, openPromptPicker } from "@/lib/prompts";
 import { quietNow, setDoNotDisturb, setNotificationsOpen } from "@/lib/notifications";

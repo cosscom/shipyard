@@ -32,7 +32,6 @@ import { isMock } from "@/hooks/use-berth-connection";
 import { keyOf } from "@/lib/conversation-store";
 import { rowKeyOf } from "@/lib/draft-text";
 import { applyCut, dropOlder, loadOlder, meta, restoreOlder, setCut, useHasHistory, useHistory, useOlder } from "@/lib/history";
-import { seedLongChat } from "@/lib/mock-history";
 import "@/components/conversation/conversation.css";
 import "@/components/conversation/history.css";
 import { TurnSync } from "@/components/workspace/compare-sync";
@@ -88,7 +87,7 @@ export function ConversationView({ items: live, onAnswer, edits, who = "The agen
   }, [key, chat?.visible]);
   // The demo's long chat (?long=5000), for measuring.
   useEffect(() => {
-    if (chat && isMock()) seedLongChat(chat.box, chat.session);
+    if (chat && isMock()) void import("@/lib/mock-history").then((m) => m.seedLongChat(chat.box, chat.session));
   }, [chat?.box, chat?.session]);
   // A rewound prompt stays hidden until the agent's record no longer has it.
   useEffect(() => {

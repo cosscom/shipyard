@@ -4,8 +4,6 @@ import { lazy, Suspense, useEffect, useMemo } from "react";
 
 import { Tip } from "@/components/tip";
 import { AgentIcon, StateGlyph } from "@/components/agent-glyph";
-import { BrowserPane } from "@/components/browser-pane";
-import { PreviewPane } from "@/components/preview-pane";
 import { FileGlyph } from "@/components/files/file-bits";
 import { EmptySide } from "@/components/workspace/compare-view";
 import { CompareSideContext, type CompareSide, pageLoading } from "@/lib/compare-actions";
@@ -37,8 +35,14 @@ import { useStore } from "@/lib/store";
 import { startRenaming } from "@/lib/session-title";
 import { memory, memoryNote } from "@/lib/processes";
 import { cn } from "@/lib/utils";
+import { lazyView } from "@/lib/lazy-view";
 import { focusPane, paneBeside, paneToTab, setPaneContent, splitKey, useWorkspaces, useWorktreeRef } from "@/lib/workspaces";
 import { platformKeys } from "@/lib/platform";
+
+// Browser and preview panes (and their devtools) load after the app has
+// started, with the other pages (lib/lazy-view.tsx).
+const BrowserPane = lazyView(() => import("@/components/browser-pane").then((m) => m.BrowserPane));
+const PreviewPane = lazyView(() => import("@/components/preview-pane").then((m) => m.PreviewPane));
 
 export { agentLabel };
 
@@ -139,8 +143,16 @@ export function Pane({ wsKey, tab, pane, visible, focused, split, mixed, compare
               <ConversationPane box={c.box} session={c.session} agent={c.agent} visible={visible} onStartAgain={() => void startSession(restartCommand(c.command) ?? c.agent ?? "", { kind: "replace", tab, pane: pane.id }, c.agent ? agentLabel(c.agent) : "Agent")} onShowTerminal={() => setPaneContent(wsKey, tab, pane.id, { ...c, view: "terminal" })} />
             </div>
           )}
-          {c.kind === "browser" && <BrowserPane id={pane.id} url={c.url} visible={visible} worktree={owner} onNavigate={(url) => setPaneContent(wsKey, tab, pane.id, { kind: "browser", url })} onLoading={compare ? (l) => pageLoading(pane.id, l) : undefined} />}
-          {c.kind === "preview" && <PreviewPane url={c.url} visible={visible} worktree={owner} onNavigate={(url) => setPaneContent(wsKey, tab, pane.id, { kind: "preview", url })} />}
+          {c.kind === "browser" && (
+            <Suspense fallback={<div className="flex-1" />}>
+              <BrowserPane id={pane.id} url={c.url} visible={visible} worktree={owner} onNavigate={(url) => setPaneContent(wsKey, tab, pane.id, { kind: "browser", url })} onLoading={compare ? (l) => pageLoading(pane.id, l) : undefined} />
+            </Suspense>
+          )}
+          {c.kind === "preview" && (
+            <Suspense fallback={<div className="flex-1" />}>
+              <PreviewPane url={c.url} visible={visible} worktree={owner} onNavigate={(url) => setPaneContent(wsKey, tab, pane.id, { kind: "preview", url })} />
+            </Suspense>
+          )}
           {c.kind === "file" && (
             <Suspense fallback={<div className="flex flex-1 items-center justify-center"><Spinner className="size-4 text-muted-foreground" /></div>}>
               <FilePane path={c.path} owner={owner} visible={visible} onClose={close} />

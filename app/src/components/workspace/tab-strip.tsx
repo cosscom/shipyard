@@ -2,7 +2,7 @@ import { CloudOffIcon, GaugeIcon, PencilIcon, RowsIcon, SquareSplitHorizontalIco
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { StateGlyph } from "@/components/agent-glyph";
-import { TabErrorBadge } from "@/components/browser-devtools";
+import { TabErrorBadge } from "@/components/devtools-badge";
 import { BoardButton } from "@/components/art/board-buttons";
 import { DockButton } from "@/components/files/tree-dock";
 import { Tip } from "@/components/tip";

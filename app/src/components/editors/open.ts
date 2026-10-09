@@ -2,7 +2,7 @@ import { toastManager } from "@/components/ui/toast";
 import { type EditorId, openInEditor, SSHSetupNeeded } from "@/lib/editors";
 import { errorMessage } from "@/lib/format";
 import { useStore } from "@/lib/store";
-import { openSettings } from "@/views/settings/settings-view";
+import { openSettings } from "@/views/settings/open";
 
 // openEditor opens a worktree, or a file in it, and says what went wrong in
 // a toast: most often that editors cannot reach the box over SSH yet.

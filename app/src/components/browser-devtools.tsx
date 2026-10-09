@@ -2,13 +2,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { BanIcon, BugIcon, ChevronRightIcon, CircleXIcon, InfoIcon, SendIcon, SquareDashedMousePointerIcon, SquareTerminalIcon, TriangleAlertIcon, XIcon } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 
+import { ErrorBadge } from "@/components/devtools-badge";
 import { Tip } from "@/components/tip";
 import { Button } from "@/components/ui/button";
 import { toastManager } from "@/components/ui/toast";
 import type { BrowserContext } from "@/lib/browser-url";
 import { agentOf } from "@/lib/derive";
-import { clearLog, type PaneLog, setDrawerTab, toggleDrawer, useDrawerOpen, useDrawerTab, useErrorCount, useErrorCountOf, useLog } from "@/lib/devtools";
-import { badgeText, type ConsoleEntry, consoleMessage, failed, formatMs, formatSize, isError, type NetEntry, requestMessage, shortAt, statusText } from "@/lib/devtools-model";
+import { clearLog, type PaneLog, setDrawerTab, toggleDrawer, useDrawerOpen, useDrawerTab, useErrorCount, useLog } from "@/lib/devtools";
+import { type ConsoleEntry, consoleMessage, failed, formatMs, formatSize, isError, type NetEntry, requestMessage, shortAt, statusText } from "@/lib/devtools-model";
 import { send as sendPrompt } from "@/lib/orchestrate";
 import { keysFor } from "@/lib/shortcuts";
 import { useStore } from "@/lib/store";
@@ -65,27 +66,6 @@ export function DevtoolsToggle({ logKey, disabled }: { logKey: string; disabled?
         {errors > 0 && <ErrorBadge n={errors} testId="devtools-badge" />}
       </button>
     </Tip>
-  );
-}
-
-function ErrorBadge({ n, testId, className }: { n: number; testId?: string; className?: string }) {
-  return (
-    <span data-testid={testId} className={cn("inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-1 font-medium text-[9.5px] text-white tabular-nums leading-none", className)}>
-      {badgeText(n)}
-    </span>
-  );
-}
-
-// TabErrorBadge is the count on a Browser tab in the tab strip: its panes'
-// page errors since they loaded.
-export function TabErrorBadge({ paneIds }: { paneIds: string[] }) {
-  const n = useErrorCountOf(paneIds);
-  if (!n) return null;
-  // The tab is a tooltip's trigger already: the count says it all.
-  return (
-    <span role="img" aria-label={`${n} page error${n === 1 ? "" : "s"}`} className="inline-flex shrink-0">
-      <ErrorBadge n={n} testId="tab-devtools-badge" />
-    </span>
   );
 }
 

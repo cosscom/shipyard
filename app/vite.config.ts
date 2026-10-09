@@ -105,6 +105,19 @@ function workerScript(): Plugin {
   };
 }
 
+// startupChunks puts all the code the app starts with ($initial: what the
+// entry imports, statically, all the way down) in two files: the libraries
+// and the app's own. Left to itself the bundler cut it into some 300, as
+// lazily loaded code shares much of it (lucide's icons one file each), and
+// the window waited on every one of them before its first paint. Two load
+// and compile side by side. What loads later is split as before.
+const startupChunks = {
+  groups: [
+    { name: "vendor", test: /[\\/]node_modules[\\/]/, tags: ["$initial" as const] },
+    { name: "startup", tags: ["$initial" as const] },
+  ],
+};
+
 // commit is the checkout's short hash, which Copy diagnostics names as the
 // app's build; empty outside a git checkout.
 function commit(): string {
@@ -149,10 +162,11 @@ export default defineConfig(({ mode }) => ({
   },
   base: mode === "demo" ? "./" : "/",
   // A desktop app loads from disk; one large chunk (xterm, React) is fine.
-  build:
-    mode === "demo"
-      ? { chunkSizeWarningLimit: 2000, outDir: path.resolve(import.meta.dirname, "../site/demo"), emptyOutDir: true }
-      : { chunkSizeWarningLimit: 2000 },
+  build: {
+    chunkSizeWarningLimit: 2000,
+    ...(mode === "demo" ? { outDir: path.resolve(import.meta.dirname, "../site/demo"), emptyOutDir: true } : {}),
+    rolldownOptions: { output: { codeSplitting: startupChunks } },
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

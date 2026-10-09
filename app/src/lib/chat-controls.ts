@@ -5,7 +5,6 @@ import { isMock } from "@/hooks/use-berth-connection";
 import { boxApi } from "@/lib/api";
 import { useFedSignals } from "@/lib/chat-signals";
 import { keyOf, useConversations } from "@/lib/conversation-store";
-import { mockDemo } from "@/lib/mock";
 import { useStore } from "@/lib/store";
 import type { ToolDetail, TranscriptItem } from "@/lib/transcript";
 
@@ -238,7 +237,7 @@ function mockSignals(session: string): ChatSignals {
 
 function mockInterrupt(box: string, session: string) {
   useMockSignals.setState((s) => ({ stopped: { ...s.stopped, [session]: true } }));
-  mockDemo.setAgent(box, session, "finished");
+  void import("@/lib/mock").then((m) => m.mockDemo.setAgent(box, session, "finished"));
   const key = keyOf(box, session);
   const st = useConversations.getState();
   for (const it of st.items[key] ?? []) if (it.kind === "thinking") st.remove(key, it.id);

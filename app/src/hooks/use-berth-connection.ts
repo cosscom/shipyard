@@ -4,7 +4,6 @@ import { mockAgentDown, waitForRetry } from "@/lib/agent-start";
 import { endpoint, httpClient, type Client } from "@/lib/api";
 import { handleEvent } from "@/lib/events";
 import { errorMessage } from "@/lib/format";
-import { mockClient } from "@/lib/mock";
 import { useStore } from "@/lib/store";
 import { loadNav } from "@/lib/nav";
 import { loadNotifications } from "@/lib/notifications";
@@ -36,7 +35,9 @@ export function useBerthConnection() {
         try {
           // ?mock=offline is the "not running" screen until its agent starts.
           if (mockAgentDown()) throw new Error("the Shipyard agent has not started yet (mock)");
-          if (isMock()) return mockClient();
+          // The fixtures load only in mock mode: they stay out of the app's
+          // startup.
+          if (isMock()) return (await import("@/lib/mock")).mockClient();
           const client = httpClient(await endpoint());
           await client.status();
           return client;
