@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -162,5 +163,80 @@ func BenchmarkTurnsSave(b *testing.B) {
 		t.dirty = true
 		t.mu.Unlock()
 		t.save()
+	}
+}
+
+// writeTurnRecord writes a Claude Code record whose latest turn edited
+// three files of about 20 KB each, as Claude Code keeps them.
+func writeTurnRecord(tb testing.TB, p string) {
+	tb.Helper()
+	orig := strings.Repeat("export const acme = 1 // a line of the file as it was\n", 380)
+	var rec strings.Builder
+	rec.WriteString(`{"type":"user","timestamp":"2026-01-02T03:04:05Z","message":{"role":"user","content":"Fix the acme widgets"}}` + "\n")
+	for i := range 3 {
+		f := fmt.Sprintf("/home/acme/w/src/f%d.ts", i)
+		fmt.Fprintf(&rec, `{"type":"assistant","timestamp":"2026-01-02T03:04:06Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_%d","name":"Edit","input":{"file_path":%q,"old_string":"1","new_string":"2"}}]}}`+"\n", i, f)
+		fmt.Fprintf(&rec, `{"type":"user","timestamp":"2026-01-02T03:04:07Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_%d","content":"ok"}]},"toolUseResult":{"filePath":%q,"originalFile":%q}}`+"\n", i, f, orig)
+	}
+	if err := os.WriteFile(p, []byte(rec.String()), 0o600); err != nil {
+		tb.Fatal(err)
+	}
+}
+
+// BenchmarkTurnCacheRetained is the memory the touched-files cache keeps
+// once the box has shown 500 conversations' latest turns (MB-kept/op).
+func BenchmarkTurnCacheRetained(b *testing.B) {
+	dir := b.TempDir()
+	paths := make([]string, 500)
+	for i := range paths {
+		paths[i] = filepath.Join(dir, fmt.Sprintf("%08d-acme.jsonl", i))
+		writeTurnRecord(b, paths[i])
+	}
+	var kept float64
+	for b.Loop() {
+		resetTurnCache()
+		runtime.GC()
+		var before, after runtime.MemStats
+		runtime.ReadMemStats(&before)
+		for _, p := range paths {
+			if _, ok := cachedTurn("claude", p, "/home/acme/w"); !ok {
+				b.Fatal("no turn")
+			}
+		}
+		runtime.GC()
+		runtime.ReadMemStats(&after)
+		kept += float64(int64(after.HeapAlloc)-int64(before.HeapAlloc)) / (1 << 20)
+	}
+	resetTurnCache()
+	b.ReportMetric(kept/float64(b.N), "MB-kept/op")
+}
+
+// resetTurnCache forgets every cached turn.
+func resetTurnCache() {
+	turnCache.Lock()
+	clear(turnCache.m)
+	turnCache.Unlock()
+}
+
+// The cache of latest turns keeps the conversations read most recently,
+// never all of them.
+func TestTurnCacheIsBounded(t *testing.T) {
+	defer resetTurnCache()
+	dir := t.TempDir()
+	var last string
+	for i := range maxTurnCache + 20 {
+		last = filepath.Join(dir, fmt.Sprintf("%08d-acme.jsonl", i))
+		writeTurnRecord(t, last)
+		turn, ok := cachedTurn("claude", last, "/home/acme/w")
+		if !ok || len(turn.Files) != 3 || turn.Files[0].Original == nil {
+			t.Fatalf("turn = %+v", turn)
+		}
+	}
+	turnCache.Lock()
+	n := len(turnCache.m)
+	_, kept := turnCache.m[last]
+	turnCache.Unlock()
+	if n != maxTurnCache || !kept {
+		t.Fatalf("cache holds %d (latest kept: %v), want %d", n, kept, maxTurnCache)
 	}
 }

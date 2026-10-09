@@ -201,14 +201,23 @@ func touchedFile(ctx context.Context, root, dir string, f transcript.TurnFile) (
 	return ft, true
 }
 
-// turnCache keeps each record's latest turn until the record grows.
-var turnCache sync.Map // record path → turnEntry
+// turnCache keeps each record's latest turn until the record grows, for
+// the maxTurnCache records read most recently. A turn holds every file it
+// edited as it found it, so a box that runs for weeks must not keep one
+// for every conversation it ever showed.
+var turnCache = struct {
+	sync.Mutex
+	m map[string]turnEntry // record path → its latest turn
+}{m: map[string]turnEntry{}}
+
+const maxTurnCache = 64
 
 type turnEntry struct {
 	size  int64
 	mtime time.Time
 	dir   string
 	turn  transcript.Turn
+	used  time.Time
 }
 
 func cachedTurn(agent, path, dir string) (transcript.Turn, bool) {
@@ -216,15 +225,30 @@ func cachedTurn(agent, path, dir string) (transcript.Turn, bool) {
 	if err != nil {
 		return transcript.Turn{}, false
 	}
-	if v, ok := turnCache.Load(path); ok {
-		if e := v.(turnEntry); e.size == st.Size() && e.mtime.Equal(st.ModTime()) && e.dir == dir {
-			return e.turn, true
-		}
+	turnCache.Lock()
+	if e, ok := turnCache.m[path]; ok && e.size == st.Size() && e.mtime.Equal(st.ModTime()) && e.dir == dir {
+		e.used = time.Now()
+		turnCache.m[path] = e
+		turnCache.Unlock()
+		return e.turn, true
 	}
+	turnCache.Unlock()
 	turn, err := transcript.LastTurn(agent, path, dir)
 	if err != nil {
 		return transcript.Turn{}, false
 	}
-	turnCache.Store(path, turnEntry{size: st.Size(), mtime: st.ModTime(), dir: dir, turn: turn})
+	turnCache.Lock()
+	defer turnCache.Unlock()
+	turnCache.m[path] = turnEntry{size: st.Size(), mtime: st.ModTime(), dir: dir, turn: turn, used: time.Now()}
+	for len(turnCache.m) > maxTurnCache {
+		var oldest string
+		var at time.Time
+		for p, e := range turnCache.m {
+			if oldest == "" || e.used.Before(at) {
+				oldest, at = p, e.used
+			}
+		}
+		delete(turnCache.m, oldest)
+	}
 	return turn, true
 }
