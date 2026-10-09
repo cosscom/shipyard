@@ -1,7 +1,9 @@
 package transcript
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -33,20 +35,54 @@ type claudeLine struct {
 	ParentUUID string `json:"parentUuid"`
 	// Attachment is what Claude Code hands the model mid-turn: a message
 	// typed while it worked arrives as a queued_command, at the point the
-	// model reads it, and is not written as a user line.
-	Attachment *struct {
-		Type   string          `json:"type"`
-		Prompt json.RawMessage `json:"prompt"`
-		Origin *Origin         `json:"origin"`
-	} `json:"attachment"`
+	// model reads it, and is not written as a user line (claudeAttached).
+	// The signals read its other kinds.
+	Attachment json.RawMessage `json:"attachment"`
 	// Origin says who a user turn is from (Claude Code 2.1): the person
 	// (human), another agent (peer), the lead (coordinator) or a task's
 	// notification (peer.go).
 	Origin *Origin `json:"origin"`
+
+	// The signals' own fields (claudeExtra), read in the same pass: a
+	// line is decoded once, not again for them.
+	Level          string          `json:"level"`
+	PermissionMode string          `json:"permissionMode"`
+	Effort         string          `json:"effort"`
+	IsAPIError     bool            `json:"isApiErrorMessage"`
+	Error          json.RawMessage `json:"error"`
+	RetryAttempt   int             `json:"retryAttempt"`
+	MaxRetries     int             `json:"maxRetries"`
+}
+
+// signalFields are claudeLine's fields only the signals read: one of a
+// type they never had leaves the line to the conversation, unread by the
+// signals, as when they read the line apart.
+var signalFields = map[string]bool{"level": true, "permissionMode": true, "effort": true, "isApiErrorMessage": true, "retryAttempt": true, "maxRetries": true}
+
+// claudeAttached is an attachment line's queued_command.
+type claudeAttached struct {
+	Type   string          `json:"type"`
+	Prompt json.RawMessage `json:"prompt"`
+	Origin *Origin         `json:"origin"`
 }
 
 type claudeMessage struct {
 	Content json.RawMessage `json:"content"`
+	// Model and Usage are the signals' (an assistant line's).
+	Model string `json:"model"`
+	Usage *struct {
+		Input       int `json:"input_tokens"`
+		CacheCreate int `json:"cache_creation_input_tokens"`
+		CacheRead   int `json:"cache_read_input_tokens"`
+	} `json:"usage"`
+}
+
+// isArray says whether raw JSON is an array: content is a string or an
+// array of blocks, and which is told by its first byte without trying to
+// decode it as the other.
+func isArray(raw []byte) bool {
+	raw = bytes.TrimLeft(raw, " \t\r\n")
+	return len(raw) > 0 && raw[0] == '['
 }
 
 type claudeBlock struct {
@@ -62,9 +98,23 @@ type claudeBlock struct {
 
 func (claudeParser) line(c *conv, b []byte) {
 	var l claudeLine
+	sigOK := true
+	if err := json.Unmarshal(b, &l); err != nil {
+		var te *json.UnmarshalTypeError
+		if !errors.As(err, &te) || !signalFields[te.Field] {
+			return
+		}
+		sigOK = false
+	}
 	// A helper's own record (a subagent's file) is all sidechain.
-	if json.Unmarshal(b, &l) != nil || (l.Sidechain && !c.side) {
+	if l.Sidechain && !c.side {
 		return
+	}
+	// The message is decoded once, for the conversation and the signals.
+	var msg claudeMessage
+	msgOK := len(l.Message) > 0 && json.Unmarshal(l.Message, &msg) == nil
+	if !msgOK {
+		msg = claudeMessage{}
 	}
 	c.lineUUID, c.lineParent = l.UUID, l.ParentUUID
 	if l.IsMeta {
@@ -72,12 +122,12 @@ func (claudeParser) line(c *conv, b []byte) {
 		// note around the person's mid-turn message, marked meta: read for
 		// what it is (peer.go), not dropped.
 		if l.Type == "user" && l.Origin != nil && metaOrigins[l.Origin.Kind] {
-			if s := userString(l.Message); s != "" {
+			if s := userString(msg.Content); s != "" {
 				c.userTurn(s, l.Origin, turnMeta, parseTime(l.Timestamp))
 			}
 			return
 		}
-		commandMeta(c, l)
+		commandMeta(c, l.Type, msg.Content)
 		return
 	}
 	at := parseTime(l.Timestamp)
@@ -87,7 +137,12 @@ func (claudeParser) line(c *conv, b []byte) {
 	}
 	// Its mode, model, context, errors and background work (signals.go):
 	// an API error's synthetic reply is a notice, not the agent's words.
-	if claudeSignals(c, l.Type, b, at) {
+	var x *claudeExtra
+	if sigOK && (len(l.Message) == 0 || msgOK) {
+		x = &claudeExtra{Subtype: l.Subtype, Level: l.Level, PermissionMode: l.PermissionMode, Effort: l.Effort, IsAPIError: l.IsAPIError,
+			Error: l.Error, RetryAttempt: l.RetryAttempt, MaxRetries: l.MaxRetries, Attachment: l.Attachment, Message: msg}
+	}
+	if claudeSignals(c, l.Type, x, b, at) {
 		return
 	}
 	switch {
@@ -111,31 +166,33 @@ func (claudeParser) line(c *conv, b []byte) {
 		helperDone(c, l.Content, at)
 		return
 	}
-	if l.Type == "attachment" && l.Attachment != nil && l.Attachment.Type == "queued_command" {
-		// Shown where the model read it, so a reply never sits above the
-		// message it answers.
-		if t := strings.TrimSpace(unwrapPasted(resultFull(l.Attachment.Prompt))); t != "" {
-			c.userTurn(t, l.Attachment.Origin, turnQueued, at)
+	if l.Type == "attachment" && len(l.Attachment) > 0 {
+		var a claudeAttached
+		if json.Unmarshal(l.Attachment, &a) == nil && a.Type == "queued_command" {
+			// Shown where the model read it, so a reply never sits above
+			// the message it answers.
+			if t := strings.TrimSpace(unwrapPasted(resultFull(a.Prompt))); t != "" {
+				c.userTurn(t, a.Origin, turnQueued, at)
+			}
+			return
 		}
-		return
 	}
 	if l.Type != "user" && l.Type != "assistant" {
 		return
 	}
-	var m claudeMessage
-	if json.Unmarshal(l.Message, &m) != nil || len(m.Content) == 0 {
+	if !msgOK || len(msg.Content) == 0 {
 		return
 	}
 	// A prompt can be a plain string.
-	var s string
-	if json.Unmarshal(m.Content, &s) == nil {
-		if l.Type == "user" {
+	if !isArray(msg.Content) {
+		var s string
+		if json.Unmarshal(msg.Content, &s) == nil && l.Type == "user" {
 			c.userTurn(s, l.Origin, turnPrompt, at)
 		}
 		return
 	}
 	var blocks []claudeBlock
-	if json.Unmarshal(m.Content, &blocks) != nil {
+	if json.Unmarshal(msg.Content, &blocks) != nil {
 		return
 	}
 	var typed []string
@@ -206,18 +263,16 @@ func unwrapPasted(s string) string {
 // metaOrigins are the origins of the isMeta lines worth reading.
 var metaOrigins = map[string]bool{"human": true, "peer": true, "coordinator": true, "task-notification": true}
 
-// userString is a user line's text: a plain string, or its text blocks.
-func userString(raw json.RawMessage) string {
-	var m claudeMessage
-	if json.Unmarshal(raw, &m) != nil {
-		return ""
-	}
-	var s string
-	if json.Unmarshal(m.Content, &s) == nil {
+// userString is a user line's text, from its message's content: a plain
+// string, or its text blocks.
+func userString(content json.RawMessage) string {
+	if !isArray(content) {
+		var s string
+		_ = json.Unmarshal(content, &s)
 		return s
 	}
 	var blocks []claudeBlock
-	if json.Unmarshal(m.Content, &blocks) != nil {
+	if json.Unmarshal(content, &blocks) != nil {
 		return ""
 	}
 	var parts []string
@@ -350,8 +405,9 @@ func claudeTool(c *conv, bl claudeBlock, at int64) {
 
 // resultText is a tool result's text: a string, or its first text block.
 func resultText(raw json.RawMessage) string {
-	var s string
-	if json.Unmarshal(raw, &s) == nil {
+	if !isArray(raw) {
+		var s string
+		_ = json.Unmarshal(raw, &s)
 		return s
 	}
 	var blocks []claudeBlock
@@ -503,13 +559,12 @@ var hookReports = regexp.MustCompile(`(?m)^(?:Pre|Post|Session|Stop|User|Notific
 // commandMeta keeps the Markdown Claude Code writes for its model after a
 // command's output (/context's table) as that output, which reads better
 // than the terminal's drawing of it.
-func commandMeta(c *conv, l claudeLine) {
-	if l.Type != "user" {
+func commandMeta(c *conv, typ string, content json.RawMessage) {
+	if typ != "user" {
 		return
 	}
-	var m claudeMessage
 	var s string
-	if json.Unmarshal(l.Message, &m) != nil || json.Unmarshal(m.Content, &s) != nil {
+	if json.Unmarshal(content, &s) != nil {
 		return
 	}
 	s = strings.TrimSpace(s)
