@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -279,5 +280,25 @@ func TestTheAppHearsEventsAsServerSentEvents(t *testing.T) {
 		case <-ctx.Done():
 			t.Fatal("no event arrived")
 		}
+	}
+}
+
+// The app's every call carries its token, so the webview asks before each
+// one (a CORS preflight). It may keep that answer for ten minutes, so a
+// poll is one request rather than two.
+func TestTheAppsPreflightIsKeptForTenMinutes(t *testing.T) {
+	h := (&Agent{}).ui("token", "127.0.0.1:1378", http.NotFoundHandler())
+	req := httptest.NewRequest("OPTIONS", "http://127.0.0.1:1378/v1/boxes/devl/api/sessions", nil)
+	req.Host = "127.0.0.1:1378"
+	req.Header.Set("Origin", "tauri://localhost")
+	req.Header.Set("Access-Control-Request-Method", "GET")
+	req.Header.Set("Access-Control-Request-Headers", "authorization")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent || rec.Header().Get("Access-Control-Allow-Origin") != "tauri://localhost" {
+		t.Fatalf("preflight: %d %v", rec.Code, rec.Header())
+	}
+	if got := rec.Header().Get("Access-Control-Max-Age"); got != "600" {
+		t.Fatalf("Access-Control-Max-Age = %q, want 600", got)
 	}
 }
