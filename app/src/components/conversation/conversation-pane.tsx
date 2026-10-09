@@ -35,7 +35,6 @@ import { keyOf, useConversations } from "@/lib/conversation-store";
 import { agentLabel, agentOf, firstPrompt, guessAgent, sessionState, worktreeOf } from "@/lib/derive";
 import type { NextStep } from "@/lib/errors";
 import { errorMessage } from "@/lib/format";
-import { finishTurn, mockToolDetail, seedTranscript } from "@/lib/mock-conversation";
 import { useNotifications } from "@/lib/notifications";
 import { updateBoxes } from "@/lib/outdated";
 import { addComment, type LineComment, pending, removeComment, sendComments, useComments } from "@/lib/review-comments";
@@ -51,6 +50,9 @@ import { FIRST_READ_TIMEOUT, useAsk, useQueued, useTranscriptFeed } from "@/lib/
 import { ConfirmDialog } from "@/views/settings/confirm";
 import { cn } from "@/lib/utils";
 import { useReview } from "@/views/review/review-store";
+
+// The mock's scripted conversations (?mock), loaded only in mock mode.
+const mockConversation = () => import("@/lib/mock-conversation");
 
 // ConversationPane shows an agent's pane as a conversation: the transcript,
 // and a reply box docked at its foot. On a box that streams transcripts it
@@ -138,7 +140,10 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
   useEffect(() => {
     if (!mock || !s || useConversations.getState().items[key]) return;
     const wt = worktreeOf(locations, s);
-    seedTranscript(box, session, sessionState(s, stats), wt ? (wt.worktree.main ? wt.location.name : wt.worktree.name) : session);
+    const state = sessionState(s, stats);
+    void mockConversation().then((m) => {
+      if (!useConversations.getState().items[key]) m.seedTranscript(box, session, state, wt ? (wt.worktree.main ? wt.location.name : wt.worktree.name) : session);
+    });
   }, [mock, s, key, box, session, stats, locations]);
 
   // The prompt it was started with (a long one, its start).
@@ -207,7 +212,7 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
     if (!client || (!canDiff && !mock)) return undefined;
     return {
       load: (file) => boxApi.diff(client, box, session, file),
-      tool: (id) => (mock ? mockToolDetail(id) : boxApi.toolDetail(client, box, session, id)),
+      tool: (id) => (mock ? mockConversation().then((m) => m.mockToolDetail(id)) : boxApi.toolDetail(client, box, session, id)),
       comments: (file) =>
         reviewKey
           ? {
@@ -329,7 +334,7 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
   const answer = (id: string, choice: string) => {
     if (mock) {
       useConversations.getState().update(key, id, { decided: choice });
-      void finishTurn(box, session);
+      void mockConversation().then((m) => m.finishTurn(box, session));
       return;
     }
     if (!client) return;
@@ -359,7 +364,7 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
   const reply = async (text: string) => {
     if (mock && state !== "running") {
       useConversations.getState().push(key, { kind: "user", id: `u${Date.now()}`, text });
-      void finishTurn(box, session);
+      void mockConversation().then((m) => m.finishTurn(box, session));
       return;
     }
     if (!client) return;
