@@ -130,9 +130,9 @@ export function DeckStrip() {
         {lead.map((a) => (
           <Chip key={`${a.e.box}/${a.e.session.name}`} a={a} onOpen={(how) => openInDeck(a.e.box, a.e.session.name, how)} />
         ))}
-        {quiet.length > 0 && <Quiet agents={quiet} />}
         {!elsewhere.length && !behind.length && !pinned.length && <span className="text-muted-foreground text-xs">Every agent is on screen.</span>}
       </div>
+      {quiet.length > 0 && <Quiet agents={quiet} />}
       <Tip label="Every agent and worktree, to type into">
         <Button size="sm" variant="ghost" className="shrink-0 text-muted-foreground" data-testid="deck-switcher-open" onClick={() => openSwitcher()}>
           <SearchIcon />
@@ -185,6 +185,8 @@ function Tray({ agents, visible, count, waiting }: { agents: StripAgent[]; visib
   const boxes = useStore((s) => s.boxes);
   const status = useStore((s) => s.status);
   const all = status?.boxes ?? [];
+  const waitingAll = agents.filter((a) => a.e.state === "waiting").length;
+  const workingAll = agents.filter((a) => a.e.state === "running").length;
   const bring = (fn: () => void) => () => {
     setOpen(false);
     fn();
@@ -209,23 +211,36 @@ function Tray({ agents, visible, count, waiting }: { agents: StripAgent[]; visib
         </PopoverTrigger>
       </Tip>
       <PopoverPopup side="top" align="start" sideOffset={6} className="w-[34rem] max-w-[calc(100vw-2rem)] p-0 [&_[data-slot=popover-viewport]]:p-0">
-        <div data-testid="deck-tray-panel" className="max-h-[min(70vh,36rem)] overflow-y-auto py-1.5 text-sm">
-          {all.map((b) => {
+        <div className="flex items-center gap-2 border-b px-3.5 py-2.5">
+          <span className="font-medium text-sm">Every box and project</span>
+          <span className="ml-auto flex items-center gap-3 text-muted-foreground text-xs tabular-nums">
+            {waitingAll > 0 && (
+              <span className="flex items-center gap-1 text-warning-foreground">
+                <span aria-hidden className="size-1.5 rounded-full bg-warning" />
+                {waitingAll} need{waitingAll === 1 ? "s" : ""} you
+              </span>
+            )}
+            <span>{workingAll} working</span>
+            <span>{agents.length} agents</span>
+          </span>
+        </div>
+        <div data-testid="deck-tray-panel" className="max-h-[min(60vh,32rem)] overflow-y-auto py-1.5 text-sm [mask-image:linear-gradient(to_bottom,black_calc(100%-20px),transparent)]">
+          {[...all].sort((x, y) => Number(x.state !== "online") - Number(y.state !== "online")).map((b) => {
             const online = b.state === "online";
             const locs = (boxes[b.name]?.locations ?? []).filter((l) => l.worktrees?.length);
             return (
               <section key={b.name} className="px-1.5 pb-1">
-                <h3 className="flex items-center gap-2 px-2 pt-2 pb-1 font-medium text-muted-foreground text-xs">
-                  <span className={cn("size-1.5 rounded-full", online ? "bg-success" : "bg-muted-foreground/40")} />
-                  {b.name}
+                <h3 className={cn("flex items-center gap-2 px-2 pt-2 pb-1 font-semibold text-xs", online ? "text-foreground" : "text-muted-foreground")}>
+                  <span className={cn("size-2 rounded-full", online ? "bg-success" : "bg-muted-foreground/40")} />
+                  <span className="font-mono">{b.name}</span>
                   {!online && <span className="font-normal">offline</span>}
                 </h3>
                 {online &&
                   locs.map((loc) => (
                     <div key={loc.name} className="mb-1">
-                      <div className="flex items-center gap-1.5 px-2 py-1 text-xs">
-                        <FolderIcon className="size-3.5 text-muted-foreground" />
-                        <span className="font-medium">{loc.name}</span>
+                      <div className="ml-1 flex items-center gap-1.5 px-2 py-1 text-muted-foreground text-xs">
+                        <FolderIcon className="size-3.5" />
+                        <span>{loc.name}</span>
                       </div>
                       {sortedWorktrees(loc).map((wt) => {
                         const here = agents.filter((a) => a.e.box === b.name && a.e.session.dir === wt.path);
@@ -273,6 +288,7 @@ function Tray({ agents, visible, count, waiting }: { agents: StripAgent[]; visib
             );
           })}
         </div>
+        <p className="border-t px-3.5 py-2 text-muted-foreground text-xs">Click brings it in · ⌥-click swaps it with the focused pane</p>
       </PopoverPopup>
     </Popover>
   );
@@ -301,10 +317,10 @@ function Chip({ a, here, onOpen }: { a: StripAgent; here?: boolean; onOpen(how: 
         onClick={(e) => onOpen(e.altKey ? "replace" : "auto")}
         className={cn(
           "flex h-7 max-w-72 shrink-0 cursor-default items-center gap-1.5 rounded-md border px-2 text-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-          needs ? "border-warning/35 bg-warning/8 hover:bg-warning/14" : "border-transparent bg-muted/60 hover:bg-accent",
-          here && "border-dashed border-border bg-transparent",
+          here ? "border-dashed border-foreground/30 bg-transparent hover:bg-accent" : needs ? "border-warning/35 bg-warning/8 hover:bg-warning/14" : "border-transparent bg-muted/60 hover:bg-accent",
         )}
       >
+        {here && <span className="shrink-0 text-[10px] text-muted-foreground uppercase tracking-wide">Here</span>}
         <StateGlyph state={a.e.state} className="size-3" />
         <span className="min-w-0 truncate font-medium text-foreground">{a.title}</span>
         <span className="min-w-0 shrink-[2] truncate text-muted-foreground">{a.place}</span>
@@ -429,7 +445,7 @@ export function DeckSwitcher() {
               )}
             </CommandList>
           </CommandPanel>
-          <CommandFooter className="text-[11px] text-muted-foreground">
+          <CommandFooter className="text-muted-foreground text-xs">
             <span className="flex items-center gap-1">
               <Kbd>↵</Kbd> bring in <Kbd>⌥↵</Kbd> in the focused pane's place
             </span>

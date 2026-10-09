@@ -1,3 +1,4 @@
+import { useDeckOn } from "@/lib/deck";
 import { CircleArrowUpIcon, GitBranchIcon, RefreshCwIcon } from "lucide-react";
 import { useState } from "react";
 
@@ -31,6 +32,8 @@ export function StatusBar() {
   // The agent restarting after an update (lib/updater.ts) is away a moment.
   const restarting = useAgentRestart((s) => s.restarting);
   const counts = useAgentCounts();
+  // The workspace layout's strip and tabs count agents already.
+  const deck = useDeckOn();
   const items = useRegistry((s) => s.statusBarItems);
   const [syncing, setSyncing] = useState(false);
   const go = useStore((s) => s.setView);
@@ -66,7 +69,7 @@ export function StatusBar() {
             Agent unreachable
           </span>
         </Tip>
-      ) : (
+      ) : deck ? null : (
         <>
           {counts.waiting > 0 && (
             <Item className="text-warning-foreground dark:text-warning" onClick={() => go({ kind: "dashboard" })} tip="Agents waiting for your answer or permission">
