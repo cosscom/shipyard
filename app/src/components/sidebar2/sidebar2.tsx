@@ -243,7 +243,7 @@ function PlacesRow() {
       )}
       {/* Wide enough, Automations is a place of its own too. */}
       {autos && (
-        <button type="button" data-testid="nav-automations" aria-label="Automations" aria-current={autos.active ? "page" : undefined} onClick={autos.go} className={cn(place(autos.active), "hidden @min-[19rem]/side:inline-flex")}>
+        <button type="button" data-testid="nav-automations" aria-label="Automations" aria-current={autos.active ? "page" : undefined} onClick={autos.go} className={cn(place(autos.active), "hidden @min-[22rem]/side:inline-flex")}>
           <WorkflowIcon />
           <span data-word className="truncate">Automations</span>
         </button>
@@ -487,7 +487,7 @@ function Body() {
 
   return (
     <MarkedCtx.Provider value={marked}>
-      <Fade testid="s2-lists" className={cn("min-h-16 pb-2", projectsOpen ? (anyProject ? "max-h-[50%] shrink-0" : "max-h-[60%] shrink-0") : "flex-1")}>
+      <Fade testid="s2-lists" top={false} className={cn("min-h-16 pb-2", projectsOpen ? (anyProject ? "max-h-[50%] shrink-0" : "max-h-[60%] shrink-0") : "flex-1")}>
         {waiting.length > 0 && (
           <Section id="waiting" label="Needs you" count={waiting.length} loud>
             {/* The first few with their ask; past that, a line each. */}
@@ -512,7 +512,7 @@ function Body() {
         )}
         {recent.length > 0 && (
           <Section id="recent" label="Recent" count={recent.length}>
-            {shownRecent.map((r) => (r.agent ? <AgentLine key={r.key} e={r.agent} front={front} extra={r.extra} /> : <WorktreeLine key={r.key} place={r.place!} at={r.t} />))}
+            {shownRecent.map((r) => (r.agent ? <AgentLine key={r.key} e={r.agent} front={front} extra={r.extra} at={r.extra ? r.t : undefined} /> : <WorktreeLine key={r.key} place={r.place!} at={r.t} />))}
             {more("recent", recent.length, shownRecent.length, "recent")}
           </Section>
         )}
@@ -529,9 +529,9 @@ function Body() {
   );
 }
 
-function SectionHead({ id, label, count, loud, folded, right }: { id: string; label: string; count?: number; loud?: boolean; folded: boolean; right?: ReactNode }) {
+function SectionHead({ id, label, count, loud, folded, right, sticky }: { id: string; label: string; count?: number; loud?: boolean; folded: boolean; right?: ReactNode; sticky?: boolean }) {
   return (
-    <div className="group/head flex h-6 items-center pr-1 pl-2">
+    <div className={cn("group/head flex h-6 items-center pr-1 pl-2", sticky && "sticky top-0 z-20 bg-sidebar")}>
       <button
         type="button"
         aria-expanded={!folded}
@@ -553,7 +553,8 @@ function Section({ id, label, count, loud, children }: { id: string; label: stri
   const folded = useS2((s) => s.folded[id] ?? false);
   return (
     <section aria-label={label} data-testid="s2-section" data-section={id} className="pt-2">
-      <SectionHead id={id} label={label} count={count} loud={loud} folded={folded} />
+      {/* Sticky, so a row scrolled half away still says what it is. */}
+      <SectionHead id={id} label={label} count={count} loud={loud} folded={folded} sticky />
       {!folded && <ul className="flex flex-col gap-px">{children}</ul>}
     </section>
   );
@@ -572,7 +573,7 @@ function MoreRow({ label, onClick }: { label: string; onClick(): void }) {
 // A row marked strongly (tint and an edge) is the agent in front; faintly,
 // a third of the tint, a worktree in front whose agent row already says so.
 const rowBase =
-  "group/r relative flex w-full gap-2 rounded-md px-2 text-left outline-none hover:bg-sidebar-accent/60 focus-visible:ring-2 focus-visible:ring-ring data-[selected=strong]:bg-sidebar-accent data-[selected=strong]:before:absolute data-[selected=strong]:before:inset-y-1 data-[selected=strong]:before:left-0 data-[selected=strong]:before:w-0.5 data-[selected=strong]:before:rounded-full data-[selected=strong]:before:bg-foreground/60 data-[selected=faint]:bg-sidebar-accent/35";
+  "group/r relative flex w-full scroll-my-8 gap-2 rounded-md px-2 text-left outline-none hover:bg-sidebar-accent/60 focus-visible:ring-2 focus-visible:ring-ring data-[selected=strong]:bg-sidebar-accent data-[selected=strong]:before:absolute data-[selected=strong]:before:inset-y-1 data-[selected=strong]:before:left-0 data-[selected=strong]:before:w-0.5 data-[selected=strong]:before:rounded-full data-[selected=strong]:before:bg-foreground/60 data-[selected=faint]:bg-sidebar-accent/35";
 
 function pinAction(key: string): Action {
   const on = useS2.getState().pinned.includes(key);
@@ -599,12 +600,15 @@ function RowName({ e, extra, away }: { e: RailAgent; extra?: number; away?: bool
   const several = useSeveralBoxes();
   const name = wtName(e.loc, e.wt);
   // The main checkout is its branch, as in the tree, with its project.
-  const where = [e.wt.main ? e.project : "", several ? e.box : ""].filter(Boolean).join(" · ");
+  const project = e.wt.main ? e.project : "";
+  const box = several ? e.box : "";
   return (
     <>
       <span className={cn("min-w-0 max-w-[70%] shrink-0 truncate text-[13px] leading-[18px]", away ? "text-muted-foreground" : "text-foreground")}>{name}</span>
-      {/* Where is only shown whole: a box name cut to "de…" says nothing. */}
-      {where && <span className="hidden min-w-0 truncate text-[12px] text-muted-foreground @min-[13.5rem]/side:inline">· {where}</span>}
+      {/* Where is only shown whole: a box name cut to "de…" says nothing.
+          The box stays at every width; a main checkout's project from 13.5rem. */}
+      {project && <span className="hidden shrink-0 text-[12px] text-muted-foreground @min-[13.5rem]/side:inline">· {project}</span>}
+      {box && <span className="shrink-0 text-[12px] text-muted-foreground">· {box}</span>}
       <WtDot wsKey={e.key} className="size-1.5" />
       {extra ? (
         <span aria-label={`and ${extra} more finished here`} className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
@@ -709,12 +713,12 @@ function Answer({ e }: { e: RailAgent }) {
 // how many more finished in the same worktree; in Working (two), what its
 // work is called under it, whole. The hover card has the rest.
 const quietCheck = "[&_svg]:text-muted-foreground!";
-function AgentLine({ e, front, extra, two }: { e: RailAgent; front?: string; extra?: number; two?: boolean }) {
+function AgentLine({ e, front, extra, two, at }: { e: RailAgent; front?: string; extra?: number; two?: boolean; at?: number }) {
   const title = titleOf(e);
   const name = wtName(e.loc, e.wt);
   const where = placeWords(e);
   const selected = e.id === front;
-  const time = e.away ? `${e.box} is ${e.away}` : since(e.session.state_since);
+  const time = e.away ? `${e.box} is ${e.away}` : since(at ? new Date(at).toISOString() : e.session.state_since);
   return (
     <li className="group/li relative">
       <ContextRow items={() => agentMenu(e)}>
@@ -937,12 +941,12 @@ function ProjectRow({ p }: { p: Project }) {
         {/* Where it is, muted and on every project alike, when there is more than one box. */}
         {boxCount > 1 && <span className="min-w-0 shrink truncate text-[11px] text-muted-foreground">{p.members.map((m) => m.box.name).join(", ")}</span>}
         <span className="ml-auto flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground tabular-nums">
-          {!open && needs > 0 ? (
+          {needs > 0 ? (
             <span aria-label={`${needs} ${needs === 1 ? "needs" : "need"} you`} className="flex items-center gap-1 text-warning-foreground">
               <span className="size-1.5 rounded-full bg-warning" />
               {needs}
             </span>
-          ) : !open && works > 0 ? (
+          ) : works > 0 ? (
             <span aria-label={`${works} working`} className="flex items-center gap-1">
               <StateGlyph state="running" className="size-3" />
               {works}
