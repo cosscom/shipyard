@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -81,6 +82,23 @@ func synthClaude(tb testing.TB, n int) (string, string) {
 	return p, lastTool
 }
 
+// cpuPerOp reports the process's CPU time per op (cpu-ns/op) when the
+// benchmark ends: on a busy machine it moves far less than wall time.
+func cpuPerOp(b *testing.B) func() {
+	start := cpuTime()
+	return func() {
+		if b.N > 0 {
+			b.ReportMetric(float64(cpuTime()-start)/float64(b.N), "cpu-ns/op")
+		}
+	}
+}
+
+func cpuTime() int64 {
+	var ru syscall.Rusage
+	syscall.Getrusage(syscall.RUSAGE_SELF, &ru)
+	return ru.Utime.Nano() + ru.Stime.Nano()
+}
+
 func fileSize(tb testing.TB, p string) int64 {
 	st, err := os.Stat(p)
 	if err != nil {
@@ -95,6 +113,7 @@ func BenchmarkFollowCold(b *testing.B) {
 	p, _ := synthClaude(b, 20000)
 	b.SetBytes(min(fileSize(b, p), maxStart))
 	b.ReportAllocs()
+	defer cpuPerOp(b)()
 	for b.Loop() {
 		if _, err := NewReader().Read("claude", p, "/home/acme/widgets", 0); err != nil {
 			b.Fatal(err)
@@ -112,6 +131,7 @@ func BenchmarkFollowWarm(b *testing.B) {
 		b.Fatal(err)
 	}
 	b.ReportAllocs()
+	defer cpuPerOp(b)()
 	for b.Loop() {
 		if _, err := r.Follow("claude", p, "/home/acme/widgets", res.Next, res.Gen); err != nil {
 			b.Fatal(err)
@@ -123,6 +143,7 @@ func BenchmarkFollowWarm(b *testing.B) {
 func BenchmarkBefore(b *testing.B) {
 	p, _ := synthClaude(b, 20000)
 	b.ReportAllocs()
+	defer cpuPerOp(b)()
 	for b.Loop() {
 		if _, err := Before("claude", p, "/home/acme/widgets", 0, 80); err != nil {
 			b.Fatal(err)
@@ -134,6 +155,7 @@ func BenchmarkBefore(b *testing.B) {
 func BenchmarkLastTurn(b *testing.B) {
 	p, _ := synthClaude(b, 20000)
 	b.ReportAllocs()
+	defer cpuPerOp(b)()
 	for b.Loop() {
 		if _, err := LastTurn("claude", p, "/home/acme/widgets"); err != nil {
 			b.Fatal(err)
@@ -146,6 +168,7 @@ func BenchmarkDetail(b *testing.B) {
 	p, id := synthClaude(b, 20000)
 	b.SetBytes(fileSize(b, p))
 	b.ReportAllocs()
+	defer cpuPerOp(b)()
 	for b.Loop() {
 		if _, err := Detail("claude", p, "/home/acme/widgets", id); err != nil {
 			b.Fatal(err)
@@ -170,6 +193,7 @@ func BenchmarkAssignClaude(b *testing.B) {
 	}
 	claims := []Claim{{Name: "a", Started: start.Add(150 * time.Minute)}, {Name: "b", Started: start.Add(170 * time.Minute)}}
 	b.ReportAllocs()
+	defer cpuPerOp(b)()
 	for b.Loop() {
 		AssignClaude(dir, claims)
 	}

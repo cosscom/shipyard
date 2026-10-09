@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -48,6 +49,23 @@ func benchSessions(b *testing.B) (*Sessions, *atomic.Int64) {
 	return s, &execs
 }
 
+// cpuPerOp reports berthd's own CPU time per op (cpu-ns/op) when the
+// benchmark ends: tmux's is not in it, so execs/op says what it costs.
+func cpuPerOp(b *testing.B) func() {
+	start := cpuTime()
+	return func() {
+		if b.N > 0 {
+			b.ReportMetric(float64(cpuTime()-start)/float64(b.N), "cpu-ns/op")
+		}
+	}
+}
+
+func cpuTime() int64 {
+	var ru syscall.Rusage
+	syscall.Getrusage(syscall.RUSAGE_SELF, &ru)
+	return ru.Utime.Nano() + ru.Stime.Nano()
+}
+
 // BenchmarkTranscriptPoll is one chat's poll of GET …/transcript with
 // nothing new, in a folder where three Claude sessions run.
 func BenchmarkTranscriptPoll(b *testing.B) {
@@ -83,6 +101,7 @@ func BenchmarkTranscriptPoll(b *testing.B) {
 	poll()
 	execs.Store(0)
 	b.ReportAllocs()
+	defer cpuPerOp(b)()
 	n := 0
 	for b.Loop() {
 		poll()
@@ -110,6 +129,7 @@ func BenchmarkPollScreens(b *testing.B) {
 	bx.pollScreens(ctx)
 	execs.Store(0)
 	b.ReportAllocs()
+	defer cpuPerOp(b)()
 	n := 0
 	for b.Loop() {
 		bx.pollScreens(ctx)
@@ -134,6 +154,7 @@ func BenchmarkTurnsSave(b *testing.B) {
 		t.sess[name] = s
 	}
 	b.ReportAllocs()
+	defer cpuPerOp(b)()
 	for b.Loop() {
 		// A tool started: the ledger moved on, no agent changed state.
 		t.mu.Lock()
