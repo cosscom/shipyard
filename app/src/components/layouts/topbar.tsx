@@ -91,15 +91,13 @@ export function TopBar() {
   const { home, pinned, more } = usePlaces();
   // Narrower, the places past Review fold into ⋯ rather than turn into
   // icons to guess at.
-  // The tabs get the room: Review, the place people visit most, keeps its
-  // label down to 1280px and the others to 1600px; under 1180px all but
-  // Review fold into ⋯.
+  // The tabs get the room. Review, the place people visit most, always
+  // shows with its name and count; the other places do from 1600px, and
+  // fold into ⋯ under it rather than turn into icons to guess at.
   const roomy = useMediaQuery({ min: 1600 });
-  const labelled = useMediaQuery({ min: 1280 });
-  const wide = useMediaQuery({ min: 1180 });
-  const hint = useMediaQuery({ min: 1440 });
-  const shown = wide ? pinned : pinned.filter((n) => n.id === "review");
-  const folded = wide ? more : [...pinned.filter((n) => n.id !== "review"), ...more];
+  const hint = useMediaQuery({ min: 1280 });
+  const shown = roomy ? pinned : pinned.filter((n) => n.id === "review");
+  const folded = roomy ? more : [...pinned.filter((n) => n.id !== "review"), ...more];
 
   return (
     <header data-tauri-drag-region data-testid="topbar" aria-label="Top bar" className={cn("flex h-10 shrink-0 items-center gap-1 border-b bg-sidebar pr-2 text-sidebar-foreground", trafficPad())}>
@@ -123,7 +121,7 @@ export function TopBar() {
         <span aria-hidden className="mx-1 h-4 w-px bg-border" />
         <nav aria-label="Places" className="flex items-center gap-0.5">
           {shown.map((n) => (
-            <PlaceButton key={n.id} n={n} iconOnly={n.id === "review" ? !labelled : !roomy} />
+            <PlaceButton key={n.id} n={n} />
           ))}
           <MorePlaces more={folded} />
         </nav>
@@ -171,10 +169,12 @@ function Agents({ wide }: { wide: boolean }) {
           className="inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-muted-foreground text-xs tabular-nums hover:bg-sidebar-accent hover:text-foreground"
         >
           <StateGlyph state="running" className="size-3" />
-          {count("running")} working
-          <span aria-hidden className="text-muted-foreground/60">·</span>
+          {count("running")}
+          {wide && " working"}
+          {wide && <span aria-hidden className="text-muted-foreground/60">·</span>}
           <StateGlyph state="finished" className="size-3" />
-          {count("finished")} done
+          {count("finished")}
+          {wide && " done"}
           {wide && <Kbd className="ml-0.5 h-4.5 text-[10px]">⌃⇥</Kbd>}
         </button>
       </Tip>
@@ -294,7 +294,13 @@ function SwitcherList({ front, close }: { front?: string; close(): void }) {
   };
   // Opens on the worktree in front; typing starts from the top.
   useEffect(() => {
-    const i = q ? 0 : flat.findIndex((r) => r.key === front);
+    // Enter goes somewhere: what needs you next, else the worktree before.
+    const spaces = useWorkspaces.getState().spaces;
+    const last = Object.entries(spaces)
+      .filter(([k, w]) => k !== front && w.visitedAt && !homeBox(k))
+      .sort((a, b) => (b[1].visitedAt ?? 0) - (a[1].visitedAt ?? 0))[0]?.[0];
+    const ask = flat.findIndex((r) => r.state === "waiting" && r.key !== front);
+    const i = q ? 0 : ask >= 0 ? ask : flat.findIndex((r) => r.key === last);
     setActive(Math.max(0, i));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
@@ -320,12 +326,18 @@ function SwitcherList({ front, close }: { front?: string; close(): void }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={onKeyDown}
+          role="combobox"
+          aria-expanded
+          aria-controls="goto-list"
+          aria-activedescendant={flat[active] ? `goto-${active}` : undefined}
           placeholder="Go to a worktree or task…"
           aria-label="Go to a worktree or task"
           className="h-10 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
       </div>
-      <div ref={list} role="listbox" aria-label="Worktrees" className="min-h-0 flex-1 overflow-y-auto p-1">
+      {/* The input keeps the keyboard; the list follows it (↑↓, ↵). The
+          list takes focus too, so it scrolls from the keyboard. */}
+      <div ref={list} id="goto-list" role="listbox" aria-label="Worktrees" tabIndex={0} onKeyDown={(e) => onKeyDown(e as unknown as KeyboardEvent<HTMLInputElement>)} className="min-h-0 flex-1 overflow-y-auto p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
         {shown.length === 0 && <div role="option" aria-selected={false} aria-disabled className="px-3 py-6 text-center text-muted-foreground text-xs">No worktree matches.</div>}
         {shown.map((g) => (
           <div key={g.name} role="group" aria-label={g.name} data-testid="topbar-project-group" data-project={g.name} className="pb-1">
@@ -343,6 +355,7 @@ function SwitcherList({ front, close }: { front?: string; close(): void }) {
                   role="option"
                   aria-selected={i === active}
                   data-index={i}
+                  id={`goto-${i}`}
                   data-testid="topbar-worktree-item"
                   data-worktree={`${r.box}/${r.wt.main ? r.loc.name : r.wt.name}`}
                   onMouseMove={() => setActive(i)}
@@ -350,14 +363,24 @@ function SwitcherList({ front, close }: { front?: string; close(): void }) {
                   className={cn("flex h-8 cursor-default items-center gap-2 rounded-md px-2 text-[13px]", i === active && "bg-accent", r.key === front && "font-medium")}
                 >
                   {r.state ? <StateGlyph state={r.state} /> : r.wt.main ? <HouseIcon className="size-3.5 shrink-0 text-muted-foreground" /> : <GitBranchIcon className="size-3.5 shrink-0 text-muted-foreground" />}
-                  <span className="shrink-0">{g.asks && !r.wt.main ? `${r.project} / ` : ""}{r.wt.main ? (g.asks ? r.project : "main") : worktreeLabel(r.wt)}</span>
+                  <span className="shrink-0">{g.asks ? `${r.project} / ` : ""}{r.wt.main ? "main" : worktreeLabel(r.wt)}</span>
                   <span className="shrink-0 rounded bg-muted px-1 font-mono text-[10px] text-muted-foreground">{r.box}</span>
                   <span className="min-w-0 flex-1 truncate text-muted-foreground text-xs">{r.title}</span>
-                  {open.has(r.key) && <span className="shrink-0 text-[10px] text-muted-foreground">{r.key === front ? "in front" : "open"}</span>}
+                  {open.has(r.key) && <span className="shrink-0 rounded border px-1 text-[10px] text-muted-foreground">{r.key === front ? "here" : "open"}</span>}
                 </div>
               );
             })}
           </div>
+        ))}
+      </div>
+      {/* The boxes, and which are away. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t px-3 py-1.5 font-mono text-[10px] text-muted-foreground">
+        {status.map((b) => (
+          <span key={b.name} className="flex shrink-0 items-center gap-1">
+            <span className={cn("size-1.5 rounded-full", b.state === "online" ? "bg-success" : "bg-muted-foreground/60")} />
+            {b.name}
+            {b.state !== "online" && <span className="font-sans">offline</span>}
+          </span>
         ))}
       </div>
       <div className="flex items-center gap-1 border-t p-1">
@@ -370,16 +393,10 @@ function SwitcherList({ front, close }: { front?: string; close(): void }) {
           <FolderPlusIcon className="size-3.5" />
           Add a project
         </button>
-        {/* The boxes, and which are away. */}
-        <span className="ml-auto flex min-w-0 items-center gap-2 overflow-hidden pr-1.5 font-mono text-[10px] text-muted-foreground">
-          {status.map((b) => (
-            <span key={b.name} className="flex shrink-0 items-center gap-1">
-              <span className={cn("size-1.5 rounded-full", b.state === "online" ? "bg-success" : "bg-muted-foreground/60")} />
-              {b.name}
-              {b.state !== "online" && <span className="font-sans">offline</span>}
-            </span>
-          ))}
-        </span>
+        <button type="button" onClick={() => (close(), openSwitcher())} className="inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-[13px] hover:bg-accent">
+          Every agent
+          <Kbd className="h-4.5 text-[10px]">⌃⇥</Kbd>
+        </button>
       </div>
     </div>
   );
@@ -439,8 +456,8 @@ function WorktreeTabs() {
             <div
               key={t.key}
               className={cn(
-                "group relative flex h-6.5 max-w-52 shrink items-center overflow-hidden rounded-full border text-[13px]",
-                selected ? "border-border bg-background text-foreground shadow-xs" : "border-transparent text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+                "group relative flex h-6.5 min-w-[7.5rem] max-w-52 shrink items-center overflow-hidden rounded-full border text-[13px]",
+                selected ? "border-border bg-background text-foreground shadow-xs dark:border-transparent dark:bg-sidebar-accent" : "border-transparent text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
               )}
             >
               <Tip label={<span className="flex items-center gap-1.5">{`${t.ref.location}${t.ref.main ? " · main checkout" : ` / ${name}`} on ${t.ref.box}`}{i < 9 && <Kbd>⌃{i + 1}</Kbd>}</span>}>
@@ -452,7 +469,7 @@ function WorktreeTabs() {
                   data-selected={selected || undefined}
                   onClick={() => selectWorktree(t.ref)}
                   onAuxClick={(e) => e.button === 1 && close(e)}
-                  className={cn("flex h-full min-w-0 flex-auto cursor-default items-center gap-1.5 rounded-full pl-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset", !selected && "pr-2.5")}
+                  className="flex h-full min-w-0 flex-auto cursor-default items-center gap-1.5 rounded-full px-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                 >
                   {state ? <StateGlyph state={state} /> : t.ref.main ? <HouseIcon className="size-3.5 shrink-0" /> : <GitBranchIcon className="size-3.5 shrink-0" />}
                   {/* Just the name: where it is shows on hover. Two of a name
@@ -472,9 +489,9 @@ function WorktreeTabs() {
                 onClick={close}
                 className={cn(
                   "inline-flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground",
-                  // In front it has its place; behind, it shows over the
-                  // tab's end on hover, so tabs are as wide as their names.
-                  selected ? "mr-0.5 opacity-70" : "absolute right-0.5 bg-sidebar-accent opacity-0 group-hover:opacity-100",
+                  // It shows over the tab's end on hover, so tabs are as
+                  // wide as their names.
+                  "absolute right-0.5 bg-sidebar-accent opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
                 )}
               >
                 <XIcon className="size-3" />

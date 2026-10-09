@@ -33,7 +33,7 @@ test("⌘E and a few letters of a task go to its worktree", async ({ app }) => {
   const { page } = app;
   await open(app);
   await page.keyboard.press("Meta+e");
-  await page.getByRole("textbox", { name: "Go to a worktree or task" }).fill("judge");
+  await page.getByRole("combobox", { name: "Go to a worktree or task" }).fill("judge");
   await expect(page.getByTestId("topbar-worktree-item")).toHaveCount(1);
   await page.keyboard.press("Enter");
   await expect(page.locator("[data-testid=topbar-tab][data-selected]")).toContainText("judge-v2");
