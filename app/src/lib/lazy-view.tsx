@@ -1,7 +1,8 @@
 import { type ComponentType, lazy, useState } from "react";
 
-// lazyView is a page (Settings, Automations, Team setup…) that loads on
-// first use rather than with the app, so they don't all weigh on its start.
+// lazyView is a page (Settings, Automations, Team setup…), a dialog's
+// content or a kind of pane that loads after the app has started rather
+// than with it, so they don't all weigh on its start.
 // preloadViews fetches them once the app is up and idle, and a view whose
 // code is in by the time it shows draws at once, without suspending (no
 // blank frame on a first visit). Render it under a <Suspense>.
