@@ -119,6 +119,10 @@ export const InboxRow = memo(function InboxRow({ it, cursor, open, done, live, o
         aria-label={words}
         aria-current={open || undefined}
         onFocus={() => onFocus(it)}
+        // A click opens the worktree, which takes the keyboard: the row
+        // isn't focused on the way, so nothing in the list (its key strip,
+        // the cursor) changes between the press and the release.
+        onMouseDown={(e) => e.preventDefault()}
         onClick={() => onOpen(it)}
         onKeyDown={(e) => {
           // y and n answer the ask under the cursor, as its buttons say.
@@ -184,6 +188,7 @@ export const InboxRow = memo(function InboxRow({ it, cursor, open, done, live, o
           type="button"
           tabIndex={-1}
           aria-label={done ? `Back to the inbox: ${it.title}` : `Clear: ${it.title}`}
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => onDone(it)}
           className="inline-flex h-5 items-center gap-1 rounded-md border border-sidebar-border bg-sidebar px-1.5 text-[11px] text-muted-foreground hover:bg-background hover:text-foreground"
         >
@@ -197,11 +202,12 @@ export const InboxRow = memo(function InboxRow({ it, cursor, open, done, live, o
             <span className="text-[11px] text-muted-foreground">{answered === "Deny" ? "Denied" : "Allowed"} · resuming</span>
           ) : allow && deny ? (
             <>
-              <Button size="xs" variant="outline" className="h-6 rounded-md px-2 text-[11px]" onClick={() => answer(deny.key, "Deny")} aria-label={`Deny: ${it.title}`} aria-keyshortcuts={cursor ? "n" : undefined}>
+              <Button size="xs" variant="outline" className="h-6 rounded-md px-2 text-[11px]" onMouseDown={(e) => e.preventDefault()} onClick={() => answer(deny.key, "Deny")} aria-label={`Deny: ${it.title}`} aria-keyshortcuts={cursor ? "n" : undefined}>
                 Deny
                 {cursor && <Key>n</Key>}
               </Button>
-              <Button size="xs" className="h-6 rounded-md px-2 text-[11px]" onClick={() => answer(allow.key, "Allow")} aria-label={`Allow once: ${it.title}`} aria-keyshortcuts={cursor ? "y" : undefined}>
+              {/* Solid only under the cursor: the brightest thing on screen is never a button you aren't on. */}
+              <Button size="xs" variant={cursor ? "default" : "outline"} className="h-6 rounded-md px-2 text-[11px]" onMouseDown={(e) => e.preventDefault()} onClick={() => answer(allow.key, "Allow")} aria-label={`Allow once: ${it.title}`} aria-keyshortcuts={cursor ? "y" : undefined}>
                 Allow once
                 {cursor && <Key>y</Key>}
               </Button>

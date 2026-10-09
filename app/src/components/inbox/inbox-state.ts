@@ -77,7 +77,14 @@ export const inboxOn = () => {
 export const useInboxOn = () => usePrefs((p) => p.labs && p.layout === "inbox");
 
 // focusInbox brings the list back and gives it the keyboard (⌘J).
+// Decided here, at once, not in an effect after the next paint: a row
+// picked in between would have its choice undone.
 export function focusInbox() {
+  const narrow = window.matchMedia("(max-width: 1023px)").matches;
+  const w = useWorkspaces.getState();
+  const worktreeOpen = !!w.current && !homeBox(w.current) && useStore.getState().view.kind === "workspace";
+  if (narrow && worktreeOpen) useInbox.setState({ peek: true });
+  else if (usePrefs.getState().sidebarCollapsed) usePrefs.setState({ sidebarCollapsed: false });
   useInbox.setState((s) => ({ tab: "inbox", focusAsk: s.focusAsk + 1 }));
 }
 

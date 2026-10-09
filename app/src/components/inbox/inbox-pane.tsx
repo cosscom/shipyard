@@ -14,7 +14,7 @@ import {
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Scene } from "@/components/art/scenes";
-import { compose, goBack, useInbox, useInboxItems } from "@/components/inbox/inbox-state";
+import { compose, focusInbox, goBack, useInbox, useInboxItems } from "@/components/inbox/inbox-state";
 import { InboxRow } from "@/components/inbox/inbox-row";
 import { NotificationBell } from "@/components/notifications/notification-center";
 import { MoreItems, useArrangedNav } from "@/components/sidebar/nav";
@@ -68,17 +68,8 @@ export function InboxPane() {
   const inWorkspace = useStore((s) => s.view.kind === "workspace");
   const worktreeOpen = hasWorktree && inWorkspace;
   const peek = useInbox((s) => s.peek);
-  const focusAsk = useInbox((s) => s.focusAsk);
   const folded = collapsed || (narrow && worktreeOpen);
 
-  // ⌘J: unfold (or lay the list over a narrow window), then the list takes
-  // the keyboard once drawn.
-  useEffect(() => {
-    if (!focusAsk) return;
-    if (collapsed && !narrow) usePrefs.setState({ sidebarCollapsed: false });
-    else if (narrow && worktreeOpen) useInbox.setState({ peek: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusAsk]);
   useEffect(() => {
     if (!folded) useInbox.setState({ peek: false });
   }, [folded]);
@@ -697,11 +688,7 @@ function InboxStrip() {
   const collapsed = usePrefs((p) => p.sidebarCollapsed);
   const items = useInboxItems();
   const needs = items.filter((i) => i.section === "needs").length;
-  const unfold = () => {
-    if (collapsed && !narrow) usePrefs.setState({ sidebarCollapsed: false });
-    else useInbox.setState({ peek: true });
-    useInbox.setState((s) => ({ tab: "inbox", focusAsk: s.focusAsk + 1 }));
-  };
+  const unfold = focusInbox;
   const item = (label: string, icon: ReactNode, onClick: () => void, opts: { active?: boolean; badge?: number; testid?: string } = {}) => (
     <Tip label={label} side="right">
       <button
