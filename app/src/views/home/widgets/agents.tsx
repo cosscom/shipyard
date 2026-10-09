@@ -4,12 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { AgentIcon, StateGlyph } from "@/components/agent-glyph";
 import { toastError } from "@/components/error-note";
 import { Button } from "@/components/ui/button";
-import { type SessionEntry, useAllSessions } from "@/hooks/use-agent-counts";
+import { lastOf, type SessionEntry, useAllSessions } from "@/hooks/use-agent-counts";
 import { boxApi, type Session } from "@/lib/api";
 import { agentLabel, agentOf, worktreeOf } from "@/lib/derive";
 import { parseScreen } from "@/lib/screen-status";
 import { permissionChoices } from "@/lib/screen";
-import { useStore } from "@/lib/store";
+import { type BoxData, useStore } from "@/lib/store";
 import { useAsk } from "@/lib/transcript-feed";
 import { cn } from "@/lib/utils";
 import { focusSession, homeBox, selectWorktree, useWorkspaces, type WorktreeRef } from "@/lib/workspaces";
@@ -41,28 +41,31 @@ export interface AgentRow {
 export function useAgentRows(): AgentRow[] {
   const all = useAllSessions();
   const boxes = useStore((s) => s.boxes);
-  return useMemo(() => {
-    const rows: AgentRow[] = [];
-    for (const e of all as SessionEntry[]) {
-      const agent = agentOf(e.session);
-      if (!agent || (e.state !== "waiting" && e.state !== "running" && e.state !== "finished")) continue;
-      const wt = worktreeOf(boxes[e.box]?.locations, e.session);
-      const place = wt ? (wt.worktree.main ? wt.location.name : `${wt.location.name} / ${worktreeLabel(wt.worktree)}`) : "";
-      rows.push({
-        key: `${e.box}/${e.session.name}`,
-        box: e.box,
-        session: e.session,
-        agent,
-        title: e.session.title?.trim() || place || e.session.name,
-        where: [e.session.title?.trim() ? place : "", e.box].filter(Boolean).join(" · "),
-        worktree: wt ? { box: e.box, location: wt.location.name, worktree: wt.worktree.name, path: wt.worktree.path, main: wt.worktree.main } : undefined,
-        state: e.state,
-        since: e.session.state_since ?? e.session.created,
-      });
-    }
-    return rows.sort((a, b) => (b.since ?? "").localeCompare(a.since ?? ""));
-  }, [all, boxes]);
+  return agentRows(all, boxes);
 }
+
+// Worked out once for every widget and count that asks (lastOf).
+const agentRows = lastOf((all: SessionEntry[], boxes: Record<string, BoxData>): AgentRow[] => {
+  const rows: AgentRow[] = [];
+  for (const e of all) {
+    const agent = agentOf(e.session);
+    if (!agent || (e.state !== "waiting" && e.state !== "running" && e.state !== "finished")) continue;
+    const wt = worktreeOf(boxes[e.box]?.locations, e.session);
+    const place = wt ? (wt.worktree.main ? wt.location.name : `${wt.location.name} / ${worktreeLabel(wt.worktree)}`) : "";
+    rows.push({
+      key: `${e.box}/${e.session.name}`,
+      box: e.box,
+      session: e.session,
+      agent,
+      title: e.session.title?.trim() || place || e.session.name,
+      where: [e.session.title?.trim() ? place : "", e.box].filter(Boolean).join(" · "),
+      worktree: wt ? { box: e.box, location: wt.location.name, worktree: wt.worktree.name, path: wt.worktree.path, main: wt.worktree.main } : undefined,
+      state: e.state,
+      since: e.session.state_since ?? e.session.created,
+    });
+  }
+  return rows.sort((a, b) => (b.since ?? "").localeCompare(a.since ?? ""));
+});
 
 // Until the agent and every online box have answered, agent lists are
 // loading, not empty.
