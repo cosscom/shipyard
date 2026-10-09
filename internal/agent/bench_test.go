@@ -120,7 +120,7 @@ func BenchmarkProxyHosts(b *testing.B) {
 // BenchmarkRouteLookup resolves a request host against the saved routes,
 // which the proxy does first for every request it relays.
 func BenchmarkRouteLookup(b *testing.B) {
-	a := &Agent{routes: routeStore{path: filepath.Join(b.TempDir(), "routes.json")}}
+	a := &Agent{routes: newRouteStore(filepath.Join(b.TempDir(), "routes.json"))}
 	all := []Route{
 		{Pattern: "*.cal.test.localhost", Box: "devbox", Port: 3000},
 		{Pattern: "*.docs.test.localhost", Box: "devbox", Port: 3001},
