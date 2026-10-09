@@ -23,9 +23,11 @@ test("agents first: what needs you comes first, in words, and a click goes to th
   await expect(waiting).toContainText("Fix checkout webhook retries");
   await expect(waiting).toContainText("Wants to run");
   await expect(waiting).toContainText("pnpm prisma migrate dev");
-  // Only agents count as needing you; Review waits with them, uncounted.
+  // Only agents count as needing you; Review says its own count.
   await expect(side.locator("[data-section=waiting]").getByRole("button", { name: /^Needs you/ })).toContainText("2");
-  await expect(side.getByTestId("s2-review")).toContainText("to review");
+  await expect(side.getByTestId("nav-review")).toHaveAccessibleName(/Review, \d+ to review/);
+  // A permission is answered right in the row.
+  await expect(side.locator("li", { has: page.locator('[data-session="devl/checkout-fix-claude"]') }).getByRole("button", { name: /Allow once/ })).toBeVisible();
 
   // A click opens it, with its tab in front.
   await waiting.click();

@@ -15,6 +15,7 @@ import {
   ServerIcon,
   ServerOffIcon,
   SettingsIcon,
+  WorkflowIcon,
   XIcon,
 } from "lucide-react";
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
@@ -29,27 +30,30 @@ import { AgentCard, type RailAgent, useRailAgents } from "@/components/sidebar/r
 import { SidebarResizeHandle } from "@/components/sidebar/resize-handle";
 import { RowLayer } from "@/components/sidebar/row-layer";
 import { Tip } from "@/components/tip";
+import { toastError } from "@/components/error-note";
+import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { WhatsNewNudge } from "@/components/whats-new/whats-new-dialog";
 import { WtDot } from "@/components/workspace/worktree-tone";
-import type { BoxStatus, Location, Session, Worktree } from "@/lib/api";
+import { type BoxStatus, boxApi, type Location, type Session, type Worktree } from "@/lib/api";
 import { agentOf, type SessionState, sessionState, worktreeSessions } from "@/lib/derive";
 import { ago } from "@/lib/format";
 import { findLeaf, leaves } from "@/lib/layout";
 import { platformKeys } from "@/lib/platform";
+import { permissionChoices } from "@/lib/screen";
 import { usePrefs } from "@/lib/prefs";
 import { type Project, useProjects } from "@/lib/project-groups";
 import { SIDEBAR_DEFAULT, SIDEBAR_MAX, SIDEBAR_MIN } from "@/lib/sidebar-width";
 import { BOX_WORDS, boxState } from "@/lib/state-model";
 import { load, save } from "@/lib/storage";
 import { type BoxData, NONE, useStore } from "@/lib/store";
+import { useAsk } from "@/lib/transcript-feed";
 import { cn } from "@/lib/utils";
 import { openSession, refOf, selectWorktree, splitKey, useWorkspaces, wsKey } from "@/lib/workspaces";
 import { worktreeLabel } from "@/lib/worktree-names";
 import { MAX_INDENT, nest, type TreeNode } from "@/lib/worktree-tree";
 import { openAddBox } from "@/views/onboarding/add-box-dialog";
-import { useReviewCount } from "@/views/review/review-store";
 import { TeamSidebarCard } from "@/views/team/team-entry";
 
 // Sidebar2 (Labs › Sidebar › Agents first) is the sidebar remade around the
@@ -198,34 +202,50 @@ function PlacesRow() {
   const byId = new Map(items.map((i) => [i.id, i]));
   const home = byId.get("home");
   const review = byId.get("review");
+  const autos = byId.get("automations");
   const order = ["automations", "worktrees", "dashboard", "kits"];
   const more = items.filter((i) => i.id !== "home" && i.id !== "review").sort((a, b) => (order.indexOf(a.id) + 1 || 99) - (order.indexOf(b.id) + 1 || 99));
   const here = more.find((n) => n.active);
-  // Three even places, each an icon and a word (the word alone when the
-  // sidebar is at its narrowest).
+  // Three even places, each an icon and a word (the icon alone, named by
+  // its tip, when the sidebar is at its narrowest).
   const place = (active: boolean) =>
     cn(
-      "inline-flex h-7 min-w-0 flex-1 items-center justify-center gap-1 rounded-md px-1 text-[12.5px] text-muted-foreground outline-none hover:bg-sidebar-accent/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-sidebar-accent [&_svg]:hidden [&_svg]:size-3.5 [&_svg]:shrink-0 @min-[14.5rem]/side:[&_svg]:inline",
+      "inline-flex h-7 min-w-0 flex-auto items-center justify-center gap-1 rounded-md px-1 text-[12.5px] text-muted-foreground outline-none hover:bg-sidebar-accent/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-sidebar-accent [&_svg]:size-3.5 [&_svg]:shrink-0 [&>[data-word]]:hidden @min-[14.5rem]/side:[&>[data-word]]:inline",
       active && "bg-sidebar-accent text-foreground",
     );
   return (
     <nav aria-label="Places" className="flex shrink-0 items-center gap-0.5 px-2 pt-0.5 pb-1">
       {home && (
-        <button type="button" data-testid="nav-home" aria-current={home.active ? "page" : undefined} onClick={home.go} className={place(home.active)}>
+        <button type="button" data-testid="nav-home" aria-label="Home" aria-current={home.active ? "page" : undefined} onClick={home.go} className={place(home.active)}>
           <HouseIcon />
-          <span className="truncate">Home</span>
+          <span data-word className="truncate">Home</span>
         </button>
       )}
       {review && (
         <button type="button" data-testid="nav-review" aria-label={review.badge ? `Review, ${review.badge.count} to review` : "Review"} aria-current={review.active ? "page" : undefined} onClick={review.go} className={place(review.active)}>
-          <InboxIcon />
-          <span className="truncate">Review</span>
+          <span className={cn("relative flex items-center", review.badge && "mr-1.5")}>
+            <InboxIcon />
+            {/* How many wait, as a small count on the icon. */}
+            {review.badge ? (
+              <span aria-hidden className="absolute -top-1.5 -right-2.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-sidebar px-0.5 font-medium text-[9px] text-foreground tabular-nums ring-1 ring-sidebar-border">
+                {review.badge.count}
+              </span>
+            ) : null}
+          </span>
+          <span data-word className="truncate">Review</span>
+        </button>
+      )}
+      {/* Wide enough, Automations is a place of its own too. */}
+      {autos && (
+        <button type="button" data-testid="nav-automations" aria-label="Automations" aria-current={autos.active ? "page" : undefined} onClick={autos.go} className={cn(place(autos.active), "hidden @min-[19rem]/side:inline-flex")}>
+          <WorkflowIcon />
+          <span data-word className="truncate">Automations</span>
         </button>
       )}
       <Menu>
         <MenuTrigger render={<button type="button" data-testid="nav-more" aria-label={here ? `More: ${here.label}` : "More"} className={place(!!here)} />}>
           {here ? here.icon : <EllipsisIcon />}
-          <span className="truncate">{here ? here.label : "More"}</span>
+          <span data-word className="truncate">{here ? here.label : "More"}</span>
         </MenuTrigger>
         <MenuPopup align="start" className="min-w-52">
           <MoreMenu more={more} />
@@ -253,7 +273,7 @@ function ScopeButton() {
   const boxes = useStore((s) => s.status?.boxes ?? NONE);
   const name = scope === "all" ? undefined : scope.startsWith("p:") ? projects.find((p) => p.id === scope.slice(2))?.name : scope.slice(2);
   return (
-    <span className="flex min-w-0 shrink items-center">
+    <span className="mr-1 flex min-w-0 shrink items-center">
       <Menu>
         <Tip label={name ? `Showing ${name} only` : "Show one project or box"}>
           <MenuTrigger
@@ -262,12 +282,19 @@ function ScopeButton() {
                 type="button"
                 data-testid="s2-scope"
                 aria-label={name ? `Showing ${name}. Change` : "Show one project or box"}
-                className={cn(iconBtn, "h-7 w-auto min-w-7 gap-1 px-1.5 text-[12px] [&_svg]:size-3.5", name && "max-w-28 rounded-r-none bg-sidebar-accent text-foreground")}
+                className={cn(iconBtn, "h-6.5 w-auto min-w-7 gap-1 border px-1.5 text-[12px] [&_svg]:size-3.5", name ? "max-w-28 rounded-r-none border-transparent bg-sidebar-accent text-foreground" : "border-sidebar-border")}
               />
             }
           >
             <ListFilterIcon />
-            <span className={cn("truncate", !name && "hidden @min-[14.5rem]/side:inline")}>{name ?? "All projects"}</span>
+            {name ? (
+              <span className="truncate">{name}</span>
+            ) : (
+              <span className="hidden @min-[14.5rem]/side:inline">
+                All<span className="hidden @min-[17rem]/side:inline"> projects</span>
+              </span>
+            )}
+            {!name && <ChevronRightIcon className="size-3! rotate-90 opacity-70" />}
           </MenuTrigger>
         </Tip>
         <MenuPopup align="end" className="min-w-52">
@@ -297,7 +324,7 @@ function ScopeButton() {
       </Menu>
       {name && (
         <Tip label="Show everything">
-          <button type="button" aria-label="Show everything" onClick={() => setS2({ scope: "all" })} className={cn(iconBtn, "h-7 w-5 rounded-l-none bg-sidebar-accent [&_svg]:size-3")}>
+          <button type="button" aria-label="Show everything" onClick={() => setS2({ scope: "all" })} className={cn(iconBtn, "h-6.5 w-5 rounded-l-none bg-sidebar-accent [&_svg]:size-3")}>
             <XIcon />
           </button>
         </Tip>
@@ -308,7 +335,7 @@ function ScopeButton() {
 
 // Fade is a scrolling area with a fade at an edge there is more past, so a
 // cut-off row reads as "more", not as a bug.
-function Fade({ children, className, testid }: { children: ReactNode; className?: string; testid?: string }) {
+function Fade({ children, className, testid, top = true }: { children: ReactNode; className?: string; testid?: string; top?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ top: false, bottom: false });
   const update = () => {
@@ -336,8 +363,8 @@ function Fade({ children, className, testid }: { children: ReactNode; className?
       ref={ref}
       onScroll={update}
       data-testid={testid}
-      className={cn("overflow-y-auto overscroll-contain px-2", className)}
-      style={{ maskImage: `linear-gradient(to bottom, ${edges.top ? "transparent, black 24px" : "black, black"}, ${edges.bottom ? "black calc(100% - 28px), transparent" : "black, black"})` }}
+      className={cn("overflow-y-auto overscroll-contain px-2", !top && "border-t", !top && (edges.top ? "border-sidebar-border" : "border-transparent"), className)}
+      style={{ maskImage: `linear-gradient(to bottom, ${edges.top && top ? "transparent, black 24px" : "black, black"}, ${edges.bottom ? "black calc(100% - 28px), transparent" : "black, black"})` }}
     >
       {children}
     </RowLayer>
@@ -383,7 +410,7 @@ function inScope(scope: Scope, box: string, project?: Project) {
 const CAP = { running: 6, recent: 5 };
 
 // Body is the agents' lists and, under them, the projects. The lists come
-// first: they take what they need, up to about two thirds of the height,
+// first: they take what they need, up to 60% of the height,
 // and scroll past that; the projects take the rest and scroll, or are their
 // header alone, docked at the bottom, while folded.
 function Body() {
@@ -394,7 +421,6 @@ function Body() {
   const projectsOpen = useS2((s) => !s.folded.projects);
   const spaces = useWorkspaces((s) => s.spaces);
   const index = usePlaceIndex();
-  const toReview = useReviewCount();
   const front = useFront();
   // The agent in front stays in sight: its row scrolls into view when it
   // changes.
@@ -416,11 +442,18 @@ function Body() {
   // Recent: agents that finished, and worktrees you opened, newest first;
   // nothing already above.
   const recent = useMemo(() => {
-    const out: { key: string; t: number; agent?: RailAgent; place?: Place }[] = [];
+    const out: { key: string; t: number; agent?: RailAgent; extra?: number; place?: Place }[] = [];
     const seen = new Set<string>([...busy, ...pins.map((p) => p.key)]);
-    for (const e of agents.filter((x) => x.lane === "finished")) {
-      out.push({ key: e.id, t: Date.parse(e.session.state_since ?? "") || 0, agent: e });
-      seen.add(e.key);
+    // One row per worktree: its latest finished agent (or the one in
+    // front), and how many more finished there.
+    const at = (e: RailAgent) => Date.parse(e.session.state_since ?? "") || 0;
+    const byWt = new Map<string, RailAgent[]>();
+    for (const e of agents.filter((x) => x.lane === "finished" && !seen.has(x.key))) byWt.set(e.key, [...(byWt.get(e.key) ?? []), e]);
+    for (const [key, list] of byWt) {
+      list.sort((a, b) => at(b) - at(a));
+      const e = list.find((x) => x.id === front) ?? list[0];
+      out.push({ key: e.id, t: at(list[0]), agent: e, extra: list.length - 1 });
+      seen.add(key);
     }
     for (const [key, w] of Object.entries(spaces)) {
       if (!w.visitedAt || seen.has(key)) continue;
@@ -431,7 +464,7 @@ function Body() {
     }
     return out.sort((a, b) => b.t - a.t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agents, spaces, index, scope, pinned]);
+  }, [agents, spaces, index, scope, pinned, front]);
 
   // A capped list keeps the agent in front, wherever it falls.
   const capped = <T,>(id: keyof typeof CAP, list: T[], isFront: (x: T) => boolean) => (showAll[id] ? list : list.filter((x, i) => i < CAP[id] || isFront(x)));
@@ -441,17 +474,15 @@ function Body() {
   const shownRecent = capped("recent", recent, (r) => r.agent?.id === front);
   const shown = [...waiting, ...shownRunning, ...shownRecent.flatMap((r) => (r.agent ? [r.agent] : [])), ...away];
   const marked = !!front && shown.some((e) => e.id === front);
-  const review = toReview > 0 && scope === "all";
 
   return (
     <MarkedCtx.Provider value={marked}>
-      <Fade testid="s2-lists" className={cn("min-h-16 pb-2", projectsOpen ? "max-h-[68%] shrink-0" : "flex-1")}>
-        {(waiting.length > 0 || review) && (
+      <Fade testid="s2-lists" className={cn("min-h-16 pb-2", projectsOpen ? "max-h-[60%] shrink-0" : "flex-1")}>
+        {waiting.length > 0 && (
           <Section id="waiting" label="Needs you" count={waiting.length} loud>
             {waiting.map((e) => (
               <NeedsRow key={e.id} e={e} front={front} />
             ))}
-            {review && <ReviewRow count={toReview} />}
           </Section>
         )}
         {running.length > 0 && (
@@ -462,7 +493,7 @@ function Body() {
             {more("running", running.length, shownRunning.length, "working")}
           </Section>
         )}
-        {!waiting.length && !running.length && !review && <p className="px-2 pt-3 pb-1 text-[12px] text-muted-foreground leading-snug">Nothing needs you and nothing is running. Start a task, or pick up where you left off.</p>}
+        {!waiting.length && !running.length && <p className="px-2 pt-3 pb-1 text-[12px] text-muted-foreground leading-snug">Nothing needs you and nothing is running. Start a task, or pick up where you left off.</p>}
         {pins.length > 0 && (
           <Section id="pinned" label="Pinned" count={pins.length}>
             {pins.map((p) => (
@@ -472,7 +503,7 @@ function Body() {
         )}
         {recent.length > 0 && (
           <Section id="recent" label="Recent" count={recent.length}>
-            {shownRecent.map((r) => (r.agent ? <AgentLine key={r.key} e={r.agent} front={front} /> : <WorktreeLine key={r.key} place={r.place!} at={r.t} />))}
+            {shownRecent.map((r) => (r.agent ? <AgentLine key={r.key} e={r.agent} front={front} extra={r.extra} /> : <WorktreeLine key={r.key} place={r.place!} at={r.t} />))}
             {more("recent", recent.length, shownRecent.length, "recent")}
           </Section>
         )}
@@ -529,10 +560,10 @@ function MoreRow({ label, onClick }: { label: string; onClick(): void }) {
   );
 }
 
-// A row marked strongly is the agent in front; faintly (half the tint), a
-// worktree in front whose agent row above already says so.
+// A row marked strongly (tint and an edge) is the agent in front; faintly,
+// a third of the tint, a worktree in front whose agent row already says so.
 const rowBase =
-  "group/r relative flex w-full gap-2 rounded-md px-2 text-left outline-none hover:bg-sidebar-accent/60 focus-visible:ring-2 focus-visible:ring-ring data-[selected=strong]:bg-sidebar-accent data-[selected=faint]:bg-sidebar-accent/50";
+  "group/r relative flex w-full gap-2 rounded-md px-2 text-left outline-none hover:bg-sidebar-accent/60 focus-visible:ring-2 focus-visible:ring-ring data-[selected=strong]:bg-sidebar-accent data-[selected=strong]:before:absolute data-[selected=strong]:before:inset-y-1 data-[selected=strong]:before:left-0 data-[selected=strong]:before:w-0.5 data-[selected=strong]:before:rounded-full data-[selected=strong]:before:bg-foreground/60 data-[selected=faint]:bg-sidebar-accent/35";
 
 function pinAction(key: string): Action {
   const on = useS2.getState().pinned.includes(key);
@@ -546,41 +577,75 @@ function agentMenu(e: RailAgent): Action[] {
 
 const titleOf = (e: RailAgent) => e.session.title ?? (e.wt.main ? e.project : worktreeLabel(e.wt, e.loc));
 
-function useMultiBox(project: string) {
-  return useProjects().projects.some((p) => p.name === project && p.members.length > 1);
+// Rows say which box only when there is more than one, and then always,
+// as one muted word.
+function useSeveralBoxes() {
+  return useStore((s) => (s.status?.boxes.length ?? 0) > 1);
 }
 
-// NeedsRow is an agent that needs you: what its work is called and for how
-// long, then what it asks for, in words, over up to two lines. Its hover
-// card says where it is.
+// RowName is how every agent row begins: its worktree, the name you switch
+// by and the one the tree uses (the main checkout by its project), then,
+// dimmed, its box and what its work is called.
+function RowName({ e, extra, away }: { e: RailAgent; extra?: number; away?: boolean }) {
+  const several = useSeveralBoxes();
+  const name = wtName(e.loc, e.wt);
+  const title = titleOf(e);
+  // The main checkout is its branch, as in the tree, with its project.
+  const where = [e.wt.main ? e.project : "", several ? e.box : ""].filter(Boolean).join(" · ");
+  return (
+    <>
+      <span className={cn("min-w-0 max-w-[60%] shrink-0 truncate text-[13px] leading-[18px]", away ? "text-muted-foreground" : "text-foreground")}>{name}</span>
+      <WtDot wsKey={e.key} className="size-1.5" />
+      {/* Its own container: where shows only whole, and the title only
+          when it has room for more than a few letters. */}
+      <span className="@container/dim flex min-w-0 flex-1 items-center gap-1 overflow-hidden text-[12px] text-muted-foreground leading-[18px]">
+        {where && <span className="hidden shrink-0 @min-[4rem]/dim:inline">{where}</span>}
+        {title !== name && title !== e.project && (
+          <span className={cn("hidden min-w-0 truncate", where ? "@min-[6.5rem]/dim:inline" : "@min-[4.5rem]/dim:inline")}>
+            {where ? "· " : ""}
+            {title}
+          </span>
+        )}
+      </span>
+      {extra ? (
+        <span aria-label={`and ${extra} more finished here`} className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+          +{extra} more
+        </span>
+      ) : null}
+    </>
+  );
+}
+const placeWords = (e: RailAgent) => `${e.wt.main ? e.project : `${e.project}/${worktreeLabel(e.wt, e.loc)}`} on ${e.box}`;
+
+// NeedsRow is an agent that needs you: the row every agent has (RowName)
+// and for how long, then what it asks for, in words, over up to two lines.
 function NeedsRow({ e, front }: { e: RailAgent; front?: string }) {
-  const multi = useMultiBox(e.project);
   const title = titleOf(e);
   const ask = asks(e.session);
-  const where = `${wtName(e.loc, e.wt)} · ${e.project}${multi ? ` · ${e.box}` : ""}`;
+  const where = placeWords(e);
   const selected = e.id === front;
   return (
     <li className="group/li relative">
       <ContextRow items={() => agentMenu(e)}>
+        {/* The tint and edge are the whole row's, its answer buttons too. */}
+        <div data-selected={selected ? "strong" : undefined} className={cn(rowBase, "flex-col gap-0 px-0 hover:bg-sidebar-accent/60 has-[button:focus-visible]:ring-0")}>
         <Tip side="right" align="start" delay={500} className="max-w-none" label={<AgentCard e={e} />}>
           <button
             type="button"
             data-testid="s2-agent"
             data-session={`${e.box}/${e.session.name}`}
             data-agent-state={e.state}
-            data-selected={selected ? "strong" : undefined}
             aria-current={selected || undefined}
             aria-label={`${title}. ${ask}. ${where}`}
             onClick={() => openSession(e.box, e.session)}
-            className={cn(rowBase, "items-start py-[5px]")}
+            className={cn(rowBase, "items-start py-[5px] hover:bg-transparent")}
           >
             <span className="flex h-[18px] w-4 shrink-0 items-center justify-center">
               <StateGlyph state={e.state} className="size-3.5" />
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="flex min-w-0 items-center gap-1.5">
-                <span className="min-w-0 truncate text-[13px] text-foreground leading-[18px]">{title}</span>
-                <WtDot wsKey={e.key} className="size-1.5" />
+                <RowName e={e} />
                 <span className="ml-auto shrink-0 pl-1 text-[11px] text-muted-foreground tabular-nums">{since(e.session.state_since)}</span>
               </span>
               <span data-testid="s2-ask" className="line-clamp-2 break-words text-[12px] text-foreground/75 leading-4">
@@ -589,21 +654,62 @@ function NeedsRow({ e, front }: { e: RailAgent; front?: string }) {
             </span>
           </button>
         </Tip>
+        <Answer e={e} />
+        </div>
       </ContextRow>
     </li>
   );
 }
 
-// AgentLine is an agent on one line: its state, its worktree (the name you
-// switch by, as the tree has it; the main checkout by its project), then,
-// dimmed, its box when the project is on several, and what its work is
-// called. The hover card has the rest.
-function AgentLine({ e, front }: { e: RailAgent; front?: string }) {
-  const multi = useMultiBox(e.project);
+const QUESTION_TOOLS = /^(AskUserQuestion|request_user_input|ExitPlanMode)$/;
+
+// Answer is a permission ask's Deny and Allow once, right in the row, as
+// Home has them: read from the agent's screen while it waits. A question
+// has none; the row opens it.
+function Answer({ e }: { e: RailAgent }) {
+  const client = useStore((st) => st.client);
+  const s = e.session;
+  const permission = !!s.ask?.tool && !QUESTION_TOOLS.test(s.ask.tool);
+  const ask = useAsk(e.box, s.name, permission, s.state_since);
+  const choices = ask && !ask.form ? permissionChoices(ask.choices) : undefined;
+  const allow = choices?.find((c) => c.label === "Allow");
+  const deny = choices?.find((c) => c.label === "Deny");
+  const [sent, setSent] = useState<{ at?: string; label: string }>();
+  const answered = sent && sent.at === s.state_since ? sent.label : undefined;
+  if (!allow || !deny) return null;
+  const answer = (key: string, label: string) => {
+    if (!client) return;
+    setSent({ at: s.state_since, label });
+    // The person answered, so the box may type into a waiting agent.
+    boxApi.send(client, e.box, s.name, key, false, { when: "now", force: true }).catch((err) => {
+      setSent(undefined);
+      toastError(err, { title: "Couldn't answer", box: e.box });
+    });
+  };
   const title = titleOf(e);
-  const name = e.wt.main ? e.project : worktreeLabel(e.wt, e.loc);
-  const where = `${name}${multi ? ` · ${e.box}` : ""}`;
-  const dim = [multi ? e.box : "", title !== name ? title : ""].filter(Boolean).join(" · ");
+  return (
+    <span data-testid="s2-answer" className="flex items-center justify-end gap-1 pr-2 pb-1.5 pl-8">
+      {answered ? (
+        <span className="text-[11px] text-muted-foreground">{answered === "Deny" ? "Denied" : "Allowed"} · resuming</span>
+      ) : (
+        <>
+          <Button size="xs" variant="outline" className="h-5 rounded-[5px] px-1.5 text-[11px]" onClick={() => answer(deny.key, "Deny")} aria-label={`Deny: ${title}`}>
+            Deny
+          </Button>
+          <Button size="xs" className="h-5 rounded-[5px] px-1.5 text-[11px]" onClick={() => answer(allow.key, "Allow")} aria-label={`Allow once: ${title}`}>
+            Allow once
+          </Button>
+        </>
+      )}
+    </span>
+  );
+}
+
+// AgentLine is an agent on one line: its state and its RowName, with how
+// many more finished in the same worktree. The hover card has the rest.
+function AgentLine({ e, front, extra }: { e: RailAgent; front?: string; extra?: number }) {
+  const title = titleOf(e);
+  const where = placeWords(e);
   const selected = e.id === front;
   const time = e.away ? `${e.box} is ${e.away}` : since(e.session.state_since);
   return (
@@ -617,14 +723,12 @@ function AgentLine({ e, front }: { e: RailAgent; front?: string }) {
             data-agent-state={e.away ? "away" : e.state}
             data-selected={selected ? "strong" : undefined}
             aria-current={selected || undefined}
-            aria-label={`${title}. ${where} in ${e.project}, ${time}`}
+            aria-label={`${title}. ${where}, ${time}`}
             onClick={() => openSession(e.box, e.session)}
             className={cn(rowBase, "h-side-row items-center")}
           >
             <span className="flex w-4 shrink-0 items-center justify-center">{e.away ? <ServerOffIcon className="size-3 text-muted-foreground" /> : <StateGlyph state={e.state} className="size-3.5" />}</span>
-            <span className={cn("min-w-0 max-w-[60%] shrink-0 truncate text-[13px]", e.away && "text-muted-foreground")}>{name}</span>
-            <WtDot wsKey={e.key} className="size-1.5" />
-            {dim && <span className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground">{dim}</span>}
+            <RowName e={e} extra={extra} away={!!e.away} />
           </button>
         </Tip>
       </ContextRow>
@@ -648,22 +752,6 @@ function PinButton({ wsKey: key }: { wsKey: string }) {
         {on ? <PinOffIcon /> : <PinIcon />}
       </button>
     </Tip>
-  );
-}
-
-function ReviewRow({ count }: { count: number }) {
-  const active = useStore((s) => s.view.kind === "review");
-  return (
-    <li>
-      <button type="button" data-testid="s2-review" data-selected={active ? "strong" : undefined} aria-current={active || undefined} onClick={() => useStore.getState().setView({ kind: "review" })} className={cn(rowBase, "h-side-row items-center")}>
-        <span className="flex w-4 shrink-0 items-center justify-center">
-          <InboxIcon className="size-3.5 text-muted-foreground" />
-        </span>
-        <span className="min-w-0 truncate text-[13px]">
-          {count} {count === 1 ? "change" : "changes"} to review
-        </span>
-      </button>
-    </li>
   );
 }
 
@@ -764,7 +852,7 @@ function ProjectsPanel({ open }: { open: boolean }) {
         />
       </div>
       {open && (
-        <Fade testid="s2-projects" className="min-h-0 flex-1 pb-2">
+        <Fade testid="s2-projects" top={false} className="min-h-0 flex-1 pb-2">
           <ul className="flex flex-col gap-px">
             {list.map((p) => (
               <ProjectRow key={p.id} p={p} />
@@ -811,6 +899,7 @@ function ProjectRow({ p }: { p: Project }) {
   const quietCount = rows.filter((r) => !r.live && !r.place.wt.main).length;
   return (
     <li>
+      {/* Sticky while its worktrees scroll under it, so they keep their parent. */}
       <button
         type="button"
         data-testid="s2-project"
@@ -823,7 +912,7 @@ function ProjectRow({ p }: { p: Project }) {
             toggleIn("open", p.id);
           }
         }}
-        className={cn(rowBase, "h-side-row items-center")}
+        className={cn(rowBase, "sticky top-0 z-10 h-side-row items-center bg-sidebar hover:bg-[color-mix(in_oklab,var(--sidebar-accent)_60%,var(--sidebar))]")}
       >
         <span className="flex w-4 shrink-0 items-center justify-center text-muted-foreground">
           <ChevronRightIcon className={cn("size-3.5 transition-transform", open && "rotate-90")} />
@@ -855,7 +944,7 @@ function ProjectRow({ p }: { p: Project }) {
               if (!mine.length) return null;
               return (
                 <li key={m.box.name}>
-                  <span className="flex h-6 items-center px-2 font-medium text-[11px] text-muted-foreground">on {m.box.name}</span>
+                  <span className="flex h-6 items-end px-2 pb-1 font-medium text-[10px] text-muted-foreground uppercase tracking-wider">on {m.box.name}</span>
                   <ul className="flex flex-col gap-px">
                     <Nodes nodes={mine} depth={0} />
                   </ul>
@@ -920,13 +1009,15 @@ function AwayBox({ box }: { box: BoxStatus }) {
         <button
           type="button"
           data-testid="s2-away-box"
+          aria-label={`${box.name} is ${word}. Reconnect`}
           onClick={() => void useStore.getState().refreshAll()}
           className="inline-flex h-6.5 min-w-0 max-w-full items-center gap-1.5 rounded-md px-1.5 text-[11.5px] text-muted-foreground outline-none hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
           <ServerOffIcon className="size-3 shrink-0" />
-          <span className="truncate">
+          <span className="hidden truncate @min-[14.5rem]/side:inline">
             {box.name} {word}
           </span>
+          <span className="@min-[14.5rem]/side:hidden">1 away</span>
         </button>
       </Tip>
     </ContextRow>
