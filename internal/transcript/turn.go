@@ -107,8 +107,10 @@ func claudeTurn(path string, off int64) (Turn, error) {
 	byFile := map[string]int{}
 	r := bufio.NewReaderSize(f, 256<<10)
 	first := true
+	var line []byte
 	for {
-		line, err := readLine(r)
+		var err error
+		line, err = readLineInto(r, line)
 		if len(line) > 0 {
 			if first {
 				var l struct {
