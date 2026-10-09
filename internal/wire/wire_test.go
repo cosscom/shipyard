@@ -47,9 +47,9 @@ func (l countingListener) Accept() (net.Conn, error) {
 	return c, err
 }
 
-func startBox(t *testing.T) *box { return startBoxWith(t, nil) }
+func startBox(t testing.TB) *box { return startBoxWith(t, nil) }
 
-func startBoxWith(t *testing.T, configure func(*Server)) *box {
+func startBoxWith(t testing.TB, configure func(*Server)) *box {
 	t.Helper()
 	dir := t.TempDir()
 	id, err := identity.LoadOrCreate(filepath.Join(dir, "identity.pem"))
@@ -82,7 +82,7 @@ func startBoxWith(t *testing.T, configure func(*Server)) *box {
 	return &box{server: s, address: ln.Addr().String(), dir: dir, accepted: accepted}
 }
 
-func (b *box) issue(t *testing.T) pairing.Token {
+func (b *box) issue(t testing.TB) pairing.Token {
 	t.Helper()
 	code, err := b.server.Pending.Issue(10*time.Minute, time.Now())
 	if err != nil {
@@ -95,7 +95,7 @@ func (b *box) peer() trust.Peer {
 	return trust.Peer{Name: "dev-test", Address: b.address, Fingerprint: b.server.Identity.Fingerprint()}
 }
 
-func laptop(t *testing.T) *identity.Identity {
+func laptop(t testing.TB) *identity.Identity {
 	t.Helper()
 	id, err := identity.LoadOrCreate(filepath.Join(t.TempDir(), "identity.pem"))
 	if err != nil {
@@ -105,7 +105,7 @@ func laptop(t *testing.T) *identity.Identity {
 }
 
 // paired returns a client for a laptop that has completed pairing with b.
-func paired(t *testing.T, b *box) *Client {
+func paired(t testing.TB, b *box) *Client {
 	t.Helper()
 	me := laptop(t)
 	if _, err := Pair(context.Background(), me, b.issue(t), "alex-mbp"); err != nil {
