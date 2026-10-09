@@ -4,6 +4,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { AddLocationDialog } from "@/components/add-location-dialog";
 import { Connecting } from "@/components/agent-offline";
 import { AppSidebar } from "@/components/app-sidebar";
+import { Sidebar2 } from "@/components/sidebar2/sidebar2";
 import { CommandPalette } from "@/components/command-palette";
 import { FilePicker } from "@/components/files/file-picker";
 import { TreeDockFrame } from "@/components/files/tree-dock";
@@ -99,6 +100,8 @@ export default function App() {
   const workspace = view.kind === "workspace";
   // Labs: zen (⌘.) puts away the sidebar, the tab strip and the status bar.
   const zen = usePrefs((p) => p.labs && p.zen);
+  // Labs: the remade sidebar, agents first (Settings › Labs).
+  const sidebar2 = usePrefs((p) => p.labs && p.layout === "sidebar2");
   // Without the status bar, what floats over its corner (toasts, the loops
   // panel) comes down to the window's edge.
   useEffect(() => document.documentElement.style.setProperty("--berth-status-h", zen ? "0px" : "26px"), [zen]);
@@ -161,7 +164,7 @@ export default function App() {
           <div className="flex min-h-0 flex-1">
             {!zen && (
               <Disconnectable>
-                <AppSidebar />
+                {sidebar2 ? <Sidebar2 /> : <AppSidebar />}
               </Disconnectable>
             )}
             <div className="relative flex min-w-0 flex-1 flex-col">

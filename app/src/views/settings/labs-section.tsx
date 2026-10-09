@@ -7,6 +7,7 @@ import { SettingsGroup, SettingsPage, SettingsRow } from "@/views/settings/rows"
 export function LabsSection() {
   const labs = usePrefs((p) => p.labs);
   const agentView = usePrefs((p) => p.agentView);
+  const layout = usePrefs((p) => p.layout);
   return (
     <SettingsPage title="Labs" description="Newer ideas, on by default. They may change or go away.">
       <SettingsGroup>
@@ -22,6 +23,18 @@ export function LabsSection() {
                 { value: "conversation", label: "Conversation" },
               ]}
               onChange={(v) => setPrefs({ agentView: v })}
+            />
+          </SettingsRow>
+        )}
+        {labs && (
+          <SettingsRow label="Sidebar" description="Agents first lists what needs you, what's working and what you had open, with your projects below.">
+            <Segmented
+              value={layout}
+              options={[
+                { value: "default", label: "Classic" },
+                { value: "sidebar2", label: "Agents first" },
+              ]}
+              onChange={(v) => setPrefs({ layout: v })}
             />
           </SettingsRow>
         )}

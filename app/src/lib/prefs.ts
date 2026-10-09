@@ -43,6 +43,9 @@ export interface Prefs {
   labsChosen: boolean;
   // Labs: how an agent's pane opens, until switched.
   agentView: "terminal" | "conversation";
+  // Labs: which sidebar the window has. "sidebar2" is the remade one,
+  // agents first (components/sidebar2); the classic tree stays the default.
+  layout: "default" | "sidebar2";
   // Labs: zen (⌘.): no sidebar or status bar, a switcher for a tab strip,
   // agents as conversations.
   zen: boolean;
@@ -93,6 +96,7 @@ const DEFAULTS: Prefs = {
   labs: true,
   labsChosen: false,
   agentView: "terminal",
+  layout: "default",
   zen: false,
   autoUpdateBoxes: false,
   chatBackground: DEFAULT_CHAT_BACKGROUND,
@@ -155,6 +159,8 @@ save("berth.prefs", { ...usePrefs.getState(), version: PREFS_VERSION });
   const q = new URLSearchParams(location.search);
   if (q.has("labs")) usePrefs.setState({ labs: q.get("labs") !== "0" });
   if (q.has("zen")) usePrefs.setState({ zen: q.get("zen") !== "0" });
+  const l = q.get("layout");
+  if (l === "default" || l === "sidebar2") usePrefs.setState({ layout: l });
   const v = q.get("view");
   if (v === "terminal" || v === "conversation") usePrefs.setState({ agentView: v });
 }
