@@ -285,6 +285,7 @@ function AskCard({ a }: { a: StripAgent }) {
               {question ? "Answer here" : "Bring in"}
             </Button>
           </div>
+          <p className="border-t pt-2 text-[11px] text-muted-foreground">Click the chip to bring it in · ⌥-click for the focused pane's place · or drag it onto a pane</p>
         </div>
       </PreviewCardPopup>
     </PreviewCard>
@@ -456,7 +457,6 @@ function Tray({ agents, visible, count, waiting }: { agents: StripAgent[]; visib
                                         <span className="min-w-0 truncate">{a.title}</span>
                                         <span className="ml-auto flex shrink-0 items-center gap-2 text-muted-foreground">
                                           {on && "on screen"}
-                                          <AgentIcon agent={agentOf(a.e.session)} className="size-3" />
                                         </span>
                                       </button>
                                     );
