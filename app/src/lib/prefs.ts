@@ -46,6 +46,10 @@ export interface Prefs {
   // Labs: zen (⌘.): no sidebar or status bar, a switcher for a tab strip,
   // agents as conversations.
   zen: boolean;
+  // Labs: how the window gets around. "sidebar" is the sidebar as always;
+  // "rail" is a narrow rail of projects with a breadcrumb in the title bar
+  // (components/rail-layout).
+  layout: "sidebar" | "rail";
   // Update a box's berthd as soon as Shipyard ships a newer one
   // (lib/outdated.ts). Off: the status bar offers it instead.
   autoUpdateBoxes: boolean;
@@ -94,6 +98,7 @@ const DEFAULTS: Prefs = {
   labsChosen: false,
   agentView: "terminal",
   zen: false,
+  layout: "sidebar",
   autoUpdateBoxes: false,
   chatBackground: DEFAULT_CHAT_BACKGROUND,
   chatWidth: "default",

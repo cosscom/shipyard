@@ -38,8 +38,10 @@ export function MenuPopup({
   side = "bottom",
   anchor,
   portalProps,
+  collisionPadding,
   ...props
 }: MenuPrimitive.Popup.Props & {
+  collisionPadding?: MenuPrimitive.Positioner.Props["collisionPadding"];
   align?: MenuPrimitive.Positioner.Props["align"];
   sideOffset?: MenuPrimitive.Positioner.Props["sideOffset"];
   alignOffset?: MenuPrimitive.Positioner.Props["alignOffset"];
@@ -54,6 +56,7 @@ export function MenuPopup({
         alignOffset={alignOffset}
         anchor={anchor}
         className="z-50"
+        collisionPadding={collisionPadding}
         data-slot="menu-positioner"
         side={side}
         sideOffset={sideOffset}

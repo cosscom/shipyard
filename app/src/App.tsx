@@ -4,6 +4,8 @@ import { lazy, Suspense, useEffect } from "react";
 import { AddLocationDialog } from "@/components/add-location-dialog";
 import { Connecting } from "@/components/agent-offline";
 import { AppSidebar } from "@/components/app-sidebar";
+import { ProjectRail } from "@/components/rail-layout/project-rail";
+import { TitleBar } from "@/components/rail-layout/title-bar";
 import { CommandPalette } from "@/components/command-palette";
 import { FilePicker } from "@/components/files/file-picker";
 import { TreeDockFrame } from "@/components/files/tree-dock";
@@ -99,6 +101,13 @@ export default function App() {
   const workspace = view.kind === "workspace";
   // Labs: zen (⌘.) puts away the sidebar, the tab strip and the status bar.
   const zen = usePrefs((p) => p.labs && p.zen);
+  // Labs › Layout › Icon rail: a rail of projects and a title bar whose
+  // breadcrumb switches worktrees and agents, in place of the sidebar
+  // (components/rail-layout). Zen puts both away as it does the sidebar.
+  const rail = usePrefs((p) => p.labs && p.layout === "rail") && !zen;
+  // Home's strip holds box homes' terminals; with none, the rail layout
+  // has no use for it (its title bar drags the window).
+  const homeTabs = useWorkspaces((s) => Object.keys(s.spaces).some((k) => !!homeBox(k) && s.spaces[k].tabs.length > 0));
   // Without the status bar, what floats over its corner (toasts, the loops
   // panel) comes down to the window's edge.
   useEffect(() => document.documentElement.style.setProperty("--berth-status-h", zen ? "0px" : "26px"), [zen]);
@@ -158,21 +167,24 @@ export default function App() {
       <ToastProvider position="bottom-right" viewportClassName="max-w-88 data-[position=bottom-right]:bottom-[max(calc(var(--berth-status-h,26px)+12px+var(--berth-loops-h,0px)),var(--berth-bar-lift,0px))] data-[position=bottom-right]:right-3 data-[position=bottom-left]:bottom-[calc(var(--berth-status-h,26px)+12px)] data-[position=bottom-left]:left-3 data-[position=top-left]:top-3 data-[position=top-left]:left-3 data-[position=top-right]:top-3 data-[position=top-right]:right-3">
         <div className="flex h-svh flex-col overflow-hidden bg-background text-foreground">
           {fakeTrafficLights() && <FakeTrafficLights />}
+          {rail && (
+            <Disconnectable className="shrink-0 flex-col" label="Title bar">
+              <TitleBar />
+            </Disconnectable>
+          )}
           <div className="flex min-h-0 flex-1">
-            {!zen && (
-              <Disconnectable>
-                <AppSidebar />
-              </Disconnectable>
-            )}
+            {!zen && <Disconnectable>{rail ? <ProjectRail /> : <AppSidebar />}</Disconnectable>}
             <div className="relative flex min-w-0 flex-1 flex-col">
               {zen && !onboarding ? (
                 <ZenBar />
               ) : workspace && !onboarding ? (
-                <Disconnectable className="shrink-0 flex-col" label="Tab bar">
-                  {!onHome && <WorkspaceHeading />}
-                  {onHome ? <HomeTabs /> : <TabStrip />}
-                </Disconnectable>
-              ) : !workspace ? null /* every other view's ViewHeader is the strip */ : (
+                rail && onHome && !homeTabs ? null : (
+                  <Disconnectable className="shrink-0 flex-col" label="Tab bar">
+                    {!onHome && <WorkspaceHeading />}
+                    {onHome ? <HomeTabs /> : <TabStrip place={!rail} />}
+                  </Disconnectable>
+                )
+              ) : !workspace || rail ? null /* every other view's ViewHeader is the strip */ : (
                 // Onboarding names itself; the strip only drags the window.
                 <div data-tauri-drag-region className="h-10 shrink-0 bg-background" />
               )}
