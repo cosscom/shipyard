@@ -69,12 +69,12 @@ export function StatusBar() {
       ) : (
         <>
           {counts.waiting > 0 && (
-            <Item className="text-warning-foreground dark:text-warning" onClick={() => go({ kind: "dashboard" })} tip="Agents waiting for your answer or permission">
+            <Item data-status-agents="" className="text-warning-foreground dark:text-warning" onClick={() => go({ kind: "dashboard" })} tip="Agents waiting for your answer or permission">
               <span className="size-1.5 rounded-full bg-warning" />
               {counts.waiting} {AGENT_WORDS["needs-you"].lower}
             </Item>
           )}
-          <Item onClick={() => go({ kind: "dashboard" })} tip="Open the agent dashboard">
+          <Item data-status-agents="" onClick={() => go({ kind: "dashboard" })} tip="Open the agent dashboard">
             {counts.running} {AGENT_WORDS.working.lower}
           </Item>
         </>

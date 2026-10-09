@@ -394,8 +394,9 @@
   animation-play-state: paused !important;
 }
 
-/* Labs › Layout › Top bar names the worktree in front in its tabs; the
-   tab strip under it leaves out its own breadcrumb (a guest pane's stays). */
-[data-layout="topbar"] [data-strip-place="own"] {
+/* Labs › Layout › Top bar counts the agents and names the worktree in
+   its tabs; the status bar leaves both out rather than say them twice. */
+[data-layout="topbar"] [data-status-agents],
+[data-layout="topbar"] [data-testid="status-worktree"] {
   display: none;
 }

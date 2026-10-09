@@ -135,7 +135,7 @@ export function PlaceButton({ n, iconOnly, className }: { n: NavItem; iconOnly?:
       {!iconOnly && n.label}
       {n.badge &&
         (iconOnly ? (
-          <span className={cn("absolute -top-0.5 -right-0.5 min-w-3.5 rounded-full px-1 text-center font-medium text-[9px] leading-3.5 tabular-nums", n.badge.loud ? "bg-warning text-warning-foreground" : "bg-muted-foreground/25 text-foreground")}>{n.badge.count}</span>
+          <span className={cn("absolute top-0 right-0 min-w-3.5 rounded-full px-1 text-center font-medium text-[9px] leading-3.5 tabular-nums", n.badge.loud ? "bg-warning text-warning-foreground" : "bg-muted-foreground/25 text-foreground")}>{n.badge.count}</span>
         ) : (
           <span className={cn("text-xs tabular-nums", n.badge.loud ? "text-warning-foreground" : "text-muted-foreground")}>{n.badge.count}</span>
         ))}

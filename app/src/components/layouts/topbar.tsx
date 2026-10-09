@@ -1,8 +1,8 @@
-import { ChevronsUpDownIcon, FolderIcon, FolderPlusIcon, GitBranchIcon, GitBranchPlusIcon, HouseIcon, LayoutGridIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
+import { FolderIcon, FolderPlusIcon, GitBranchIcon, GitBranchPlusIcon, HouseIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
 import { type KeyboardEvent, type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { create } from "zustand";
 
-import { BoxStateDot, StateGlyph } from "@/components/agent-glyph";
+import { StateGlyph } from "@/components/agent-glyph";
 import { type Lane, openItem, useItems } from "@/components/layouts/model";
 import { MorePlaces, PlaceButton, SearchButton, SettingsButton, trafficPad, usePlaces } from "@/components/layouts/parts";
 import { openSwitcher } from "@/components/layouts/switcher";
@@ -91,7 +91,13 @@ export function TopBar() {
   const { home, pinned, more } = usePlaces();
   // Narrower, the places past Review fold into ⋯ rather than turn into
   // icons to guess at.
+  // The tabs get the room: Review, the place people visit most, keeps its
+  // label down to 1280px and the others to 1600px; under 1180px all but
+  // Review fold into ⋯.
+  const roomy = useMediaQuery({ min: 1600 });
+  const labelled = useMediaQuery({ min: 1280 });
   const wide = useMediaQuery({ min: 1180 });
+  const hint = useMediaQuery({ min: 1440 });
   const shown = wide ? pinned : pinned.filter((n) => n.id === "review");
   const folded = wide ? more : [...pinned.filter((n) => n.id !== "review"), ...more];
 
@@ -113,16 +119,16 @@ export function TopBar() {
       <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-border" />
       <WorktreeTabs />
       <div className="flex shrink-0 items-center gap-0.5 pl-2">
-        <Agents wide={wide} />
+        <Agents wide={hint} />
         <span aria-hidden className="mx-1 h-4 w-px bg-border" />
         <nav aria-label="Places" className="flex items-center gap-0.5">
           {shown.map((n) => (
-            <PlaceButton key={n.id} n={n} />
+            <PlaceButton key={n.id} n={n} iconOnly={n.id === "review" ? !labelled : !roomy} />
           ))}
           <MorePlaces more={folded} />
         </nav>
         <span aria-hidden className="mx-1 h-4 w-px bg-border" />
-        {wide ? <SearchButton wide className="w-32" /> : <SearchButton />}
+        {roomy ? <SearchButton wide className="w-32" /> : <SearchButton />}
         <NotificationBell />
         <SettingsButton />
       </div>
@@ -156,28 +162,20 @@ function Agents({ wide }: { wide: boolean }) {
           </button>
         </Tip>
       )}
-      <Tip label={<span className="flex items-center gap-1.5">Every agent at a glance. Hold <Kbd>⌃</Kbd> and press <Kbd>⇥</Kbd> anywhere</span>}>
+      <Tip label={<span className="flex items-center gap-1.5">Every agent at a glance: hold <Kbd>⌃</Kbd> and press <Kbd>⇥</Kbd> anywhere</span>}>
         <button
           type="button"
-          aria-label="Every agent"
+          aria-label={`Every agent: ${count("running")} working, ${count("finished")} done`}
           data-testid="topbar-switcher"
           onClick={openSwitcher}
-          className="inline-flex h-7 items-center gap-2 rounded-md px-2 text-muted-foreground text-xs tabular-nums hover:bg-sidebar-accent hover:text-foreground"
+          className="inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-muted-foreground text-xs tabular-nums hover:bg-sidebar-accent hover:text-foreground"
         >
-          {wide && (
-            <>
-              <span className="flex items-center gap-1" aria-label={`${count("running")} working`}>
-                <StateGlyph state="running" className="size-3" />
-                {count("running")}
-              </span>
-              <span className="flex items-center gap-1" aria-label={`${count("finished")} done`}>
-                <StateGlyph state="finished" className="size-3" />
-                {count("finished")}
-              </span>
-            </>
-          )}
-          <LayoutGridIcon className="size-3.5" />
-          {wide && <Kbd className="h-4.5 text-[10px]">⌃⇥</Kbd>}
+          <StateGlyph state="running" className="size-3" />
+          {count("running")} working
+          <span aria-hidden className="text-muted-foreground/60">·</span>
+          <StateGlyph state="finished" className="size-3" />
+          {count("finished")} done
+          {wide && <Kbd className="ml-0.5 h-4.5 text-[10px]">⌃⇥</Kbd>}
         </button>
       </Tip>
     </div>
@@ -227,12 +225,23 @@ function useRows() {
 // ProjectSwitcher names the project in front and opens a list of every
 // worktree of every project to go to, filtered as you type: one click and
 // a few letters to anywhere. The boxes, online or not, are along its foot.
+const useGoTo = create<{ open: boolean }>()(() => ({ open: false }));
+
 function ProjectSwitcher() {
   const ref = useWorkspaces((s) => (s.current && !homeBox(s.current) ? s.spaces[s.current]?.ref : undefined));
-  const workspace = useStore((s) => s.view.kind === "workspace");
-  const { projects } = useProjects();
-  const project = ref && workspace ? (projects.find((p) => p.members.some((m) => m.box.name === ref.box && m.loc.name === ref.location))?.name ?? ref.location) : undefined;
-  const [open, setOpen] = useState(false);
+  const open = useGoTo((s) => s.open);
+  const setOpen = (o: boolean) => useGoTo.setState({ open: o });
+  // ⌘E opens it from anywhere, a terminal included.
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (!e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || e.key.toLowerCase() !== "e") return;
+      e.preventDefault();
+      e.stopPropagation();
+      useGoTo.setState((s) => ({ open: !s.open }));
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
@@ -240,14 +249,14 @@ function ProjectSwitcher() {
           <button
             type="button"
             data-testid="topbar-project"
-            aria-label={project ? `Project ${project}: go to a worktree` : "Go to a worktree"}
-            className="inline-flex h-7 min-w-0 max-w-44 shrink-0 items-center gap-1.5 rounded-md px-2 font-medium text-[13px] outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-sidebar-accent"
+            aria-label="Go to a worktree (⌘E)"
+            className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-sidebar-border bg-background/60 px-2 text-[13px] text-foreground/85 outline-none hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-sidebar-accent data-popup-open:text-foreground"
           />
         }
       >
-        <FolderIcon className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className={cn("truncate", !project && "font-normal text-muted-foreground")}>{project ?? "Projects"}</span>
-        <ChevronsUpDownIcon className="size-3 shrink-0 text-muted-foreground" />
+        <FolderIcon className="size-3.5 shrink-0" />
+        <span>Projects</span>
+        <Kbd className="h-4.5 text-[10px]">{platformKeys("⌘E")}</Kbd>
       </PopoverTrigger>
       <PopoverPopup aria-label="Go to a worktree" align="start" sideOffset={6} className="w-[27rem] max-w-[calc(100vw-2rem)] p-0 [&_[data-slot=popover-viewport]]:p-0">
         {open && <SwitcherList front={ref ? wsKey(ref.box, ref.path) : undefined} close={() => setOpen(false)} />}
@@ -257,7 +266,10 @@ function ProjectSwitcher() {
 }
 
 function SwitcherList({ front, close }: { front?: string; close(): void }) {
-  const groups = useRows();
+  const all = useRows();
+  // The project in front first, the rest as they come.
+  const frontProject = all.find((g) => g.rows.some((r) => r.key === front))?.name;
+  const groups = frontProject ? [...all.filter((g) => g.name === frontProject), ...all.filter((g) => g.name !== frontProject)] : all;
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const list = useRef<HTMLDivElement>(null);
@@ -267,13 +279,25 @@ function SwitcherList({ front, close }: { front?: string; close(): void }) {
     const hay = `${r.project} ${r.wt.main ? "main" : worktreeLabel(r.wt)} ${r.wt.branch ?? ""} ${r.title ?? ""} ${r.box}`.toLowerCase();
     return words.every((w) => hay.includes(w));
   };
-  const shown = groups.map((g) => ({ ...g, rows: g.rows.filter(match) })).filter((g) => g.rows.length);
+  // What needs you, from every project, heads the list; then the projects.
+  const asks = groups.flatMap((g) => g.rows.filter((r) => r.state === "waiting"));
+  const lists = [
+    ...(asks.length ? [{ name: "Needs you", rows: asks, waiting: 0, working: 0, asks: true }] : []),
+    ...groups.map((g) => ({ ...g, rows: g.rows.filter((r) => r.state !== "waiting"), asks: false })),
+  ];
+  const shown = lists.map((g) => ({ ...g, rows: g.rows.filter(match) })).filter((g) => g.rows.length);
+  const open = new Set(useTopTabs((s) => s.keys));
   const flat = shown.flatMap((g) => g.rows);
   const go = (r: Row) => {
     close();
     selectWorktree(refOf(r.box, r.loc, r.wt));
   };
-  useEffect(() => setActive(0), [q]);
+  // Opens on the worktree in front; typing starts from the top.
+  useEffect(() => {
+    const i = q ? 0 : flat.findIndex((r) => r.key === front);
+    setActive(Math.max(0, i));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q]);
   useEffect(() => {
     list.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
   }, [active]);
@@ -305,7 +329,7 @@ function SwitcherList({ front, close }: { front?: string; close(): void }) {
         {shown.length === 0 && <div role="option" aria-selected={false} aria-disabled className="px-3 py-6 text-center text-muted-foreground text-xs">No worktree matches.</div>}
         {shown.map((g) => (
           <div key={g.name} role="group" aria-label={g.name} data-testid="topbar-project-group" data-project={g.name} className="pb-1">
-            <div aria-hidden className="flex items-center gap-2 px-2 pt-1.5 pb-0.5 font-medium text-[11px] text-muted-foreground">
+            <div aria-hidden className={cn("flex items-center gap-2 px-2 pt-1.5 pb-0.5 font-medium text-[11px]", g.asks ? "text-warning-foreground" : "text-muted-foreground")}>
               <span className="flex-1 truncate">{g.name}</span>
               {g.waiting > 0 && <span className="flex items-center gap-1 text-warning-foreground"><span className="size-1.5 rounded-full bg-warning" />{g.waiting}</span>}
               {g.working > 0 && <span className="flex items-center gap-1"><StateGlyph state="running" className="size-3" />{g.working}</span>}
@@ -326,9 +350,10 @@ function SwitcherList({ front, close }: { front?: string; close(): void }) {
                   className={cn("flex h-8 cursor-default items-center gap-2 rounded-md px-2 text-[13px]", i === active && "bg-accent", r.key === front && "font-medium")}
                 >
                   {r.state ? <StateGlyph state={r.state} /> : r.wt.main ? <HouseIcon className="size-3.5 shrink-0 text-muted-foreground" /> : <GitBranchIcon className="size-3.5 shrink-0 text-muted-foreground" />}
-                  <span className="shrink-0">{r.wt.main ? "main" : worktreeLabel(r.wt)}</span>
+                  <span className="shrink-0">{g.asks && !r.wt.main ? `${r.project} / ` : ""}{r.wt.main ? (g.asks ? r.project : "main") : worktreeLabel(r.wt)}</span>
+                  <span className="shrink-0 rounded bg-muted px-1 font-mono text-[10px] text-muted-foreground">{r.box}</span>
                   <span className="min-w-0 flex-1 truncate text-muted-foreground text-xs">{r.title}</span>
-                  {r.spans && <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{r.box}</span>}
+                  {open.has(r.key) && <span className="shrink-0 text-[10px] text-muted-foreground">{r.key === front ? "in front" : "open"}</span>}
                 </div>
               );
             })}
@@ -349,8 +374,9 @@ function SwitcherList({ front, close }: { front?: string; close(): void }) {
         <span className="ml-auto flex min-w-0 items-center gap-2 overflow-hidden pr-1.5 font-mono text-[10px] text-muted-foreground">
           {status.map((b) => (
             <span key={b.name} className="flex shrink-0 items-center gap-1">
-              <BoxStateDot box={b.name} />
+              <span className={cn("size-1.5 rounded-full", b.state === "online" ? "bg-success" : "bg-muted-foreground/60")} />
               {b.name}
+              {b.state !== "online" && <span className="font-sans">offline</span>}
             </span>
           ))}
         </span>
@@ -362,6 +388,7 @@ function SwitcherList({ front, close }: { front?: string; close(): void }) {
 // ---- Worktree tabs ------------------------------------------------------
 
 function WorktreeTabs() {
+  const roomy = useMediaQuery({ min: 1280 });
   const keys = useTopTabs((s) => s.keys);
   const spaces = useWorkspaces((s) => s.spaces);
   const current = useWorkspaces((s) => s.current);
@@ -412,7 +439,7 @@ function WorktreeTabs() {
             <div
               key={t.key}
               className={cn(
-                "group relative flex h-7 min-w-[6rem] max-w-52 items-center overflow-hidden rounded-md border text-[13px]",
+                "group relative flex h-6.5 max-w-52 shrink items-center overflow-hidden rounded-full border text-[13px]",
                 selected ? "border-border bg-background text-foreground shadow-xs" : "border-transparent text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
               )}
             >
@@ -425,12 +452,12 @@ function WorktreeTabs() {
                   data-selected={selected || undefined}
                   onClick={() => selectWorktree(t.ref)}
                   onAuxClick={(e) => e.button === 1 && close(e)}
-                  className="flex h-full min-w-0 flex-1 cursor-default items-center gap-1.5 rounded-md pl-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                  className={cn("flex h-full min-w-0 flex-auto cursor-default items-center gap-1.5 rounded-full pl-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset", !selected && "pr-2.5")}
                 >
                   {state ? <StateGlyph state={state} /> : t.ref.main ? <HouseIcon className="size-3.5 shrink-0" /> : <GitBranchIcon className="size-3.5 shrink-0" />}
                   {/* Just the name: where it is shows on hover. Two of a name
                       say their project. */}
-                  <span className="min-w-0 flex-1 truncate">
+                  <span className="min-w-0 truncate">
                     {twins.has(t.ref.main ? t.ref.location : t.ref.worktree) && !t.ref.main && <span className="text-muted-foreground">{t.ref.location} / </span>}
                     {name}
                   </span>
@@ -443,7 +470,12 @@ function WorktreeTabs() {
                 data-ws={t.key}
                 tabIndex={-1}
                 onClick={close}
-                className={cn("mx-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground", selected ? "opacity-70" : "opacity-0 group-hover:opacity-70")}
+                className={cn(
+                  "inline-flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground",
+                  // In front it has its place; behind, it shows over the
+                  // tab's end on hover, so tabs are as wide as their names.
+                  selected ? "mr-0.5 opacity-70" : "absolute right-0.5 bg-sidebar-accent opacity-0 group-hover:opacity-100",
+                )}
               >
                 <XIcon className="size-3" />
               </button>
@@ -457,10 +489,10 @@ function WorktreeTabs() {
           data-testid="layout-new-task"
           aria-label="New task"
           onClick={() => useStore.getState().openNewWorktree()}
-          className={cn("inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-[13px] text-muted-foreground hover:bg-sidebar-accent hover:text-foreground", !tabs.length && "px-2")}
+          className={cn("inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-[13px] text-muted-foreground hover:bg-sidebar-accent hover:text-foreground", (roomy || !tabs.length) && "px-2")}
         >
           <PlusIcon className="size-4" />
-          {!tabs.length && "New task"}
+          {(roomy || !tabs.length) && "New task"}
         </button>
       </Tip>
       <div data-tauri-drag-region className="min-w-4 flex-1 self-stretch" />

@@ -7,6 +7,7 @@ import { BoxTag, ItemGlyph, useDoing } from "@/components/layouts/parts";
 import { Kbd } from "@/components/ui/kbd";
 import { type Session } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useWorkspaces } from "@/lib/workspaces";
 import { useScreenTail } from "@/views/dashboard/use-screen-tail";
 
 // The switcher (Labs layouts): hold ⌃ and press ⇥, as ⌘-Tab switches apps,
@@ -22,16 +23,21 @@ export function openSwitcher() {
 }
 
 const LANES: Lane[] = ["waiting", "running", "finished", "recent"];
+const ROW = 2;
 
 const close = () => useSwitcher.setState({ open: false, held: false });
 
 export function AgentSwitcher() {
   const all = useItems();
   // Away boxes can't be opened; a long tail of Recent isn't switching.
+  // Everything that needs you or works; a row each of the newest done and
+  // recent, so the picture fits one screen. The rest are a type away in
+  // the project switcher (⌘E).
   const items = useMemo(() => {
-    const live = all.filter((i) => i.lane !== "away" && i.lane !== "recent");
-    return [...live, ...all.filter((i) => i.lane === "recent").slice(0, Math.max(4, 12 - live.length))].slice(0, 16);
+    const lane = (l: Lane) => all.filter((i) => i.lane === l);
+    return [...lane("waiting"), ...lane("running"), ...lane("finished").slice(0, ROW), ...lane("recent").slice(0, ROW)];
   }, [all]);
+  const more = { finished: all.filter((i) => i.lane === "finished").length - ROW, recent: all.filter((i) => i.lane === "recent").length - ROW } as Partial<Record<Lane, number>>;
   const { open, index, held } = useSwitcher();
   const grid = useRef<HTMLDivElement>(null);
   const list = useRef(items);
@@ -54,12 +60,18 @@ export function AgentSwitcher() {
       if (e.ctrlKey && !e.metaKey && !e.altKey && e.key === "Tab" && (s.open || !e.shiftKey)) {
         e.preventDefault();
         e.stopPropagation();
-        if (!n) return;
         if (!s.open) {
-          // The one after where you are, as ⌘-Tab picks the last app.
-          const here = list.current.findIndex((i) => i.selected);
-          useSwitcher.setState({ open: true, held: true, index: here === 0 && n > 1 ? 1 : 0 });
-        } else useSwitcher.setState({ index: (s.index + (e.shiftKey ? -1 : 1) + n) % n });
+          // As ⌘-Tab picks the app you were in last: the worktree before
+          // this one, else the first that isn't on screen.
+          const spaces = useWorkspaces.getState().spaces;
+          const here = useWorkspaces.getState().current;
+          const last = Object.entries(spaces)
+            .filter(([k, w]) => k !== here && w.visitedAt)
+            .sort((a, b) => (b[1].visitedAt ?? 0) - (a[1].visitedAt ?? 0))[0]?.[0];
+          const prev = last ? list.current.findIndex((i) => i.key === last) : -1;
+          const other = list.current.findIndex((i) => !i.selected);
+          useSwitcher.setState({ open: true, held: true, index: prev >= 0 ? prev : Math.max(0, other) });
+        } else if (n) useSwitcher.setState({ index: (s.index + (e.shiftKey ? -1 : 1) + n) % n });
         return;
       }
       if (!s.open) return;
@@ -101,7 +113,7 @@ export function AgentSwitcher() {
       className="fixed inset-0 z-50 flex items-center justify-center bg-background/55 p-6 backdrop-blur-[2px] motion-safe:animate-in motion-safe:fade-in-0"
       onClick={close}
     >
-      <div className="flex max-h-full w-full max-w-[1120px] flex-col gap-3 rounded-2xl border bg-popover/95 p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="flex max-h-full w-full max-w-[860px] flex-col gap-3 rounded-2xl border bg-popover/95 p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-baseline justify-between px-1">
           <span className="font-medium text-sm">Switch to</span>
           <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
@@ -126,9 +138,10 @@ export function AgentSwitcher() {
               return (
                 <section key={lane} aria-label={LANE_WORDS[lane]} data-testid="switcher-lane" data-lane={lane}>
                   <h3 className={cn("px-1 pb-1.5 font-medium text-[11px]", lane === "waiting" ? "text-warning-foreground" : "text-muted-foreground")}>
-                    {LANE_WORDS[lane]} <span className="tabular-nums opacity-70">{inLane.length}</span>
+                    {LANE_WORDS[lane]} <span className="tabular-nums">{inLane.length + Math.max(0, more[lane] ?? 0)}</span>
+                    {(more[lane] ?? 0) > 0 && <span className="ml-2 font-normal">the newest {ROW}; ⌘E finds the rest</span>}
                   </h3>
-                  <div ref={lane === items[0]?.lane ? grid : undefined} className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4">
+                  <div ref={lane === items[0]?.lane ? grid : undefined} className="grid grid-cols-2 gap-2">
                     {inLane.map(({ it, i }) => (
                       <Card key={it.id} it={it} picked={i === index} onPick={() => useSwitcher.setState({ index: i })} onOpen={() => (close(), openItem(it))} />
                     ))}
@@ -174,20 +187,20 @@ function Card({ it, picked, onPick, onOpen }: { it: Item; picked: boolean; onPic
         <span className="min-w-0 flex-1 truncate">{it.place}</span>
         <BoxTag i={it} always />
       </span>
-      {it.session ? <Tail box={it.box} session={it.session} working={it.lane === "running"} fallback={doing} /> : <span className="mt-1 flex h-[62px] items-center justify-center rounded-md bg-muted/40 text-[11px] text-muted-foreground">No agent here</span>}
+      {it.session ? <Tail box={it.box} session={it.session} working={it.lane === "running"} fallback={doing} /> : <span className="mt-1 flex h-[48px] items-center justify-center rounded-md bg-muted/40 text-[11px] text-muted-foreground">No agent here</span>}
     </button>
   );
 }
 
 // Tail is the last lines of the agent's screen: a live thumbnail in words.
 function Tail({ box, session, working, fallback }: { box: string; session: Session; working: boolean; fallback?: string }) {
-  const { tail } = useScreenTail(box, session, 4, working);
+  const { tail } = useScreenTail(box, session, 3, working);
   // An agent that has said nothing yet shows only its banner: say what it
   // is for instead.
   const banner = !tail?.length || tail.some((l) => /[▐▛▜▙▟█]/.test(l));
   const lines = !banner ? tail! : [fallback ?? (session.title ? `Ready: ${session.title}` : "Ready for a prompt")];
   return (
-    <span className="mt-1 flex h-[62px] flex-col overflow-hidden rounded-md bg-muted/50 px-2 py-1 font-mono text-[10.5px] text-muted-foreground leading-[14px]">
+    <span className="mt-1 flex h-[48px] flex-col overflow-hidden rounded-md bg-muted/50 px-2 py-1 font-mono text-[10.5px] text-muted-foreground leading-[14px]">
       {lines.map((l, i) => (
         <span key={i} className="truncate whitespace-pre">
           {l}
