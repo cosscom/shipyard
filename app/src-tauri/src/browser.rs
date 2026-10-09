@@ -77,10 +77,15 @@ struct Console {
     data: String,
 }
 
-// DRAIN asks the page's script for what is new. It always returns a string,
-// whatever the page has done to its globals: WebKit's result must be
-// something JSON can write.
-const DRAIN: &str = "(function(){try{var d=window.__berthDevtools;var s=d&&typeof d.drain==='function'?d.drain():'';return typeof s==='string'?s:'';}catch(e){return '';}})()";
+// DRAIN asks the page for its address and its script for what is new: the
+// address, a newline (an address never holds one), then the script's report.
+// It always returns a string, whatever the page has done to its globals:
+// WebKit's result must be something JSON can write.
+//
+// The address comes from the page rather than from Webview::url: wry's url()
+// unwraps WKWebView.URL, which is nil after a load that failed (nothing
+// listening on the port), and the panic aborts the app (tauri-apps/wry#1752).
+const DRAIN: &str = "(function(){var u='';try{u=''+location.href;}catch(e){}try{var d=window.__berthDevtools;var s=d&&typeof d.drain==='function'?d.drain():'';return u+'\\n'+(typeof s==='string'?s:'');}catch(e){return u+'\\n';}})()";
 
 // Panes with a watcher, by label: one each, even when a pane reopens.
 static WATCHED: Mutex<Option<HashSet<String>>> = Mutex::new(None);
@@ -101,34 +106,35 @@ fn watch_console(app: AppHandle, id: String, label: String) {
     }
     std::thread::spawn(move || {
         let asked = Arc::new(AtomicU64::new(0));
-        let mut at = String::new();
+        let at = Arc::new(Mutex::new(String::new()));
         loop {
             std::thread::sleep(Duration::from_millis(500));
             let Some(wv) = app.get_webview(&label) else { break };
-            // An app that routes on the client (history.pushState) changes
-            // its address without a navigation or a load, so neither hook
-            // hears it: the address bar follows the webview's own URL.
-            if let Ok(u) = wv.url() {
-                let u = u.to_string();
-                if u != at {
-                    if !at.is_empty() {
-                        let _ = app.emit(EVENT, Navigated { id: id.clone(), url: u.clone(), state: "moved" });
-                    }
-                    at = u;
-                }
-            }
             let since = asked.load(Ordering::SeqCst);
             if since != 0 && now_ms().saturating_sub(since) < 5000 {
                 continue;
             }
             asked.store(now_ms(), Ordering::SeqCst);
-            let (app2, id2, asked2) = (app.clone(), id.clone(), asked.clone());
+            let (app2, id2, asked2, at2) = (app.clone(), id.clone(), asked.clone(), at.clone());
             let sent = wv.eval_with_callback(DRAIN, move |json| {
                 asked2.store(0, Ordering::SeqCst);
-                // The drain's string, as JSON: "" when nothing is new.
-                let Ok(data) = serde_json::from_str::<String>(&json) else { return };
+                // The drain's string, as JSON.
+                let Ok(answer) = serde_json::from_str::<String>(&json) else { return };
+                let (url, data) = split_drain(&answer);
+                // An app that routes on the client (history.pushState)
+                // changes its address without a navigation or a load, so
+                // neither hook hears it: the address bar follows the page's.
+                if let Some(url) = url {
+                    let mut at = at2.lock().unwrap_or_else(|e| e.into_inner());
+                    if *at != url {
+                        if !at.is_empty() {
+                            let _ = app2.emit(EVENT, Navigated { id: id2.clone(), url: url.to_string(), state: "moved" });
+                        }
+                        *at = url.to_string();
+                    }
+                }
                 if !data.is_empty() {
-                    let _ = app2.emit(CONSOLE_EVENT, Console { id: id2.clone(), data });
+                    let _ = app2.emit(CONSOLE_EVENT, Console { id: id2.clone(), data: data.to_string() });
                 }
             });
             if sent.is_err() {
@@ -139,6 +145,15 @@ fn watch_console(app: AppHandle, id: String, label: String) {
             w.remove(&label);
         }
     });
+}
+
+// split_drain reads DRAIN's answer: the page's address, when it is a web
+// page's (a pane that never loaded one is at about:blank), and the console
+// report, "" when nothing is new.
+fn split_drain(answer: &str) -> (Option<&str>, &str) {
+    let (url, data) = answer.split_once('\n').unwrap_or(("", answer));
+    let web = url.starts_with("http://") || url.starts_with("https://");
+    (web.then_some(url), data)
 }
 
 // inspector_in_own_window makes a pane's Web Inspector open in a window of
@@ -363,5 +378,20 @@ pub async fn browser_close(app: AppHandle, id: String) -> Result<(), String> {
     match app.get_webview(&label(&id)?) {
         Some(wv) => wv.close().map_err(|e| e.to_string()),
         None => Ok(()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split_drain;
+
+    #[test]
+    fn drain_answers() {
+        assert_eq!(split_drain("http://localhost:3000/a?b#c\n"), (Some("http://localhost:3000/a?b#c"), ""));
+        assert_eq!(split_drain("https://x.test/\n{\"logs\":[]}\n"), (Some("https://x.test/"), "{\"logs\":[]}\n"));
+        // A failed first load leaves the pane at about:blank: no address.
+        assert_eq!(split_drain("about:blank\n"), (None, ""));
+        assert_eq!(split_drain("\n"), (None, ""));
+        assert_eq!(split_drain(""), (None, ""));
     }
 }

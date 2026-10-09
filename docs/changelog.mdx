@@ -13,6 +13,10 @@ again.
 
 - **A home widget's ⋯ menu opens again.** It broke the home screen with
   "Base UI error #31" instead of showing its Size and Refresh options.
+- **A Browser tab on a port with nothing listening no longer crashes the
+  app.** Opening `http://localhost:3000` before its dev server started closed
+  Shipyard half a second later, and again on every launch after, since the
+  tab came back.
 
 ## v0.3.13
 
