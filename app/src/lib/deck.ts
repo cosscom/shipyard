@@ -126,7 +126,7 @@ export function newDeck(name?: string): string {
   const taken = new Set(useDecks.getState().decks.map((d) => d.name));
   let n = useDecks.getState().decks.length + 1;
   while (!name && taken.has(`Workspace ${n}`)) n++;
-  const d: Deck = { id: newDeckId(), name: name ?? `Workspace ${n}`, arrange: "columns" };
+  const d: Deck = { id: newDeckId(), name: name ?? `Workspace ${n}`, arrange: "auto" };
   useDecks.setState((s) => ({ decks: [...s.decks, d] }));
   showDeck(d.id);
   return d.id;
@@ -158,7 +158,7 @@ export function keepAsDeck(name: string) {
   const { current, spaces } = useWorkspaces.getState();
   const tab = current ? spaces[current]?.active : undefined;
   if (!current || !tab) return;
-  const d: Deck = { id: newDeckId(), name, key: current, tab, arrange: "columns" };
+  const d: Deck = { id: newDeckId(), name, key: current, tab, arrange: "auto" };
   useDecks.setState((s) => ({ decks: [...s.decks, d], active: d.id, home: false }));
 }
 
@@ -349,7 +349,7 @@ export function seedDecks() {
   const { current, spaces } = useWorkspaces.getState();
   const tab = current ? spaces[current]?.active : undefined;
   const t = tab && current ? spaces[current].tabs.find((x) => x.id === tab) : undefined;
-  const d: Deck = { id: newDeckId(), name: "Main", arrange: "columns", ...(t && current ? { key: current, tab: t.id } : {}) };
+  const d: Deck = { id: newDeckId(), name: "Main", arrange: "auto", ...(t && current ? { key: current, tab: t.id } : {}) };
   useDecks.setState({ decks: [d], active: d.id });
 }
 

@@ -13,7 +13,7 @@ import { runShortcut } from "@/hooks/use-shortcuts";
 import { hasTrafficLights } from "@/lib/api";
 import { closeDeck, type Deck, deckTab, frontDeck, keepAsDeck, newDeck, renameDeck, seedDecks, setArrange, showDeck, showDeckHome, toggleZoom, useDecks } from "@/lib/deck";
 import { sessionState } from "@/lib/derive";
-import { leaves } from "@/lib/layout";
+import { arranged, leaves } from "@/lib/layout";
 import { platformKeys } from "@/lib/platform";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -34,7 +34,7 @@ export function DeckBar() {
   const spaces = useWorkspaces((s) => s.spaces);
   const front = useMemo(() => frontDeck({ current, spaces }, useDecks.getState(), view.kind), [current, spaces, view.kind, decks, home]);
   const t = deckTab(front, spaces);
-  const arrange = front?.arrange ?? "columns";
+  const arrange = arranged(front?.arrange ?? "auto", t ? leaves(t.root).length : 0);
   const nav = useNavItems();
   const place = useMemo(() => nav.find((n) => n.active && n.id !== "home"), [nav]);
   const settings = view.kind === "settings" || view.kind === "project";
@@ -155,14 +155,16 @@ function Places() {
         <Tip label={review.badge ? review.badge.title : "Review"}>
           <Button size="sm" variant="ghost" data-testid="nav-review" aria-label="Review" aria-current={review.active ? "page" : undefined} className="relative gap-1 px-2 aria-[current=page]:bg-accent" onClick={review.go}>
             <InboxIcon />
+            <span className="max-[1199px]:sr-only">Review</span>
             {review.badge && <span className="text-muted-foreground text-xs tabular-nums">{review.badge.count}</span>}
           </Button>
         </Tip>
       )}
       {automations && (
         <Tip label="Automations">
-          <Button size="icon-sm" variant="ghost" data-testid="nav-automations" aria-label="Automations" aria-current={automations.active ? "page" : undefined} className="aria-[current=page]:bg-accent" onClick={automations.go}>
+          <Button size="sm" variant="ghost" data-testid="nav-automations" aria-label="Automations" aria-current={automations.active ? "page" : undefined} className="gap-1 px-2 aria-[current=page]:bg-accent" onClick={automations.go}>
             <WorkflowIcon />
+            <span className="max-[1199px]:sr-only">Automations</span>
           </Button>
         </Tip>
       )}
@@ -226,14 +228,14 @@ function DeckTab({ deck, index, on }: { deck: Deck; index: number; on: boolean }
             on ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
           )}
         >
+          {index < 9 && <span aria-hidden className="font-mono text-[10px] text-muted-foreground/70 tabular-nums">{index + 1}</span>}
           <span className="max-w-40 truncate">{deck.name}</span>
-          {waiting > 0 ? (
+          {/* Only what needs you is counted here; how many panes is in the tooltip. */}
+          {waiting > 0 && (
             <span aria-label={`${waiting} need${waiting === 1 ? "s" : ""} you`} className="flex items-center gap-1 text-warning-foreground text-xs tabular-nums">
               <span aria-hidden className="size-1.5 rounded-full bg-warning" />
               {waiting}
             </span>
-          ) : (
-            panes > 0 && <span className="text-muted-foreground/70 text-xs tabular-nums">{panes}</span>
           )}
         </button>
       </Tip>

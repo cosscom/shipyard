@@ -182,5 +182,8 @@ test("tile's grid puts three as one beside two, four as two over two", () => {
   const four = layout(tile(ls, "grid")!).leaves.map((l) => l.rect);
   assert.deepEqual(four.map((r) => [r.x, r.y]), [[0, 0], [0.5, 0], [0, 0.5], [0.5, 0.5]]);
   assert.equal(tile([], "grid"), undefined);
+  // auto: columns up to three, a grid at four.
+  for (const l of layout(tile(ls.slice(0, 3), "auto")!).leaves) assert.ok(Math.abs(l.rect.w - 1 / 3) < 1e-9 && l.rect.h === 1);
+  assert.deepEqual(layout(tile(ls, "auto")!).leaves.map((l) => [l.rect.x, l.rect.y]), [[0, 0], [0.5, 0], [0, 0.5], [0.5, 0.5]]);
   assert.equal(tile(ls.slice(0, 1), "grid"), ls[0]);
 });

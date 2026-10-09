@@ -104,7 +104,7 @@ export function PaneLayer({ showing }: { showing: boolean }) {
             >
               <Pane wsKey={key} tab={tab.id} pane={leaf} visible={on} focused={tab.focus === leaf.id} split={split} mixed={several} />
               {/* The workspace layout: a quiet ring says which pane has the keyboard. */}
-              {deck && !zoomed && leaves.length > 1 && tab.focus === leaf.id && <span aria-hidden className="pointer-events-none absolute inset-0 z-20 border border-ring/45" />}
+              {deck && !zoomed && leaves.length > 1 && tab.focus === leaf.id && <span aria-hidden data-focus-ring className="pointer-events-none absolute inset-0 z-20 border-[1.5px] border-ring" />}
             </div>
           );
         }),

@@ -35,7 +35,7 @@ test("two agents side by side: focus moves between them, and one zooms to fill t
   await expect(right.locator("[data-needs-you]")).toHaveCount(0);
   // On screen, they leave the strip; the workspace's tab counts who needs you.
   await expect(chip(app, "devl/checkout-fix-claude")).toHaveCount(0);
-  await expect(page.locator("[data-deck='Main']")).toContainText("1");
+  await expect(page.locator("[data-deck='Main'] [aria-label='1 needs you']")).toBeVisible();
 
   // The new one has the keyboard; ⌘⌥← moves it to the left pane.
   await expect(right).toHaveAttribute("data-pane-focused", "");
@@ -77,6 +77,15 @@ test("a worktree opens from the strip or ⌘E, beside the others or in the focus
   await expect(app.panes).toHaveCount(2);
   await expect(paneAt(app, "search-perf")).toBeVisible();
   await expect(paneAt(app, "qa-deck")).toBeVisible();
+
+  // The strip's label opens every box, project and worktree, offline boxes too.
+  await page.getByTestId("deck-tray").click();
+  const tray = page.getByTestId("deck-tray-panel");
+  await expect(tray).toContainText("old-vps");
+  await tray.getByRole("button", { name: /Tune the judge prompt/ }).click();
+  await expect(tray).toBeHidden();
+  await expect(app.panes).toHaveCount(3);
+  await expect(paneAt(app, "judge-v2")).toBeVisible();
 });
 
 test("a new task lands in a new pane, another workspace starts empty, and Settings is a click away", async ({ app }) => {
@@ -95,6 +104,7 @@ test("a new task lands in a new pane, another workspace starts empty, and Settin
   // A second workspace starts empty; ⌘1 comes back to the first, as it was.
   await page.getByRole("button", { name: "New workspace" }).click();
   await expect(page.getByText("Workspace 2 is empty")).toBeVisible();
+  await expect(page.getByTestId("deck-how")).toContainText("finds any agent or worktree");
   await expect(app.panes).toHaveCount(0);
   await page.keyboard.press("Meta+1");
   await expect(app.panes).toHaveCount(2);

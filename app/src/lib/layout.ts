@@ -269,8 +269,12 @@ export function moveBetween<S extends SpaceLike>(
 
 // How a workspace's panes are tiled (lib/deck.ts): side by side in equal
 // columns, or as a grid (two beside each other; three as one beside two
-// stacked; four as two over two).
-export type Arrangement = "columns" | "grid";
+// stacked; four as two over two). auto is columns up to three, then a grid:
+// four columns are too narrow to read a chat in.
+export type Arrangement = "auto" | "columns" | "grid";
+
+// arranged is what auto comes to for n panes.
+export const arranged = (how: Arrangement, n: number): "columns" | "grid" => (how === "auto" ? (n >= 4 ? "grid" : "columns") : how);
 
 const node = (dir: "row" | "col", ratio: number, a: PaneNode, b: PaneNode): PaneNode => ({ kind: "split", id: newId(), dir, ratio, a, b });
 
@@ -285,7 +289,7 @@ function evenly(nodes: PaneNode[], dir: "row" | "col"): PaneNode {
 export function tile(ls: Leaf[], how: Arrangement): PaneNode | undefined {
   if (!ls.length) return undefined;
   if (ls.length === 1) return ls[0];
-  if (how === "columns" || ls.length === 2) return evenly(ls, "row");
+  if (arranged(how, ls.length) === "columns" || ls.length === 2) return evenly(ls, "row");
   if (ls.length === 3) return node("row", 0.5, ls[0], node("col", 0.5, ls[1], ls[2]));
   const cols = Math.ceil(Math.sqrt(ls.length));
   const rows: PaneNode[] = [];

@@ -1,4 +1,4 @@
-import { GitBranchIcon, GitBranchPlusIcon, HouseIcon, LayersIcon, SearchIcon } from "lucide-react";
+import { ChevronUpIcon, FolderIcon, GitBranchIcon, GitBranchPlusIcon, HouseIcon, LayersIcon, SearchIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { create } from "zustand";
 
@@ -8,13 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Command, CommandCollection, CommandDialog, CommandDialogPopup, CommandEmpty, CommandFooter, CommandGroup, CommandGroupLabel, CommandInput, CommandItem, CommandList, CommandPanel } from "@/components/ui/command";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Kbd } from "@/components/ui/kbd";
+import { Popover, PopoverPopup, PopoverTrigger } from "@/components/ui/popover";
 import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
 import { DECK_NARROW } from "@/components/workspace/pane-layer";
 import { type SessionEntry, useAllSessions } from "@/hooks/use-agent-counts";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { runShortcut } from "@/hooks/use-shortcuts";
 import { openInDeck, openWorktreeInDeck, type Placement } from "@/lib/deck";
-import { agentOf, type SessionState, sessionName, worktreeOf } from "@/lib/derive";
+import { agentOf, type SessionState, sessionName, sortedWorktrees, worktreeOf } from "@/lib/derive";
 import { ago } from "@/lib/format";
 import { leaves } from "@/lib/layout";
 import { platformKeys } from "@/lib/platform";
@@ -113,12 +114,7 @@ export function DeckStrip() {
   const waiting = elsewhere.filter((a) => a.e.state === "waiting").length;
   return (
     <div data-deck-strip role="toolbar" aria-label="Agents not on screen" className="flex h-10 shrink-0 items-center gap-2 border-t bg-background pr-2 pl-3">
-      <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground text-xs">
-        <LayersIcon className="size-3.5" />
-        <span className="max-[699px]:hidden">Elsewhere</span>
-        <span className="tabular-nums">{elsewhere.length}</span>
-        {waiting > 0 && <span className="sr-only">{waiting} need you</span>}
-      </span>
+      <Tray agents={agents} visible={showing.visible} count={elsewhere.length + behind.length} waiting={waiting} />
       {pinned.map((a) => (
         <Chip key={`${a.e.box}/${a.e.session.name}`} a={a} onOpen={(how) => openInDeck(a.e.box, a.e.session.name, how)} />
       ))}
@@ -178,6 +174,108 @@ function Quiet({ agents }: { agents: StripAgent[] }) {
 function focusBehind(showing: ReturnType<typeof useShowing>, a: StripAgent) {
   const l = showing.tab && leaves(showing.tab.root).find((x) => x.content.kind === "terminal" && x.content.box === a.e.box && x.content.session === a.e.session.name);
   if (l && showing.key && showing.tab) focusPane(showing.key, showing.tab.id, l.id);
+}
+
+// Tray is the strip's label, and opens the whole picture: every box, its
+// projects, their worktrees and the agents in each, as the sidebar's tree
+// had them, with the offline boxes said so. Click an agent, or a worktree,
+// to bring it in.
+function Tray({ agents, visible, count, waiting }: { agents: StripAgent[]; visible: Set<string>; count: number; waiting: number }) {
+  const [open, setOpen] = useState(false);
+  const boxes = useStore((s) => s.boxes);
+  const status = useStore((s) => s.status);
+  const all = status?.boxes ?? [];
+  const bring = (fn: () => void) => () => {
+    setOpen(false);
+    fn();
+  };
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <Tip label="Every box, project and agent">
+        <PopoverTrigger
+          render={
+            <button
+              type="button"
+              data-testid="deck-tray"
+              className="flex h-7 shrink-0 items-center gap-1.5 rounded-md px-1.5 text-muted-foreground text-xs outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
+            />
+          }
+        >
+          <LayersIcon className="size-3.5" />
+          <span className="max-[699px]:hidden">Elsewhere</span>
+          <span className="tabular-nums">{count}</span>
+          {waiting > 0 && <span className="sr-only">{waiting} need you</span>}
+          <ChevronUpIcon className="size-3 opacity-60" />
+        </PopoverTrigger>
+      </Tip>
+      <PopoverPopup side="top" align="start" sideOffset={6} className="w-[34rem] max-w-[calc(100vw-2rem)] p-0 [&_[data-slot=popover-viewport]]:p-0">
+        <div data-testid="deck-tray-panel" className="max-h-[min(70vh,36rem)] overflow-y-auto py-1.5 text-sm">
+          {all.map((b) => {
+            const online = b.state === "online";
+            const locs = (boxes[b.name]?.locations ?? []).filter((l) => l.worktrees?.length);
+            return (
+              <section key={b.name} className="px-1.5 pb-1">
+                <h3 className="flex items-center gap-2 px-2 pt-2 pb-1 font-medium text-muted-foreground text-xs">
+                  <span className={cn("size-1.5 rounded-full", online ? "bg-success" : "bg-muted-foreground/40")} />
+                  {b.name}
+                  {!online && <span className="font-normal">offline</span>}
+                </h3>
+                {online &&
+                  locs.map((loc) => (
+                    <div key={loc.name} className="mb-1">
+                      <div className="flex items-center gap-1.5 px-2 py-1 text-xs">
+                        <FolderIcon className="size-3.5 text-muted-foreground" />
+                        <span className="font-medium">{loc.name}</span>
+                      </div>
+                      {sortedWorktrees(loc).map((wt) => {
+                        const here = agents.filter((a) => a.e.box === b.name && a.e.session.dir === wt.path);
+                        const key = wsKey(b.name, wt.path);
+                        return (
+                          <div key={wt.path} className="ml-4 border-l pl-2">
+                            <button
+                              type="button"
+                              onClick={bring(() => {
+                                if (!openWorktreeInDeck(key)) selectWorktree(refOf(b.name, loc, wt));
+                              })}
+                              className="flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-muted-foreground text-xs outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                              {wt.main ? <HouseIcon className="size-3.5" /> : <GitBranchIcon className="size-3.5" />}
+                              <span className="truncate">{wt.main ? "main" : worktreeLabel(wt)}</span>
+                              {!here.length && <span className="ml-auto text-muted-foreground/70">no agent</span>}
+                            </button>
+                            {here.map((a) => {
+                              const on = visible.has(`${a.e.box}/${a.e.session.name}`);
+                              return (
+                                <button
+                                  key={a.e.session.name}
+                                  type="button"
+                                  onClick={bring(() => openInDeck(a.e.box, a.e.session.name))}
+                                  className={cn(
+                                    "flex h-7 w-full items-center gap-2 rounded-md px-2 pl-6 text-left text-xs outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring",
+                                    a.e.state === "waiting" && "bg-warning/8",
+                                  )}
+                                >
+                                  <StateGlyph state={a.e.state} className="size-3" />
+                                  <span className="min-w-0 truncate">{a.title}</span>
+                                  <span className="ml-auto flex shrink-0 items-center gap-2 text-muted-foreground">
+                                    {on && "on screen"}
+                                    <AgentIcon agent={agentOf(a.e.session)} className="size-3" />
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+              </section>
+            );
+          })}
+        </div>
+      </PopoverPopup>
+    </Popover>
+  );
 }
 
 function Chip({ a, here, onOpen }: { a: StripAgent; here?: boolean; onOpen(how: Placement): void }) {
@@ -249,7 +347,9 @@ export function DeckSwitcher() {
   };
   const groups = useMemo(() => {
     const byHead = new Map<string, Item[]>();
-    for (const a of agents) {
+    // On screen already: last in its group, so ↵ brings in one that isn't.
+    const ordered = [...agents.filter((a) => !visible.has(`${a.e.box}/${a.e.session.name}`)), ...agents.filter((a) => visible.has(`${a.e.box}/${a.e.session.name}`))];
+    for (const a of ordered) {
       const head = HEAD[a.e.state] ?? "Ready";
       const list = byHead.get(head) ?? [];
       list.push({
@@ -343,9 +443,20 @@ export function DeckSwitcher() {
   );
 }
 
-// DeckEmpty is a workspace with no panes yet.
+// DeckEmpty is a workspace with no panes yet: how a workspace works, in a
+// few lines, since the agents to bring in are in the strip just below.
+const HOW: { keys: string; what: string }[] = [
+  { keys: "Click", what: "an agent in the strip brings it in, beside the others" },
+  { keys: "⌥-click", what: "puts it in the focused pane's place" },
+  { keys: "Drag", what: "it onto a pane's edge to go beside, its middle to swap" },
+  { keys: "⌘E", what: "finds any agent or worktree" },
+  { keys: "⌘⌥ ←→", what: "moves between panes; with ⇧, swaps them" },
+  { keys: "⌘⇧↵", what: "zooms the focused pane" },
+  { keys: "⌘1–9", what: "goes to a workspace" },
+];
+
 export function DeckEmpty({ name }: { name: string }) {
-  const agents = useAgents().slice(0, 5);
+  const waiting = useAgents().filter((a) => a.e.state === "waiting").length;
   return (
     <div className="absolute inset-0 flex items-center justify-center overflow-auto bg-background p-6">
       <Empty className="max-w-md">
@@ -354,24 +465,18 @@ export function DeckEmpty({ name }: { name: string }) {
             <LayersIcon />
           </EmptyMedia>
           <EmptyTitle>{name} is empty</EmptyTitle>
-          <EmptyDescription>Bring agents in from the strip below, or start something new. Up to four sit side by side.</EmptyDescription>
+          <EmptyDescription>
+            A workspace holds up to four agents side by side, from any project or box. Bring them in from the strip below{waiting > 0 ? `, where ${waiting} need${waiting === 1 ? "s" : ""} you` : ""}, or start something new.
+          </EmptyDescription>
         </EmptyHeader>
-        <div className="mt-2 flex w-full flex-col gap-1">
-          {agents.map((a) => (
-            <button
-              key={`${a.e.box}/${a.e.session.name}`}
-              type="button"
-              onClick={() => openInDeck(a.e.box, a.e.session.name)}
-              className="flex h-9 items-center gap-2 rounded-lg px-3 text-left text-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <StateGlyph state={a.e.state} />
-              <span className="min-w-0 truncate font-medium">{a.title}</span>
-              <span className="ml-auto shrink-0 text-muted-foreground text-xs">
-                {a.place} · {a.e.box}
-              </span>
-            </button>
+        <dl data-testid="deck-how" className="mt-1 grid w-full grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-xl border bg-muted/30 px-4 py-3 text-left text-xs">
+          {HOW.map((h) => (
+            <div key={h.keys} className="contents">
+              <dt className="text-right font-medium text-foreground">{platformKeys(h.keys)}</dt>
+              <dd className="text-muted-foreground">{h.what}</dd>
+            </div>
           ))}
-        </div>
+        </dl>
         <div className="mt-3 flex gap-2">
           <Button variant="outline" onClick={() => runShortcut("new-worktree", "menu")}>
             <GitBranchPlusIcon />
