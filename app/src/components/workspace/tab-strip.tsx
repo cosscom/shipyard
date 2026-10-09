@@ -37,7 +37,9 @@ import { isContextMenuKey, openContextMenu } from "@/lib/context-menu-key";
 // to another place in the strip or into a split beside a pane.
 // The command layout (components/command) puts its own pieces at the
 // strip's ends and names the worktree itself, so it hides the breadcrumb.
-export function TabStrip({ lead, trail, noBreadcrumb }: { lead?: React.ReactNode; trail?: React.ReactNode; noBreadcrumb?: boolean } = {}) {
+// quietTools keeps the pane tools faint until the strip is hovered or has
+// the keyboard.
+export function TabStrip({ lead, trail, noBreadcrumb, quietTools }: { lead?: React.ReactNode; trail?: React.ReactNode; noBreadcrumb?: boolean; quietTools?: boolean } = {}) {
   const key = useWorkspaces((s) => s.current);
   const ws = useWorkspaces((s) => (s.current ? s.spaces[s.current] : undefined));
   // Tab groups (Labs): with more than one worktree in the strip, each one's
@@ -105,7 +107,7 @@ export function TabStrip({ lead, trail, noBreadcrumb }: { lead?: React.ReactNode
   const fade = edges.left && edges.right ? "[mask-image:linear-gradient(to_right,transparent,black_24px,black_calc(100%-24px),transparent)]" : edges.left ? "[mask-image:linear-gradient(to_right,transparent,black_24px)]" : edges.right ? "[mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)]" : "";
 
   return (
-    <div data-tauri-drag-region data-tab-bar className="flex h-10 shrink-0 items-stretch border-b bg-sidebar">
+    <div data-tauri-drag-region data-tab-bar className={cn("group/strip flex h-10 shrink-0 items-stretch border-b bg-sidebar", quietTools && "[&_[data-strip-tools]]:opacity-40 [&_[data-strip-tools]]:transition-opacity hover:[&_[data-strip-tools]]:opacity-100 focus-within:[&_[data-strip-tools]]:opacity-100")}>
       {lead}
       {/* Tabs scroll when they do not fit (a wheel scrolls them sideways),
           with a fade at each end that has more; + stays just after them,
@@ -162,7 +164,7 @@ export function TabStrip({ lead, trail, noBreadcrumb }: { lead?: React.ReactNode
       )}
       <div data-tauri-drag-region className="min-w-4 flex-1" />
       {ws && (
-        <div data-tauri-drag-region className="flex shrink-0 items-center gap-2 pr-2 pl-3 text-muted-foreground text-xs">
+        <div data-tauri-drag-region data-strip-tools className="flex shrink-0 items-center gap-2 pr-2 pl-3 text-muted-foreground text-xs">
           {leaving && (
             <Tip label={leaving.script ? "The repo's archive script is running on the box. This worktree closes when it finishes, or stays if it fails." : "Waiting for the box."} side="bottom">
               <span role="status" className="flex items-center gap-1.5 rounded-lg bg-accent/70 px-2 py-0.5 text-foreground">

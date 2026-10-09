@@ -17,7 +17,7 @@ export function CommandHeader() {
   // Narrow windows say less: the worktree without its project, counts
   // without words.
   const compact = useMediaQuery("(max-width: 1179px)");
-  if (workspace && !onHome) return <TabStrip lead={<CommandLead compact={compact} divider />} trail={<CommandTrail compact={compact} />} noBreadcrumb />;
+  if (workspace && !onHome) return <TabStrip lead={<CommandLead compact={compact} divider />} trail={<CommandTrail compact={compact} />} noBreadcrumb quietTools />;
   return (
     <>
       <CommandBar compact={compact} />

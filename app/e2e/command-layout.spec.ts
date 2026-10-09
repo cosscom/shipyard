@@ -172,3 +172,17 @@ test("⇥ in the empty switcher groups every agent by project and box", async ({
   await expect(switcher(page).getByText(/^shop · devl · \d+ agents?/)).toBeVisible();
   await expect(switcher(page).getByText(/^evals · gpu/)).toBeVisible();
 });
+
+test("hovering the count peeks at the agents, every project's at a glance", async ({ app }) => {
+  mockOnly();
+  await open(app);
+  const { page } = app;
+  await expect(page.getByTestId("command-summary")).toContainText("2 needs you");
+  await page.getByTestId("command-summary").hover();
+  const peek = page.getByTestId("command-peek");
+  await expect(peek).toContainText("Fix checkout webhook retries");
+  await expect(peek.getByTestId("peek-answers")).toBeVisible();
+  await expect(peek.getByTestId("peek-projects")).toContainText("shop · devl");
+  // A box that's away says so.
+  await expect(peek.getByTestId("peek-projects")).toContainText("old-vps");
+});

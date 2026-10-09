@@ -103,8 +103,9 @@ export function worktreeItem(box: string, loc: Location, wt: Worktree, go: (fn: 
 const counted = (name: string, items: SwitchItem[], max = items.length) => ({ value: items.length > max ? `${name} · ${max} of ${items.length}` : `${name} · ${items.length}`, items: items.slice(0, max) });
 
 // switcherGroups is the empty switcher, in order of what needs you: agents
-// that need you, those working, what is done (to look over), your pins and
-// where you were, then every place, project and box.
+// that need you, those working, your pins and where you were, the latest
+// done (the rest are a search, or By project, away), then every place,
+// project and box.
 export function switcherGroups(ctx: {
   sessions: SessionEntry[];
   spaces: Record<string, Workspace>;
@@ -190,9 +191,9 @@ export function switcherGroups(ctx: {
   return [
     counted(sessionWord("waiting"), lane("waiting", byWait)),
     counted(sessionWord("running"), lane("running", latest)),
-    counted(sessionWord("finished"), lane("finished", latest)),
     { value: "Pinned", items: pinned },
     { value: "Recent", items: recent },
+    counted(sessionWord("finished"), lane("finished", latest), 3),
     { value: "Go to", items: ctx.places },
     ...projects,
     { value: "Boxes", items: boxItems },

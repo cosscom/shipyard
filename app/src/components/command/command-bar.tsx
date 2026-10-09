@@ -218,7 +218,7 @@ function Summary({ compact }: { compact?: boolean }) {
       <span aria-hidden data-testid="command-glow" data-on={glow || undefined} className={cn("pointer-events-none fixed inset-x-0 top-0 z-40 h-0.5 bg-warning opacity-0 shadow-[0_0_18px_3px] shadow-warning/50 transition-opacity duration-700", glow && "opacity-100")} />
       <PreviewCard>
         <PreviewCardTrigger
-          delay={350}
+          delay={600}
           render={
             <button
               type="button"
@@ -227,7 +227,7 @@ function Summary({ compact }: { compact?: boolean }) {
               onClick={openSwitcher}
               aria-label={`${need} ${AGENT_WORDS["needs-you"].lower}${unseen ? ` (${unseen} new)` : ""}, ${counts.running} ${AGENT_WORDS.working.lower}. Open the switcher`}
               className={cn(
-                "relative flex h-6.5 shrink-0 items-center gap-1.5 rounded-full border border-border/70 px-2.5 text-xs tabular-nums outline-none transition-[background-color,box-shadow] duration-500 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring",
+                "relative flex h-7 shrink-0 items-center gap-1.5 rounded-lg border border-border/70 bg-background/60 px-2 text-xs tabular-nums outline-none transition-[background-color,box-shadow] duration-500 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring",
                 need ? "text-foreground" : "text-muted-foreground",
                 lit && "border-warning/50 bg-warning/10",
                 glow && "bg-warning/16 ring-warning/70",
@@ -236,10 +236,9 @@ function Summary({ compact }: { compact?: boolean }) {
           }
         >
           {need > 0 && (
-            <span className="flex items-center gap-1.5 text-warning-foreground dark:text-warning">
+            <span className="flex items-center gap-1.5 font-medium text-foreground">
               <span className={cn("size-1.5 rounded-full bg-warning", glow && "motion-safe:animate-pulse")} />
-              {need} {here ? "more " : ""}
-              {AGENT_WORDS["needs-you"].lower}
+              {here ? `${need} other${need === 1 ? " needs" : "s need"} you` : `${need} ${AGENT_WORDS["needs-you"].lower}`}
             </span>
           )}
           {need > 0 && counts.running > 0 && !compact && <span className="text-muted-foreground/50">·</span>}
@@ -280,16 +279,19 @@ function AgentPeek({ waiting, working, all, toReview }: { waiting: SessionEntry[
   const projects = useMemo(() => {
     const by = new Map<string, { label: string; agents: SessionEntry[] }>();
     for (const e of all) {
-      if (!agentOf(e.session) || !["waiting", "running", "finished", "ready"].includes(e.state)) continue;
+      if (!agentOf(e.session) || !["waiting", "running", "finished"].includes(e.state)) continue;
       const at = worktreeOf(boxes[e.box]?.locations, e.session);
       const k = `${at?.location.name ?? "?"} · ${e.box}`;
       const p = by.get(k) ?? { label: k, agents: [] };
       p.agents.push(e);
       by.set(k, p);
     }
-    const rank: Record<string, number> = { waiting: 0, running: 1, finished: 2, ready: 3 };
+    const rank: Record<string, number> = { waiting: 0, running: 1, finished: 2 };
     return [...by.values()].map((p) => ({ ...p, agents: p.agents.sort((a, b) => rank[a.state] - rank[b.state]) })).sort((a, b) => a.label.localeCompare(b.label));
   }, [all, boxes]);
+  // Boxes that are away say so on a line of their own.
+  const status = useStore((s) => s.status);
+  const away = useMemo(() => status?.boxes.filter((b) => b.state !== "online").map((b) => b.name) ?? [], [status]);
   const row = (e: SessionEntry) => <PeekRow key={`${e.box}/${e.session.name}`} e={e} place={placeOf(e)} />;
   const placeOf = (e: SessionEntry) => {
     const at = worktreeOf(boxes[e.box]?.locations, e.session);
@@ -313,7 +315,9 @@ function AgentPeek({ waiting, working, all, toReview }: { waiting: SessionEntry[
         <div data-testid="peek-projects" className="mt-1 flex flex-col gap-1 border-t px-2 pt-2">
           {projects.map((p) => (
             <div key={p.label} className="flex min-w-0 items-center gap-2 text-xs">
-              <span className="w-28 shrink-0 truncate text-muted-foreground">{p.label}</span>
+              <button type="button" onClick={() => openSwitcher()} className="w-28 shrink-0 truncate rounded text-left text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+                {p.label}
+              </button>
               <span className="flex min-w-0 flex-wrap items-center gap-1">
                 {p.agents.map((e) => (
                   <Tip key={`${e.box}/${e.session.name}`} label={`${e.session.title?.trim() || placeOf(e)} · ${sessionWord(e.state)}`} side="bottom">
@@ -323,6 +327,12 @@ function AgentPeek({ waiting, working, all, toReview }: { waiting: SessionEntry[
                   </Tip>
                 ))}
               </span>
+            </div>
+          ))}
+          {away.map((b) => (
+            <div key={b} className="flex items-center gap-2 text-muted-foreground text-xs">
+              <span className="w-28 shrink-0 truncate">{b}</span>
+              <span>away: what it ran shows when it's back</span>
             </div>
           ))}
         </div>
