@@ -352,6 +352,16 @@ export const scenes: Scene[] = [
     },
   },
   {
+    // Labs › Layout › Inbox (components/inbox): the agents' list, the cursor
+    // on its first row, Allow and Deny on it.
+    id: "inbox",
+    async run(app, theme) {
+      await app.context.addInitScript((t) => localStorage.setItem("berth.ui", JSON.stringify({ themeId: t })), theme);
+      await app.page.goto("/?mock=1&layout=inbox");
+      await expect(app.page.locator("[data-testid=inbox-row][data-cursor]")).toBeVisible();
+    },
+  },
+  {
     id: "artifact-card",
     async run(app, theme) {
       await chat(app, theme, "devl/search-perf");

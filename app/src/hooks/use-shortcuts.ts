@@ -24,6 +24,7 @@ import { findLeaf, leaves, paneWorktree } from "@/lib/layout";
 import { paneKey, toggleDrawer } from "@/lib/devtools";
 import { isOnboardingActive } from "@/views/onboarding/onboarding-state";
 import { firstFocusable, rescueFocus } from "@/lib/focus-home";
+import { focusInbox, inboxOn } from "@/components/inbox/inbox-state";
 
 // The app's shortcuts (lib/shortcuts.json) come two ways: as keys, caught on
 // the window before a terminal sees them, and, in the Mac app, from the menu
@@ -128,6 +129,12 @@ function run(id: string, from: "key" | "menu", arg?: number | Dir): boolean {
       usePrefs.setState((p) => ({ sidebarCollapsed: !p.sidebarCollapsed }));
       return true;
     case "dashboard":
+      // The inbox layout has the agents in its list: ⌘J goes back to it.
+      if (inboxOn()) {
+        if (s.view.kind !== "workspace") s.setView({ kind: "workspace" });
+        focusInbox();
+        return true;
+      }
       s.setView({ kind: "dashboard" });
       return true;
     case "notifications":

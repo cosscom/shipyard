@@ -46,6 +46,10 @@ export interface Prefs {
   // Labs: zen (⌘.): no sidebar or status bar, a switcher for a tab strip,
   // agents as conversations.
   zen: boolean;
+  // Labs: how the window is laid out. "sidebar" is the places and projects
+  // down the left; "inbox" is a list of every agent by what it needs from
+  // you, with the worktree you open beside it (components/inbox).
+  layout: "sidebar" | "inbox";
   // Update a box's berthd as soon as Shipyard ships a newer one
   // (lib/outdated.ts). Off: the status bar offers it instead.
   autoUpdateBoxes: boolean;
@@ -94,6 +98,7 @@ const DEFAULTS: Prefs = {
   labsChosen: false,
   agentView: "terminal",
   zen: false,
+  layout: "sidebar",
   autoUpdateBoxes: false,
   chatBackground: DEFAULT_CHAT_BACKGROUND,
   chatWidth: "default",
@@ -149,12 +154,14 @@ usePrefs.subscribe((p) => save("berth.prefs", { ...p, version: PREFS_VERSION }))
 // The migration is kept at once, not only on the next change.
 save("berth.prefs", { ...usePrefs.getState(), version: PREFS_VERSION });
 
-// ?labs=1 turns Labs on, ?zen=1 zen, and ?view=conversation opens agents
-// as conversations, for the demo.
+// ?labs=1 turns Labs on, ?zen=1 zen, ?layout=inbox the inbox, and
+// ?view=conversation opens agents as conversations, for the demo.
 {
   const q = new URLSearchParams(location.search);
   if (q.has("labs")) usePrefs.setState({ labs: q.get("labs") !== "0" });
   if (q.has("zen")) usePrefs.setState({ zen: q.get("zen") !== "0" });
+  const l = q.get("layout");
+  if (l === "sidebar" || l === "inbox") usePrefs.setState({ layout: l });
   const v = q.get("view");
   if (v === "terminal" || v === "conversation") usePrefs.setState({ agentView: v });
 }

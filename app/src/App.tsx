@@ -4,6 +4,9 @@ import { lazy, Suspense, useEffect } from "react";
 import { AddLocationDialog } from "@/components/add-location-dialog";
 import { Connecting } from "@/components/agent-offline";
 import { AppSidebar } from "@/components/app-sidebar";
+import { InboxHome } from "@/components/inbox/inbox-home";
+import { InboxPane } from "@/components/inbox/inbox-pane";
+import { useInboxOn } from "@/components/inbox/inbox-state";
 import { CommandPalette } from "@/components/command-palette";
 import { FilePicker } from "@/components/files/file-picker";
 import { TreeDockFrame } from "@/components/files/tree-dock";
@@ -99,6 +102,8 @@ export default function App() {
   const workspace = view.kind === "workspace";
   // Labs: zen (⌘.) puts away the sidebar, the tab strip and the status bar.
   const zen = usePrefs((p) => p.labs && p.zen);
+  // Labs › Layout › Inbox: the agents' list in the sidebar's place.
+  const inbox = useInboxOn();
   // Without the status bar, what floats over its corner (toasts, the loops
   // panel) comes down to the window's edge.
   useEffect(() => document.documentElement.style.setProperty("--berth-status-h", zen ? "0px" : "26px"), [zen]);
@@ -161,7 +166,7 @@ export default function App() {
           <div className="flex min-h-0 flex-1">
             {!zen && (
               <Disconnectable>
-                <AppSidebar />
+                {inbox ? <InboxPane /> : <AppSidebar />}
               </Disconnectable>
             )}
             <div className="relative flex min-w-0 flex-1 flex-col">
@@ -267,7 +272,8 @@ function MainView() {
 // to start work, and the agents and worktrees to go back to. Labs adds the
 // harbour across the top.
 function NoWorktree() {
-  return <HomeView />;
+  const inbox = useInboxOn();
+  return inbox ? <InboxHome /> : <HomeView />;
 }
 
 // Disconnectable dims what cannot work until the agent answers.
