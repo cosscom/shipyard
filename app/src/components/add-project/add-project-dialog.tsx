@@ -10,7 +10,7 @@ import { BoxStrip } from "@/components/add-project/box-strip";
 import { Scene } from "@/components/art/scenes";
 import { Button } from "@/components/ui/button";
 import { StepHeader } from "@/components/step-header";
-import { Dialog, DialogFooter, DialogPanel, DialogPopup } from "@/components/ui/dialog";
+import { DialogFooter, DialogPanel } from "@/components/ui/dialog";
 import { Kbd } from "@/components/ui/kbd";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
@@ -30,22 +30,11 @@ import { ErrorText } from "@/components/error-note";
 // name) and the box says what Enter will do there. Folders on the box and
 // projects on the other boxes are offered below it, and the same repository
 // can be set up on more boxes at once, with its kit.
-export function AddProjectDialog() {
-  const draft = useStore((s) => s.locationDraft);
-  return (
-    <Dialog open={!!draft} onOpenChange={(open) => !open && useStore.getState().closeAddLocation()}>
-      {/* Anchored at the top, as New worktree is: Browse and the box's
-          states differ in height, and a centred dialog would move its title. */}
-      <DialogPopup anchored className="sm:max-w-[38rem]" showCloseButton={false}>
-        {draft && <Body key={draft.box ?? ""} startBox={draft.box} />}
-      </DialogPopup>
-    </Dialog>
-  );
-}
-
 type Log = { box: string; lines: string[] };
 
-function Body({ startBox }: { startBox?: string }) {
+// AddProjectBody is the dialog's content; its frame (components/
+// add-location-dialog.tsx) loads it when it first opens.
+export function AddProjectBody({ startBox }: { startBox?: string }) {
   const status = useStore((s) => s.status);
   const boxes = useMemo(() => status?.boxes ?? [], [status]);
   const firstOnline = boxes.find((b) => b.state === "online")?.name ?? "";

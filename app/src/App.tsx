@@ -48,7 +48,7 @@ import { useKitDeepLinks } from "@/views/kits/deep-link";
 import { useTeamDeepLinks, useTeamWatch } from "@/views/team/team-entry";
 import { ReviewSheet } from "@/views/kits/review-sheet";
 import { useReviewDeepLinks } from "@/views/pr-review/deep-link";
-import { PrReviewSheet } from "@/views/pr-review/review-sheet";
+import { PrReviewSheet } from "@/views/pr-review/pr-review-sheet";
 import { useReviewStatuses } from "@/views/pr-review/use-review-status";
 import { AddBoxDialog } from "@/views/onboarding/add-box-dialog";
 import { useOnboardingActive } from "@/views/onboarding/onboarding-state";
