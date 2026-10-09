@@ -28,6 +28,7 @@ export function useBerthConnection() {
     const abort = new AbortController();
     const { setClient, setConnection, refreshAll } = useStore.getState();
     let poll = 0;
+    let first = 0;
 
     const connect = async (): Promise<Client | undefined> => {
       let delay = 1000;
@@ -51,14 +52,26 @@ export function useBerthConnection() {
     void connect().then((client) => {
       if (!client || abort.signal.aborted) return;
       setClient(client);
-      void refreshAll();
+      // The first fetch of everything waits for the event stream, so that
+      // nothing can change unheard between the two, and is the only one:
+      // fetching before it as well read every box twice on each start. A
+      // stream slow to open doesn't hold the app back for long.
+      let synced = false;
+      first = window.setTimeout(() => !synced && void refreshAll(), 1500);
       void loadPlugins(client);
       void loadProjects();
       void loadNav();
       void loadNotifications();
       // Project menus show each project's kit status.
       void reloadKits();
-      client.events(handleEvent, () => void refreshAll(), abort.signal);
+      client.events(
+        handleEvent,
+        () => {
+          synced = true;
+          void refreshAll();
+        },
+        abort.signal,
+      );
       // The backstop: events say what changed, so this only catches what
       // one missed. Not while the window is hidden; coming back refreshes.
       poll = window.setInterval(() => !document.hidden && void refreshAll(), BACKSTOP);
@@ -78,6 +91,7 @@ export function useBerthConnection() {
     return () => {
       abort.abort();
       window.clearInterval(poll);
+      window.clearTimeout(first);
       window.removeEventListener("focus", onWake);
       window.removeEventListener("online", onWake);
       document.removeEventListener("visibilitychange", onVisible);
