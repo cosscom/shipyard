@@ -7,6 +7,7 @@ import { mockRequirements } from "@/lib/mock-requirements";
 import { browserCall, mockScreencast, mockShotSvg } from "@/lib/mock-browser";
 import { mockDevtoolsCall } from "@/lib/mock-devtools";
 import { phoneCall } from "@/lib/mock-phone";
+import { turnCheckCall } from "@/lib/mock-turncheck";
 import { worktreesCall } from "@/lib/mock-worktrees";
 import { kitsCall, kitsStream } from "@/lib/mock-kits";
 import { initTeamMock, isTeamSession, teamAttach, teamBoxCall, teamLaptopCall } from "@/lib/mock-team";
@@ -656,6 +657,8 @@ function boxCall(box: string, method: string, path: string, body?: unknown): Pro
   if (thisMac) return thisMac;
   const phone = phoneCall(box, method, path, body, delay);
   if (phone) return phone;
+  const turnCheck = turnCheckCall(box, method, path, body, delay);
+  if (turnCheck) return turnCheck;
   const usage = usageCall(box, method, path, body, delay);
   if (usage) return usage;
   const wts = worktreesCall(box, method, path, body, { locations, sessions }, emit, delay);

@@ -9,6 +9,25 @@ upgrades with `berth upgrade BOX`, or by running the
 [install command](/getting-started/add-a-box#with-the-install-command)
 again.
 
+## Unreleased
+
+- **Turn check: a turn that ends on a question needs you.** Off by
+  default; turned on for a box in Settings → Agents, berthd asks Jev on
+  Vercel AI Gateway (or another Jev-compatible server) about each finished
+  Claude Code or Codex turn: one that asks you something or is blocked shows
+  as **Needs you**, one that stopped with its work unfinished as **Idle**. A
+  failed or unsure answer leaves it Done.
+
+- **A long Codex turn stays working until it ends.** Codex's `notify` comes
+  at the end of each of its messages, not only the turn's, so a turn read as
+  finished after its first message. Once a session's Codex hooks have said a
+  prompt started, only its `Stop` hook ends the turn; Codex versions without
+  hooks still finish with `notify`. `berthd integrations install codex` (and
+  an upgrade) also adds `PreToolUse` and `PostToolUse` hooks: a question in
+  Codex's question box shows as needs you, and answering it, or Codex carrying
+  on by itself after a turn ended, shows it working again. If Codex asks,
+  trust the new hooks with `/hooks`.
+
 ## v0.3.13
 
 Most of this needs each box's new `berthd`: use **Update all** in the status
@@ -518,6 +537,16 @@ bar, or `berth upgrade BOX`. Agents keep running through the update.
 - **The guided install.** Adding a box from Team setup first shows the
   plan, full screen: what will run, step by step, the exact commands a click
   away, which steps may need `sudo`, the team's own steps after Berth's, and
+
+- **Turn check: a turn that ends on a question needs you.** Off by
+  default; turned on for a box in Settings → Agents, berthd asks Jev on
+  Vercel AI Gateway (or another Jev-compatible server) about each finished
+  Claude Code or Codex turn: one that asks you something or is blocked shows
+  as **Needs you**, one that stopped with its work unfinished as **Idle**. A
+  failed or unsure answer leaves it Done.
+- **Adding a box over SSH is one guided install.** Set up (or Install and
+  pair on a tailnet machine) first shows the plan: what will run, step by
+  step, the exact commands a click away, which steps may need `sudo`, and
   an **Agents** choice (Claude Code ticked; Codex, Cursor Agent and OpenCode
   to add; remembered for the next box). Then `berth add ssh --guided` runs
   in a terminal here, beside a checklist: press Enter to start, and type

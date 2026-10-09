@@ -147,6 +147,28 @@ login notice are not questions, so they never read as `waiting`; after you
 approve a permission, the tool it allowed running says the agent is working
 again.
 
+An agent's hooks say its turn finished whether it is done or asks you
+something ("go ahead?"). **Turn check**,
+off by default and turned on per box in Settings → Agents, tells these
+apart for Claude Code and Codex: when a turn ends normally, berthd sends the
+turn's last prompt and reply from the agent's transcript to Jev, a
+classifier on Vercel AI Gateway, with prompt training disallowed. An agent
+that asks you something, or is blocked, shows as
+**Needs you** (`agent.waiting` with `source: "turncheck"` and Jev's
+`choice`), and notifications follow; it still takes prompts as if done, so
+held prompts and other agents' reports are delivered. One that stopped with
+its work unfinished (a build still going, something to happen first, or work
+it picks up by itself) shows as **Idle** (`agent.ready` with
+`source: "turncheck"`): neither done nor yours to answer. Anything else (done,
+an answer under 65% sure, a failed request, no answer in 10 seconds, or you
+prompting again first) leaves it **Done**; no other model is asked. Paste
+your AI Gateway key in Settings → Agents; it is kept on the box, readable
+by you alone, and sent only to AI Gateway. A [secret reference](/guides/secrets) (`op://…`, or
+`env://NAME` from berthd's own environment) is the alternative. Any
+Jev-compatible server can be set there with `url` and `model` (e.g. a
+self-hosted laya-serve); one on a private address needs it in
+`allow_outbound` in `~/.berth/network.json`.
+
 ### Turns
 
 A **turn** is one prompt to the end of the agent's reply. The box keeps a

@@ -102,6 +102,37 @@ func TestQuotedBinaryPaths(t *testing.T) {
 	}
 }
 
+// Codex's question box and tool uses come through PreToolUse and
+// PostToolUse. A hooks.json from an older berth, without them, reads as
+// outdated so an upgrade adds them: once, after the hooks already there.
+func TestCodexToolHooksAreAddedToAnOlderInstallOnce(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hooks.json")
+	os.WriteFile(path, []byte(`{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"/opt/berthd hook codex Stop"}]}],"PreToolUse":[{"hooks":[{"type":"command","command":"my-guard"}]}]}}`), 0o644)
+	if hooked, current := accountHooks("codex", dir); !hooked || current {
+		t.Fatalf("older hooks: hooked %v current %v", hooked, current)
+	}
+	if changed, err := InstallCodexHooks(path, "/opt/berthd"); !changed || err != nil {
+		t.Fatalf("install: %v changed=%v", err, changed)
+	}
+	if changed, _ := InstallCodexHooks(path, "/opt/berthd"); changed {
+		t.Fatal("a second install changed the file again")
+	}
+	hooks := readJSON(t, path)["hooks"].(map[string]any)
+	for event, n := range map[string]int{"SessionStart": 1, "UserPromptSubmit": 1, "PreToolUse": 2, "PostToolUse": 1, "PermissionRequest": 1, "Stop": 1} {
+		if list, _ := hooks[event].([]any); len(list) != n {
+			t.Errorf("%s hooks = %v", event, list)
+		}
+	}
+	pre := hooks["PreToolUse"].([]any)
+	if !containsCommand(pre[:1], "my-guard") || !containsCommand(pre[1:], "/opt/berthd hook codex PreToolUse") {
+		t.Fatalf("PreToolUse hooks = %v", pre)
+	}
+	if hooked, current := accountHooks("codex", dir); !hooked || !current {
+		t.Fatalf("after install: hooked %v current %v", hooked, current)
+	}
+}
+
 func TestNewAgentHooksInstallOnceAndKeepOtherSettings(t *testing.T) {
 	dir := t.TempDir()
 	gem := filepath.Join(dir, "settings.json")

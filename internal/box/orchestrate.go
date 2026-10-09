@@ -208,7 +208,7 @@ func (b *Box) sendPrompt(ctx context.Context, name string, req SendRequest, orig
 	}
 	waiting := ""
 	if b.Turns != nil {
-		if st := b.enrich(ctx, []Session{sess})[0]; st.AgentState == "waiting" {
+		if st := b.enrich(ctx, []Session{sess})[0]; st.AgentState == "waiting" && !b.Turns.SoftWait(name) {
 			waiting = st.Turn
 		}
 	}

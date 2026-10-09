@@ -1,7 +1,11 @@
 package adapters
 
+import "strings"
+
 // Codex reports through its hooks (hooks.json, trusted once with /hooks)
-// and, on versions without them, only through notify when a turn ends.
+// and, on versions without them, only through notify. Notify comes at the
+// end of each of its messages, not only the turn's: once a session's hooks
+// are heard, the ledger leaves the end to Stop.
 var Codex = register(&Adapter{
 	Name: "codex",
 	Caps: Caps{Ready: true, Started: true, Waiting: true, Finished: true, FinalMessage: true, Via: "hooks"},
@@ -23,7 +27,22 @@ var Codex = register(&Adapter{
 			// after it, and drops it before the event is published.
 			d["title"] = Title(in.Str("prompt"))
 			return Started, d, true
+		case "PreToolUse":
+			// Codex's question box is a tool. Only that it asks is kept,
+			// never the questions.
+			if strings.HasPrefix(in.Str("tool_name"), "request_user_input") {
+				d["reason"] = "question"
+				return Waiting, d, true
+			}
+			d["signal"] = "tool"
+			return Started, d, true
 		case "PostToolUse":
+			// The async question box returns at once, before anyone
+			// answers; the wait holds until the turn ends.
+			if strings.HasPrefix(in.Str("tool_name"), "request_user_input_async") {
+				return "", nil, false
+			}
+			// Working again: a tool ran, or the question was answered.
 			d["signal"] = "tool"
 			return Started, d, true
 		case "PermissionRequest":

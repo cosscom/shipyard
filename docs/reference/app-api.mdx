@@ -167,6 +167,7 @@ failed after it went out (the box may have acted on it). The box API:
 | `GET shares`, `POST shares`, `DELETE shares/{id}` | public shares |
 | `GET units`, `POST units`, `GET units/{name}`, `DELETE units/{name}`, `POST units/{name}/restart`, `GET units/{name}/log` | units |
 | `GET phone`, `PUT phone` | the [phone companion](/guides/phone) |
+| `GET turncheck`, `PUT turncheck` | `{ enabled, key, url?, model?, key_set }`: [turn check](/concepts/sessions-and-agents#agent-state). `key` is a secret reference (`op://…` or `env://NAME`), never a value. PUT also takes `key_value`, a pasted key kept on the box and never answered (`key_set` says one is), or `remove_key`. Turning it on needs a key unless `url` names a server other than AI Gateway. `url` must be http or https, and https when there is a key. Never answers the key's value |
 | `GET events?since=SEQ&max=N`, `POST events` | the box's event stream as NDJSON, and announcing one (`{ type, data? }`). Events carry `seq`, their number in the box's journal; with `since`, the stream first replays what the journal holds after it (at most `max`, default 5000) |
 | `GET worktrees?location=L` | every worktree's git status |
 | `GET locations/{name}/worktrees/{wt}/log?limit=N` | the worktree's commits |

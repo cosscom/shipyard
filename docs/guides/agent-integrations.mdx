@@ -34,10 +34,14 @@ with the command that installs them.
   `~/.cursor/hooks.json`, after any hooks already there (Orca's are kept).
 - **Codex**: installs Shipyard's skills in `~/.agents/skills/`, where Codex
   reads user skills (a copy an older version left in `~/.codex/skills/` is
-  removed), adds `SessionStart` / `UserPromptSubmit` / `PermissionRequest` /
-  `Stop` hooks to `~/.codex/hooks.json` (trust them once in Codex with
-  `/hooks`), and a `notify` line to `~/.codex/config.toml` for versions
-  without hooks. Codex runs a single notify program, so when the config
+  removed), adds `SessionStart` / `UserPromptSubmit` / `PreToolUse` /
+  `PostToolUse` / `PermissionRequest` / `Stop` hooks to `~/.codex/hooks.json`
+  (trust them once in Codex with `/hooks`), and a `notify` line to
+  `~/.codex/config.toml` for versions without hooks. Codex's question box is
+  a tool, so its `PreToolUse` means "needs you" (never with the questions).
+  Notify comes at the end of each of Codex's messages, not only the turn's:
+  once a session's hooks have said a prompt started, its `Stop` hook alone
+  ends the turn. Codex runs a single notify program, so when the config
   already sets one to something else, Shipyard leaves it and prints the line to
   change yourself.
 - **Gemini CLI**: `SessionStart` / `BeforeAgent` / `Notification` /

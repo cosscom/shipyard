@@ -239,8 +239,9 @@ output. That data is only ever text:
   JSON-escaped, so a value can't add a host, a path, a parameter or a field.
 - A secret's value never leaves in a webhook, a notification or a step's
   kept output: it shows as `[secret]`.
-- Webhooks and [phone notifications](/guides/phone) reach only public
-  addresses (notifications also your tailnet). Loopback, private, link-local,
+- Webhooks, [phone notifications](/guides/phone) and turn check's requests
+  reach only public addresses (notifications also your tailnet).
+  Loopback, private, link-local,
   cloud metadata and other reserved addresses are refused, checked on the
   address actually dialled, redirects included, unless the box's owner
   allows them in `~/.berth/network.json` on the box, which nothing in the
@@ -275,6 +276,12 @@ output. That data is only ever text:
   sessions list carry (see [known limits](#known-limits)).
 - The offline queue keeps prompts on the laptop, in its state directory, and
   never puts them in an event.
+- [Turn check](/concepts/sessions-and-agents#agent-state), off by default,
+  is the one time berthd sends a session's words off the box: each finished
+  turn's last prompt and reply, to Vercel AI Gateway (prompt training
+  disallowed) or the server set in `turncheck.json`. Its key, pasted (kept
+  in the state directory, 0600) or a secret reference, is never answered or
+  logged, and is sent only over https; a pasted key goes only to AI Gateway.
 
 ## The phone
 

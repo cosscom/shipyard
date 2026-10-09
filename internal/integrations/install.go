@@ -64,7 +64,9 @@ func installCodexHooks(f files, rel, bin string) (bool, error) {
 	return editJSON(f, rel, func(root map[string]any) bool {
 		hooks := object(root, "hooks")
 		changed := false
-		for _, event := range []string{"SessionStart", "UserPromptSubmit", "PermissionRequest", "Stop"} {
+		// PreToolUse says when Codex asks a question (its question box is a
+		// tool); it and PostToolUse mark the agent busy again after one.
+		for _, event := range []string{"SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PermissionRequest", "Stop"} {
 			if addNested(hooks, event, hookCommand(bin, "codex", event)) {
 				changed = true
 			}

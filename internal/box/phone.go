@@ -304,7 +304,7 @@ func (p *Phone) Handler(b *Box, listenAddr string) http.Handler {
 		data := map[string]any{"name": name, "from": "phone"}
 		if b.Turns != nil {
 			// The phone may answer an agent's question: that is not a turn.
-			if st, ok := b.Turns.State(name); ok && st.State == "waiting" {
+			if st, ok := b.Turns.State(name); ok && st.State == "waiting" && !b.Turns.SoftWait(name) {
 				data["answer"], data["turn"] = true, st.Turn
 			}
 		}

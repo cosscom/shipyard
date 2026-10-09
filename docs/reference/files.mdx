@@ -61,6 +61,7 @@ State, in `<state>/box/`:
 | `tmux.conf` | The configuration of Shipyard's tmux server |
 | `commands/<session>.cmd` | Each session's command, prompt and all (0600), which its login shell runs; removed with the session |
 | `phone.json` | The phone companion: on or off, its token, notifications |
+| `turncheck.key` | The AI Gateway key pasted for [turn check](/concepts/sessions-and-agents#agent-state) (0600) |
 | `runs/index.json`, `runs/<id>.jsonl` | [Runs](/guides/runs): the index, and each run's journal; finished runs past 100 per flow or template, or 30 days, are removed |
 | `runs/<id>.d/` | A run's headless agents' prompts and JSON output |
 | `flow-runs.json.imported` | Flow runs from before durable runs, once imported |

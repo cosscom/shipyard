@@ -185,12 +185,11 @@ func accountHooks(agent, dir string) (hooked, current bool) {
 		b, _ := os.ReadFile(filepath.Join(dir, "settings.json"))
 		return bytes.Contains(b, []byte("hook claude Stop")), bytes.Contains(b, []byte("hook claude PostToolUse"))
 	case "codex":
-		// hooks.json is this release's; a notify line alone is an older
-		// berth's, or a Codex without hooks.
+		// hooks.json with PreToolUse is this release's; one without it, or a
+		// notify line alone, is an older berth's (or a Codex without hooks).
 		h, _ := os.ReadFile(filepath.Join(dir, "hooks.json"))
-		current = bytes.Contains(h, []byte("hook codex Stop"))
-		if current {
-			return true, true
+		if bytes.Contains(h, []byte("hook codex Stop")) {
+			return true, bytes.Contains(h, []byte("hook codex PreToolUse"))
 		}
 		c, _ := os.ReadFile(filepath.Join(dir, "config.toml"))
 		return bytes.Contains(c, []byte(`"hook", "codex"`)), false

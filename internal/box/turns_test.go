@@ -180,6 +180,98 @@ func TestAFinishedOnlyAgentWorksFromTheSend(t *testing.T) {
 	}
 }
 
+// Codex's notify comes at the end of each of its messages, not only the
+// turn's. Once its hooks said a prompt started, Stop alone ends the turn,
+// and the notify is not published; a Codex without hooks still ends its
+// turn with notify.
+func TestCodexNotifyEndsATurnOnlyWithoutHooks(t *testing.T) {
+	tr, bus := ledger(t, Session{Name: "cx", Dir: "/w", Agent: "codex"}, Session{Name: "old", Dir: "/v", Agent: "codex"})
+	hook(bus, "agent.ready", "cx", "/w", "codex")
+	hook(bus, "agent.started", "cx", "/w", "codex", "signal", "prompt")
+	if !tr.Redundant("agent.finished", map[string]any{"session": "cx", "via": "notify"}) {
+		t.Fatal("a hooked Codex's notify would be published")
+	}
+	hook(bus, "agent.finished", "cx", "/w", "codex", "via", "notify") // its first message
+	if st, _ := tr.State("cx"); st.State != "running" || turnState(t, tr, "cx#1") != "running" {
+		t.Fatalf("after a notify mid-turn: session %+v, turn %s", st, turnState(t, tr, "cx#1"))
+	}
+	hook(bus, "agent.started", "cx", "/w", "codex", "signal", "tool")
+	hook(bus, "agent.finished", "cx", "/w", "codex") // Stop
+	if st, _ := tr.State("cx"); st.State != "finished" || turnState(t, tr, "cx#1") != "finished" {
+		t.Fatalf("after Stop: session %+v, turn %s", st, turnState(t, tr, "cx#1"))
+	}
+	if tr.Redundant("agent.finished", map[string]any{"session": "cx"}) {
+		t.Fatal("Stop would not be published")
+	}
+
+	sent := bus.Publish(events.Event{Type: "session.sent", Data: map[string]any{"name": "old"}})
+	mine, _ := tr.ForSent("old", sent.Seq)
+	if tr.Redundant("agent.finished", map[string]any{"session": "old", "via": "notify"}) {
+		t.Fatal("the notify of a Codex without hooks would not be published")
+	}
+	hook(bus, "agent.finished", "old", "/v", "codex", "via", "notify")
+	if st := turnState(t, tr, mine.ID); st != "finished" {
+		t.Fatalf("without hooks, notify left the turn %s", st)
+	}
+}
+
+// Codex's question box is a tool: its PreToolUse makes the turn wait, and
+// the PostToolUse once it is answered has it running again. Any other tool
+// use after a turn ended (Codex carrying on by itself once a background
+// command finishes) shows the agent working.
+func TestACodexQuestionWaitsUntilItIsAnswered(t *testing.T) {
+	tr, bus := ledger(t, Session{Name: "cx", Dir: "/w", Agent: "codex"})
+	hook(bus, "agent.ready", "cx", "/w", "codex")
+	hook(bus, "agent.started", "cx", "/w", "codex", "signal", "prompt")
+	hook(bus, "agent.waiting", "cx", "/w", "codex", "reason", "question") // PreToolUse request_user_input_async
+	got, _ := tr.Get("cx#1")
+	if st, _ := tr.State("cx"); st.State != "waiting" || got.State != "waiting" || len(got.Waits) != 1 || got.Waits[0].Reason != "question" {
+		t.Fatalf("asking: session %+v, turn %+v", st, got)
+	}
+	hook(bus, "agent.started", "cx", "/w", "codex", "signal", "tool") // PostToolUse, answered
+	got, _ = tr.Get("cx#1")
+	if st, _ := tr.State("cx"); st.State != "running" || got.State != "running" || got.Waits[0].End.IsZero() {
+		t.Fatalf("answered: session %+v, turn %+v", st, got)
+	}
+	hook(bus, "agent.finished", "cx", "/w", "codex")
+	if tr.Redundant("agent.started", map[string]any{"session": "cx", "signal": "tool"}) {
+		t.Fatal("a tool use after the turn ended would not be published")
+	}
+	hook(bus, "agent.started", "cx", "/w", "codex", "signal", "tool") // PreToolUse Bash
+	if st, _ := tr.State("cx"); st.State != "running" {
+		t.Fatalf("a tool use after the turn ended left the session %+v", st)
+	}
+	if all := tr.List("cx", 10); len(all) != 1 || all[0].State != "finished" {
+		t.Fatalf("a tool use made or reopened a turn: %+v", all)
+	}
+}
+
+// Codex asks with its async question box and ends its turn: the turn is
+// over, but the session still waits for the answer, until you prompt again.
+func TestATurnThatEndsOnItsQuestionStillWaits(t *testing.T) {
+	tr, bus := ledger(t, Session{Name: "cx", Dir: "/w", Agent: "codex"})
+	hook(bus, "agent.started", "cx", "/w", "codex", "signal", "prompt")
+	hook(bus, "agent.waiting", "cx", "/w", "codex", "reason", "question")
+	// The question box redraws the screen; that is not an answer.
+	hook(bus, "agent.started", "cx", "/w", "codex", "signal", "tool", "source", "screen")
+	hook(bus, "agent.finished", "cx", "/w", "codex")
+	got, _ := tr.Get("cx#1")
+	if st, _ := tr.State("cx"); st.State != "waiting" || got.State != "finished" {
+		t.Fatalf("ended on its question: session %+v, turn %+v", st, got)
+	}
+	hook(bus, "agent.started", "cx", "/w", "codex", "signal", "prompt")
+	if st, _ := tr.State("cx"); st.State != "running" {
+		t.Fatalf("answered: session %+v", st)
+	}
+	// Work after the question means it may have been answered: the end is an end.
+	hook(bus, "agent.waiting", "cx", "/w", "codex", "reason", "question")
+	hook(bus, "agent.started", "cx", "/w", "codex", "signal", "tool")
+	hook(bus, "agent.finished", "cx", "/w", "codex")
+	if st, _ := tr.State("cx"); st.State != "finished" {
+		t.Fatalf("worked on after asking: session %+v", st)
+	}
+}
+
 // E13: an agent finishes while berthd is down. Its hook is spooled, and
 // published when berthd is back, so the turn ends; with no spooled hook,
 // the open turn is left for the screen to settle.

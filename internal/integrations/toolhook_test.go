@@ -21,6 +21,10 @@ func TestTranslate(t *testing.T) {
 			"agent.finished", map[string]any{"path": "/w/cal", "conversation_id": "c1", "agent_session_id": "c1", "status": "completed", "agent": "cursor"}},
 		{"codex", "notify", `{"type":"agent-turn-complete","turn-id":"t1","cwd":"/w","last-assistant-message":"secret plan"}`,
 			"agent.finished", map[string]any{"path": "/w", "turn_id": "t1", "via": "notify", "agent": "codex"}},
+		{"codex", "PreToolUse", `{"cwd":"/w","hook_event_name":"PreToolUse","session_id":"x1","turn_id":"t1","tool_name":"request_user_input_async","tool_input":{"questions":["Which branch?"]},"tool_use_id":"u1","transcript_path":"/secret/rollout.jsonl"}`,
+			"agent.waiting", map[string]any{"path": "/w", "agent_session_id": "x1", "turn_id": "t1", "reason": "question", "agent": "codex"}},
+		{"codex", "PreToolUse", `{"cwd":"/w","session_id":"x1","turn_id":"t1","tool_name":"Bash","tool_input":{"command":"go test ./..."}}`,
+			"agent.started", map[string]any{"path": "/w", "agent_session_id": "x1", "turn_id": "t1", "signal": "tool", "agent": "codex"}},
 		{"orca", "worktree.archived", `{"cwd":"/w/x"}`,
 			"worktree.archived", map[string]any{"path": "/w/x", "agent": "orca"}},
 	} {
@@ -56,6 +60,9 @@ func TestTranslateNeverCopiesContent(t *testing.T) {
 		{"claude", "UserPromptSubmit", `{"prompt":"\nfirst line\nSECRET-TEXT","cwd":"/w","session_id":"s"}`},
 		{"codex", "UserPromptSubmit", `{"prompt":"first line\n\nSECRET-TEXT","cwd":"/w"}`},
 		{"codex", "notify", `{"type":"agent-turn-complete","input-messages":["SECRET-TEXT"],"last-assistant-message":"SECRET-TEXT"}`},
+		{"codex", "PreToolUse", `{"cwd":"/w","tool_name":"request_user_input_async","tool_input":{"questions":["SECRET-TEXT"]},"transcript_path":"/SECRET-TEXT"}`},
+		{"codex", "PreToolUse", `{"cwd":"/w","tool_name":"Bash","tool_input":{"command":"SECRET-TEXT"}}`},
+		{"codex", "PostToolUse", `{"cwd":"/w","tool_name":"request_user_input","tool_input":{"questions":["SECRET-TEXT"]},"tool_response":"SECRET-TEXT"}`},
 		{"cursor", "stop", `{"prompt":"SECRET-TEXT","workspace_roots":["/w"]}`},
 	} {
 		e, _ := Translate(tc[0], tc[1], []byte(tc[2]))
@@ -134,6 +141,9 @@ func TestClaudeToolUseAndPermissionHooks(t *testing.T) {
 func TestEveryAgentAdapterMapsItsTurn(t *testing.T) {
 	for _, tc := range [][4]string{
 		{"codex", "UserPromptSubmit", `{"cwd":"/w","session_id":"x"}`, "agent.started"},
+		{"codex", "PreToolUse", `{"cwd":"/w","tool_name":"request_user_input"}`, "agent.waiting"},
+		{"codex", "PreToolUse", `{"cwd":"/w","tool_name":"Bash"}`, "agent.started"},
+		{"codex", "PostToolUse", `{"cwd":"/w","tool_name":"Bash"}`, "agent.started"},
 		{"codex", "PermissionRequest", `{"cwd":"/w"}`, "agent.waiting"},
 		{"codex", "Stop", `{"cwd":"/w"}`, "agent.finished"},
 		{"cursor", "beforeSubmitPrompt", `{"workspace_roots":["/w"]}`, "agent.started"},
@@ -149,5 +159,16 @@ func TestEveryAgentAdapterMapsItsTurn(t *testing.T) {
 		if !ok || e.Type != tc[3] || e.Data["path"] != "/w" {
 			t.Errorf("%s %s = %+v %v, want %s", tc[0], tc[1], e, ok, tc[3])
 		}
+	}
+}
+
+// The async question box returns at once: its PostToolUse comes before any
+// answer, so it says nothing and the wait holds until the turn ends.
+func TestCodexAsyncQuestionStaysAWait(t *testing.T) {
+	if e, ok := Translate("codex", "PostToolUse", []byte(`{"cwd":"/w","tool_name":"request_user_input_async"}`)); ok {
+		t.Fatalf("async question's PostToolUse published %+v", e)
+	}
+	if e, ok := Translate("codex", "PostToolUse", []byte(`{"cwd":"/w","tool_name":"request_user_input"}`)); !ok || e.Type != "agent.started" {
+		t.Fatalf("answered question: %+v ok=%v", e, ok)
 	}
 }

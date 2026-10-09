@@ -361,6 +361,7 @@ func serve(b boxHome, args []string) error {
 		Socket:       b.socket(),
 		Phone:        &box.Phone{Path: filepath.Join(b.dir, "phone.json"), Addr: tailnetAddr, Log: logger},
 		Guard:        &box.Guard{Path: filepath.Join(userDir, "guard.json")},
+		TurnCheck:    &box.TurnCheck{Path: filepath.Join(userDir, "turncheck.json"), KeyPath: filepath.Join(b.dir, "turncheck.key"), Log: logger},
 		Invites:      &box.Invites{Address: func() string { return pairAddress(b) }, TTL: defaultTTL},
 		Update: &box.SelfUpdate{
 			Executable:    exe,
@@ -451,6 +452,7 @@ func serve(b boxHome, args []string) error {
 	go bx.Phone.Run(ctx, bx)
 	go bx.Guard.Run(ctx, bx)
 	go bx.WatchSessionMemory(ctx)
+	go bx.TurnCheck.Run(ctx, bx)
 
 	os.Remove(b.socket())
 	local, err := net.Listen("unix", b.socket())

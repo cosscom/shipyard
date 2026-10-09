@@ -70,6 +70,9 @@ type Box struct {
 	Phone *Phone
 	// Guard, when set, keeps the box usable when memory runs short.
 	Guard *Guard
+	// TurnCheck, when turned on, asks Jev whether a finished turn needs
+	// you (turncheck.go).
+	TurnCheck *TurnCheck
 	// Secrets resolves secret references in worktree environments; nil
 	// uses a shared one.
 	Secrets *Secrets
@@ -167,6 +170,8 @@ func (b *Box) Mount(s *wire.Server) {
 	route("POST /v1/locations/{name}/worktrees/{worktree}/{action}", b.pauseAction)
 	route("GET /v1/phone", b.getPhone)
 	route("PUT /v1/phone", b.putPhone)
+	route("GET /v1/turncheck", b.getTurnCheck)
+	route("PUT /v1/turncheck", b.putTurnCheck)
 	route("GET /v1/kits", b.listKits)
 	route("PUT /v1/locations/{name}/kit", b.putKit)
 	route("POST /v1/locations/{name}/team-kit", b.postTeamKit)

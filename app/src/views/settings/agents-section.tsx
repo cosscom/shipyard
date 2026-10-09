@@ -1,13 +1,22 @@
-import { CheckIcon, MinusIcon } from "lucide-react";
-import { useState } from "react";
+import { CheckIcon, ChevronRightIcon, MinusIcon } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 import { AgentIcon } from "@/components/agent-glyph";
 import { SkillsPanel } from "@/components/skills/skills-panel";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { toastManager } from "@/components/ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
+import { BoxError } from "@/components/upgrade-box";
 import type { AgentPreset } from "@/lib/api";
+import { errorMessage } from "@/lib/format";
+import { openUrl } from "@/lib/open-url";
 import { NONE, useStore } from "@/lib/store";
+import { ownServer, type TurnCheckChange, type TurnCheckConfig, type TurnCheckStatus, turnCheckApi } from "@/lib/turncheck";
 import { Segmented } from "@/views/settings/controls";
-import { Code, SettingsGroup, SettingsPage } from "@/views/settings/rows";
+import { Code, SettingsGroup, SettingsPage, SettingsRow } from "@/views/settings/rows";
 
 // How to put each built-in agent on a box's PATH.
 const INSTALL: Record<string, string> = {
@@ -100,6 +109,8 @@ export function AgentsSection() {
         </SettingsGroup>
       )}
 
+      {online.length > 0 && <TurnCheck boxes={online.map((b) => b.name)} />}
+
       {shownSkills && (
         <section>
           <div className="mb-2 flex items-end gap-3">
@@ -114,5 +125,114 @@ export function AgentsSection() {
 
       {boxes.length > online.length && <p className="text-muted-foreground text-xs">Offline boxes are listed once they reconnect.</p>}
     </SettingsPage>
+  );
+}
+
+// Turn check, per box: off until turned on, and on only with a key. The
+// key is pasted once and kept on the box; a secret reference is the
+// alternative.
+function TurnCheck({ boxes }: { boxes: string[] }) {
+  const client = useStore((s) => s.client);
+  const [cfg, setCfg] = useState<Record<string, TurnCheckStatus | { error: string }>>({});
+  const [busy, setBusy] = useState<Record<string, boolean>>({});
+  const names = boxes.join("\n");
+
+  const load = useCallback(
+    (b: string) => {
+      if (!client) return;
+      turnCheckApi.get(client, b).then(
+        (c) => setCfg((p) => ({ ...p, [b]: c })),
+        (err) => setCfg((p) => ({ ...p, [b]: { error: errorMessage(err) } })),
+      );
+    },
+    [client],
+  );
+  useEffect(() => {
+    for (const b of names.split("\n")) load(b);
+  }, [load, names]);
+
+  async function save(box: string, c: TurnCheckChange): Promise<boolean> {
+    if (!client) return false;
+    setBusy((p) => ({ ...p, [box]: true }));
+    try {
+      const st = await turnCheckApi.put(client, box, c);
+      setCfg((p) => ({ ...p, [box]: st }));
+      return true;
+    } catch (err) {
+      toastManager.add({ type: "error", title: `Turn check on ${box}`, description: errorMessage(err) });
+      load(box);
+      return false;
+    } finally {
+      setBusy((p) => ({ ...p, [box]: false }));
+    }
+  }
+
+  return (
+    <SettingsGroup
+      title="Turn check"
+      description="When an agent's turn ends, ask Jev whether it stopped to ask you something (Needs you) or with its work unfinished (Idle). When on, the box sends the turn's last prompt and reply to the checker (Vercel AI Gateway by default)."
+    >
+      {boxes.map((b) => {
+        const st = cfg[b];
+        if (!st || "error" in st) {
+          return (
+            <SettingsRow key={b} label={b} description={st ? <BoxError className="mt-1" box={b} error={st.error} what="turn check" /> : "Checking…"}>
+              <Switch checked={false} disabled aria-label={`Check finished turns with Jev on ${b}`} />
+            </SettingsRow>
+          );
+        }
+        return <TurnCheckBox key={b} box={b} st={st} busy={!!busy[b]} save={(c) => save(b, c)} />;
+      })}
+    </SettingsGroup>
+  );
+}
+
+function TurnCheckBox({ box, st, busy, save }: { box: string; st: TurnCheckStatus; busy: boolean; save: (c: TurnCheckChange) => Promise<boolean> }) {
+  const [value, setValue] = useState("");
+  const [ref, setRef] = useState(st.key ?? "");
+  useEffect(() => setRef(st.key ?? ""), [st.key]);
+  const config: TurnCheckConfig = { enabled: st.enabled, key: st.key, url: st.url, model: st.model };
+  const hasKey = st.key_set || !!st.key || ownServer(st);
+  return (
+    <div>
+      <SettingsRow label={box} description={st.key ? <Code>{st.key}</Code> : st.key_set ? `Key saved on ${box}` : hasKey ? "Your own server" : "Save a key first"}>
+        {st.key_set && (
+          <Button size="xs" variant="ghost" disabled={busy} onClick={() => void save({ ...config, enabled: st.enabled && (!!st.key || ownServer(st)), remove_key: true })}>
+            Remove
+          </Button>
+        )}
+        <Switch checked={st.enabled} disabled={busy || (!st.enabled && !hasKey)} onCheckedChange={(v) => void save({ ...config, enabled: v })} aria-label={`Check finished turns with Jev on ${box}`} />
+      </SettingsRow>
+      <div className="flex flex-col gap-2 px-4 pb-3">
+        {!st.key_set && (
+          <div className="flex gap-2">
+            <Input size="sm" type="password" autoComplete="off" value={value} onChange={(e) => setValue(e.target.value)} placeholder="Paste your key" className="font-mono [&_input::placeholder]:font-sans" aria-label={`AI Gateway key for ${box}`} />
+            <Button size="sm" variant="outline" disabled={busy || !value.trim()} onClick={async () => (await save({ ...config, key: undefined, key_value: value.trim() })) && setValue("")}>
+              Save
+            </Button>
+          </div>
+        )}
+        <p className="text-muted-foreground text-xs">
+          <button type="button" onClick={() => void openUrl("https://vercel.com/docs/ai-gateway")} className="underline underline-offset-2 hover:text-foreground">
+            Create an API key in Vercel's AI Gateway
+          </button>
+          . It stays on {box}, readable by you alone, and goes only to AI Gateway.
+        </p>
+        <Collapsible>
+          <CollapsibleTrigger className="group flex items-center gap-1.5 text-muted-foreground text-xs hover:text-foreground">
+            <ChevronRightIcon className="size-3.5 transition-transform group-data-panel-open:rotate-90" />
+            Use a secret reference instead
+          </CollapsibleTrigger>
+          <CollapsiblePanel>
+            <div className="mt-2 flex gap-2">
+              <Input size="sm" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="op://vault/item/field or env://NAME" className="font-mono text-xs" aria-label={`Key reference on ${box}`} />
+              <Button size="sm" variant="outline" disabled={busy || ref.trim() === (st.key ?? "")} onClick={() => void save({ ...config, key: ref.trim() || undefined })}>
+                Save
+              </Button>
+            </div>
+          </CollapsiblePanel>
+        </Collapsible>
+      </div>
+    </div>
   );
 }
