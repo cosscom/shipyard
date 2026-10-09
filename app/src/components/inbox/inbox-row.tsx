@@ -29,6 +29,8 @@ export interface RowProps {
   live: boolean;
   onOpen(it: InboxItem): void;
   onDone(it: InboxItem): void;
+  // After y or n: on to the next row, as after e.
+  onAnswered(it: InboxItem): void;
   onFocus(it: InboxItem): void;
 }
 
@@ -53,7 +55,7 @@ const place = (it: InboxItem) => {
 // short is a one-line row's place: the worktree alone, or the project.
 const short = (it: InboxItem) => (it.main ? (it.title === it.project ? "main" : `${it.project} › main`) : it.worktree && it.worktree !== it.title ? it.worktree : it.project);
 
-export const InboxRow = memo(function InboxRow({ it, cursor, open, done, live, onOpen, onDone, onFocus }: RowProps) {
+export const InboxRow = memo(function InboxRow({ it, cursor, open, done, live, onOpen, onDone, onAnswered, onFocus }: RowProps) {
   const s = it.session;
   const waiting = it.state === "waiting";
   const tool = s.ask?.tool;
@@ -126,27 +128,29 @@ export const InboxRow = memo(function InboxRow({ it, cursor, open, done, live, o
             e.stopPropagation();
             if (e.key === "y") answer(allow.key, "Allow");
             else answer(deny.key, "Deny");
+            onAnswered(it);
           }
         }}
         className={cn(
           "flex w-full min-w-0 items-start gap-2.5 rounded-lg px-2 text-left outline-none",
           compact ? "gap-[17px] py-1 pl-[12px]" : "py-1.5",
+          // The age gives way to Clear on hover and under the cursor.
+          "[&_[data-age]]:transition-opacity group-hover/row:[&_[data-age]]:opacity-0 group-focus-within/row:[&_[data-age]]:opacity-0",
         )}
       >
         {compact ? (
           // Recent: one line each, so many fit (title, place, age).
           <>
-            <span className="relative mt-[3px] inline-flex size-4 shrink-0 items-center justify-center">
-              <AgentIcon agent={it.agent} className="size-2.5 !text-muted-foreground" />
-              <Ring state={it.state} />
+            <span className="mt-[3px] inline-flex h-4 w-4 shrink-0 items-center justify-center gap-1">
+              <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", it.state === "finished" ? "bg-success" : "bg-muted-foreground/50")} />
             </span>
             <span className="flex min-w-0 flex-1 items-baseline gap-1.5 text-[13px] leading-5">
               <span className={cn("min-w-0 shrink truncate", open ? "font-medium text-foreground" : "text-foreground/85")}>{it.title}</span>
-              <span className="min-w-0 max-w-[50%] shrink-0 truncate text-[11px] text-muted-foreground">
+              <span className="min-w-0 max-w-[42%] shrink-0 truncate text-[11px] text-muted-foreground">
                 {short(it)}
-                {it.boxMatters && <span className="font-mono text-[10px] @max-[330px]/side:hidden"> · {it.box}</span>}
               </span>
-              <span className="ml-auto shrink-0 pl-1 text-[11px] text-muted-foreground tabular-nums">{when}</span>
+              {it.boxMatters && <span className="shrink-0 font-mono text-[10px] text-muted-foreground @max-[340px]/side:hidden">{it.box}</span>}
+              <span data-age className="ml-auto shrink-0 pl-1 text-[11px] text-muted-foreground tabular-nums">{when}</span>
             </span>
           </>
         ) : (
@@ -158,7 +162,7 @@ export const InboxRow = memo(function InboxRow({ it, cursor, open, done, live, o
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="flex min-w-0 items-baseline gap-2">
                 <span className="min-w-0 flex-1 truncate font-medium text-[13px] text-foreground leading-5">{it.title}</span>
-                <span className={cn("shrink-0 text-[11px] tabular-nums", waiting ? "text-warning-foreground" : "text-muted-foreground")}>{when}</span>
+                <span data-age className={cn("shrink-0 text-[11px] tabular-nums", waiting ? "text-warning-foreground" : "text-muted-foreground")}>{when}</span>
               </span>
               <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground leading-4">
                 <span className={cn("min-w-0", doing ? "max-w-[55%] shrink-0 truncate" : "truncate")}>{place(it)}</span>
@@ -174,8 +178,8 @@ export const InboxRow = memo(function InboxRow({ it, cursor, open, done, live, o
       </button>
 
       {/* Hover and cursor: clear it away (e), or bring it back. */}
-      {/* Beside the age, never over it; one-line rows put it before. */}
-      <span className={cn("absolute flex items-center opacity-0 transition-opacity group-hover/row:opacity-100 group-focus-within/row:opacity-100", compact ? "top-1 right-12" : "top-[25px] right-1.5")}>
+      {/* In the age's place, on the title's line: never over the text. */}
+      <span className={cn("absolute flex items-center opacity-0 transition-opacity group-hover/row:opacity-100 group-focus-within/row:opacity-100", compact ? "top-1 right-1.5" : "top-1.5 right-1.5")}>
         <button
           type="button"
           tabIndex={-1}

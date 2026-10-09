@@ -114,7 +114,7 @@ function InboxList({ overlay }: { overlay?: boolean }) {
         aria-label="Inbox"
         data-testid="inbox"
         data-inbox
-        className={cn("@container/side relative flex w-[clamp(288px,26vw,360px)] shrink-0 flex-col border-sidebar-border border-r bg-sidebar text-sidebar-foreground", overlay && "w-[min(360px,92vw)]")}
+        className={cn("@container/side relative flex w-[clamp(316px,26vw,360px)] shrink-0 flex-col border-sidebar-border border-r bg-sidebar text-sidebar-foreground", overlay && "w-[min(360px,92vw)]")}
       >
         <div data-tauri-drag-region className="flex h-10 shrink-0 items-center justify-end gap-0.5 px-2">
           <NotificationBell />
@@ -183,7 +183,8 @@ function TabButton({ id, label }: { id: "inbox" | "projects"; label: string }) {
       className={cn("inline-flex h-6.5 items-center gap-1.5 rounded-md px-2 font-medium text-[12px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring", on ? "bg-sidebar-accent text-foreground" : "text-muted-foreground hover:text-foreground")}
     >
       {label}
-      {id === "inbox" && needs > 0 && <span className="rounded-full bg-warning/15 px-1.5 text-[10px] text-warning-foreground tabular-nums leading-4">{needs}</span>}
+      {/* The count is said once, by Needs you; the tab only marks it. */}
+      {id === "inbox" && needs > 0 && !on && <span role="img" aria-label={`${needs} need you`} className="size-1.5 rounded-full bg-warning" />}
     </button>
   );
 }
@@ -394,6 +395,7 @@ function TriageList() {
                     live
                     onOpen={open}
                     onDone={toggleDone}
+                    onAnswered={(x) => focusRow(step(order, x.id, 1))}
                     onFocus={(x) => useInbox.getState().cursor !== x.id && useInbox.setState({ cursor: x.id })}
                   />
                 ))}
