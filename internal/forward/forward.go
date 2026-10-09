@@ -5,11 +5,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"strconv"
 	"sync"
 	"syscall"
+
+	"github.com/cosscom/shipyard/internal/copybuf"
 )
 
 // DialFunc opens a stream to a port on the box. It is looked up per
@@ -79,7 +80,7 @@ func Bridge(ctx context.Context, a, b net.Conn) {
 	wg.Add(2)
 	pipe := func(dst, src net.Conn) {
 		defer wg.Done()
-		_, err := io.Copy(dst, src)
+		_, err := copybuf.Copy(dst, src)
 		if cw, ok := dst.(closeWriter); ok && err == nil {
 			cw.CloseWrite()
 			return
