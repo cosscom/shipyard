@@ -137,15 +137,38 @@ func TestRequestLogMarksACanceledRequest(t *testing.T) {
 	}
 }
 
+func TestRequestLogKeepsTheLatestAcrossManyTrims(t *testing.T) {
+	p := &Proxy{}
+	const total = 5*logLimit + 7
+	for i := range total {
+		p.requests.add(Request{Path: "/" + strconv.Itoa(i)}, "a.localhost")
+		if hl := p.requests.hosts["a.localhost"]; cap(hl.list) > 2*logLimit {
+			t.Fatalf("log grew to %d", cap(hl.list))
+		}
+	}
+	list, last := p.Requests("a.localhost", 0)
+	if len(list) != logLimit || last != total {
+		t.Fatalf("got %d requests, last %d", len(list), last)
+	}
+	for i, r := range list {
+		if want := "/" + strconv.Itoa(total-logLimit+i); r.Path != want {
+			t.Fatalf("request %d is %q, want %q", i, r.Path, want)
+		}
+	}
+	if list, _ := p.Requests("a.localhost", total-3); len(list) != 3 || list[2].Path != "/"+strconv.Itoa(total-1) {
+		t.Fatalf("after: %+v", list)
+	}
+}
+
 func TestRequestLogIsBounded(t *testing.T) {
 	var l requestLog
 	for i := range logLimit + 50 {
 		l.add(Request{Path: "/" + strconv.Itoa(i)}, "a.localhost")
 	}
-	if got := len(l.hosts["a.localhost"].list); got != logLimit {
+	if got := len(l.hosts["a.localhost"].recent()); got != logLimit {
 		t.Fatalf("kept %d", got)
 	}
-	if first := l.hosts["a.localhost"].list[0].Path; first != "/50" {
+	if first := l.hosts["a.localhost"].recent()[0].Path; first != "/50" {
 		t.Errorf("oldest kept %q", first)
 	}
 	for i := range logHosts + 5 {
