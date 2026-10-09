@@ -2,6 +2,7 @@ package box
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -135,6 +136,11 @@ type Turns struct {
 	saveSoon  chan struct{}
 	loaded    bool
 	stop      func()
+
+	// writeMu orders the ledger's writes; legacyOut is what LegacyPath
+	// was last written with.
+	writeMu   sync.Mutex
+	legacyOut []byte
 }
 
 type sessTrack struct {
@@ -1358,12 +1364,19 @@ func (t *Turns) save() {
 	archive := t.archive
 	t.archive = nil
 	t.mu.Unlock()
+	t.writeMu.Lock()
+	defer t.writeMu.Unlock()
 	if err == nil && t.Path != "" {
 		statefile.Write(t.Path, b)
 	}
 	if t.LegacyPath != "" {
-		if lb, err := json.Marshal(legacy); err == nil {
-			statefile.Write(t.LegacyPath, lb)
+		// Its states change far less often than the ledger: each write
+		// is a full fsync, so one that would write the same bytes is
+		// left out.
+		if lb, err := json.Marshal(legacy); err == nil && !bytes.Equal(lb, t.legacyOut) {
+			if statefile.Write(t.LegacyPath, lb) == nil {
+				t.legacyOut = lb
+			}
 		}
 	}
 	if inbox != nil && t.InboxPath != "" {
