@@ -75,8 +75,8 @@ export function WidgetMenu({ def, size, onSize, onRefresh, onRemove, onCustomize
       <MenuPopup align="end" className="min-w-48">
         {def.sizes.length > 1 && (
           <>
-            <MenuGroupLabel>Size</MenuGroupLabel>
             <MenuRadioGroup value={size} onValueChange={(v) => onSize(v as WidgetSize)}>
+              <MenuGroupLabel>Size</MenuGroupLabel>
               {SIZE_ORDER.filter((s) => def.sizes.includes(s)).map((s) => (
                 <MenuRadioItem key={s} value={s}>
                   <span className="flex w-full items-center gap-3">
