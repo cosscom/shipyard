@@ -235,6 +235,55 @@ func TestScreenShowsTheSessionsOutput(t *testing.T) {
 	}
 }
 
+// getAndCapture reads a session as Get does, and its pane, in one tmux
+// command.
+func TestGetAndCaptureIsGetAndAScreen(t *testing.T) {
+	s := testSessions(t)
+	ctx := context.Background()
+	if _, err := s.create(ctx, "both", "acme", t.TempDir(), "printf 'acme ready\\n'; sleep 30", "claude", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	want, err := s.Get(ctx, "both")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mu sync.Mutex
+	asked := 0
+	s.trace = func([]string) { mu.Lock(); asked++; mu.Unlock() }
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		got, raw, err := s.getAndCapture(ctx, "both", "-J", "-e")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != want {
+			t.Fatalf("session = %+v, want %+v", got, want)
+		}
+		if strings.Contains(string(raw), "acme ready") {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("screen = %q", raw)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	mu.Lock()
+	if asked < 1 || asked > 100 {
+		t.Fatalf("asked tmux %d times", asked)
+	}
+	n := asked
+	mu.Unlock()
+	s.getAndCapture(ctx, "both")
+	mu.Lock()
+	if asked-n != 1 {
+		t.Fatalf("one read asked tmux %d times, want 1", asked-n)
+	}
+	mu.Unlock()
+	if _, _, err := s.getAndCapture(ctx, "gone"); !errors.Is(err, ErrUnknownSession) {
+		t.Fatalf("gone: %v", err)
+	}
+}
+
 // A session's environment never changes, so EnvVar asks tmux once per
 // variable, an unset one included: every chat poll asks it for each agent
 // in the folder.

@@ -111,6 +111,35 @@ func BenchmarkTranscriptPoll(b *testing.B) {
 	b.ReportMetric(float64(execs.Load())/float64(n), "execs/op")
 }
 
+// BenchmarkDraftPoll is a working chat's poll of GET …/draft, the reply
+// being written read off the agent's screen.
+func BenchmarkDraftPoll(b *testing.B) {
+	ctx := context.Background()
+	s, execs := benchSessions(b)
+	if _, err := s.create(ctx, "acme-0", "acme", b.TempDir(), "printf 'acme ready\\n'; sleep 600", "claude", nil, nil); err != nil {
+		b.Fatal(err)
+	}
+	bx := &Box{Name: "devbox", Sessions: s, Events: &events.Bus{}}
+	poll := func() {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest("GET", "/v1/sessions/acme-0/draft", nil)
+		r.SetPathValue("name", "acme-0")
+		if err := bx.draft(w, r); err != nil || !strings.Contains(w.Body.String(), `"agent":"claude"`) {
+			b.Fatalf("draft: %v %s", err, w.Body.String())
+		}
+	}
+	poll()
+	execs.Store(0)
+	b.ReportAllocs()
+	defer cpuPerOp(b)()
+	n := 0
+	for b.Loop() {
+		poll()
+		n++
+	}
+	b.ReportMetric(float64(execs.Load())/float64(n), "execs/op")
+}
+
 // BenchmarkPollScreens is the 2-second look at the screens of agents no
 // hook reports for: four of them, each mid-turn.
 func BenchmarkPollScreens(b *testing.B) {
