@@ -40,6 +40,10 @@ export interface WtEntry {
   state?: SessionState;
   lane: Lane;
   name: string;
+  // Its project's name, and whether its box is worth naming (the project
+  // is on several).
+  project: string;
+  chip: boolean;
   // What it is doing, in one line: its lead agent's work.
   doing?: string;
   // What its lead agent waits for, when it needs you.
@@ -122,6 +126,8 @@ export function useRailProjects(): ProjectEntry[] {
             others: sessions.filter((s) => !agentOf(s)),
             state: lead?.state,
             lane: away ? "quiet" : laneOf(lead?.state),
+            project: p.name,
+            chip: p.members.length > 1,
             name: wt.main ? (p.members.length > 1 || (m.loc.worktrees?.length ?? 0) > 1 ? "main" : p.name) : worktreeLabel(wt),
             doing: lead ? lead.session.title?.trim() || agentLabel(lead.agent) : away ? `${m.box.name} is ${away}` : undefined,
             ask: lead?.state === "waiting" ? askText(lead.session) : undefined,

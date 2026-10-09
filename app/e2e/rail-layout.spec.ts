@@ -43,9 +43,9 @@ test("the rail peeks at a project's worktrees by state, and a click goes there",
   await expect(page.getByTestId("crumb-agent")).toHaveCount(0);
   await expect(shop).toHaveAttribute("aria-current", "true");
 
-  // A dot per agent at work, the ones that need you first.
+  // A dot per agent working, then per agent done; the badge counts the rest.
   const pips = await shop.getByTestId("rail-pips").locator("[data-state]").evaluateAll((els) => els.map((e) => e.getAttribute("data-state")));
-  expect(pips.slice(0, 3)).toEqual(["waiting", "waiting", "running"]);
+  expect(pips).toEqual(["running", "finished", "finished", "finished"]);
 
   // A click on a mark goes to the project, where its agent works; so does ⌃n.
   await page.mouse.move(700, 500);
@@ -53,6 +53,25 @@ test("the rail peeks at a project's worktrees by state, and a click goes there",
   await expect(page.getByTestId("crumb-worktree")).toContainText("judge-v2");
   await page.keyboard.press("Control+3");
   await expect(page.getByTestId("crumb-project")).toContainText("shop");
+});
+
+test("Home's peek is every agent at work, and a waiting one is answered in place", async ({ app }) => {
+  mockOnly();
+  await app.open(RAIL);
+  const { page } = app;
+  await page.getByTestId("nav-home").hover();
+  const peek = page.getByTestId("home-peek");
+  await expect(peek).toBeVisible();
+  const lanes = await peek.getByTestId("rail-lane").evaluateAll((els) => els.map((e) => e.getAttribute("data-lane")));
+  expect(lanes).toEqual(["waiting", "running", "finished"]);
+  // Across projects, each named.
+  await expect(peek.locator('[data-testid=rail-wt][data-worktree="gpu/judge-v2"]')).toContainText("evals / judge-v2");
+  const fix = peek.locator('[data-testid=rail-wt][data-worktree="devl/checkout-fix"]');
+  await expect(fix).toContainText("shop / checkout-fix");
+  // A permission is answered from the list, without going to the agent.
+  await fix.getByTestId("peek-allow").click();
+  await expect(fix).toContainText("Allowed · resuming");
+  await expect(page.getByTestId("crumb-project")).toContainText("Home");
 });
 
 test("the breadcrumb switches worktree, agent and project", async ({ app }) => {

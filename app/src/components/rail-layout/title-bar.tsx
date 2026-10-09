@@ -1,5 +1,5 @@
 import { ChevronDownIcon, FolderPlusIcon, GitBranchIcon, HomeIcon, PlusIcon, SearchIcon, SettingsIcon, SquareTerminalIcon } from "lucide-react";
-import { type ReactNode, useMemo } from "react";
+import { Fragment, type ReactNode, useMemo } from "react";
 
 import { AgentIcon, StateGlyph } from "@/components/agent-glyph";
 import { NotificationBell } from "@/components/notifications/notification-center";
@@ -85,7 +85,7 @@ function NeedsYou({ compact }: { compact: boolean }) {
       <Button size="sm" variant="ghost" data-testid="title-needs-you" aria-label={`${label}: go to ${what}`} onClick={() => openSession(next.box, next.session)} className="min-w-0 gap-1.5 text-warning-foreground hover:bg-warning/10">
         <StateGlyph state="waiting" />
         <span className="shrink-0">{compact ? waiting.length : label}</span>
-        {!compact && where && <span className="max-w-44 truncate text-muted-foreground">· {where}</span>}
+        {!compact && where && <span className="hidden max-w-44 truncate text-muted-foreground min-[1280px]:inline">· {where}</span>}
       </Button>
     </Tip>
   );
@@ -167,9 +167,10 @@ function ProjectsCrumb({ projects, here, label, icon, narrow }: { projects: Proj
       </MenuTrigger>
       <MenuPopup align="start" className="w-72">
         <MenuGroup>
-          <MenuGroupLabel>Projects</MenuGroupLabel>
-          {projects.map((p) => (
-            <MenuItem key={p.id} data-testid="crumb-project-item" data-project={p.name} disabled={!p.online} onClick={() => openProject(p)} className={cn(p.id === here?.id && "bg-accent/50")}>
+          {projects.map((p, i) => (
+            <Fragment key={p.id}>
+            {(i === 0 || p.section !== projects[i - 1].section) && <MenuGroupLabel>{p.section ?? "Projects"}</MenuGroupLabel>}
+            <MenuItem data-testid="crumb-project-item" data-project={p.name} disabled={!p.online} onClick={() => openProject(p)} className={cn(p.id === here?.id && "bg-accent/50")}>
               <ProjectGlyph p={p} className="size-4.5 text-[9px]" />
               <span className={cn("min-w-0 flex-1 truncate", p.id === here?.id && "font-medium")}>{p.name}</span>
               <span className="flex shrink-0 items-center gap-2 text-muted-foreground text-xs tabular-nums">
@@ -186,8 +187,10 @@ function ProjectsCrumb({ projects, here, label, icon, narrow }: { projects: Proj
                   </span>
                 )}
                 {!p.online && "away"}
+                {i < 9 && <span className="w-5 text-right text-muted-foreground/70">⌃{i + 1}</span>}
               </span>
             </MenuItem>
+            </Fragment>
           ))}
         </MenuGroup>
         <MenuSeparator />
@@ -219,7 +222,7 @@ function WorktreeCrumb({ p, w, narrow }: { p: ProjectEntry; w: WtEntry; narrow: 
       </MenuTrigger>
       <MenuPopup align="start" collisionPadding={PEEK_COLLISION} className="w-96">
         <ProjectHead p={p} />
-        <WorktreeItems p={p} compact={short} />
+        <WorktreeItems worktrees={p.worktrees} compact={short} />
         <ProjectFooter p={p} />
       </MenuPopup>
     </Menu>

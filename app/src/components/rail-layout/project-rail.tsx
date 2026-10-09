@@ -1,4 +1,4 @@
-import { EllipsisIcon, FolderPlusIcon, PlusIcon, ServerIcon, SettingsIcon } from "lucide-react";
+import { EllipsisIcon, FolderPlusIcon, HouseIcon, PlusIcon, ServerIcon, SettingsIcon } from "lucide-react";
 import { Fragment, type ReactNode, useEffect, useState } from "react";
 
 import { MoreItems, useArrangedNav } from "@/components/sidebar/nav";
@@ -54,9 +54,13 @@ export function ProjectRail() {
       <div className="flex flex-col items-center gap-1">
         {/* Home's count of agents that need you is the title bar's "need
             you" button here, said once. */}
-        {top.map((n) => (
-          <PlaceButton key={n.id} id={n.id} label={n.label} icon={n.icon} active={n.active} onClick={n.go} badge={n.id === "home" ? undefined : n.badge && { ...n.badge, loud: false }} />
-        ))}
+        {top.map((n) =>
+          n.id === "home" ? (
+            <HomeMark key={n.id} label={n.label} icon={n.icon} active={n.active} onClick={n.go} projects={projects} />
+          ) : (
+            <PlaceButton key={n.id} id={n.id} label={n.label} icon={n.icon} active={n.active} onClick={n.go} badge={n.badge && { ...n.badge, loud: false }} />
+          ),
+        )}
       </div>
       <span aria-hidden className="mt-2 h-px w-7 shrink-0 bg-sidebar-border" />
       <ul aria-label="Projects" className="flex min-h-0 w-full flex-1 flex-col items-center gap-1.5 overflow-y-auto overscroll-contain pt-2 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -109,7 +113,7 @@ const iconClass =
   "relative inline-flex h-8 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors group-hover/item:bg-sidebar-accent group-hover/item:text-foreground group-data-popup-open/item:bg-sidebar-accent [&_svg]:size-[17px]";
 
 function Caption({ children, on }: { children: ReactNode; on?: boolean }) {
-  return <span className={cn("block w-full truncate text-center text-[9.5px] leading-3 tracking-[-0.01em]", on ? "font-medium text-foreground" : "text-muted-foreground group-hover/item:text-foreground")}>{children}</span>;
+  return <span className={cn("block w-full truncate text-center text-[9px] leading-3 tracking-[-0.01em]", on ? "font-medium text-foreground" : "text-muted-foreground group-hover/item:text-foreground")}>{children}</span>;
 }
 
 // Edge is the bar at the rail's left edge beside where you are.
@@ -140,6 +144,50 @@ function PlaceButton({ id, label, icon, active, onClick, badge }: { id: string; 
   );
 }
 
+// HomeMark is Home, and its peek is every agent at work, in every project,
+// by what it needs: the whole fleet one point away.
+function HomeMark({ label, icon, active, onClick, projects }: { label: string; icon: ReactNode; active: boolean; onClick(): void; projects: ProjectEntry[] }) {
+  const [open, setOpen] = useState(false);
+  const short = useMediaQuery(SHORT);
+  const all = projects.flatMap((p) => p.worktrees).filter((w) => !w.away && w.lane !== "quiet");
+  const count = (k: "waiting" | "running" | "finished") => projects.reduce((n, p) => n + p[k], 0);
+  const parts = [count("waiting") && `${count("waiting")} need you`, count("running") && `${count("running")} working`, count("finished") && `${count("finished")} done`].filter(Boolean);
+  return (
+    <div className="relative flex w-15 justify-center">
+      <Edge on={active} top="16px" />
+      <Menu
+        modal={false}
+        open={open}
+        onOpenChange={(next, d) => {
+          if (d.reason === "trigger-press" && !(d.event instanceof KeyboardEvent)) {
+            setOpen(false);
+            onClick();
+            return;
+          }
+          setOpen(next);
+        }}
+      >
+        <MenuTrigger openOnHover delay={200} closeDelay={160} data-testid="nav-home" aria-label={label} aria-current={active ? "page" : undefined} className={itemClass}>
+          <span className={cn(iconClass, active && "bg-sidebar-accent text-foreground")}>{icon}</span>
+          <Caption on={active}>{label}</Caption>
+        </MenuTrigger>
+        <MenuPopup side="right" align="start" alignOffset={-6} sideOffset={6} collisionPadding={PEEK_COLLISION} data-testid="home-peek" className="w-96">
+          <div className="flex items-center gap-2 px-2 pt-1.5 pb-1">
+            <span className="font-medium text-sm">Everywhere</span>
+            <span className="ml-auto shrink-0 text-muted-foreground text-xs">{parts.length ? parts.join(" · ") : "Nothing running"}</span>
+          </div>
+          <WorktreeItems worktrees={all} compact={short} everywhere />
+          <MenuSeparator />
+          <MenuItem onClick={onClick}>
+            <HouseIcon />
+            Open Home
+          </MenuItem>
+        </MenuPopup>
+      </Menu>
+    </div>
+  );
+}
+
 // CountBadge sits on a mark's corner, cut out of the rail: solid amber only
 // when something needs you, as everywhere in the app.
 function CountBadge({ count, loud }: { count: number; loud?: boolean }) {
@@ -158,12 +206,14 @@ function markLabel(p: ProjectEntry) {
   return `${p.name}${parts.length ? `, ${parts.join(", ")}` : ""}${p.online ? "" : ", box away"}`;
 }
 
-const PIPS = 3;
-const LIVE = ["waiting", "running", "finished"];
-const pipColor: Record<string, string> = { waiting: "border-[1.5px] border-warning", running: "bg-info", finished: "bg-success/80" };
+const PIPS = 4;
+// Waiting agents are the badge's; the dots are the rest at work.
+const LIVE = ["running", "finished"];
+const pipColor: Record<string, string> = { running: "bg-info", finished: "bg-success" };
 
-// Pips are a dot per agent at work in a project, the ones that need you
-// first: how much is going on, and of what kind, at a glance.
+// Pips are a dot per agent working (blue) or done (green) in a project, so
+// how much is going on shows at a glance; those that need you are the
+// badge's count.
 function Pips({ p }: { p: ProjectEntry }) {
   const live: AgentEntry[] = p.worktrees
     .filter((w) => !w.away)
@@ -227,7 +277,7 @@ function ProjectMark({ p, n }: { p: ProjectEntry; n: number }) {
       </MenuTrigger>
       <MenuPopup side="right" align="start" alignOffset={-6} sideOffset={6} collisionPadding={PEEK_COLLISION} data-testid="rail-peek" className="w-88">
         <ProjectHead p={p} hint={n <= 9 ? <Kbd className="h-4.5 text-[10px]">⌃{n}</Kbd> : undefined} />
-        <WorktreeItems p={p} compact={short} />
+        <WorktreeItems worktrees={p.worktrees} compact={short} />
         <ProjectFooter p={p} />
       </MenuPopup>
     </Menu>
@@ -246,7 +296,7 @@ function NewMenu({ empty }: { empty: boolean }) {
               type="button"
               aria-label="New"
               data-testid="rail-new"
-              className="inline-flex size-9 items-center justify-center rounded-full border border-sidebar-border border-dashed text-muted-foreground outline-none transition-colors hover:border-solid hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-sidebar-accent"
+              className="inline-flex size-9 items-center justify-center rounded-full border border-foreground/25 border-dashed text-muted-foreground outline-none transition-colors hover:border-solid hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-sidebar-accent"
             />
           }
         >
