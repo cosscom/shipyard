@@ -269,6 +269,8 @@ type Agent struct {
 	hostsMu sync.Mutex
 	hostsAt time.Time
 	hosts   []string
+	// boxRoutes keeps box-routes.json between changes (boxroutes.go).
+	boxRoutes statefile.Cache[map[string]BoxRoutes]
 
 	mu      sync.Mutex
 	svc     map[string]serviceCache
