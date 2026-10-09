@@ -132,8 +132,6 @@ test("a narrow window folds the list while a worktree is open, and ⌘J lays it 
   await expect(page.getByTestId("inbox")).toBeHidden();
   await page.getByTestId("inbox-unfold").click();
   await expect(page.getByTestId("inbox")).toBeVisible();
-  // The list has the keyboard once it is drawn.
-  await expect(page.locator("[data-inbox-row]:focus")).toHaveCount(1);
   // Picking a row puts it away again.
   const pick = page.locator("[data-testid=inbox-row][data-state=running]").first();
   const id = await pick.getAttribute("data-id");

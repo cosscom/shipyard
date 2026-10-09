@@ -34,6 +34,7 @@ import { NONE, useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { homeBox, openSession, useWorkspaces, wsKey } from "@/lib/workspaces";
 import { openAddBox } from "@/views/onboarding/add-box-dialog";
+import { useReviewCount } from "@/views/review/review-store";
 
 // The inbox layout (Labs › Layout › Inbox): instead of a sidebar of places
 // and projects, one list of every agent by what it needs from you, beside
@@ -255,7 +256,7 @@ function TriageList() {
       else useInbox.setState({ cursor: next });
       toastManager.add({
         title: "Cleared",
-        description: `${it.title}. It comes back if the agent needs you again.`,
+        description: `${it.title} comes back when its agent changes state. z to undo.`,
         actionProps: { children: "Undo", onClick: () => undoDone() },
       });
     },
@@ -360,7 +361,7 @@ function TriageList() {
       // the list is merely given it on arrival.
       onKeyDown={() => holdOn("focus", true)}
       onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node | null) && holdOn("focus", false)}
-      className="peer/list min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pt-1 pb-3"
+      className="peer/list min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pt-1 pb-3 [mask-image:linear-gradient(to_bottom,black_calc(100%-14px),transparent)]"
     >
       {loading && !items.length ? (
         <div className="flex flex-col gap-2 px-2 pt-3">
@@ -377,6 +378,7 @@ function TriageList() {
               <p data-testid="inbox-zero" className="flex items-center gap-2 px-2 py-1.5 text-[12px] text-muted-foreground">
                 Nothing needs you right now.
               </p>
+              <ReviewRow />
             </Section>
           )}
           {shown.map((s) => (
@@ -396,6 +398,7 @@ function TriageList() {
                   />
                 ))}
               </ul>
+              {s.section === "needs" && <ReviewRow />}
               {s.more > 0 && (
                 <button type="button" onClick={() => setAllRecent(true)} className="mt-0.5 ml-[42px] rounded px-1 text-[11px] text-muted-foreground hover:text-foreground">
                   {s.more} more
@@ -437,7 +440,6 @@ const HINTS: [string, string][] = [
   ["j k", "move"],
   ["↵", "open"],
   ["e", "clear"],
-  ["b", "back"],
   ["?", "keys"],
 ];
 
@@ -460,6 +462,30 @@ export function undoDone() {
   const s = useInbox.getState();
   if (!s.last) return;
   useInbox.setState({ done: undone(s.done, s.last.id), cursor: s.last.id, last: undefined });
+}
+
+// ReviewRow is the finished work waiting for a look (Review), in Needs you
+// with the agents, since it waits on you too.
+function ReviewRow() {
+  const n = useReviewCount();
+  const active = useStore((s) => s.view.kind === "review");
+  if (!n) return null;
+  return (
+    <button
+      type="button"
+      data-testid="inbox-review"
+      onClick={() => useStore.getState().setView({ kind: "review" })}
+      className={cn("mt-px flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-sidebar-accent/50", active && "bg-sidebar-accent")}
+    >
+      <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full border border-dashed border-muted-foreground/45 text-muted-foreground">
+        <InboxIcon className="size-3" />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate font-medium text-[13px] leading-5">{n === 1 ? "1 change to review" : `${n} changes to review`}</span>
+        <span className="truncate text-[11px] text-muted-foreground leading-4">Finished work waiting for your look</span>
+      </span>
+    </button>
+  );
 }
 
 function Section({ section, count, children }: { section: InboxSection; count: number; children: ReactNode }) {
