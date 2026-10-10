@@ -19,7 +19,9 @@ import { ShortcutsSection } from "@/views/settings/shortcuts-section";
 import { TerminalSection } from "@/views/settings/terminal-section";
 import { ViewHeaderHost } from "@/views/view-header";
 
-export type SettingsSectionId = "general" | "notifications" | "appearance" | "terminal" | "boxes" | "computers" | "phone" | "agents" | "plugins" | "shortcuts" | "labs" | "about" | "developer";
+import { openSettings, type SettingsSectionId } from "@/views/settings/open";
+
+export { openSettings, type SettingsSectionId };
 
 const SECTIONS: { id: SettingsSectionId; title: string; icon: ComponentType<{ className?: string }>; Component: ComponentType }[] = [
   { id: "general", title: "General", icon: SlidersHorizontalIcon, Component: GeneralSection },
@@ -36,11 +38,6 @@ const SECTIONS: { id: SettingsSectionId; title: string; icon: ComponentType<{ cl
   { id: "about", title: "About", icon: InfoIcon, Component: AboutSection },
   { id: "developer", title: "Developer", icon: WrenchIcon, Component: DeveloperSection },
 ];
-
-// openSettings shows Settings, on a section when given one.
-export function openSettings(section?: SettingsSectionId) {
-  useStore.getState().setView({ kind: "settings", section });
-}
 
 // Below 1200px of window the section list shrinks to its icons, so the
 // settings themselves keep their width.

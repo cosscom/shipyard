@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/cosscom/shipyard/internal/copybuf"
 )
 
 // DialFunc opens a stream to a port on a box.
@@ -107,7 +109,8 @@ func (p *Proxy) serve(w http.ResponseWriter, r *http.Request) {
 	// (devtools.go).
 	devtools := preview == "" && devtoolsPage(r)
 	rp := &httputil.ReverseProxy{
-		Transport: p.transport(target.Box),
+		Transport:  p.transport(target.Box),
+		BufferPool: copybuf.Pool{},
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.SetXForwarded()
 			pr.Out.URL.Scheme = "http"
@@ -165,7 +168,8 @@ func (p *Proxy) passThrough(w http.ResponseWriter, r *http.Request, box string, 
 		return
 	}
 	rp := &httputil.ReverseProxy{
-		Transport: p.transport(box),
+		Transport:  p.transport(box),
+		BufferPool: copybuf.Pool{},
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.SetXForwarded()
 			pr.Out.URL.Scheme = "http"

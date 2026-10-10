@@ -597,21 +597,29 @@ func (a *Agent) suggestLocations(ctx context.Context) map[string][]suggestLoc {
 	a.suggest.mu.Lock()
 	prev := a.suggest.locs
 	a.suggest.mu.Unlock()
-	out := map[string][]suggestLoc{}
-	for _, b := range boxes {
-		if b.online {
-			if c, ok := a.client(b.name); ok {
-				var locs []box.Location
-				cctx, cancel := context.WithTimeout(ctx, 8*time.Second)
-				err := box.NewClient(c).Call(cctx, http.MethodGet, "/v1/locations", nil, &locs)
-				cancel()
-				if err == nil {
-					out[b.name] = suggestLocs(b.name, locs)
-					continue
-				}
-			}
+	// Every box at once: one that is slow or away holds up no other.
+	fresh := make([][]suggestLoc, len(boxes))
+	fanOut(len(boxes), func(i int) {
+		b := boxes[i]
+		if !b.online {
+			return
 		}
-		if p, ok := prev[b.name]; ok {
+		c, ok := a.client(b.name)
+		if !ok {
+			return
+		}
+		cctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+		defer cancel()
+		var locs []box.Location
+		if box.NewClient(c).Call(cctx, http.MethodGet, "/v1/locations", nil, &locs) == nil {
+			fresh[i] = suggestLocs(b.name, locs)
+		}
+	})
+	out := map[string][]suggestLoc{}
+	for i, b := range boxes {
+		if fresh[i] != nil {
+			out[b.name] = fresh[i]
+		} else if p, ok := prev[b.name]; ok {
 			out[b.name] = p
 		}
 	}

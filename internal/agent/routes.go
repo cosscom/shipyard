@@ -21,7 +21,25 @@ type Route struct {
 
 var errUnknownRoute = errors.New("no route with that pattern")
 
-type routeStore struct{ path string }
+type routeStore struct {
+	path string
+	// cache keeps the routes until the file changes: the proxy looks them
+	// up for every request it relays. Nil reads the file every time.
+	cache *statefile.Cache[[]Route]
+}
+
+func newRouteStore(path string) routeStore {
+	return routeStore{path: path, cache: new(statefile.Cache[[]Route])}
+}
+
+// current is list, read again only once the file has changed. Its result
+// is shared: callers must not change it.
+func (s routeStore) current() ([]Route, error) {
+	if s.cache == nil {
+		return s.list()
+	}
+	return s.cache.Load(s.path, s.list)
+}
 
 func (s routeStore) list() ([]Route, error) {
 	b, err := os.ReadFile(s.path)
@@ -93,10 +111,10 @@ func (a *Agent) removeRoute(pattern string) error {
 	})
 }
 
-// route resolves a request host. Routes are read from disk each time: they
-// are few and small, and edits then apply without restarting the agent.
+// route resolves a request host. Routes are read from disk whenever the
+// file changes (a stat tells), so edits apply without restarting the agent.
 func (a *Agent) route(host string) (string, int, bool) {
-	all, err := a.routes.list()
+	all, err := a.routes.current()
 	if err != nil {
 		return "", 0, false
 	}

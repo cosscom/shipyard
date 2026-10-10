@@ -1,5 +1,5 @@
 import { ArrowUpIcon, ListPlusIcon, MessageSquareTextIcon, MessagesSquareIcon, RefreshCwIcon, SendIcon, SquareTerminalIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 import { AgentIcon, StateGlyph } from "@/components/agent-glyph";
 import { DitherBand } from "@/components/art/dither-band";
@@ -35,7 +35,6 @@ import { keyOf, useConversations } from "@/lib/conversation-store";
 import { agentLabel, agentOf, firstPrompt, guessAgent, sessionState, worktreeOf } from "@/lib/derive";
 import type { NextStep } from "@/lib/errors";
 import { errorMessage } from "@/lib/format";
-import { finishTurn, mockToolDetail, seedTranscript } from "@/lib/mock-conversation";
 import { useNotifications } from "@/lib/notifications";
 import { updateBoxes } from "@/lib/outdated";
 import { addComment, type LineComment, pending, removeComment, sendComments, useComments } from "@/lib/review-comments";
@@ -51,6 +50,9 @@ import { FIRST_READ_TIMEOUT, useAsk, useQueued, useTranscriptFeed } from "@/lib/
 import { ConfirmDialog } from "@/views/settings/confirm";
 import { cn } from "@/lib/utils";
 import { useReview } from "@/views/review/review-store";
+
+// The mock's scripted conversations (?mock), loaded only in mock mode.
+const mockConversation = () => import("@/lib/mock-conversation");
 
 // ConversationPane shows an agent's pane as a conversation: the transcript,
 // and a reply box docked at its foot. On a box that streams transcripts it
@@ -138,7 +140,10 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
   useEffect(() => {
     if (!mock || !s || useConversations.getState().items[key]) return;
     const wt = worktreeOf(locations, s);
-    seedTranscript(box, session, sessionState(s, stats), wt ? (wt.worktree.main ? wt.location.name : wt.worktree.name) : session);
+    const state = sessionState(s, stats);
+    void mockConversation().then((m) => {
+      if (!useConversations.getState().items[key]) m.seedTranscript(box, session, state, wt ? (wt.worktree.main ? wt.location.name : wt.worktree.name) : session);
+    });
   }, [mock, s, key, box, session, stats, locations]);
 
   // The prompt it was started with (a long one, its start).
@@ -207,7 +212,7 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
     if (!client || (!canDiff && !mock)) return undefined;
     return {
       load: (file) => boxApi.diff(client, box, session, file),
-      tool: (id) => (mock ? mockToolDetail(id) : boxApi.toolDetail(client, box, session, id)),
+      tool: (id) => (mock ? mockConversation().then((m) => m.mockToolDetail(id)) : boxApi.toolDetail(client, box, session, id)),
       comments: (file) =>
         reviewKey
           ? {
@@ -263,6 +268,21 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
   // Counted only while the pane shows: a hidden chat doesn't read.
   const reading = visible && !mock && !away && (!listed || (feed === "loading" && !items.length && !ended));
   const stalled = useStalled(reading, FIRST_READ_TIMEOUT + 2_000, `${key}:${attempt}`);
+  // The reply box and the controls around it take functions that stay the
+  // same, calling this render's: a draft streaming in (a read every 600ms)
+  // draws the chat again, not them (ChatFoot).
+  const latest = useRef<FootActions>(undefined);
+  const actions = useMemo<FootActions>(
+    () => ({
+      reply: (text) => latest.current!.reply(text),
+      fail: (err) => latest.current!.fail(err),
+      again: () => latest.current!.again(),
+      showTerminal: () => latest.current!.showTerminal(),
+      hideLive: () => latest.current!.hideLive(),
+      sendComments: () => latest.current!.sendComments(),
+    }),
+    [],
+  );
   const retry = () => {
     setAttempt((n) => n + 1);
     void useStore.getState().refreshBox(box);
@@ -329,7 +349,7 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
   const answer = (id: string, choice: string) => {
     if (mock) {
       useConversations.getState().update(key, id, { decided: choice });
-      void finishTurn(box, session);
+      void mockConversation().then((m) => m.finishTurn(box, session));
       return;
     }
     if (!client) return;
@@ -359,7 +379,7 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
   const reply = async (text: string) => {
     if (mock && state !== "running") {
       useConversations.getState().push(key, { kind: "user", id: `u${Date.now()}`, text });
-      void finishTurn(box, session);
+      void mockConversation().then((m) => m.finishTurn(box, session));
       return;
     }
     if (!client) return;
@@ -445,6 +465,7 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
   // leaves the agent at a text field once picked: the reply box types them.
   const wantsWords = forWords;
   const atMenu = !wantsWords && (formAsk || !!ask?.form || !!ask?.choices.length || !!s?.ask?.tool || (open?.kind === "ask" && !open.decided && (!!open.choices?.length || !!open.structured)));
+  latest.current = { reply, fail, again, showTerminal: onShowTerminal, hideLive: live.hide, sendComments: () => sendComments(box, session, reviewKey!) };
 
   if (ended && !shown.length) {
     return (
@@ -513,23 +534,23 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
       </div>
       <div className="pr-6 pb-4 pl-6 @max-[899px]:pb-[max(16px,calc(var(--berth-loops-h,0px)+4px))] @[900px]:pr-[max(24px,var(--berth-loops-w,0px))]">
         <div className="mx-auto w-full max-w-(--berth-chat-w)">
-          <ChatControls box={box} session={session} agent={agent} state={state} stateSince={s?.state_since} dir={s?.dir} who={who} visible={visible} ended={ended} onShowTerminal={onShowTerminal} onStartAgain={again} onSend={reply}>
-          {ended ? (
-            <div className="flex items-center gap-3 rounded-lg border bg-muted/40 px-3 py-2 text-muted-foreground text-sm">
-              <StateGlyph state="exited" />
-              <span className="min-w-0 flex-1">{agent ? agentLabel(agent) : "This agent"} has ended, so it can't take a reply.</span>
-              <Button size="sm" variant="outline" onClick={again}>
-                Start {agent ? agentLabel(agent) : "an agent"} again
-              </Button>
-            </div>
-          ) : (
-            <>
-              {toSend.length > 0 && reviewKey && <CommentsStrip count={toSend.length} who={who} onSend={() => sendComments(box, session, reviewKey)} />}
-              {live.show && <LiveScreen box={box} session={session} agent={agent} onHide={live.hide} onShowTerminal={onShowTerminal} />}
-              <Reply attach={{ box, session }} agent={agent} onSend={reply} onFail={fail} who={who} mode={state === "running" ? "queue" : state === "waiting" ? "answer" : "send"} blocked={(state === "waiting" && atMenu) || live.show} hint={live.show ? (liveWhy ?? `${who} is showing its own screen: answer it above`) : wantsWords ? `Tell ${who} what to change, then press Enter` : answerable ? `Answer ${who}'s ${openQ?.questions.length === 1 ? "question" : "questions"} above` : undefined} />
-            </>
-          )}
-          </ChatControls>
+          <ChatFoot
+            box={box}
+            session={session}
+            agent={agent}
+            state={state}
+            stateSince={s?.state_since}
+            dir={s?.dir}
+            who={who}
+            visible={visible}
+            ended={ended}
+            comments={reviewKey ? toSend.length : 0}
+            live={live.show}
+            mode={state === "running" ? "queue" : state === "waiting" ? "answer" : "send"}
+            blocked={(state === "waiting" && atMenu) || live.show}
+            hint={live.show ? (liveWhy ?? `${who} is showing its own screen: answer it above`) : wantsWords ? `Tell ${who} what to change, then press Enter` : answerable ? `Answer ${who}'s ${openQ?.questions.length === 1 ? "question" : "questions"} above` : undefined}
+            actions={actions}
+          />
         </div>
       </div>
       <ConfirmDialog
@@ -549,6 +570,74 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
 }
 
 const NO_COMMENTS: LineComment[] = [];
+
+interface FootActions {
+  reply(text: string): Promise<void>;
+  fail(err: unknown): void;
+  again(): void;
+  showTerminal(): void;
+  hideLive(): void;
+  sendComments(): Promise<{ sent: number; left: number; queued: boolean }>;
+}
+
+// ChatFoot is everything under the transcript: the controls around the
+// reply box (ChatControls), comments to send, the agent's own screen when
+// it shows one, and the reply box. It draws again only when one of these
+// props changes; actions stay the same object.
+const ChatFoot = memo(function ChatFoot({
+  box,
+  session,
+  agent,
+  state,
+  stateSince,
+  dir,
+  who,
+  visible,
+  ended,
+  comments,
+  live,
+  mode,
+  blocked,
+  hint,
+  actions,
+}: {
+  box: string;
+  session: string;
+  agent?: string;
+  state?: string;
+  stateSince?: string;
+  dir?: string;
+  who: string;
+  visible: boolean;
+  ended: boolean;
+  comments: number;
+  live: boolean;
+  mode: "send" | "queue" | "answer";
+  blocked: boolean;
+  hint?: string;
+  actions: FootActions;
+}) {
+  const attach = useMemo(() => ({ box, session }), [box, session]);
+  return (
+    <ChatControls box={box} session={session} agent={agent} state={state} stateSince={stateSince} dir={dir} who={who} visible={visible} ended={ended} onShowTerminal={actions.showTerminal} onStartAgain={actions.again} onSend={actions.reply}>
+      {ended ? (
+        <div className="flex items-center gap-3 rounded-lg border bg-muted/40 px-3 py-2 text-muted-foreground text-sm">
+          <StateGlyph state="exited" />
+          <span className="min-w-0 flex-1">{agent ? agentLabel(agent) : "This agent"} has ended, so it can't take a reply.</span>
+          <Button size="sm" variant="outline" onClick={actions.again}>
+            Start {agent ? agentLabel(agent) : "an agent"} again
+          </Button>
+        </div>
+      ) : (
+        <>
+          {comments > 0 && <CommentsStrip count={comments} who={who} onSend={actions.sendComments} />}
+          {live && <LiveScreen box={box} session={session} agent={agent} onHide={actions.hideLive} onShowTerminal={actions.showTerminal} />}
+          <Reply attach={attach} agent={agent} onSend={actions.reply} onFail={actions.fail} who={who} mode={mode} blocked={blocked} hint={hint} />
+        </>
+      )}
+    </ChatControls>
+  );
+});
 
 // The transcript keeps what was typed, at most 4000 characters, but not
 // always as typed: a paste's spacing changes, an older box keeps Claude

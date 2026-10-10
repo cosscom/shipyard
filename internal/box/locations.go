@@ -196,6 +196,25 @@ func (l *Locations) List(ctx context.Context) ([]Location, error) {
 	return out, nil
 }
 
+// worktreePaths is each location with its worktrees' names and paths only,
+// as List names them: for finding which worktree a directory is in, it
+// skips what else List reads (remote, default branch, configs).
+func (l *Locations) worktreePaths(ctx context.Context) []Location {
+	saved, err := l.read()
+	if err != nil {
+		return nil
+	}
+	out := make([]Location, 0, len(saved))
+	for _, s := range saved {
+		loc := Location{Name: s.Name, Path: s.Path}
+		if b, err := git(ctx, "-C", s.Path, "worktree", "list", "--porcelain"); err == nil {
+			loc.Worktrees = parseWorktrees(b, s.Path)
+		}
+		out = append(out, loc)
+	}
+	return out
+}
+
 // withPorts adds each worktree's first port.
 func (l *Locations) withPorts(loc Location) Location {
 	for i := range loc.Worktrees {

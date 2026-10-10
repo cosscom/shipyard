@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import { boxApi, type Client, type QueuedPrompt } from "@/lib/api";
+import type { ChatSignals } from "@/lib/chat-controls";
+import { noteSignals } from "@/lib/chat-signals";
 import { keyOf, offOf, useConversations } from "@/lib/conversation-store";
 import { dropOlder, historyApi } from "@/lib/history";
 import { useEventLog } from "@/lib/events";
@@ -35,6 +37,9 @@ export interface TranscriptResult {
   reset?: boolean;
   start?: number;
   file?: string;
+  // The agent's mode, model, context and tasks, for the chat's controls
+  // (lib/chat-signals).
+  signals?: ChatSignals;
 }
 
 // The record each chat shows (newer boxes), kept while the app runs: a
@@ -142,6 +147,7 @@ export function useTranscriptFeed(box: string, session: string, dir: string | un
         const r = await client.box<TranscriptResult>(box, "GET", `sessions/${encodeURIComponent(session)}/transcript?since=${since}${g}`, undefined, ctl.signal);
         if (!alive) return;
         failures = 0;
+        noteSignals(key, r.signals);
         if (r.source === "none") {
           setState("none");
           return;

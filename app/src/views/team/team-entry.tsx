@@ -11,7 +11,7 @@ import { activeRun, keyOf, loadTeams, onRepoReady, recentlyDone, teamRef, type T
 import { cn } from "@/lib/utils";
 import { GitHubMark } from "@/views/team/team-parts";
 import { runSummary } from "@/views/team/team-rail";
-import { OrgField } from "@/views/team/team-view";
+import { OrgField } from "@/views/team/org-field";
 
 // The ways into Team setup, and what shows of it around the app while it
 // runs: the welcome screen's "Joining a team?", Add a box's "Set this box up

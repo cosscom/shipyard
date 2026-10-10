@@ -5,7 +5,7 @@ import { ErrorText } from "@/components/error-note";
 import { SimpleSelect } from "@/components/simple-select";
 import { Tip } from "@/components/tip";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetDescription, SheetFooter, SheetHeader, SheetPanel, SheetPopup, SheetTitle } from "@/components/ui/sheet";
+import { SheetDescription, SheetFooter, SheetHeader, SheetPanel, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { openBrowserAt } from "@/lib/actions";
 import { ApiError, type Worktree } from "@/lib/api";
@@ -28,21 +28,11 @@ import { GitHubMark, StateIcon } from "@/views/team/team-parts";
 // worktree at the head commit shown, set up by the team's kit, then opens
 // it with its dev server in a Browser tab and the Diff beside it.
 
-export function PrReviewSheet() {
-  const sheet = usePrReview((s) => s.sheet);
-  const popup = useRef<HTMLDivElement>(null);
-  return (
-    <Sheet open={!!sheet} onOpenChange={(open) => !open && closeReviewSheet()}>
-      <SheetPopup ref={popup} initialFocus={popup} data-testid="pr-review-sheet" className="w-[min(600px,100vw)] max-w-none outline-none">
-        {sheet && <Body key={`${sheet.nonce}`} />}
-      </SheetPopup>
-    </Sheet>
-  );
-}
-
 type Phase = { kind: "review" } | { kind: "running"; started: number; opened?: ReviewOpened; error?: string };
 
-function Body() {
+// PrReviewBody is the sheet's content; its frame (pr-review-sheet.tsx) loads
+// it when it first opens.
+export function PrReviewBody() {
   const req = usePrReview((s) => s.sheet)!;
   const client = useStore((s) => s.client);
   const [plan, setPlan] = useState<ReviewSheet>();

@@ -83,8 +83,10 @@ func Detail(source, path, dir, id string) (ToolDetail, error) {
 	needle := []byte(`"` + id + `"`)
 	d := ToolDetail{ID: id}
 	found, answered := false, false
+	var line []byte
 	for {
-		line, err := readLine(r)
+		var err error
+		line, err = readLineInto(r, line)
 		if len(line) > 0 && bytes.Contains(line, needle) {
 			var call, result bool
 			if source == "codex" {
@@ -109,14 +111,19 @@ func Detail(source, path, dir, id string) (ToolDetail, error) {
 
 // readLine reads one line, skipping (not keeping) any longer than
 // detailLine.
-func readLine(r *bufio.Reader) ([]byte, error) {
-	var buf []byte
+func readLine(r *bufio.Reader) ([]byte, error) { return readLineInto(r, nil) }
+
+// readLineInto is readLine into buf's space: a scan of a long record reuses
+// one buffer rather than allocating every line again. The line is good
+// until the next call.
+func readLineInto(r *bufio.Reader, buf []byte) ([]byte, error) {
+	buf = buf[:0]
 	over := false
 	for {
 		chunk, err := r.ReadSlice('\n')
 		if !over {
 			if len(buf)+len(chunk) > detailLine {
-				over, buf = true, nil
+				over, buf = true, buf[:0]
 			} else {
 				buf = append(buf, chunk...)
 			}

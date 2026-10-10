@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/cosscom/shipyard/internal/box"
@@ -88,15 +89,29 @@ func (a *Agent) worktree(labels []string) (string, int, bool) {
 		}
 		wt, loc := labels[0], labels[1]
 		found, foundPort := "", 0
-		for _, b := range a.status().Boxes {
-			if port, ok := lowest(b.Name, func(s box.Service) bool { return s.Location == loc && s.Worktree == wt }); ok {
+		// Only the boxes' names: this runs for every request the proxy
+		// relays, and the whole status reads files.
+		for _, name := range a.boxNames() {
+			if port, ok := lowest(name, func(s box.Service) bool { return s.Location == loc && s.Worktree == wt }); ok {
 				if found != "" {
 					return "", 0, false // ambiguous: name the box
 				}
-				found, foundPort = b.Name, port
+				found, foundPort = name, port
 			}
 		}
 		return found, foundPort, found != ""
 	}
 	return "", 0, false
+}
+
+// boxNames is every paired box's name, sorted.
+func (a *Agent) boxNames() []string {
+	a.mu.Lock()
+	names := make([]string, 0, len(a.clients))
+	for name := range a.clients {
+		names = append(names, name)
+	}
+	a.mu.Unlock()
+	slices.Sort(names)
+	return names
 }

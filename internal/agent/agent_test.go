@@ -32,7 +32,7 @@ import (
 type testBox struct {
 	services []box.Service
 	bus      *events.Bus
-	t        *testing.T
+	t        testing.TB
 	dir      string
 	address  string
 	server   *wire.Server
@@ -41,6 +41,8 @@ type testBox struct {
 	done     chan error
 	// extra mounts more box routes each time the box starts.
 	extra func(*wire.Server)
+	// servicesCalls counts GET /v1/services.
+	servicesCalls atomic.Int64
 }
 
 type countingListener struct {
@@ -56,13 +58,13 @@ func (l countingListener) Accept() (net.Conn, error) {
 	return c, err
 }
 
-func newBox(t *testing.T) *testBox {
+func newBox(t testing.TB) *testBox {
 	t.Helper()
 	return newBoxWith(t, nil)
 }
 
 // newBoxWith is newBox with more routes, such as sessions.
-func newBoxWith(t *testing.T, extra func(*wire.Server)) *testBox {
+func newBoxWith(t testing.TB, extra func(*wire.Server)) *testBox {
 	t.Helper()
 	b := &testBox{t: t, dir: t.TempDir(), extra: extra}
 	b.start("127.0.0.1:0")
@@ -86,6 +88,7 @@ func (b *testBox) start(addr string) {
 		b.bus = &events.Bus{}
 	}
 	b.server.Handle("GET /v1/services", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b.servicesCalls.Add(1)
 		json.NewEncoder(w).Encode(b.services)
 	}))
 	b.server.Handle("GET /v1/events", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -185,7 +188,7 @@ func (c *clock) jump(d time.Duration) {
 
 // shortSocket returns a socket path under /tmp: test temp dirs on macOS are
 // longer than the 104-byte limit for Unix socket paths.
-func shortSocket(t *testing.T) string {
+func shortSocket(t testing.TB) string {
 	t.Helper()
 	dir, err := os.MkdirTemp("/tmp", "cp")
 	if err != nil {
@@ -195,19 +198,19 @@ func shortSocket(t *testing.T) string {
 	return filepath.Join(dir, "a.sock")
 }
 
-func startAgent(t *testing.T, dir string) *runningAgent {
+func startAgent(t testing.TB, dir string) *runningAgent {
 	t.Helper()
 	return startAgentWith(t, dir, &fakeNetworks{})
 }
 
-func startAgentWith(t *testing.T, dir string, nets Networks) *runningAgent {
+func startAgentWith(t testing.TB, dir string, nets Networks) *runningAgent {
 	t.Helper()
 	return startAgentConfig(t, dir, nets, nil)
 }
 
 // startAgentConfig is startAgentWith with changes to the agent's Config,
 // such as its log or how long a health check waits.
-func startAgentConfig(t *testing.T, dir string, nets Networks, change func(*Config)) *runningAgent {
+func startAgentConfig(t testing.TB, dir string, nets Networks, change func(*Config)) *runningAgent {
 	t.Helper()
 	proxyLn, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -266,7 +269,7 @@ func (a *runningAgent) stop() {
 	}
 }
 
-func eventually(t *testing.T, what string, cond func() bool) {
+func eventually(t testing.TB, what string, cond func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for !cond() {
@@ -277,7 +280,7 @@ func eventually(t *testing.T, what string, cond func() bool) {
 	}
 }
 
-func stateOf(t *testing.T, a *runningAgent) string {
+func stateOf(t testing.TB, a *runningAgent) string {
 	t.Helper()
 	s, err := a.client.Status(context.Background())
 	if err != nil || len(s.Boxes) != 1 {
@@ -305,7 +308,7 @@ func echoServer(t *testing.T) int {
 	return ln.Addr().(*net.TCPAddr).Port
 }
 
-func freePort(t *testing.T) int {
+func freePort(t testing.TB) int {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

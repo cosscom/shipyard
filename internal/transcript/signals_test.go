@@ -47,6 +47,24 @@ func TestClaudeSignals(t *testing.T) {
 	}
 }
 
+// The signals are read in the same pass as the conversation: a signal's
+// field of a shape they don't know leaves that line's signals unread, never
+// its words.
+func TestClaudeSignalOfAnotherShape(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "s.jsonl")
+	write(t, p,
+		m{"type": "assistant", "effort": "high", "message": m{"model": "claude-acme-1", "role": "assistant", "content": []m{{"type": "text", "text": "First."}}}},
+		m{"type": "assistant", "effort": m{"level": "max"}, "message": m{"model": "claude-acme-2", "role": "assistant", "content": []m{{"type": "text", "text": "Second."}}}},
+	)
+	res := read(t, "claude", p)
+	if n := len(res.Items); n != 2 || res.Items[1].Text != "Second." {
+		t.Fatalf("items = %+v", res.Items)
+	}
+	if s := res.Signals; s.Model != "claude-acme-1" || s.Effort != "high" {
+		t.Fatalf("model/effort = %q %q", s.Model, s.Effort)
+	}
+}
+
 func TestClaudeTasks(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "s.jsonl")
 	write(t, p,

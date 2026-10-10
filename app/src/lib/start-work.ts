@@ -10,7 +10,6 @@ import { startBroadcast } from "@/lib/broadcast";
 import type { AgentPick, ComposerTarget } from "@/lib/composer";
 import { agentLabel } from "@/lib/derive";
 import { plainError } from "@/lib/errors";
-import { playTurn } from "@/lib/mock-conversation";
 import { handoff, loop, review } from "@/lib/orchestrate";
 import { worktreeSlug } from "@/lib/projects";
 import { usePrompts } from "@/lib/prompts";
@@ -140,7 +139,7 @@ export async function startWork(d: StartDraft): Promise<boolean> {
     }
     // The demo plays a scripted turn; it starts before the pane opens, so
     // the pane finds the conversation already begun.
-    if (isMock() && d.text) void playTurn(d.box, session, d.text);
+    if (isMock() && d.text) void import("@/lib/mock-conversation").then((m) => m.playTurn(d.box, session, d.text));
     await useStore.getState().refreshBox(d.box, ["locations", "sessions"]);
     await focusSession(d.box, session);
     save(`berth.composer.picks.${d.box}/${d.location}`, d.picks);

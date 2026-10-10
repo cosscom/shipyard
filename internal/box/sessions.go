@@ -1,6 +1,7 @@
 package box
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -130,7 +131,13 @@ func (s *Sessions) EnvVar(ctx context.Context, sess Session, key string) string 
 	}
 	out, err := s.tmux(ctx, "show-environment", "-t", "="+sess.Name, key)
 	if err != nil {
-		// Unset, or the session is gone: nothing to remember.
+		// Unset is remembered too: it is the usual answer (no account
+		// folder of its own), and every chat's poll asks it again for
+		// each agent in the folder. A session that is gone, or a tmux
+		// that failed, leaves nothing to remember.
+		if strings.Contains(string(out), "unknown variable") {
+			s.envs.Store(cacheKey, "")
+		}
 		return ""
 	}
 	v, ok := strings.CutPrefix(strings.TrimSpace(string(out)), key+"=")
@@ -420,16 +427,23 @@ func (s *Sessions) SetTitle(ctx context.Context, name, title string) error {
 }
 
 func (s *Sessions) Get(ctx context.Context, name string) (Session, error) {
+	sess, _, err := s.getWithAll(ctx, name)
+	return sess, err
+}
+
+// getWithAll is Get that also returns every session it listed, for a
+// caller that needs the others too without asking tmux again.
+func (s *Sessions) getWithAll(ctx context.Context, name string) (Session, []Session, error) {
 	all, err := s.List(ctx)
 	if err != nil {
-		return Session{}, err
+		return Session{}, nil, err
 	}
 	for _, sess := range all {
 		if sess.Name == name {
-			return sess, nil
+			return sess, all, nil
 		}
 	}
-	return Session{}, ErrUnknownSession
+	return Session{}, nil, ErrUnknownSession
 }
 
 // Kill ends a session and, in the background, everything it started
@@ -486,9 +500,48 @@ func (s *Sessions) Screen(ctx context.Context, name string, history int) (string
 	if _, err := s.Get(ctx, name); err != nil {
 		return "", err
 	}
+	return s.capture(ctx, name, history)
+}
+
+// capture is Screen for a session the caller has just found in a list:
+// without asking tmux for the list again.
+func (s *Sessions) capture(ctx context.Context, name string, history int) (string, error) {
 	out, err := s.tmux(ctx, "capture-pane", "-p", "-J", "-t", "="+name+":", "-S", "-"+strconv.Itoa(max(history, 0)))
 	if err != nil {
 		return "", tmuxError("capture-pane", out, err)
 	}
 	return strings.TrimRight(string(out), "\n") + "\n", nil
+}
+
+// getAndCapture is Get and a capture-pane of the session's pane (with
+// args, such as -e) in one tmux command rather than two: display-message
+// prints the session's line as list-sessions would, then capture-pane its
+// pane. A session that is gone, or a tmux that answers otherwise, is
+// asked again the long way, so its error is Get's.
+func (s *Sessions) getAndCapture(ctx context.Context, name string, args ...string) (Session, []byte, error) {
+	target := "=" + name + ":"
+	cmd := append([]string{"display-message", "-p", "-t", target, listFormat, ";", "capture-pane", "-p"}, args...)
+	out, err := s.tmux(ctx, append(cmd, "-t", target)...)
+	if err == nil {
+		if line, rest, ok := bytes.Cut(out, []byte("\n")); ok {
+			if all := parseSessions(line); len(all) == 1 && all[0].Name == name {
+				sess := all[0]
+				if sess.commandFile != "" {
+					if command, err := readCommand(sess.commandFile); err == nil {
+						sess.Command = command
+					}
+				}
+				return sess, rest, nil
+			}
+		}
+	}
+	sess, err := s.Get(ctx, name)
+	if err != nil {
+		return Session{}, nil, err
+	}
+	out, err = s.tmux(ctx, append(append([]string{"capture-pane", "-p"}, args...), "-t", target)...)
+	if err != nil {
+		return sess, out, tmuxError("capture-pane", out, err)
+	}
+	return sess, out, nil
 }

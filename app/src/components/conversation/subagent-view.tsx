@@ -1,5 +1,5 @@
 import { AppWindowIcon, BotIcon, ChevronDownIcon, EyeIcon, RefreshCwIcon } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { create } from "zustand";
 
 import { StateGlyph } from "@/components/agent-glyph";
@@ -101,7 +101,7 @@ export function useHelpers(box: string, session: string, opts: { enabled?: boole
   return { helpers, error, retry: () => setAttempt((n) => n + 1) };
 }
 
-export function HelperSheetHost() {
+export const HelperSheetHost = memo(function HelperSheetHost() {
   const id = useId();
   const leader = useHelperSheet((s) => s.hosts[0] === id);
   const open = useHelperSheet((s) => s.open);
@@ -111,7 +111,7 @@ export function HelperSheetHost() {
   }, [id]);
   if (!leader || !open) return null;
   return <HelperSheet key={`${open.box}/${open.session}`} {...open} onClose={() => useHelperSheet.setState({ open: undefined })} />;
-}
+});
 
 const elapsed = (ms: number) => {
   const s = Math.max(1, Math.round(ms / 1000));

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -35,22 +36,39 @@ var (
 // ValidName reports whether name is safe to show in listings and use in URLs.
 func ValidName(name string) bool { return validName.MatchString(name) }
 
-type Store struct{ path string }
+type Store struct {
+	path string
+	// cache keeps the peers until the file changes. A box looks the
+	// caller up for every request; reading the file each time took a
+	// file lock that every request queued behind.
+	cache statefile.Cache[[]Peer]
+}
 
 func NewStore(path string) *Store { return &Store{path: path} }
 
 func (s *Store) List() ([]Peer, error) {
-	unlock, err := statefile.Lock(s.path)
-	if err != nil {
-		return nil, err
-	}
-	defer unlock()
-	return s.read()
+	peers, err := s.peers()
+	return slices.Clone(peers), err
+}
+
+// peers is the store as last read, read again once the file changes (a
+// pairing, a revoke, by this process or another). It is shared: callers
+// must not change it. Errors are never kept: a store that cannot be read
+// fails every lookup until it can.
+func (s *Store) peers() ([]Peer, error) {
+	return s.cache.Load(s.path, func() ([]Peer, error) {
+		unlock, err := statefile.Lock(s.path)
+		if err != nil {
+			return nil, err
+		}
+		defer unlock()
+		return s.read()
+	})
 }
 
 // Trusted looks a peer up by the key it presented.
 func (s *Store) Trusted(fp identity.Fingerprint) (Peer, bool, error) {
-	peers, err := s.List()
+	peers, err := s.peers()
 	if err != nil {
 		return Peer{}, false, err
 	}
@@ -63,7 +81,7 @@ func (s *Store) Trusted(fp identity.Fingerprint) (Peer, bool, error) {
 }
 
 func (s *Store) ByName(name string) (Peer, bool, error) {
-	peers, err := s.List()
+	peers, err := s.peers()
 	if err != nil {
 		return Peer{}, false, err
 	}

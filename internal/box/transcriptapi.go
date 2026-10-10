@@ -13,7 +13,9 @@ import (
 
 // transcriptFile is which agent a session runs and the file holding its
 // conversation, for the conversation and for a tool call's details alike.
-func (b *Box) transcriptFile(r *http.Request, sess Session) (agent, path, where string) {
+// all is the box's sessions when the caller has just listed them (each
+// list is a tmux command); nil lists them here.
+func (b *Box) transcriptFile(r *http.Request, sess Session, all []Session) (agent, path, where string) {
 	// Sessions.Get doesn't name the agent (the list does, in enrich): the
 	// preset a session was started with, else its command's first word,
 	// which is all a session from before presets has.
@@ -41,22 +43,23 @@ func (b *Box) transcriptFile(r *http.Request, sess Session) (agent, path, where 
 		// accounts set CLAUDE_CONFIG_DIR per box or project).
 		configDir := b.Sessions.EnvVar(r.Context(), sess, "CLAUDE_CONFIG_DIR")
 		claims := []transcript.Claim{{Name: sess.Name, ID: id, Started: sess.Created, ConfigDir: configDir}}
-		if all, err := b.Sessions.List(r.Context()); err == nil {
-			for _, o := range all {
-				if o.Name == sess.Name || o.Dir != sess.Dir || o.Exited || o.Service != "" {
-					continue
-				}
-				if a := firstNonEmpty(o.Preset, firstNonEmpty(o.Agent, agentOf(o.Command))); a != "claude" {
-					continue
-				}
-				var oid string
-				if b.Turns != nil {
-					if st, ok := b.Turns.State(o.Name); ok {
-						oid = st.AgentSessionID
-					}
-				}
-				claims = append(claims, transcript.Claim{Name: o.Name, ID: oid, Started: o.Created, ConfigDir: b.Sessions.EnvVar(r.Context(), o, "CLAUDE_CONFIG_DIR")})
+		if all == nil {
+			all, _ = b.Sessions.List(r.Context())
+		}
+		for _, o := range all {
+			if o.Name == sess.Name || o.Dir != sess.Dir || o.Exited || o.Service != "" {
+				continue
 			}
+			if a := firstNonEmpty(o.Preset, firstNonEmpty(o.Agent, agentOf(o.Command))); a != "claude" {
+				continue
+			}
+			var oid string
+			if b.Turns != nil {
+				if st, ok := b.Turns.State(o.Name); ok {
+					oid = st.AgentSessionID
+				}
+			}
+			claims = append(claims, transcript.Claim{Name: o.Name, ID: oid, Started: o.Created, ConfigDir: b.Sessions.EnvVar(r.Context(), o, "CLAUDE_CONFIG_DIR")})
 		}
 		path = transcript.AssignClaude(sess.Dir, claims)[sess.Name]
 		where = transcript.ClaudeDirIn(configDir, sess.Dir)
@@ -80,12 +83,14 @@ var (
 
 func (b *Box) transcript(w http.ResponseWriter, r *http.Request) error {
 	transcriptsOnce.Do(func() { transcripts = transcript.NewReader() })
-	sess, err := b.Sessions.Get(r.Context(), r.PathValue("name"))
+	// One list of the sessions finds this one and the others in its
+	// folder: a chat polls this every few seconds.
+	sess, all, err := b.Sessions.getWithAll(r.Context(), r.PathValue("name"))
 	if err != nil {
 		return err
 	}
 	since, _ := strconv.Atoi(r.URL.Query().Get("since"))
-	agent, path, where := b.transcriptFile(r, sess)
+	agent, path, where := b.transcriptFile(r, sess, all)
 	none := func(reason string) error {
 		writeJSON(w, transcript.Result{Source: "none", Items: []transcript.Item{}, Crew: []transcript.CrewMember{}, Reason: reason})
 		return nil
@@ -115,11 +120,11 @@ func (b *Box) transcript(w http.ResponseWriter, r *http.Request) error {
 // call opened up (the full command and its output, an edit's exact change),
 // read when someone expands it and never kept.
 func (b *Box) toolDetail(w http.ResponseWriter, r *http.Request) error {
-	sess, err := b.Sessions.Get(r.Context(), r.PathValue("name"))
+	sess, all, err := b.Sessions.getWithAll(r.Context(), r.PathValue("name"))
 	if err != nil {
 		return err
 	}
-	agent, path, _ := b.transcriptFile(r, sess)
+	agent, path, _ := b.transcriptFile(r, sess, all)
 	if path == "" {
 		return httpError{http.StatusNotFound, "this session's conversation can't be read"}
 	}
