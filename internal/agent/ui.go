@@ -122,6 +122,11 @@ func (a *Agent) ui(token, hostport string, inner http.Handler) http.Handler {
 			h.Set("Access-Control-Allow-Origin", o)
 			h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, If-Match, If-None-Match")
 			h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			// Every call carries the token, so every one is preflighted:
+			// without this the webview keeps a preflight for 5s only, and
+			// each poll costs two requests and two round trips. 600s is
+			// the most WebKit keeps one for.
+			h.Set("Access-Control-Max-Age", "600")
 			h.Set("Vary", "Origin")
 		}
 		if r.Method == http.MethodOptions {

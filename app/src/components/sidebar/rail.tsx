@@ -1,5 +1,5 @@
 import { ChevronRightIcon, PencilIcon, ServerOffIcon, SquareArrowOutUpRightIcon } from "lucide-react";
-import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, memo, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { AgentIcon, StateGlyph } from "@/components/agent-glyph";
 import { ContextRow } from "@/components/sidebar/actions";
@@ -24,6 +24,7 @@ import { renameWorktree, worktreeLabel } from "@/lib/worktree-names";
 
 export type Lane = "waiting" | "running" | "finished" | "away";
 export const LANES: Lane[] = ["waiting", "running", "finished", "away"];
+const NO_SESSIONS: Session[] = [];
 
 export interface RailAgent {
   id: string;
@@ -61,10 +62,18 @@ export function useRailAgents(): RailAgent[] {
     for (const b of boxes) {
       const d = data[b.name];
       const away = b.state === "online" ? undefined : BOX_WORDS[boxState(b, d)].lower;
+      // A box's sessions by where they run, so each worktree finds its own
+      // without going through them all.
+      const byDir = new Map<string, Session[]>();
+      for (const s of d?.sessions ?? []) {
+        if (s.service || s.exited || !s.dir) continue;
+        const list = byDir.get(s.dir);
+        if (list) list.push(s);
+        else byDir.set(s.dir, [s]);
+      }
       for (const loc of d?.locations ?? []) {
         for (const wt of loc.worktrees ?? []) {
-          for (const s of d?.sessions ?? []) {
-            if (s.dir !== wt.path || s.service || s.exited) continue;
+          for (const s of byDir.get(wt.path) ?? NO_SESSIONS) {
             const agent = agentOf(s);
             if (!agent) continue;
             const state = sessionState(s, d?.stats);
@@ -253,7 +262,12 @@ function tileActions(e: RailAgent) {
   ];
 }
 
-function AgentTile({ e }: { e: RailAgent }) {
+// A tile draws again only when what it shows changed: the list is made afresh
+// whenever any agent changes, and the others keep their objects (a session,
+// a worktree) and their words.
+const sameAgent = (a: RailAgent, b: RailAgent) => a === b || (Object.keys(a).length === Object.keys(b).length && (Object.keys(a) as (keyof RailAgent)[]).every((k) => a[k] === b[k]));
+
+const AgentTile = memo(function AgentTile({ e }: { e: RailAgent }) {
   return (
     <li className="relative">
       {/* On screen: a bar at the rail's edge, in its tab group's colour. */}
@@ -292,7 +306,7 @@ function AgentTile({ e }: { e: RailAgent }) {
       </ContextRow>
     </li>
   );
-}
+}, (a, b) => sameAgent(a.e, b.e));
 
 // LaneHead heads a lane with its glyph and count, so how many need you
 // stays in sight however far the rail scrolls. It folds the lane away.

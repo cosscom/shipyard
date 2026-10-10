@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 
-import type { Session } from "@/lib/api";
+import type { Session, Status } from "@/lib/api";
 import { type SessionState, sessionState } from "@/lib/derive";
-import { useStore } from "@/lib/store";
+import { lastOf } from "@/lib/last-of";
+import { type BoxData, useStore } from "@/lib/store";
 
 export interface SessionEntry {
   box: string;
@@ -11,16 +12,20 @@ export interface SessionEntry {
 }
 
 // useAllSessions lists every session on every online box with its state.
+// Every caller gets the same list for the same store (Home has a dozen), so
+// what is derived from it can be worked out once (lastOf).
 export function useAllSessions(): SessionEntry[] {
   const boxes = useStore((s) => s.boxes);
   const status = useStore((s) => s.status);
-  return useMemo(() => {
-    const online = new Set(status?.boxes.filter((b) => b.state === "online").map((b) => b.name));
-    return Object.entries(boxes)
-      .filter(([box]) => online.has(box))
-      .flatMap(([box, d]) => (d.sessions ?? []).map((session) => ({ box, session, state: sessionState(session, d.stats) })));
-  }, [boxes, status]);
+  return allSessions(boxes, status);
 }
+
+const allSessions = lastOf((boxes: Record<string, BoxData>, status: Status | undefined): SessionEntry[] => {
+  const online = new Set(status?.boxes.filter((b) => b.state === "online").map((b) => b.name));
+  return Object.entries(boxes)
+    .filter(([box]) => online.has(box))
+    .flatMap(([box, d]) => (d.sessions ?? []).map((session) => ({ box, session, state: sessionState(session, d.stats) })));
+});
 
 export function useAgentCounts() {
   const all = useAllSessions();

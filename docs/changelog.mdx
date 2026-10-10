@@ -20,6 +20,22 @@ again.
 - **The laptop agent is lighter per request.** Proxied pages, port forwards
   and calls to your boxes allocate a fraction of what they did, and the kits
   and team suggestions ask all your boxes at once.
+- **Shipyard opens faster.** It now loads four files before it first paints
+  instead of about three hundred, and settings, dialogs and the browser pane
+  load just after start. In our tests, the window drew in about a fifth of the
+  time.
+- **Chats keep up while an agent writes.** A streamed reply costs about a
+  third of the work it did on the page, and typing in a chat, Home's composer
+  or the sidebar's menus stays quick with hundreds of worktrees.
+- **The app asks the agent and your boxes less.** An idle chat makes about
+  half the requests it did, starting reads every box once, and a box's large
+  answers cross the link to your laptop about ten times smaller.
+- **berthd uses less of a box.** Following a chat, a reply as it streams and
+  the agents' screens runs fewer tmux commands and less CPU; a chat's own
+  poll takes about a quarter of what it did.
+  Opening a long conversation uses a tenth of the memory, and a cache that grew
+  with every conversation now stays small.
+- **The Mac app is 20% smaller.**
 
 ## v0.3.13
 

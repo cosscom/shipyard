@@ -123,6 +123,10 @@ export function useWorktreeArt(key?: string): Art[] {
   const locations = useStore((s) => (box ? s.boxes[box]?.locations : undefined));
   useEffect(() => {
     if (!key || !can || known) return;
+    // Several parts of a worktree's view ask for its list as it opens, in
+    // one render: the first one's read is the read for all of them.
+    const now = useArt.getState();
+    if (key in now.byWt || now.loading[key]) return;
     const ref = refFor(key);
     if (ref) void loadArtifacts(ref);
   }, [key, can, known, locations]);

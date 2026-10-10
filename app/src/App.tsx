@@ -44,28 +44,31 @@ import { startUpdater } from "@/lib/updater";
 import { useWhatsNewAfterUpdate } from "@/lib/whats-new";
 import { cn } from "@/lib/utils";
 import { homeBox, useWorkspaces } from "@/lib/workspaces";
-import { AutomationsView } from "@/views/automations";
-import { WorktreesView } from "@/views/worktrees/worktrees-view";
 import { useKitDeepLinks } from "@/views/kits/deep-link";
 import { useTeamDeepLinks, useTeamWatch } from "@/views/team/team-entry";
-import { TeamSetupView } from "@/views/team/team-view";
-import { KitsView } from "@/views/kits/kits-view";
 import { ReviewSheet } from "@/views/kits/review-sheet";
 import { useReviewDeepLinks } from "@/views/pr-review/deep-link";
-import { PrReviewSheet } from "@/views/pr-review/review-sheet";
+import { PrReviewSheet } from "@/views/pr-review/pr-review-sheet";
 import { useReviewStatuses } from "@/views/pr-review/use-review-status";
-import { ReviewView } from "@/views/review/review-view";
-import { ProjectView } from "@/views/project/project-view";
-import { DashboardView } from "@/views/dashboard";
-import { PluginScreenView } from "@/views/plugin-screen-view";
 import { AddBoxDialog } from "@/views/onboarding/add-box-dialog";
 import { useOnboardingActive } from "@/views/onboarding/onboarding-state";
-import { OnboardingView } from "@/views/onboarding/onboarding-view";
-import { SettingsView } from "@/views/settings/settings-view";
 import { HomeView } from "@/views/home/home-view";
 import { usePrefs } from "@/lib/prefs";
+import { lazyView, preloadViews } from "@/lib/lazy-view";
 import { placeLabel } from "@/lib/worktree-names";
 import { useRescueRemovedFocus } from "@/lib/focus-home";
+
+// The pages other than the workspace load on first use (lib/lazy-view.tsx).
+const AutomationsView = lazyView(() => import("@/views/automations").then((m) => m.AutomationsView));
+const WorktreesView = lazyView(() => import("@/views/worktrees/worktrees-view").then((m) => m.WorktreesView));
+const TeamSetupView = lazyView(() => import("@/views/team/team-view").then((m) => m.TeamSetupView));
+const KitsView = lazyView(() => import("@/views/kits/kits-view").then((m) => m.KitsView));
+const ReviewView = lazyView(() => import("@/views/review/review-view").then((m) => m.ReviewView));
+const ProjectView = lazyView(() => import("@/views/project/project-view").then((m) => m.ProjectView));
+const DashboardView = lazyView(() => import("@/views/dashboard").then((m) => m.DashboardView));
+const PluginScreenView = lazyView(() => import("@/views/plugin-screen-view").then((m) => m.PluginScreenView));
+const OnboardingView = lazyView(() => import("@/views/onboarding/onboarding-view").then((m) => m.OnboardingView));
+const SettingsView = lazyView(() => import("@/views/settings/settings-view").then((m) => m.SettingsView));
 
 // The live demo's guide and script (pnpm build:demo); not in the app.
 const DemoGuide = __BERTH_DEMO__ ? lazy(() => import("@/demo/guide")) : null;
@@ -81,6 +84,8 @@ export default function App() {
   useEffect(startUpdater, []);
   // Spinners and shimmers hold still while the window is in the background.
   useEffect(watchStillness, []);
+  // The other pages' code, fetched once the app has started and is idle.
+  useEffect(preloadViews, []);
   // Runs on the boxes (loops, attempts, flows): kept fresh for the loops
   // panel, Automations and Review (lib/runs.ts).
   const connectedToAgent = useStore((s) => !!s.client);
@@ -129,7 +134,7 @@ export default function App() {
             <div data-tauri-drag-region className="h-10 shrink-0" />
             <main className="relative min-h-0 flex-1">
               <ErrorBoundary scope="onboarding">
-                {view.kind === "team" ? <TeamSetupView org={view.org} from={view.from ?? "onboarding"} box={view.box} onBack={() => useStore.getState().setView({ kind: "workspace" })} /> : <OnboardingView />}
+                <Suspense>{view.kind === "team" ? <TeamSetupView org={view.org} from={view.from ?? "onboarding"} box={view.box} onBack={() => useStore.getState().setView({ kind: "workspace" })} /> : <OnboardingView />}</Suspense>
               </ErrorBoundary>
             </main>
           </div>
@@ -237,7 +242,9 @@ function MainView() {
   if (view.kind === "workspace" && onboarding) {
     return (
       <div className="absolute inset-0">
-        <OnboardingView />
+        <Suspense>
+          <OnboardingView />
+        </Suspense>
       </div>
     );
   }
@@ -250,15 +257,17 @@ function MainView() {
     // In zen there is no sidebar: a view keeps the width it has beside one,
     // centred, rather than stretching across the window.
     <div className={cn("absolute inset-0 bg-background", zen && "mx-auto max-w-[1280px] min-[1300px]:border-x")}>
-      {view.kind === "dashboard" && <DashboardView />}
-      {view.kind === "automations" && <AutomationsView />}
-      {view.kind === "review" && <ReviewView />}
-      {view.kind === "kits" && <KitsView />}
-      {view.kind === "worktrees" && <WorktreesView />}
-      {view.kind === "project" && <ProjectView key={`${view.box}/${view.location}`} box={view.box} location={view.location} />}
-      {view.kind === "settings" && <SettingsView />}
-      {view.kind === "plugin" && <PluginScreenView screen={view.screen} />}
-      {view.kind === "team" && <TeamSetupView key={`${view.org ?? ""}${view.update ? ":update" : ""}`} org={view.org} from={view.from} box={view.box} update={view.update} />}
+      <Suspense>
+        {view.kind === "dashboard" && <DashboardView />}
+        {view.kind === "automations" && <AutomationsView />}
+        {view.kind === "review" && <ReviewView />}
+        {view.kind === "kits" && <KitsView />}
+        {view.kind === "worktrees" && <WorktreesView />}
+        {view.kind === "project" && <ProjectView key={`${view.box}/${view.location}`} box={view.box} location={view.location} />}
+        {view.kind === "settings" && <SettingsView />}
+        {view.kind === "plugin" && <PluginScreenView screen={view.screen} />}
+        {view.kind === "team" && <TeamSetupView key={`${view.org ?? ""}${view.update ? ":update" : ""}`} org={view.org} from={view.from} box={view.box} update={view.update} />}
+      </Suspense>
     </div>
   );
 }

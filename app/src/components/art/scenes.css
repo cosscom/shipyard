@@ -510,11 +510,14 @@
 /* Paused: offscreen, the window hidden, behind an open dialog or alert
    (a confirm is role="alertdialog"), or at rest. A scene inside the dialog
    keeps moving; only one moves at a time. A scene rests where it is after
-   a few loops (scenes.tsx), and wakes when the pointer comes to it. */
+   a few loops (scenes.tsx), and wakes when the pointer comes to it.
+   Whether a dialog is open is the root's data-berth-dialog (scenes.tsx),
+   not body:has(): that made every element added anywhere in the page (a
+   streamed reply's words) restyle all of it. */
 .berth-art[data-off] *,
 .berth-art[data-rest] *,
 :root[data-berth-hidden] .berth-art *,
-body:has(:is([role="dialog"], [role="alertdialog"])) .berth-art:not(:is([role="dialog"], [role="alertdialog"]) .berth-art) * {
+:root[data-berth-dialog] .berth-art:not(:is([role="dialog"], [role="alertdialog"]) .berth-art) * {
   animation-play-state: paused;
 }
 

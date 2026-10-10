@@ -44,6 +44,9 @@ objc2 = "0.6"
 [profile.release]
 codegen-units = 1
 lto = true
-opt-level = 3
+# For size: the shell only answers the webview's calls and lays out browser
+# panes (WebKit does the work), and "s" makes its code half as large as 3
+# did (the binary 7.5 -> 6.0 MB, its embedded web assets included).
+opt-level = "s"
 panic = "abort"
 strip = true

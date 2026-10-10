@@ -84,7 +84,7 @@ export interface ChatControlsProps {
 export function ChatControls({ box, session, agent, state, stateSince, dir, who, visible, ended, onShowTerminal, onStartAgain, onSend, children }: ChatControlsProps) {
   const mock = isMock();
   const supported = useStore((s) => !!s.boxes[box]?.info?.capabilities?.includes("controls")) || mock;
-  const sig = useChatSignals(box, session, visible && !ended);
+  const sig = useChatSignals(box, session);
   const { controls, refresh } = useScreenControls(box, session, visible && !ended && (agent === "claude" || agent === "codex"), stateSince);
   const working = state === "running";
   const [stopping, setStopping] = useState(false);

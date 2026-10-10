@@ -63,7 +63,7 @@ import { FROM_TABLE } from "@/lib/palette-shortcuts";
 import { describe, keysFor, SHORTCUTS } from "@/lib/shortcuts";
 import { runShortcut } from "@/hooks/use-shortcuts";
 import { openRenameWorktree } from "@/components/sidebar/rename-worktree";
-import type { SettingsSectionId } from "@/views/settings/settings-view";
+import type { SettingsSectionId } from "@/views/settings/open";
 import { agentOf, sessionAgent, sessionName, sortedWorktrees, worktreeOf } from "@/lib/derive";
 import { openBroadcast, openPromptPicker } from "@/lib/prompts";
 import { quietNow, setDoNotDisturb, setNotificationsOpen } from "@/lib/notifications";
@@ -167,7 +167,12 @@ export function CommandPalette() {
     setOpen(false);
   };
 
+  // Closed, it keeps what it last listed (its closing frames show it)
+  // rather than listing every session and worktree again whenever a box
+  // reports in; it lists them afresh as it opens.
+  const shown = useRef<{ groups: Group[]; query: string }>(undefined);
   const groups = useMemo<Group[]>(() => {
+    if (!open && shown.current && shown.current.query === query) return shown.current.groups;
     const st = useStore.getState();
     const go = (fn: () => void) => () => {
       close(true);
@@ -396,6 +401,7 @@ export function CommandPalette() {
     // close is stable enough: it only reads refs and store setters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessions, boxes, status, themes, themeId, spaces, pluginCommands, query, nav.hidden, open, login]);
+  shown.current = { groups, query };
 
   return (
     <CommandDialog

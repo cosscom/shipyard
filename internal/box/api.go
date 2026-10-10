@@ -118,11 +118,12 @@ func (b *Box) own(path string) {
 // laptops and, through ServeLocal, by the box's own user.
 func (b *Box) Mount(s *wire.Server) {
 	route := func(pattern string, h func(http.ResponseWriter, *http.Request) error) {
-		s.Handle(pattern, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Large JSON answers go gzipped to a client that asks (gzip.go).
+		s.Handle(pattern, gzipJSON(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if err := h(w, r); err != nil {
 				writeErr(w, err)
 			}
-		}))
+		})))
 	}
 	route("GET /v1/ports", b.ports)
 	route("GET /v1/locations", b.listLocations)

@@ -14,6 +14,7 @@ import {
   UsersRoundIcon,
 } from "lucide-react";
 import { memo, useMemo, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 
 import { AgentIcon, BoxStateDot, StateGlyph } from "@/components/agent-glyph";
 import { type Action, Armed, boxActions, useArmed, ContextRow, DotsMenu, newSection, projectActions, projectGroupActions, removeWorktree, worktreeActions } from "@/components/sidebar/actions";
@@ -347,7 +348,7 @@ interface WorktreeRowProps {
 // the store keeps what a refresh didn't change (lib/share.ts), so a rename
 // or an agent's new state draws one row, not hundreds.
 const sameList = (a: Session[], b: Session[]) => a.length === b.length && a.every((s, i) => s === b[i]);
-const sameRow = (a: WorktreeRowProps, b: WorktreeRowProps) =>
+const sameRow = (a: Omit<WorktreeRowProps, "onOpen">, b: Omit<WorktreeRowProps, "onOpen">) =>
   a.box === b.box &&
   a.loc === b.loc &&
   a.wt === b.wt &&
@@ -458,10 +459,29 @@ function WorktreeNodes({ nodes, depth, prefs, update }: { nodes: TreeNode<TreeRo
   return nodes.map((n) => <WorktreeNode key={n.key} node={n} depth={depth} prefs={prefs} update={update} />);
 }
 
+interface WorktreeNodeProps {
+  node: TreeNode<TreeRow>;
+  depth: number;
+  prefs: SidebarPrefs;
+  update(p: Partial<SidebarPrefs>): void;
+}
+
+// A worktree without children is drawn again only when its row would be
+// (sameRow): a project's tree is made afresh whenever one of its agents
+// changes, and its other rows stay as they are.
+const sameLeaf = (a: WorktreeNodeProps, b: WorktreeNodeProps) =>
+  !a.node.children.length &&
+  !b.node.children.length &&
+  a.depth === b.depth &&
+  a.prefs === b.prefs &&
+  a.update === b.update &&
+  a.node.key === b.node.key &&
+  sameRow(a.node.row, b.node.row);
+
 // WorktreeNode is a worktree and, under a pill saying how many, its
 // children. The pill folds them; a fold never hides the worktree you have
 // open, and while folded it shows the most urgent agent inside.
-function WorktreeNode({ node, depth, prefs, update }: { node: TreeNode<TreeRow>; depth: number; prefs: SidebarPrefs; update(p: Partial<SidebarPrefs>): void }) {
+const WorktreeNode = memo(function WorktreeNode({ node, depth, prefs, update }: WorktreeNodeProps) {
   const r = node.row;
   const row = (
     <WorktreeRow box={r.box} loc={r.loc} wt={r.wt} sessions={r.sessions} data={r.data} selected={r.selected} chip={r.chip} away={r.away} onOpen={() => selectWorktree(refOf(r.box, r.loc, r.wt))} />
@@ -505,7 +525,7 @@ function WorktreeNode({ node, depth, prefs, update }: { node: TreeNode<TreeRow>;
       )}
     </>
   );
-}
+}, sameLeaf);
 
 // LeavingRow is a worktree being archived or removed, in the row's place
 // and size so nothing shifts when it goes.
@@ -755,8 +775,18 @@ function sectionActions(name: string): Action[] {
 
 // ProjectGroup is one project: its row (name, its boxes, how its agents are
 // doing), and under it the worktrees from all its boxes.
-function ProjectGroup({ project: p, chips, prefs, update }: { project: Project; chips: boolean; prefs: SidebarPrefs; update(p: Partial<SidebarPrefs>): void }) {
-  const boxes = useStore((s) => s.boxes);
+// A project is drawn again only when what it shows changed: its members'
+// locations, and their boxes' names and states (not their latency, which
+// changes with every status read).
+const sameMember = (a: Project["members"][number], b: Project["members"][number]) => a.loc === b.loc && a.box.name === b.box.name && a.box.state === b.box.state && !!a.box.link?.slow === !!b.box.link?.slow;
+const sameProject = (a: Project, b: Project) =>
+  a === b ||
+  (a.id === b.id && a.name === b.name && a.slug === b.slug && a.section === b.section && a.defaultBox === b.defaultBox && a.remote === b.remote && a.members.length === b.members.length && a.members.every((m, i) => sameMember(m, b.members[i])));
+
+function ProjectGroupBody({ project: p, chips, prefs, update }: { project: Project; chips: boolean; prefs: SidebarPrefs; update(p: Partial<SidebarPrefs>): void }) {
+  // Only its own boxes' data: agents changing on another box leave it be.
+  const memberData = useStore(useShallow((s) => p.members.map((m) => s.boxes[m.box.name])));
+  const boxes = useMemo(() => Object.fromEntries(p.members.map((m, i) => [m.box.name, memberData[i]])) as Record<string, BoxData | undefined>, [p.members, memberData]);
   const removals = useRemovals((s) => s.byKey);
   const current = useWorkspaces((s) => s.current);
   const inWorkspace = useStore((s) => s.view.kind === "workspace");
@@ -769,34 +799,48 @@ function ProjectGroup({ project: p, chips, prefs, update }: { project: Project; 
   const defMain = def.loc.worktrees?.find((w) => w.main);
 
   // A member whose box is away keeps its rows, dimmed (WorktreeRow).
-  const rows = p.members.flatMap((m) => {
-    const data = boxes[m.box.name];
-    return (m.loc.worktrees ?? [])
-      .filter((w) => (multi ? true : !w.main))
-      .sort((a, b) => Number(!!b.main) - Number(!!a.main) || worktreeLabel(a).localeCompare(worktreeLabel(b)))
-      .map(
-        (wt): TreeRow => ({
-          key: `${m.box.name}:${wt.path}`,
-          box: m.box.name,
-          loc: m.loc,
-          wt,
-          data,
-          sessions: worktreeSessions(data?.sessions, wt),
-          selected: inWorkspace && current === wsKey(m.box.name, wt.path),
-          chip: multi ? m.box : undefined,
-          away: m.box.state === "online" ? undefined : m.box,
-        }),
-      );
-  });
-  const isActive = (r: TreeRow) => r.sessions.some((s) => !s.exited) || r.selected || !!removalOf(removals, r.box, r.wt.path);
-  const active = rows.filter(isActive);
-  const tree = nest(rows, (r) => r.key, (r) => (r.wt.parent ? `${r.box}:${r.wt.parent}` : undefined));
-  const shown = expanded ? tree : prune(tree, isActive);
-  const hidden = rows.length - size(shown);
+  const rows = useMemo(
+    () =>
+      p.members.flatMap((m) => {
+        const data = boxes[m.box.name];
+        return (m.loc.worktrees ?? [])
+          .filter((w) => (multi ? true : !w.main))
+          .sort((a, b) => Number(!!b.main) - Number(!!a.main) || worktreeLabel(a).localeCompare(worktreeLabel(b)))
+          .map(
+            (wt): TreeRow => ({
+              key: `${m.box.name}:${wt.path}`,
+              box: m.box.name,
+              loc: m.loc,
+              wt,
+              data,
+              sessions: worktreeSessions(data?.sessions, wt),
+              selected: inWorkspace && current === wsKey(m.box.name, wt.path),
+              chip: multi ? m.box : undefined,
+              away: m.box.state === "online" ? undefined : m.box,
+            }),
+          );
+      }),
+    [p.members, multi, boxes, inWorkspace, current],
+  );
+  const { active, shown, hidden } = useMemo(() => {
+    const isActive = (r: TreeRow) => r.sessions.some((s) => !s.exited) || r.selected || !!removalOf(removals, r.box, r.wt.path);
+    const tree = nest(rows, (r) => r.key, (r) => (r.wt.parent ? `${r.box}:${r.wt.parent}` : undefined));
+    const shown = expanded ? tree : prune(tree, isActive);
+    return { active: rows.filter(isActive), shown, hidden: rows.length - size(shown) };
+  }, [rows, removals, expanded]);
   // With one box, the row itself is the main checkout.
   const mainSel = !multi && !!defMain && inWorkspace && current === wsKey(def.box.name, defMain.path);
-  const allSessions = p.members.flatMap((m) => (boxes[m.box.name]?.sessions ?? []).filter((s) => !s.service && m.loc.worktrees?.some((w) => w.path === s.dir)));
-  const glyphSessions = multi ? (collapsed ? allSessions : []) : defMain ? worktreeSessions(boxes[def.box.name]?.sessions, defMain) : [];
+  const glyphSessions = useMemo(
+    () =>
+      multi
+        ? collapsed
+          ? p.members.flatMap((m) => (boxes[m.box.name]?.sessions ?? []).filter((s) => !s.service && m.loc.worktrees?.some((w) => w.path === s.dir)))
+          : NO_SESSIONS
+        : defMain
+          ? worktreeSessions(boxes[def.box.name]?.sessions, defMain)
+          : NO_SESSIONS,
+    [multi, collapsed, p.members, boxes, def.box.name, defMain],
+  );
   const online = p.members.some((m) => m.box.state === "online");
 
   return (
@@ -909,6 +953,10 @@ function ProjectGroup({ project: p, chips, prefs, update }: { project: Project; 
     </SidebarMenuItem>
   );
 }
+
+const ProjectGroup = memo(ProjectGroupBody, (a, b) => a.chips === b.chips && a.prefs === b.prefs && a.update === b.update && sameProject(a.project, b.project));
+
+const NO_SESSIONS: Session[] = [];
 
 // PlaceTip says where a sidebar row is: its name, then its path on each box.
 function PlaceTip({ name, sub, lines, work = [] }: { name: string; sub?: string; lines: string[]; work?: string[] }) {

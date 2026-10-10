@@ -3,6 +3,7 @@ package box
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -58,9 +59,24 @@ var agentTools = map[string]string{"claude": "claude", "codex": "codex", "cursor
 
 func (b *Box) handleStats(w http.ResponseWriter, r *http.Request) error {
 	s := collectStats("/proc")
-	locs, _ := b.Locations.List(r.Context())
-	for i := range s.Agents {
-		ag := &s.Agents[i]
+	b.placeAgents(r.Context(), s.Agents)
+	home, _ := os.UserHomeDir()
+	s.Hooks = hooksInstalled(home)
+	writeJSON(w, s)
+	return nil
+}
+
+// placeAgents names the location and worktree each agent works in, and
+// its state. It needs only where the worktrees are: one git command a
+// location, where Locations.List runs four and reads every config (the
+// app reads stats on every agent event), and none when no agent runs.
+func (b *Box) placeAgents(ctx context.Context, agents []Agent) {
+	if len(agents) == 0 {
+		return
+	}
+	locs := b.Locations.worktreePaths(ctx)
+	for i := range agents {
+		ag := &agents[i]
 		ag.Location, ag.Worktree = worktreeFor(locs, ag.Path)
 		ag.State = "running"
 		if b.Turns != nil {
@@ -69,10 +85,6 @@ func (b *Box) handleStats(w http.ResponseWriter, r *http.Request) error {
 			}
 		}
 	}
-	home, _ := os.UserHomeDir()
-	s.Hooks = hooksInstalled(home)
-	writeJSON(w, s)
-	return nil
 }
 
 // worktreeFor names the location and worktree a directory is in, choosing

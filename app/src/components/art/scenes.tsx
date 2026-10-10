@@ -52,6 +52,34 @@ if (typeof document !== "undefined") {
   document.addEventListener("visibilitychange", sync);
 }
 
+// While a scene is drawn, the root says whether a dialog or alert is open
+// (data-berth-dialog), so scenes behind it hold still (scenes.css). Only
+// what came, went or changed its role is looked at, so a page busy with
+// other work (a reply streaming in) costs next to nothing here.
+const DIALOG = '[role="dialog"], [role="alertdialog"]';
+let drawn = 0;
+let dialogs: MutationObserver | undefined;
+const syncDialog = () => document.documentElement.toggleAttribute("data-berth-dialog", !!document.body.querySelector(DIALOG));
+const hasDialog = (n: Node) => n instanceof Element && (n.matches(DIALOG) || !!n.querySelector(DIALOG));
+function watchDialogs() {
+  if (typeof MutationObserver === "undefined" || !document.body) return () => {};
+  if (drawn++ === 0) {
+    dialogs = new MutationObserver((records) => {
+      for (const r of records) {
+        if (r.type === "attributes" || [...r.addedNodes].some(hasDialog) || [...r.removedNodes].some(hasDialog)) return syncDialog();
+      }
+    });
+    dialogs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["role"] });
+    syncDialog();
+  }
+  return () => {
+    if (--drawn > 0) return;
+    dialogs?.disconnect();
+    dialogs = undefined;
+    document.documentElement.removeAttribute("data-berth-dialog");
+  };
+}
+
 // pivot turns about a point in the scene's own coordinates.
 const pivot = (x: number, y: number, extra?: Record<string, string>) => ({ transformOrigin: `${x}px ${y}px`, ...extra }) as React.CSSProperties;
 const delay = (s: number) => ({ "--ba-delay": `${s}s` }) as React.CSSProperties;
@@ -81,9 +109,11 @@ export function Scene({ name, width = 136, still, className }: { name: SceneName
     if (!el) return;
     const unwatch = watch(el);
     const unrest = rest(el);
+    const undialogs = watchDialogs();
     return () => {
       unwatch();
       unrest();
+      undialogs();
     };
   }, []);
   const Draw = DRAW[name];

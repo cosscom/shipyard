@@ -60,8 +60,10 @@ interface Group {
 }
 
 // useServers polls the listening servers of every online box, and reads the
-// repositories' declared services when worktrees or services change.
-function useServers(berth: BerthPluginContext) {
+// repositories' declared services when worktrees or services change. That
+// is a request per worktree on every box, so only the screen that lists
+// them asks (withConfigured); the status bar's count needs none of it.
+function useServers(berth: BerthPluginContext, withConfigured = true) {
   const boxes = useBoxes();
   const online = useMemo(() => boxes.filter((b) => b.state === "online").map((b) => b.name), [boxes]);
   const key = online.join(",");
@@ -94,6 +96,7 @@ function useServers(berth: BerthPluginContext) {
   }, [key, stamp, berth]);
 
   useEffect(() => {
+    if (!withConfigured) return;
     let live = true;
     void (async () => {
       const found: Configured[] = [];
@@ -116,7 +119,7 @@ function useServers(berth: BerthPluginContext) {
       live = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, stamp, berth]);
+  }, [key, stamp, berth, withConfigured]);
 
   useEvent("service.*", reload);
   useEvent("worktree.created", reload);
@@ -125,7 +128,7 @@ function useServers(berth: BerthPluginContext) {
 }
 
 function ServersStatus({ berth }: ScreenProps) {
-  const { listening } = useServers(berth);
+  const { listening } = useServers(berth, false);
   if (!listening?.length) return null;
   return (
     <button type="button" className="flex items-center gap-1 hover:text-foreground" onClick={() => berth.openScreen("servers")}>
