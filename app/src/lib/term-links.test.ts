@@ -47,6 +47,49 @@ test("an OSC 8 hyperlink's text gives its address back", () => {
   assert.equal(h.uriFor("the label"), "https://example.com/osc2");
 });
 
+// fx's "Sign in with Codex" screen (fx 0.0.13), with a made-up address.
+const AUTH = "https://auth.openai.com/oauth/authorize?response_type=code&client_id=app_acme0123456789&redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback&state=c3RhdGVhY21l&originator=fx";
+
+test("a sign-in link's text gives its address from any word of it, as fx and tmux send it", () => {
+  // fx itself, with its own id, its colours reset inside the link.
+  const fx = new HyperlinkTracker();
+  fx.feed(`\x1b[1m\x1b[38;5;255m  Open   \x1b[4m\x1b]8;id=fx-codex-auth;${AUTH}\x1b\\Authorize with Codex\x1b[0m\x1b]8;;\x1b\\`);
+  // tmux 3.6 attached with its hyperlinks feature: its own id, and the
+  // colours reset after the link.
+  const tmux = new HyperlinkTracker();
+  tmux.feed(`\x1b[5;1H\x1b[1m\x1b[38;5;255m  Open   \x1b[4m\x1b]8;id=tmux3;${AUTH}\x1b\\Authorize with Codex\x1b]8;;\x1b\\\x1b(B\x1b[m\x1b[K\r\n`);
+  for (const h of [fx, tmux]) {
+    for (const text of ["Authorize with Codex", "Authorize", "with Codex", " with ", "Codex"]) assert.equal(h.uriFor(text), AUTH, text);
+    assert.equal(h.uriFor("Open"), undefined);
+  }
+  // Without the feature, tmux sent the text alone: nothing to open.
+  const plain = new HyperlinkTracker();
+  plain.feed("\x1b[5;1H\x1b[1m\x1b[38;5;255m  Open   \x1b[4mAuthorize with Codex\x1b(B\x1b[m\x1b[K\r\n");
+  assert.equal(plain.uriFor("Authorize with Codex"), undefined);
+});
+
+test("a link tmux draws in pieces, moving the cursor between them, is found from all of it", () => {
+  const h = new HyperlinkTracker();
+  // One hyperlink, its text put in two places: as "Authorize with" and
+  // "Codex", not "Authorize withCodex".
+  h.feed(`\x1b[5;10H\x1b]8;id=tmux3;${AUTH}\x1b\\Authorize with\x1b[5;25HCodex\x1b]8;;\x1b\\`);
+  assert.equal(h.uriFor("Authorize with Codex"), AUTH);
+  assert.equal(h.uriFor("withCodex"), undefined);
+  // Each piece a hyperlink of its own (tmux opens it again for each).
+  const again = new HyperlinkTracker();
+  again.feed(`\x1b]8;id=tmux4;${AUTH}\x1b\\Authorize\x1b]8;;\x1b\\\x1b[C\x1b]8;id=tmux4;${AUTH}\x1b\\with\x1b]8;;\x1b\\ \x1b]8;id=tmux4;${AUTH}\x1b\\Codex\x1b]8;;\x1b\\`);
+  assert.equal(again.uriFor("Authorize with Codex"), AUTH);
+  // Across a line break, as on two rows.
+  const rows = new HyperlinkTracker();
+  rows.feed(`\x1b]8;;${AUTH}\x1b\\Authorize\r\nwith Codex\x1b]8;;\x1b\\`);
+  assert.equal(rows.uriFor("Authorizewith Codex"), AUTH);
+  // Text only partly made of one link's pieces is not that link.
+  assert.equal(again.uriFor("Authorize the acme app"), undefined);
+  again.feed("\x1b]8;;https://example.com/acme\x1b\\acme app\x1b]8;;\x1b\\");
+  assert.equal(again.uriFor("Authorize acme app"), undefined);
+  assert.equal(again.uriFor("acme app"), "https://example.com/acme");
+});
+
 test("hyperlinks cut across pieces of output are read whole, as text or bytes", () => {
   const whole = "x \x1b]8;;https://example.com/split\x1b\\split ✓ link\x1b]8;;\x1b\\ y";
   for (const cut of [1, 2, 3, 4, 5, 10, 30, 36, 40, 44, 50]) {

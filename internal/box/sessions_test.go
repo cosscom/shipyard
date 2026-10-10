@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -189,6 +190,42 @@ func TestAttachShowsTheSessionAndCarriesKeystrokes(t *testing.T) {
 	for !strings.Contains(out.String(), "typed-through-berth") {
 		if time.Now().After(deadline) {
 			t.Fatalf("keystrokes never echoed; screen: %q", out.String())
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// A program's OSC 8 hyperlink (fx's "Authorize with Codex", say) reaches
+// the app attached: tmux sent the text alone, underlined, until berth's
+// tmux said its clients take hyperlinks.
+func TestAttachPassesOSC8Hyperlinks(t *testing.T) {
+	out, err := exec.Command("tmux", "-V").Output()
+	if err != nil {
+		t.Skip("tmux not installed")
+	}
+	var major, minor int
+	if _, err := fmt.Sscanf(strings.TrimPrefix(strings.TrimSpace(string(out)), "tmux "), "%d.%d", &major, &minor); err == nil && (major < 3 || major == 3 && minor < 4) {
+		t.Skipf("%s keeps no hyperlinks", strings.TrimSpace(string(out)))
+	}
+	s := testSessions(t)
+	ctx := context.Background()
+	link := `printf '  Open   \033[4m\033]8;id=acme-auth;https://auth.example.com/oauth/authorize?client_id=app_acme\033\\Authorize with Acme\033]8;;\033\\\033[0m\n'; sleep 30`
+	if _, err := s.Create(ctx, "linked", "", t.TempDir(), link, nil); err != nil {
+		t.Fatal(err)
+	}
+	master, cmd, err := s.Attach(ctx, "linked", 100, 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cmd.Process.Kill()
+	defer master.Close()
+	var screen syncBuffer
+	go io.Copy(&screen, master)
+	want := ";https://auth.example.com/oauth/authorize?client_id=app_acme\x1b\\Authorize with Acme\x1b]8;;\x1b\\"
+	deadline := time.Now().Add(5 * time.Second)
+	for !strings.Contains(screen.String(), want) {
+		if time.Now().After(deadline) {
+			t.Fatalf("no OSC 8 hyperlink in what the client got: %q", screen.String())
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
