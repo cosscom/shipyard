@@ -9,7 +9,7 @@ import { useActiveTheme } from "@/hooks/use-theme";
 import { ApiError, type TerminalConnection } from "@/lib/api";
 import { attachable, localPaths, named, onThisComputer, pastedFiles, shrinkImage, uploadAttachment, uploadLocalFile } from "@/lib/attachments";
 import { copyText } from "@/lib/clipboard";
-import { IS_LINUX } from "@/lib/platform";
+import { IS_LINUX, platformKeys } from "@/lib/platform";
 import { usePrefs } from "@/lib/prefs";
 import { tryNow } from "@/lib/reconnect";
 import { useStore } from "@/lib/store";
@@ -53,6 +53,9 @@ interface Props {
 // session keeps running on the box, and attaching again redraws it.
 export function TerminalView({ box, session, agent, command, wsKey, tab, pane, visible, focused, predict = false, onFocus, onClose }: Props) {
   const host = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLDivElement>(null);
+  // Where the pointer rests on a link, to say ⌘-click opens it (lib/terminal).
+  const [linkHint, setLinkHint] = useState<{ x: number; y: number; left: boolean; up: boolean }>();
   const [term, setTerm] = useState<TermHandle>();
   const predictor = useRef<EchoPredictor>(null);
   const conn = useRef<TerminalConnection>(null);
@@ -140,6 +143,10 @@ export function TerminalView({ box, session, agent, command, wsKey, tab, pane, v
         if (!typedAt.current || typedAt.current <= heardAt.current) typedAt.current = Date.now();
       });
       t.onResize(({ cols, rows }) => conn.current?.resize(cols, rows));
+      t.onLinkHint((at) => {
+        const r = root.current?.getBoundingClientRect();
+        setLinkHint(at && r ? { x: at.x - r.left, y: at.y - r.top, left: at.x - r.left > r.width - 160, up: at.y - r.top > r.height - 48 } : undefined);
+      });
       // ⌘-click a file path to open it at its line in your editor.
       t.registerLinkFinder((line) => {
         const dir = dirRef.current;
@@ -168,6 +175,7 @@ export function TerminalView({ box, session, agent, command, wsKey, tab, pane, v
       t?.dispose();
       mount.remove();
       setTerm(undefined);
+      setLinkHint(undefined);
     };
     // xterm takes a new theme in place (below).
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -434,7 +442,7 @@ export function TerminalView({ box, session, agent, command, wsKey, tab, pane, v
 
   const blocked = state === "offline" || state === "ended";
   return (
-    <div className="relative min-h-0 flex-1" style={{ background: theme.terminal.background }} onMouseDown={onFocus}>
+    <div ref={root} className="relative min-h-0 flex-1" style={{ background: theme.terminal.background }} onMouseDown={onFocus}>
       <div ref={host} data-terminal className={cn("absolute inset-0 overflow-hidden px-3 pt-2 pb-1 transition-opacity [&_canvas]:block", blocked && "pointer-events-none", state === "offline" && "opacity-40", state === "ended" && "invisible")} />
       {state === "offline" && <BoxOffline box={box} state={boxState} onRetry={() => setRetry((n) => n + 1)} />}
       {stoppedService && state !== "ended" && state !== "offline" && <ServiceStopped box={box} session={stoppedService} />}
@@ -443,6 +451,18 @@ export function TerminalView({ box, session, agent, command, wsKey, tab, pane, v
         <div data-testid="terminal-stalled" className="pointer-events-none absolute top-2 right-3 flex items-center gap-2 rounded-md border bg-popover/90 px-2 py-1 text-muted-foreground text-xs shadow-sm">
           <Spinner className="size-3" />
           {`Waiting for ${box} to answer… what you type may not arrive`}
+        </div>
+      )}
+      {linkHint && (
+        <div
+          data-testid="terminal-link-hint"
+          className="pointer-events-none absolute z-20 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-popover-foreground text-xs shadow-md/5"
+          style={{
+            ...(linkHint.up ? { bottom: `calc(100% - ${linkHint.y - 8}px)` } : { top: linkHint.y + 18 }),
+            ...(linkHint.left ? { right: `calc(100% - ${linkHint.x}px)` } : { left: linkHint.x + 8 }),
+          }}
+        >
+          {platformKeys("⌘-click to open")}
         </div>
       )}
       {(state === "connecting" || state === "reconnecting") && (
