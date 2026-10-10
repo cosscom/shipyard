@@ -153,12 +153,24 @@ const tmuxSocket = "berth"
 // tmuxConfig is berth's own tmux server's. The status line is off because
 // the app draws its own chrome around every terminal; focus events pass
 // through so agents know when their pane is in front.
+//
+// OSC 8 hyperlinks (text a program links somewhere, like a sign-in screen's
+// "Authorize with Codex") reach the app only if tmux knows the terminal
+// attached takes them: a client is attached as xterm-256color (Attach), and
+// tmux's defaults don't say so for xterm, nor does the app's terminal answer
+// the queries tmux would learn it from, so tmux dropped them and the app got
+// the link's text with no address. Hyperlinks came in tmux 3.4; the %if
+// leaves the line out of an older one (3.0 has no terminal-features option
+// at all), and a fixed index keeps it one entry when the file is read again.
 const tmuxConfig = `set -g remain-on-exit on
 set -g history-limit 50000
 set -g mouse on
 set -g default-terminal "tmux-256color"
 set -g status off
 set -g focus-events on
+%if "#{m/r:^(next-|[4-9]|3\.([4-9]|[1-9][0-9])),#{version}}"
+set -s terminal-features[90] "xterm*:hyperlinks"
+%endif
 `
 
 func NewSessions(dir string) (*Sessions, error) {

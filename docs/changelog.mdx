@@ -19,6 +19,11 @@ again.
   links included (Ctrl-click in the Linux app). A long link that wraps
   over several rows, such as Codex's ChatGPT sign-in link, opens whole
   from any of its rows; before, it couldn't be clicked at all.
+- **Links a program draws as text open with ⌘-click in a box's terminal.**
+  A sign-in screen's "Authorize with Codex" (fx), for example, showed
+  underlined but opened nothing: the box's tmux dropped the address on the
+  way to the app. It now passes it on (tmux 3.4 or later; update the box),
+  and the whole text is one link from any word of it.
 - **A home widget's ⋯ menu opens again.** It broke the home screen with
   "Base UI error #31" instead of showing its Size and Refresh options.
 - **A Browser tab on a port with nothing listening no longer crashes the

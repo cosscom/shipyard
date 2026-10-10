@@ -141,6 +141,8 @@ export const openable = (uri: string): boolean => /^(?:https?:\/\/[^\s]|mailto:[
 const MAX_OSC = 4096;
 const MAX_LABEL = 1024;
 const MAX_LINKS = 500;
+// The final characters of the CSI sequences that move the cursor.
+const MOVES = "ABCDEFGHadef`";
 
 // HyperlinkTracker reads a terminal's output for OSC 8 hyperlinks
 // (ESC ] 8 ; params ; URI ST, the text, then ESC ] 8 ; ; ST) and remembers
@@ -187,8 +189,10 @@ export class HyperlinkTracker {
     this.scan(this.decoder.decode(b, { stream: true }));
   }
 
-  // uriFor is the address of the hyperlink whose text (or, for one that
-  // wraps onto the next row, a piece of whose text) this is.
+  // uriFor is the address of the hyperlink whose text this is: all of it,
+  // a piece of it (a row it wraps over), or the pieces it was sent in. tmux
+  // draws a link in pieces when only some of its cells change, so
+  // "Authorize with Codex" can come as "Authorize" and " with Codex".
   uriFor(text: string): string | undefined {
     const t = text.trim();
     if (!t) return undefined;
@@ -197,6 +201,27 @@ export class HyperlinkTracker {
     if (t.length < 2) return undefined;
     let found: string | undefined;
     for (const [label, uri] of this.links) if (label.includes(t)) found = uri;
+    return found ?? this.inPieces(t);
+  }
+
+  // inPieces is the address whose texts, each put where it is in t, make
+  // up all of t but its spaces; the latest if more than one do.
+  private inPieces(t: string): string | undefined {
+    const covered = new Map<string, Uint8Array>();
+    for (const [label, uri] of this.links) {
+      let at = t.indexOf(label);
+      if (at < 0) continue;
+      const cov = covered.get(uri) ?? new Uint8Array(t.length);
+      for (; at >= 0; at = t.indexOf(label, at + 1)) cov.fill(1, at, at + label.length);
+      covered.delete(uri);
+      covered.set(uri, cov);
+    }
+    let found: string | undefined;
+    for (const [uri, cov] of covered) {
+      let all = true;
+      for (let i = 0; all && i < t.length; i++) all = cov[i] === 1 || t[i] === " ";
+      if (all) found = uri;
+    }
     return found;
   }
 
@@ -220,7 +245,10 @@ export class HyperlinkTracker {
       switch (this.mode) {
         case "text":
           if (c === "\x1b") this.mode = "esc";
-          else if (this.uri !== null && c >= " " && c !== "\x7f" && this.label.length < MAX_LABEL) this.label += c;
+          else if (this.uri === null) break;
+          else if (c >= " " && c !== "\x7f") {
+            if (this.label.length < MAX_LABEL) this.label += c;
+          } else if (c === "\r" || c === "\n") this.piece();
           break;
         case "esc":
           if (c === "]") {
@@ -234,7 +262,12 @@ export class HyperlinkTracker {
           this.mode = "text";
           break;
         case "csi":
-          if (c >= "@" && c <= "~") this.mode = "text";
+          if (c >= "@" && c <= "~") {
+            this.mode = "text";
+            // The cursor moved with the link still on: what comes next is
+            // another piece of its text, somewhere else.
+            if (this.uri !== null && MOVES.includes(c)) this.piece();
+          }
           break;
         case "osc":
           if (c === "\x07") this.endOsc();
@@ -266,14 +299,19 @@ export class HyperlinkTracker {
   }
 
   private close() {
-    const label = this.label.trim();
-    if (this.uri !== null && label) {
-      this.links.delete(label);
-      this.links.set(label, this.uri);
-      if (this.links.size > MAX_LINKS) this.links.delete(this.links.keys().next().value!);
-    }
+    this.piece();
     this.uri = null;
+  }
+
+  // piece remembers the text read since the link started or the cursor
+  // last moved, with the link's address.
+  private piece() {
+    const label = this.label.trim();
     this.label = "";
+    if (this.uri === null || !label) return;
+    this.links.delete(label);
+    this.links.set(label, this.uri);
+    if (this.links.size > MAX_LINKS) this.links.delete(this.links.keys().next().value!);
   }
 }
 

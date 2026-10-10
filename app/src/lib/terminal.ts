@@ -769,7 +769,11 @@ function ghosttyLinks(term: object, host: HTMLElement, openUrl: (url: string) =>
         // tmux sends the hyperlink again on each row it redraws, so the
         // text it was sent with can be just this row's piece.
         const uri = tracker.uriFor(text) ?? tracker.uriFor(own);
-        if (uri && openable(uri)) out.push({ text: uri, range: { start, end: last }, activate: open(uri) });
+        const prev = out.at(-1);
+        // A run right after one with the same address is more of the
+        // same link, drawn apart: one link over both.
+        if (uri && prev?.text === uri && prev.range.end.y === start.y && prev.range.end.x + 1 === start.x) prev.range.end = last;
+        else if (uri && openable(uri)) out.push({ text: uri, range: { start, end: last }, activate: open(uri) });
       }
       x = end;
     }

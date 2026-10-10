@@ -288,6 +288,48 @@ test("an OSC 8 link whose text wraps opens its address from every row", async ({
   await expect.poll(() => opened(page)).toEqual([uri, uri, other, other]);
 });
 
+// fx's "Sign in with Codex" screen through a box's tmux, with a made-up
+// address: as an attach draws it (tmux 3.6 with its hyperlinks feature),
+// and drawn in pieces, each a hyperlink of its own, the second piece first.
+const AUTH =
+  "https://auth.openai.com/oauth/authorize?response_type=code&client_id=app_acme0123456789&redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback&state=c3RhdGVhY21l&originator=fx";
+const FX_SCREENS = {
+  attached: `${SCREEN}\x1b[4;1HSign in with Codex\x1b[5;1H\x1b[1m\x1b[38;5;255m  Open   \x1b[4m\x1b]8;id=tmux3;${AUTH}\x1b\\Authorize with Codex\x1b]8;;\x1b\\\x1b(B\x1b[m\x1b[K\r\n`,
+  "in pieces": `${SCREEN}\x1b[4;1HSign in with Codex\x1b[5;1H  Open   \x1b[5;19H\x1b[4m\x1b]8;id=tmux5;${AUTH}\x1b\\ with Codex\x1b]8;;\x1b\\\x1b[5;10H\x1b]8;id=tmux4;${AUTH}\x1b\\Authorize\x1b]8;;\x1b\\\x1b(B\x1b[m`,
+};
+
+for (const [how, out] of Object.entries(FX_SCREENS)) {
+  test(`a link a program draws as text, like "Authorize with Codex", is one link from any word and opens with ⌘-click (${how})`, async ({ app }) => {
+    mockOnly("writes to the mock's terminal");
+    const page = app.page;
+    await recordOpens(page);
+    await app.open();
+    await openShell(page);
+    await write(page, out);
+    await expect.poll(() => screenText(page)).toContain("  Open   Authorize with Codex");
+    const hint = page.locator("[data-testid=pane][data-pane-kind=terminal]:visible").getByTestId("terminal-link-hint");
+
+    // Resting on any word of it, all of it is the link.
+    const whole = { startX: 9, startY: 4, endX: 28, endY: 4 };
+    for (const x of [10, 19, 26]) {
+      const at = await cellAt(page, x, 4);
+      await page.mouse.move(at.x, at.y);
+      await expect.poll(() => hovered(page)).toEqual(whole);
+    }
+    await expect(hint).toHaveText("⌘-click to open");
+
+    // ⌘-click opens its whole address, from its last word or its first.
+    await cmdClick(page, await cellAt(page, 26, 4));
+    await expect.poll(() => opened(page)).toEqual([AUTH]);
+    await cmdClick(page, await cellAt(page, 10, 4));
+    await expect.poll(() => opened(page)).toEqual([AUTH, AUTH]);
+    // "Open" before it is not part of it.
+    await cmdClick(page, await cellAt(page, 3, 4));
+    await cmdClick(page, await cellAt(page, 10, 4));
+    await expect.poll(() => opened(page)).toEqual([AUTH, AUTH, AUTH]);
+  });
+}
+
 test("in xterm.js, a web address and an OSC 8 link open too", async ({ app }) => {
   mockOnly("writes to the mock's terminal");
   const page = app.page;
