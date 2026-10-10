@@ -1,5 +1,7 @@
 import type { TerminalColors } from "@/lib/api";
+import { modKey } from "./platform.ts";
 import type { PredictMode, Screen } from "./predict.ts";
+import { findUrls, HyperlinkTracker, openable } from "./term-links.ts";
 import { HIDDEN_FLUSH_MS, OutputGate } from "./term-output.ts";
 
 // One small interface over the terminal emulator, so the renderer can be
@@ -61,6 +63,11 @@ export interface TermHandle {
   // Adds links found in each line's text, such as file paths. find gets a
   // line and returns ranges in it (end exclusive).
   registerLinkFinder(find: LinkFinder): void;
+  // fn hears where the pointer rests on a link that ⌘-click (Ctrl-click
+  // off a Mac) would open, while that key isn't held, in client
+  // coordinates; null once it isn't. ghostty-web only: xterm.js opens its
+  // links with a plain click.
+  onLinkHint(fn: (at: { x: number; y: number } | null) => void): void;
   // Whether the terminal is on screen. Hidden, it draws nothing and takes
   // its output in batches (lib/term-output); shown again, it catches up and
   // redraws at once. A terminal starts shown.
@@ -215,6 +222,7 @@ function gated(t: RawHandle, hiddenFlushMs = HIDDEN_FLUSH_MS): TermHandle {
     selection: () => t.selection(),
     paste: (text) => t.paste(text),
     registerLinkFinder: (find) => t.registerLinkFinder(find),
+    onLinkHint: (fn) => t.onLinkHint(fn),
     screen: () => t.screen(),
     geometry: () => t.geometry(),
     onParsed: (fn) => t.onParsed(fn),
@@ -518,6 +526,8 @@ async function createGhostty(host: HTMLElement, colors: TerminalColors, prefs: T
   keepLastColumn(t);
   oneReadPerFrame(t);
   const frames = drawOnDemand(t, host, prefs.cursorBlink);
+  const { openUrl } = await import("@/lib/open-url");
+  const links = ghosttyLinks(t, host, openUrl);
   forTests(host, t);
   // Output still on its way when the terminal is replaced (a new font size,
   // ⌘+) is dropped: ghostty-web throws on a write after dispose.
@@ -576,23 +586,202 @@ async function createGhostty(host: HTMLElement, colors: TerminalColors, prefs: T
     // Without the frame loop (a ghostty-web that changed inside), a frame
     // is assumed a moment after output.
     onDrawn: (fn) => (frames ? frames.onDrawn(fn) : void parsed.push(() => requestAnimationFrame(() => requestAnimationFrame(fn)))),
-    registerLinkFinder: (find) =>
-      t.registerLinkProvider({
-        provideLinks(y, callback) {
-          const text = t.buffer.active.getLine(y)?.translateToString(true) ?? "";
-          const links = find(text).map((l) => ({
-            text: text.slice(l.start, l.end),
-            range: { start: { x: l.start, y }, end: { x: l.end - 1, y } },
-            activate: (e: MouseEvent) => l.activate(e),
-          }));
-          callback(links.length ? links : undefined);
-        },
-      }),
+    registerLinkFinder: (find) => links.addFinder(find),
+    onLinkHint: (fn) => links.onHint(fn),
     dispose: () => {
       disposed = true;
+      links.dispose();
       frames?.dispose();
       t.dispose();
       hung.release();
+    },
+  };
+}
+
+// The parts of ghostty-web 0.4 its links go through: the link detector,
+// which asks each provider for a row's links when the pointer is over it
+// and runs the one under a click (activate) on any click, and the rows'
+// cells.
+interface GhosttyLink {
+  text: string;
+  range: { start: { x: number; y: number }; end: { x: number; y: number } };
+  activate(e: MouseEvent): void;
+  hover?(hovered: boolean): void;
+}
+interface GhosttyLinkProvider {
+  provideLinks(y: number, callback: (links: GhosttyLink[] | undefined) => void): void;
+}
+interface GhosttyCell {
+  getChars(): string;
+  getHyperlinkId(): number;
+}
+interface GhosttyRow {
+  length: number;
+  getCell(x: number): GhosttyCell | undefined;
+}
+interface GhosttyLinks {
+  write(data: string | Uint8Array, callback?: () => void): void;
+  linkDetector?: { providers?: GhosttyLinkProvider[]; invalidateCache?(): void };
+  buffer: { active: { getLine(y: number): GhosttyRow | undefined } };
+  renderer?: { getCanvas?(): HTMLCanvasElement };
+  registerLinkProvider(p: GhosttyLinkProvider): void;
+}
+
+// rowText is a row's text with one character per cell, so that a match's
+// place in it is a column: an empty cell (erased, the right half of a wide
+// character) reads as a space, where translateToString leaves it out.
+function rowText(row: GhosttyRow): string {
+  let s = "";
+  for (let x = 0; x < row.length; x++) {
+    const c = row.getCell(x)?.getChars() ?? "";
+    // One UTF-16 unit per cell; an astral character (an emoji) is a space.
+    s += c.length === 1 ? c : " ";
+  }
+  return s;
+}
+
+// ghosttyLinks makes a terminal's links open with ⌘-click (Ctrl-click off
+// a Mac), as in Terminal, iTerm2 and Ghostty, and says so.
+//
+// ghostty-web 0.4 found web addresses and OSC 8 hyperlinks itself and
+// opened them with window.open on ⌘-click, but it underlined a link and
+// showed the pointing hand on a plain hover, where a plain click does
+// nothing: links looked clickable and weren't. Its OSC 8 links never
+// opened at all (it can't read their address back from its WASM, so they
+// had none). Here its providers are replaced: addresses are found per cell,
+// OSC 8 addresses are read from the output (lib/term-links), and both open
+// through openUrl, the system browser in the app. The hand shows only while
+// ⌘ is held; without it, resting on a link shows how to open it (onHint).
+function ghosttyLinks(term: object, host: HTMLElement, openUrl: (url: string) => Promise<void>) {
+  const t = term as GhosttyLinks;
+  const tracker = new HyperlinkTracker();
+  const providers = t.linkDetector?.providers;
+  const canvas = t.renderer?.getCanvas?.();
+  const hints = new Set<(at: { x: number; y: number } | null) => void>();
+  let hovered: { key: string; link: GhosttyLink } | undefined;
+  let held = false;
+  let at: { x: number; y: number } | null = null;
+  let hintKey = "";
+  let hintTimer = 0;
+
+  const say = (to: { x: number; y: number } | null) => {
+    for (const fn of hints) fn(to);
+  };
+  const sync = () => {
+    if (canvas && providers) canvas.style.cursor = hovered && held ? "pointer" : "text";
+    const key = hovered && !held && at ? hovered.key : "";
+    if (key === hintKey) return;
+    hintKey = key;
+    window.clearTimeout(hintTimer);
+    say(null);
+    // As long as a tooltip waits (components/tip), so sweeping across the
+    // screen doesn't flash one at every link.
+    if (key) hintTimer = window.setTimeout(() => hintKey === key && at && say(at), 300);
+  };
+  // A link hovers and leaves through ghostty-web (hover); the same link
+  // found again after output (a new object) is the same link here.
+  const watched = (link: GhosttyLink): GhosttyLink => {
+    const key = `${link.range.start.y}:${link.range.start.x}:${link.range.end.y}:${link.range.end.x}:${link.text}`;
+    return {
+      ...link,
+      // ghostty-web leaves the old link before it enters the new one: the
+      // pair settles before anything changes on screen.
+      hover(on) {
+        if (on) hovered = { key, link };
+        else if (hovered?.link === link) hovered = undefined;
+        queueMicrotask(sync);
+      },
+    };
+  };
+  const provider = (find: (row: GhosttyRow, y: number) => GhosttyLink[]): GhosttyLinkProvider => ({
+    provideLinks(y, callback) {
+      const row = t.buffer.active.getLine(y);
+      const links = row ? find(row, y).map(watched) : [];
+      callback(links.length ? links : undefined);
+    },
+  });
+  const open = (uri: string) => (e: MouseEvent) => {
+    if (modKey(e) && openable(uri)) void openUrl(uri);
+  };
+  const urls = provider((row, y) =>
+    findUrls(rowText(row)).map((m) => ({ text: m.url, range: { start: { x: m.start, y }, end: { x: m.end - 1, y } }, activate: open(m.url) })),
+  );
+  // Each run of cells in one OSC 8 hyperlink, by the address its text had.
+  const osc8 = provider((row, y) => {
+    const text = rowText(row);
+    const out: GhosttyLink[] = [];
+    for (let x = 0; x < row.length; ) {
+      const id = row.getCell(x)?.getHyperlinkId() ?? 0;
+      let end = x + 1;
+      while (end < row.length && (row.getCell(end)?.getHyperlinkId() ?? 0) === id) end++;
+      const uri = id ? tracker.uriFor(text.slice(x, end)) : undefined;
+      if (uri && openable(uri)) out.push({ text: uri, range: { start: { x, y }, end: { x: end - 1, y } }, activate: open(uri) });
+      x = end;
+    }
+    return out;
+  });
+  // ghostty-web caches each row's links, keyed by the hyperlink a link
+  // starts in when it does: providers later in the list win there, so an
+  // OSC 8 link's own address beats an address its text shows.
+  if (providers) {
+    providers.splice(0, providers.length, urls, osc8);
+    t.linkDetector?.invalidateCache?.();
+    // Everything the terminal is given, read for OSC 8 on the way in.
+    const write = t.write.bind(t);
+    t.write = (data, callback) => {
+      tracker.feed(data);
+      write(data, callback);
+    };
+  }
+
+  const onMove = (e: MouseEvent) => {
+    at = { x: e.clientX, y: e.clientY };
+    held = modKey(e);
+    sync();
+  };
+  const onLeave = () => {
+    at = null;
+    sync();
+  };
+  const onKey = (e: KeyboardEvent) => {
+    if (held === modKey(e)) return;
+    held = modKey(e);
+    sync();
+  };
+  const onBlur = () => {
+    held = false;
+    sync();
+  };
+  const opts = { capture: true, passive: true } as const;
+  host.addEventListener("mousemove", onMove, opts);
+  host.addEventListener("mouseleave", onLeave, opts);
+  window.addEventListener("keydown", onKey, opts);
+  window.addEventListener("keyup", onKey, opts);
+  window.addEventListener("blur", onBlur);
+  sync();
+
+  return {
+    // A finder's links (file paths) go before the OSC 8 ones.
+    addFinder(find: LinkFinder) {
+      const p = provider((row, y) => {
+        const text = rowText(row);
+        return find(text.trimEnd()).map((l) => ({ text: text.slice(l.start, l.end), range: { start: { x: l.start, y }, end: { x: l.end - 1, y } }, activate: (e: MouseEvent) => l.activate(e) }));
+      });
+      if (!providers) return t.registerLinkProvider(p);
+      providers.splice(providers.indexOf(osc8), 0, p);
+      t.linkDetector?.invalidateCache?.();
+    },
+    onHint(fn: (at: { x: number; y: number } | null) => void) {
+      hints.add(fn);
+    },
+    dispose() {
+      window.clearTimeout(hintTimer);
+      hints.clear();
+      host.removeEventListener("mousemove", onMove, opts);
+      host.removeEventListener("mouseleave", onLeave, opts);
+      window.removeEventListener("keydown", onKey, opts);
+      window.removeEventListener("keyup", onKey, opts);
+      window.removeEventListener("blur", onBlur);
     },
   };
 }
@@ -620,6 +809,10 @@ async function createXterm(host: HTMLElement, colors: TerminalColors, prefs: Ter
     macOptionIsMeta: true,
     allowProposedApi: true,
     theme: theme(colors),
+    // OSC 8 hyperlinks open like the addresses below. Without a handler,
+    // xterm.js asks with confirm() and then opens a blank window.open(),
+    // neither of which the app's webview does.
+    linkHandler: { activate: (_e, uri) => void (openable(uri) && openUrl(uri)) },
   });
   const fit = new FitAddon();
   t.loadAddon(fit);
@@ -674,6 +867,7 @@ async function createXterm(host: HTMLElement, colors: TerminalColors, prefs: Ter
           callback(links.length ? links : undefined);
         },
       }),
+    onLinkHint: () => {},
     dispose: () => t.dispose(),
   };
 }
