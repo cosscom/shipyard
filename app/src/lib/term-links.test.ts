@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { findUrls, HyperlinkTracker, openable } from "./term-links.ts";
+import { continues, findUrls, HyperlinkTracker, joinRows, linksAround, openable, type Rows } from "./term-links.ts";
 
 const urls = (line: string) => findUrls(line).map((m) => [m.url, line.slice(m.start, m.end)]);
 
@@ -70,4 +70,77 @@ test("output without hyperlinks leaves nothing behind", () => {
   h.feed(new TextEncoder().encode("plain \x1b[32mgreen\x1b[0m"));
   assert.equal(h.uriFor("bold"), undefined);
   assert.equal(h.uriFor("https://example.com"), undefined);
+});
+
+// A screen of `cols` columns, each row padded to the full width as the
+// terminal's cells are; wrapped lists the rows the terminal soft-wrapped.
+function screen(cols: number, lines: string[], wrapped: number[] = []): Rows {
+  const rows = lines.map((l) => l.padEnd(cols, " "));
+  return { text: (y) => rows[y], wrapped: (y) => wrapped.includes(y) };
+}
+
+// A line cut into rows of `cols`, as a terminal wraps it.
+function cut(line: string, cols: number): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < line.length; i += cols) out.push(line.slice(i, i + cols));
+  return out;
+}
+
+const SIGN_IN =
+  "https://auth.openai.com/oauth/authorize?response_type=code&client_id=app_acme0123456789&redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback" +
+  "&scope=openid%20profile%20email%20offline_access&code_challenge=Zm9vYmFyYmF6cXV4cXV1eGZvb2JhcmJhenF1eHF1dXg&code_challenge_method=S256" +
+  "&id_token_add_organizations=true&codex_cli_simplified_flow=true&state=c3RhdGVzdGF0ZXN0YXRlc3RhdGVzdGF0ZXN0YXRlcw";
+
+const urlsAt = (rows: Rows, y: number) => linksAround(rows, y, findUrls).map((l) => ({ url: l.match.url, ...l.span }));
+
+test("an address the terminal wrapped is found whole from any of its rows", () => {
+  const lines = ["If your browser did not open, go to:", ...cut(SIGN_IN, 80), "", "Waiting for sign-in"];
+  const last = lines.length - 3;
+  assert.ok(last >= 4, "the address takes four rows or more");
+  const rows = screen(80, lines, Array.from({ length: last - 1 }, (_, i) => i + 1));
+  for (let y = 1; y <= last; y++) {
+    assert.deepEqual(urlsAt(rows, y), [{ url: SIGN_IN, start: { x: 0, y: 1 }, end: { x: (SIGN_IN.length - 1) % 80, y: last } }], `from row ${y}`);
+  }
+  assert.deepEqual(urlsAt(rows, 0), []);
+  assert.deepEqual(urlsAt(rows, last + 2), []);
+});
+
+test("an address tmux redrew row by row, with no wrap marked, is found whole", () => {
+  // tmux puts each row with the cursor: the outer terminal never wraps,
+  // so only the text says the rows go on.
+  const lines = ["  Sign in at " + SIGN_IN.slice(0, 27), ...cut(SIGN_IN.slice(27), 40), "", "> "];
+  const rows = screen(40, lines);
+  const last = lines.length - 3;
+  for (let y = 0; y <= last; y++) {
+    assert.deepEqual(urlsAt(rows, y), [{ url: SIGN_IN, start: { x: 13, y: 0 }, end: { x: (SIGN_IN.length - 27 - 1) % 40, y: last } }], `from row ${y}`);
+  }
+  // The device code link from a CLI's sign-in, at a narrow width.
+  const fx = screen(24, ["Open https://vercel.com/", "oauth/device?user_code=L", "NWD-GLJB to sign in"]);
+  for (const y of [0, 1, 2]) assert.deepEqual(urlsAt(fx, y).map((l) => l.url), ["https://vercel.com/oauth/device?user_code=LNWD-GLJB"]);
+});
+
+test("rows go on only when wrapped, or full to the last column into text that picks up without a space", () => {
+  assert.ok(continues("short", true, "anything"));
+  assert.ok(continues("https://example.com/a", false, "bc/d"));
+  // The next row starts with a space, or the row doesn't reach its end.
+  assert.ok(!continues("https://example.com/a", false, " next"));
+  assert.ok(!continues("https://example.com/a   ", false, "next"));
+  // A box's border is not part of an address.
+  assert.ok(!continues("see https://example.com/a", false, "│ next"));
+  assert.ok(!continues("│ https://example.com/a │", false, "more"));
+
+  // An address that ends at the last column, then an unrelated line
+  // starting with a space, then one under a row that stops short.
+  const ends = "Opened https://example.com/acme/pull/47";
+  const rows = screen(ends.length, [ends, "  next line", "short", "https://example.com/b"]);
+  assert.deepEqual(urlsAt(rows, 0), [{ url: "https://example.com/acme/pull/47", start: { x: 7, y: 0 }, end: { x: ends.length - 1, y: 0 } }]);
+  assert.equal(joinRows(rows, 1)?.texts.length, 1);
+  assert.deepEqual(urlsAt(rows, 3), [{ url: "https://example.com/b", start: { x: 0, y: 3 }, end: { x: 20, y: 3 } }]);
+});
+
+test("a run of rows is followed only so far", () => {
+  const rows = screen(10, Array.from({ length: 200 }, () => "a".repeat(10)));
+  const line = joinRows(rows, 100)!;
+  assert.ok(line.texts.length <= 32);
+  assert.ok(line.first <= 100 && line.first + line.texts.length > 100);
 });

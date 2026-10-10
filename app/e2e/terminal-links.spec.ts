@@ -147,6 +147,147 @@ test("⌘-click opens a web address and an OSC 8 link in a terminal; resting on 
   expect(await opened(page)).toHaveLength(2);
 });
 
+const HOST = "[data-testid=pane][data-pane-kind=terminal] [data-terminal] > div";
+type Ghostty = Term & { renderer: NonNullable<Term["renderer"]> & { hoveredLinkRange: unknown } };
+
+// The middle of the cell at column x of buffer row y, in the page's
+// coordinates (ghostty-web, with no history above the screen).
+function cellAt(page: Page, x: number, y: number) {
+  return page.evaluate(
+    ({ x, y, host }) => {
+      const t = (document.querySelector(host) as HTMLElement & { __berthTerm: Ghostty }).__berthTerm;
+      const rect = t.renderer.getCanvas().getBoundingClientRect();
+      return { x: rect.left + (x + 0.5) * t.renderer.charWidth, y: rect.top + (y + 0.5) * t.renderer.charHeight };
+    },
+    { x, y, host: HOST },
+  );
+}
+
+const cols = (page: Page) => page.evaluate((host) => (document.querySelector(host) as HTMLElement & { __berthTerm: Term }).__berthTerm.cols, HOST);
+
+const write = (page: Page, out: string) => page.evaluate(({ out, host }) => (document.querySelector(host) as HTMLElement & { __berthTerm: Term }).__berthTerm.write(out), { out, host: HOST });
+
+// The cells the link under the pointer covers, as ghostty-web underlines
+// them.
+const hovered = (page: Page) => page.evaluate((host) => (document.querySelector(host) as HTMLElement & { __berthTerm: Ghostty }).__berthTerm.renderer.hoveredLinkRange, HOST);
+
+// A ChatGPT sign-in address as Codex prints it, long enough to take three
+// rows or more of a pane `cols` wide after two spaces, ending short of a
+// row's end.
+function signIn(cols: number) {
+  let url =
+    "https://auth.openai.com/oauth/authorize?response_type=code&client_id=app_acme0123456789&redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback" +
+    "&scope=openid%20profile%20email%20offline_access&code_challenge=Zm9vYmFyYmF6cXV4cXV1eGZvb2JhcmJhenF1eHF1dXg&code_challenge_method=S256" +
+    "&id_token_add_organizations=true&codex_cli_simplified_flow=true&state=c3RhdGVzdGF0ZXN0YXRlc3RhdGVzdGF0ZXN0YXRlcw";
+  while (2 + url.length < cols * 2 + 10 || (2 + url.length) % cols === 0) url += "Q";
+  return url;
+}
+
+const SCREEN = "\x1b[?1049h\x1b[H\x1b[2J";
+const HEADING = "Sign in with ChatGPT. If your browser did not open, go to:";
+
+// The address over its rows, as the terminal wraps it ("soft") or as tmux
+// redraws it, each row put with the cursor so nothing is marked wrapped.
+function signInScreen(url: string, cols: number, how: "soft" | "tmux") {
+  const line = "  " + url;
+  const rows = Math.ceil(line.length / cols);
+  if (how === "soft") return { rows, out: `${SCREEN}${HEADING}\r\n${line}\r\n\r\nWaiting for sign-in` };
+  let out = `${SCREEN}\x1b[?2026h\x1b[1;1H${HEADING}`;
+  for (let i = 0; i < rows; i++) out += `\x1b[${i + 2};1H${line.slice(i * cols, (i + 1) * cols)}`;
+  out += `\x1b[${rows + 3};1HWaiting for sign-in\x1b[?2026l`;
+  return { rows, out };
+}
+
+for (const how of ["soft", "tmux"] as const) {
+  test(`a sign-in address over several rows opens whole from any of them (${how === "soft" ? "wrapped by the terminal" : "redrawn by tmux"})`, async ({ app }) => {
+    mockOnly("writes to the mock's terminal");
+    const page = app.page;
+    await recordOpens(page);
+    await app.open();
+    await openShell(page);
+    const n = await cols(page);
+    const url = signIn(n);
+    const { rows, out } = signInScreen(url, n, how);
+    expect(rows).toBeGreaterThanOrEqual(3);
+    await write(page, out);
+    await expect.poll(() => screenText(page)).toContain("Waiting for sign-in");
+    const pane = page.locator("[data-testid=pane][data-pane-kind=terminal]:visible");
+    const hint = pane.getByTestId("terminal-link-hint");
+
+    // Resting on its second row: the whole address is the link, and the
+    // hint says how to open it.
+    const second = await cellAt(page, Math.floor(n / 2), 2);
+    await page.mouse.move(second.x, second.y);
+    await expect(hint).toHaveText("⌘-click to open");
+    await expect.poll(() => hovered(page)).toEqual({ startX: 2, startY: 1, endX: (url.length + 1) % n, endY: rows });
+    // A plain click opens nothing.
+    await page.mouse.click(second.x, second.y);
+
+    // ⌘-click on its third row opens all of it.
+    const third = await cellAt(page, 1, 3);
+    await page.mouse.move(third.x, third.y);
+    await cmdClick(page, third);
+    await expect.poll(() => opened(page)).toEqual([url]);
+
+    // The rows around it are not part of it.
+    await cmdClick(page, await cellAt(page, 3, 0));
+    await cmdClick(page, await cellAt(page, 3, rows + 2));
+    await cmdClick(page, await cellAt(page, 1, 3));
+    await expect.poll(() => opened(page)).toEqual([url, url]);
+  });
+}
+
+test("a device sign-in address wrapped in a narrow pane opens from both rows", async ({ app }) => {
+  mockOnly("writes to the mock's terminal");
+  const page = app.page;
+  await page.setViewportSize({ width: 760, height: 700 });
+  await recordOpens(page);
+  await app.open();
+  await openShell(page);
+  const n = await cols(page);
+  const url = "https://vercel.com/oauth/device?user_code=LNWD-GLJB";
+  // The address crosses the right edge, 17 characters on the next row.
+  const at = n - (url.length - 17);
+  await write(page, `${SCREEN}${" ".repeat(at - 6)}Visit ${url} to sign in`);
+  await expect.poll(() => screenText(page)).toContain("GLJB to sign in");
+  expect(await screenText(page)).not.toContain(url);
+
+  await cmdClick(page, await cellAt(page, 3, 1));
+  await expect.poll(() => opened(page)).toEqual([url]);
+  await cmdClick(page, await cellAt(page, at + 2, 0));
+  await expect.poll(() => opened(page)).toEqual([url, url]);
+});
+
+test("an OSC 8 link whose text wraps opens its address from every row", async ({ app }) => {
+  mockOnly("writes to the mock's terminal");
+  const page = app.page;
+  await recordOpens(page);
+  await app.open();
+  await openShell(page);
+  const n = await cols(page);
+  const uri = "https://example.com/acme/sign-in";
+  const label = "Sign in to acme in your browser ".repeat(Math.ceil((n * 2) / 32)).trim();
+  // As a program prints it, and as tmux redraws it: the hyperlink again on
+  // each row it puts with the cursor.
+  await write(page, `${SCREEN}\x1b]8;;${uri}\x1b\\${label}\x1b]8;;\x1b\\\r\n`);
+  await expect.poll(() => screenText(page)).toContain("Sign in to acme");
+  await cmdClick(page, await cellAt(page, 4, 1));
+  await expect.poll(() => opened(page)).toEqual([uri]);
+  await cmdClick(page, await cellAt(page, 4, 0));
+  await expect.poll(() => opened(page)).toEqual([uri, uri]);
+
+  const other = "https://example.com/acme/sign-in?via=tmux";
+  const text = "Open the acme sign-in page here ".repeat(Math.ceil((n * 2) / 32)).trim();
+  let tmux = SCREEN;
+  for (let i = 0; i * n < text.length; i++) tmux += `\x1b[${i + 1};1H\x1b]8;id=tmux2;${other}\x1b\\${text.slice(i * n, (i + 1) * n)}`;
+  await write(page, `${tmux}\x1b]8;;\x1b\\`);
+  await expect.poll(() => screenText(page)).toContain("Open the acme");
+  await cmdClick(page, await cellAt(page, 4, 1));
+  await expect.poll(() => opened(page)).toEqual([uri, uri, other]);
+  await cmdClick(page, await cellAt(page, 4, 0));
+  await expect.poll(() => opened(page)).toEqual([uri, uri, other, other]);
+});
+
 test("in xterm.js, a web address and an OSC 8 link open too", async ({ app }) => {
   mockOnly("writes to the mock's terminal");
   const page = app.page;

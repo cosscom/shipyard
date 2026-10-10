@@ -37,6 +37,97 @@ export function findUrls(line: string): UrlMatch[] {
   return out;
 }
 
+// A terminal's rows as lib/terminal reads them, for links that run on from
+// one row to the next: text has one character per cell (so a place in it
+// is a column), and wrapped says the terminal soft-wrapped the row onto
+// the next one, where it knows.
+export interface Rows {
+  text(y: number): string | undefined;
+  wrapped(y: number): boolean;
+}
+
+// A link's cells, first to last (inclusive), over one row or several.
+export interface Span {
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+}
+
+// How far a line is followed across rows: a long sign-in address is a few
+// hundred characters, a few rows to a dozen in a narrow pane.
+const MAX_JOIN_ROWS = 32;
+const MAX_JOIN_CHARS = 4096;
+
+// What may be either side of the break in an address that runs on to the
+// next row: the letters, digits and punctuation addresses and paths are
+// made of. A box's border (│), a space or a quote is not.
+const RUNS_ON = /^[\p{L}\p{N}\-._~:/?#[\]@!$&()*+,;=%]$/u;
+
+// continues says whether a row's text goes on in the next row. Either the
+// terminal wrapped it there, or, as when tmux redraws a long line row by
+// row with the cursor (the terminal never wraps it, so it isn't marked),
+// the row is full to its last column and the next one picks up without a
+// space: "…state=ab" then "cd…" is one address, "…/pull/47" then " next"
+// or "…/47   " then "next" is not.
+export function continues(row: string, wrapped: boolean, next: string): boolean {
+  if (wrapped) return true;
+  return RUNS_ON.test(row.at(-1) ?? "") && RUNS_ON.test(next[0] ?? "");
+}
+
+// joinRows is the line row y is part of: the rows before it that run on
+// into it, it, and the rows it runs on into, as far as the limits go.
+export function joinRows(rows: Rows, y: number): { first: number; texts: string[] } | undefined {
+  const here = rows.text(y);
+  if (here === undefined) return undefined;
+  const texts = [here];
+  let size = here.length;
+  let first = y;
+  while (texts.length < MAX_JOIN_ROWS && first > 0) {
+    const prev = rows.text(first - 1);
+    if (prev === undefined || size + prev.length > MAX_JOIN_CHARS || !continues(prev, rows.wrapped(first - 1), texts[0])) break;
+    texts.unshift(prev);
+    size += prev.length;
+    first--;
+  }
+  for (let last = y; texts.length < MAX_JOIN_ROWS; last++) {
+    const next = rows.text(last + 1);
+    if (next === undefined || size + next.length > MAX_JOIN_CHARS || !continues(texts[texts.length - 1], rows.wrapped(last), next)) break;
+    texts.push(next);
+    size += next.length;
+  }
+  return { first, texts };
+}
+
+// spanOf places start..end (end exclusive) of a joined line back on its
+// rows.
+export function spanOf(first: number, texts: string[], start: number, end: number): Span {
+  const at = (i: number) => {
+    let y = first;
+    for (const t of texts) {
+      if (i < t.length || y === first + texts.length - 1) return { x: i, y };
+      i -= t.length;
+      y++;
+    }
+    return { x: i, y };
+  };
+  return { start: at(start), end: at(Math.max(start, end - 1)) };
+}
+
+// linksAround finds links in the line row y is part of, joined across the
+// rows it runs on over, and gives the ones with a cell on row y, each with
+// its place on the rows. find gets the joined text, as one line.
+export function linksAround<M extends { start: number; end: number }>(rows: Rows, y: number, find: (line: string) => M[]): { match: M; text: string; span: Span }[] {
+  const line = joinRows(rows, y);
+  if (!line) return [];
+  const joined = line.texts.join("");
+  const out: { match: M; text: string; span: Span }[] = [];
+  for (const m of find(joined)) {
+    if (m.end <= m.start) continue;
+    const span = spanOf(line.first, line.texts, m.start, m.end);
+    if (span.start.y <= y && span.end.y >= y) out.push({ match: m, text: joined.slice(m.start, m.end), span });
+  }
+  return out;
+}
+
 function count(s: string, c: string): number {
   let n = 0;
   for (const x of s) if (x === c) n++;

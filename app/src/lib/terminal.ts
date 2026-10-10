@@ -1,7 +1,7 @@
 import type { TerminalColors } from "@/lib/api";
 import { modKey } from "./platform.ts";
 import type { PredictMode, Screen } from "./predict.ts";
-import { findUrls, HyperlinkTracker, openable } from "./term-links.ts";
+import { findUrls, HyperlinkTracker, linksAround, openable, type Rows } from "./term-links.ts";
 import { HIDDEN_FLUSH_MS, OutputGate } from "./term-output.ts";
 
 // One small interface over the terminal emulator, so the renderer can be
@@ -617,6 +617,11 @@ interface GhosttyCell {
 }
 interface GhosttyRow {
   length: number;
+  // That this row goes on from the one above, which the terminal
+  // soft-wrapped onto it (as in xterm.js; ghostty-web 0.4's own docs say
+  // "wraps to the next line", but it reads the row's continuation). Rows
+  // of the screen only: one in the history always says false.
+  isWrapped?: boolean;
   getCell(x: number): GhosttyCell | undefined;
 }
 interface GhosttyLinks {
@@ -693,29 +698,79 @@ function ghosttyLinks(term: object, host: HTMLElement, openUrl: (url: string) =>
       },
     };
   };
-  const provider = (find: (row: GhosttyRow, y: number) => GhosttyLink[]): GhosttyLinkProvider => ({
+  // The rows a provider reads, each read once per question. An address
+  // that runs on over several rows (a sign-in link hundreds of characters
+  // long) is found whole, from any of its rows (lib/term-links joinRows).
+  const reader = () => {
+    const lines = new Map<number, GhosttyRow | undefined>();
+    const texts = new Map<number, string | undefined>();
+    const line = (y: number) => {
+      if (!lines.has(y)) lines.set(y, y < 0 ? undefined : t.buffer.active.getLine(y));
+      return lines.get(y);
+    };
+    const rows: Rows & { line(y: number): GhosttyRow | undefined } = {
+      line,
+      text(y) {
+        if (!texts.has(y)) {
+          const row = line(y);
+          texts.set(y, row && rowText(row));
+        }
+        return texts.get(y);
+      },
+      wrapped: (y) => line(y + 1)?.isWrapped === true,
+    };
+    return rows;
+  };
+  const provider = (find: (rows: ReturnType<typeof reader>, y: number) => GhosttyLink[]): GhosttyLinkProvider => ({
     provideLinks(y, callback) {
-      const row = t.buffer.active.getLine(y);
-      const links = row ? find(row, y).map(watched) : [];
+      const rows = reader();
+      const links = rows.line(y) ? find(rows, y).map(watched) : [];
       callback(links.length ? links : undefined);
     },
   });
   const open = (uri: string) => (e: MouseEvent) => {
     if (modKey(e) && openable(uri)) void openUrl(uri);
   };
-  const urls = provider((row, y) =>
-    findUrls(rowText(row)).map((m) => ({ text: m.url, range: { start: { x: m.start, y }, end: { x: m.end - 1, y } }, activate: open(m.url) })),
-  );
+  const urls = provider((rows, y) => linksAround(rows, y, findUrls).map(({ match, span }) => ({ text: match.url, range: span, activate: open(match.url) })));
   // Each run of cells in one OSC 8 hyperlink, by the address its text had.
-  const osc8 = provider((row, y) => {
-    const text = rowText(row);
+  // A run that fills a row to its end and goes on at the start of the next
+  // row in the same hyperlink is one link over both.
+  const osc8 = provider((rows, y) => {
+    const row = rows.line(y)!;
+    const id = (r: GhosttyRow | undefined, x: number) => r?.getCell(x)?.getHyperlinkId() ?? 0;
     const out: GhosttyLink[] = [];
     for (let x = 0; x < row.length; ) {
-      const id = row.getCell(x)?.getHyperlinkId() ?? 0;
+      const h = id(row, x);
       let end = x + 1;
-      while (end < row.length && (row.getCell(end)?.getHyperlinkId() ?? 0) === id) end++;
-      const uri = id ? tracker.uriFor(text.slice(x, end)) : undefined;
-      if (uri && openable(uri)) out.push({ text: uri, range: { start: { x, y }, end: { x: end - 1, y } }, activate: open(uri) });
+      while (end < row.length && id(row, end) === h) end++;
+      if (h) {
+        const start = { x, y };
+        const own = rows.text(y)!.slice(x, end);
+        let text = own;
+        for (let n = 0; start.x === 0 && n < 32; n++) {
+          const prev = rows.line(start.y - 1);
+          if (!prev?.length || id(prev, prev.length - 1) !== h) break;
+          let from = prev.length - 1;
+          while (from > 0 && id(prev, from - 1) === h) from--;
+          text = rows.text(start.y - 1)!.slice(from) + text;
+          start.y--;
+          start.x = from;
+        }
+        const last = { x: end - 1, y };
+        for (let n = 0; last.x === row.length - 1 && n < 32; n++) {
+          const next = rows.line(last.y + 1);
+          if (!next?.length || id(next, 0) !== h) break;
+          let to = 1;
+          while (to < next.length && id(next, to) === h) to++;
+          text += rows.text(last.y + 1)!.slice(0, to);
+          last.y++;
+          last.x = to - 1;
+        }
+        // tmux sends the hyperlink again on each row it redraws, so the
+        // text it was sent with can be just this row's piece.
+        const uri = tracker.uriFor(text) ?? tracker.uriFor(own);
+        if (uri && openable(uri)) out.push({ text: uri, range: { start, end: last }, activate: open(uri) });
+      }
       x = end;
     }
     return out;
@@ -763,10 +818,9 @@ function ghosttyLinks(term: object, host: HTMLElement, openUrl: (url: string) =>
   return {
     // A finder's links (file paths) go before the OSC 8 ones.
     addFinder(find: LinkFinder) {
-      const p = provider((row, y) => {
-        const text = rowText(row);
-        return find(text.trimEnd()).map((l) => ({ text: text.slice(l.start, l.end), range: { start: { x: l.start, y }, end: { x: l.end - 1, y } }, activate: (e: MouseEvent) => l.activate(e) }));
-      });
+      const p = provider((rows, y) =>
+        linksAround(rows, y, (line) => find(line.trimEnd())).map(({ match, text, span }) => ({ text, range: span, activate: (e: MouseEvent) => match.activate(e) })),
+      );
       if (!providers) return t.registerLinkProvider(p);
       providers.splice(providers.indexOf(osc8), 0, p);
       t.linkDetector?.invalidateCache?.();
