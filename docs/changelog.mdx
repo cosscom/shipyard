@@ -17,6 +17,9 @@ again.
   app.** Opening `http://localhost:3000` before its dev server started closed
   Shipyard half a second later, and again on every launch after, since the
   tab came back.
+- **The laptop agent is lighter per request.** Proxied pages, port forwards
+  and calls to your boxes allocate a fraction of what they did, and the kits
+  and team suggestions ask all your boxes at once.
 - **Shipyard opens faster.** It now loads four files before it first paints
   instead of about three hundred, and settings, dialogs and the browser pane
   load just after start. In our tests, the window drew in about a fifth of the
@@ -32,9 +35,6 @@ again.
   poll takes about a quarter of what it did.
   Opening a long conversation uses a tenth of the memory, and a cache that grew
   with every conversation now stays small.
-- **The laptop agent is lighter per request.** Proxied pages, port forwards
-  and calls to your boxes allocate a fraction of what they did, and the kits
-  and team suggestions ask all your boxes at once.
 - **The Mac app is 20% smaller.**
 
 ## v0.3.13
