@@ -42,7 +42,7 @@ var usageSections = []struct {
 		{"%[1]s services%[3]s [--json]", "Which worktree each running server belongs to"},
 		{"%[1]s service list|start|stop|restart|log %[2]sLOC/WORKTREE [SERVICE]", "A worktree's services from the repo's config"},
 		{"%[1]s preview %[2]s[LOC/WORKTREE] [PORT] [--path /x]", "Open a worktree's page in the Shipyard app"},
-		{"%[1]s worktree new %[2]sLOC/NAME [--branch B] [--base REF] [--parent NAME]", "Create a git worktree and run its setup; --parent nests it\nunder another worktree of the location"},
+		{"%[1]s worktree new %[2]sLOC/NAME [--branch B] [--base REF] [--pr N [--ref REF]] [--parent NAME]", "Create a git worktree and run its setup; --pr checks out a\npull request (BRANCH should be its head branch; a fork's head\nis fetched from REF, default pull/N/head); --parent nests it\nunder another worktree of the location"},
 		{"%[1]s worktree rm %[2]sLOC/NAME [--force]", "Remove a worktree"},
 		{"%[1]s worktree rename %[2]sLOC/NAME [TITLE]", "Give a worktree a display name (its branch and folder keep\ntheir names; no TITLE clears it)"},
 		{"%[1]s reviews%[3]s [--idle-days N] [--json]", "Pull requests opened for review here; --idle-days sets how long\none may sit unused before it is cleaned up (0: never)"},
@@ -836,10 +836,12 @@ func worktreeNew(ctx context.Context, c *box.Client, args []string, out io.Write
 	var req box.WorktreeRequest
 	fs.StringVar(&req.Branch, "branch", "", "branch to create (default: the worktree name)")
 	fs.StringVar(&req.Base, "base", "", "ref to branch from")
+	fs.IntVar(&req.PR, "pr", 0, "pull request to check out: origin's --branch if it has one, else REF")
+	fs.StringVar(&req.Ref, "ref", "", "ref holding the pull request's head (default: pull/N/head)")
 	fs.StringVar(&req.Parent, "parent", "", "another worktree of the location to nest this one under")
 	pos, err := parse(fs, args)
-	if err != nil || len(pos) != 1 {
-		return usageErr("worktree new LOC/NAME [--branch B] [--base REF] [--parent NAME]")
+	if err != nil || len(pos) != 1 || req.PR < 0 || (req.Ref != "" && req.PR == 0) {
+		return usageErr("worktree new LOC/NAME [--branch B] [--base REF] [--pr N [--ref REF]] [--parent NAME]")
 	}
 	loc, name, ok := strings.Cut(pos[0], "/")
 	if !ok || name == "" {

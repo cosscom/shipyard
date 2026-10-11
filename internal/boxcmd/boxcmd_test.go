@@ -55,6 +55,14 @@ func TestFlagsMayFollowTheReference(t *testing.T) {
 	}
 }
 
+func TestWorktreeNewChecksOutAPullRequest(t *testing.T) {
+	r, _ := run(t, `{"name":"pr-7","path":"/w/cal-pr-7","branch":"alex/fix"}`,
+		"worktree", "new", "cal/pr-7", "--pr", "7", "--branch", "alex/fix", "--ref", "pull/7/merge")
+	if r.body["pr"] != float64(7) || r.body["branch"] != "alex/fix" || r.body["ref"] != "pull/7/merge" {
+		t.Fatalf("body = %v", r.body)
+	}
+}
+
 func TestSessionNewPassesTheCommandAfterDoubleDash(t *testing.T) {
 	r, _ := run(t, `{"name":"s","dir":"/w"}`, "session", "new", "cal/billing", "--name", "fix", "--", "claude", "--resume", "--model", "x")
 	if r.body["location"] != "cal/billing" || r.body["name"] != "fix" || r.body["command"] != "claude --resume --model x" {
@@ -94,6 +102,7 @@ func TestShareUsesThePort(t *testing.T) {
 func TestUsageErrors(t *testing.T) {
 	for _, args := range [][]string{
 		{"worktree", "new", "no-slash"},
+		{"worktree", "new", "cal/x", "--ref", "pull/7/head"},
 		{"location", "add", "only-name"},
 		{"share", "not-a-port"},
 		{"emit"},

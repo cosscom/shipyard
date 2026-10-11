@@ -52,7 +52,7 @@ starts.
 | `berthd services [--json]` | Which worktree each running server belongs to |
 | `berthd service list\|start\|stop\|restart\|log LOC/WORKTREE [SERVICE]` | A worktree's services from the repo's config |
 | `berthd preview [LOC/WORKTREE] [PORT] [--path /x]` | Open a worktree's page in the Shipyard app |
-| `berthd worktree new LOC/NAME [--branch B] [--base REF] [--parent NAME]` | Create a git worktree and run its setup; `--parent` nests it under another worktree of the location |
+| `berthd worktree new LOC/NAME [--branch B] [--base REF] [--pr N [--ref REF]] [--parent NAME]` | Create a git worktree and run its setup; `--pr` checks out that pull request (pass its head branch as `--branch`; a fork's head comes from `--ref`, by default `pull/N/head`); `--parent` nests it under another worktree of the location |
 | `berthd worktree rm LOC/NAME [--force]` | Remove a worktree |
 | `berthd worktree rename LOC/NAME [TITLE]` | Give a worktree a display name (no TITLE clears it) |
 | `berthd reviews [--idle-days N] [--json]` | The [pull requests opened for review](/guides/review-a-pr) here; `--idle-days` sets how long one may sit unused before it is cleaned up (`0`: never; default 7) |

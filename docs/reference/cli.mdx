@@ -133,7 +133,7 @@ Who may be reviewed is read from GitHub with this laptop's `gh`, as you. See
 | `berth services BOX [--json]` | Which worktree each running server belongs to |
 | `berth service list\|start\|stop\|restart\|log BOX/LOC/WORKTREE [SERVICE]` | A worktree's services from the repo's config |
 | `berth preview BOX/[LOC/WORKTREE] [PORT] [--path /x]` | Open a worktree's page in the Shipyard app |
-| `berth worktree new BOX/LOC/NAME [--branch B] [--base REF] [--parent NAME]` | Create a git worktree and run its setup; `--parent` nests it under another worktree of the location |
+| `berth worktree new BOX/LOC/NAME [--branch B] [--base REF] [--pr N [--ref REF]] [--parent NAME]` | Create a git worktree and run its setup; `--pr` checks out that pull request (pass its head branch as `--branch`; a fork's head comes from `--ref`, by default `pull/N/head`); `--parent` nests it under another worktree of the location |
 | `berth worktree rm BOX/LOC/NAME [--force]` | Remove a worktree |
 | `berth worktree rename BOX/LOC/NAME [TITLE]` | Give a worktree a [display name](/concepts/projects-and-worktrees#display-names); its branch and folder keep their names, and no TITLE clears it |
 
