@@ -11,6 +11,10 @@ again.
 
 ## Unreleased
 
+- **`worktree new` can check out a pull request.** Pass `--pr N` with the
+  pull request's head branch as `--branch`, and the worktree starts on that
+  branch as origin has it. A pull request from a fork is fetched from
+  `pull/N/head`, or from the ref you give with `--ref`.
 - **Links in a terminal open with ⌘-click, and say so.** A link used to
   underline and show the pointing hand on a plain hover, where a click did
   nothing, and links a program made with its own text (OSC 8) never opened
