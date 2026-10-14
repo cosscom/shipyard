@@ -35,6 +35,13 @@ export function useSessions(box: string) {
   return useStore((s) => s.boxes[box]?.sessions);
 }
 
+// A stable snapshot of every box, for screens that span worktrees on more
+// than one machine. Consumers derive sessions from it without dynamic hooks.
+export function useFleetSessions() {
+  const boxes = useStore((s) => s.boxes);
+  return useMemo(() => Object.fromEntries(Object.entries(boxes).map(([name, box]) => [name, box.sessions ?? []])), [boxes]);
+}
+
 export function useStats(box: string) {
   return useStore((s) => s.boxes[box]?.stats);
 }

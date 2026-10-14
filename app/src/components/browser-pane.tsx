@@ -36,6 +36,8 @@ interface Props {
   id?: string;
   url: string;
   visible: boolean;
+  // Use the in-pane frame for a browser placed inside a transformed canvas.
+  preferFrame?: boolean;
   onNavigate(url: string): void;
   // The worktree (workspace key) the pane belongs to, which a typed port
   // opens on; unset, the one showing.
@@ -56,10 +58,10 @@ type Mode = "native" | "iframe";
 // http://checkout.shop.devl.localhost:1377/). In the app it is a native child
 // webview laid over the pane, so every page works as in a browser; in a plain
 // browser, or when that fails, it is an iframe.
-export function BrowserPane({ id: paneId, url, visible, onNavigate, worktree, onLoading, watch, onUnwatch }: Props) {
+export function BrowserPane({ id: paneId, url, visible, preferFrame = false, onNavigate, worktree, onLoading, watch, onUnwatch }: Props) {
   const fallbackId = useId();
   const id = useMemo(() => (paneId ?? fallbackId).replace(/[^A-Za-z0-9_-]/g, ""), [paneId, fallbackId]);
-  const [mode, setMode] = useState<Mode>(isTauri() ? "native" : "iframe");
+  const [mode, setMode] = useState<Mode>(preferFrame ? "iframe" : isTauri() ? "native" : "iframe");
   const [failure, setFailure] = useState<string>();
   const [input, setInput] = useState(url);
   const [loading, setLoading] = useState(false);

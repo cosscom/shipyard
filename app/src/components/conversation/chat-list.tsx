@@ -69,7 +69,13 @@ export function ChatList<T>({ rows, rowKey, estimate, render, header, tail, grew
     const sc = scroller;
     const el = top.current;
     if (!sc || !el) return;
-    const measure = () => setMargin(Math.round(el.getBoundingClientRect().bottom - sc.getBoundingClientRect().top + sc.scrollTop));
+    const measure = () => {
+      // DOM scroll offsets use layout pixels; rects use screen pixels and
+      // include a canvas node's zoom transform. Keep both in the same units.
+      const rect = sc.getBoundingClientRect();
+      const scale = sc.offsetHeight ? rect.height / sc.offsetHeight : 1;
+      setMargin(Math.round((el.getBoundingClientRect().bottom - rect.top) / scale + sc.scrollTop));
+    };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
@@ -141,6 +147,22 @@ export function ChatList<T>({ rows, rowKey, estimate, render, header, tail, grew
   // Following the foot: true until the person scrolls up to read.
   const pinned = useRef(true);
   const userAt = useRef(0);
+  // A canvas node can change width without a window resize. The old row
+  // measurements then describe a different line wrap, so the virtualizer can
+  // draw rows far above the visible part of a long conversation.
+  useEffect(() => {
+    const sc = scroller;
+    if (!sc) return;
+    let width = sc.clientWidth;
+    const ro = new ResizeObserver(() => {
+      if (sc.clientWidth === width) return;
+      width = sc.clientWidth;
+      v.measure();
+      if (pinned.current) requestAnimationFrame(() => { sc.scrollTop = sc.scrollHeight; });
+    });
+    ro.observe(sc);
+    return () => ro.disconnect();
+  }, [scroller, v]);
   const nearTop = useRef(onNearTop);
   nearTop.current = onNearTop;
   useEffect(() => {

@@ -1,0 +1,8 @@
+{
+  "id": "canvas",
+  "name": "Canvas",
+  "version": "0.1.0",
+  "description": "Arrange live chats, terminals and browser previews on a spatial workspace for each worktree.",
+  "main": "dist/index.js",
+  "builtin": true
+}

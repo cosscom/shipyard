@@ -12,6 +12,7 @@ Plugins: see "How the listing ships" below.
 | [git-changes](git-changes) | Worktree panel "Changes" | See what an agent changed before you trust it: files, diffs, commit and push. |
 | [diff](diff) | Worktree panel "Diff" | The branch's whole diff in one view (split or unified, vs the default branch or uncommitted), drawn with [@pierre/diffs](https://diffs.com). |
 | [pull-request](pull-request) | Worktree panel "Pull request" | The branch's PR, its checks, reviews and comments, or open one. |
+| [canvas](canvas) | Screen and sidebar item | Live chats, terminals, subagents and previews from multiple worktrees on one canvas. |
 | [dev-servers](dev-servers) | Screen, sidebar item, status bar item | Every dev server on every box, one click from a browser tab. |
 | [box-monitor](box-monitor) | Screen, sidebar item | Memory, disk and load with an hour of history, and a warning before a box runs out. |
 | [activity](activity) | Screen, sidebar item | What happened on every box while you were away. |

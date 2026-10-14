@@ -8,5 +8,5 @@ export const {
   Tooltip, TooltipTrigger, TooltipPopup, Icon, cn, ViewHeader, PluginPage,
   Frame, FramePanel, FrameHeader, FrameTitle, FrameDescription, FrameFooter, Tabs, TabsList, TabsTab, TabsPanel, Textarea, AlertDialog, AlertDialogTrigger, AlertDialogPopup, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogClose, ToggleGroup, ToggleGroupItem, Meter, MeterLabel, MeterTrack, MeterIndicator, MeterValue, Alert, AlertTitle, AlertDescription, Skeleton, Menu, MenuTrigger, MenuPopup, MenuItem, MenuGroup, MenuGroupLabel, MenuSeparator,
   Sheet, SheetPopup, SheetHeader, SheetTitle, SheetDescription, SheetPanel, SheetFooter, SheetClose, Checkbox, PickOne, BoxFilter, FilterChip, Tip, AgentPicker, AgentIcon,
-  loadDiffs, WidgetRow, WidgetEmpty, WidgetSkeleton, Chart, SqlEditor, HelperBox, useHelperState,
+  loadDiffs, WidgetRow, WidgetEmpty, WidgetSkeleton, Chart, SqlEditor, SessionSurface, HelperSurface, BrowserSurface, HelperBox, useHelperState,
 } = ui;

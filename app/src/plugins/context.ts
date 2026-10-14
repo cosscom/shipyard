@@ -8,7 +8,7 @@ import { notify } from "@/lib/notify";
 import * as orchestrate from "@/lib/orchestrate";
 import { makePromptsApi } from "@/lib/prompts-api";
 import { openUrl } from "@/lib/open-url";
-import { useStore } from "@/lib/store";
+import { scheduleRefresh, useStore } from "@/lib/store";
 import { hostSuffix, portUrl } from "@/lib/browser-url";
 import { focusSession, openBrowser, openPanel, selectWorktree } from "@/lib/workspaces";
 import { useRegistry } from "@/plugins/registry";
@@ -24,6 +24,16 @@ export function makeApi(client: Client): BerthApi {
     boxes: async () => (await client.status()).boxes,
     locations: (box) => boxApi.locations(client, box),
     sessions: (box) => boxApi.sessions(client, box),
+    startSession: async (worktree, command) => {
+      const s = await boxApi.startSession(client, worktree.box, { location: worktree.main ? worktree.location : `${worktree.location}/${worktree.worktree}`, command: command || undefined });
+      useStore.setState((st) => {
+        const box = st.boxes[worktree.box];
+        if (!box?.sessions || box.sessions.some((x) => x.name === s.name)) return st;
+        return { boxes: { ...st.boxes, [worktree.box]: { ...box, sessions: [...box.sessions, s] } } };
+      });
+      scheduleRefresh(worktree.box, ["sessions"]);
+      return s;
+    },
     stats: (box) => boxApi.stats(client, box),
     services: (box) => boxApi.services(client, box),
     info: (box) => boxApi.info(client, box),

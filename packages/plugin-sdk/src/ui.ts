@@ -110,6 +110,11 @@ export declare const Tip: ComponentType<{ label: ReactNode; side?: "top" | "bott
 export declare const AgentPicker: ComponentType<{ presets: { id: string; name: string }[]; value: string; onChange(id: string): void; allowNone?: boolean; className?: string }>;
 // AgentIcon: an agent's mark, by preset id ("claude", "codex", …).
 export declare const AgentIcon: ComponentType<{ agent?: string; className?: string }>;
+// The app's live conversation/terminal and browser views, embeddable in a
+// plugin screen. Their parent must give them a bounded height.
+export declare const SessionSurface: ComponentType<{ box: string; session: string; agent?: string; mode: "chat" | "terminal"; visible?: boolean; focused?: boolean; onModeChange?(mode: "chat" | "terminal"): void }>;
+export declare const HelperSurface: ComponentType<{ box: string; session: string; helper: string; name?: string; onClose(): void }>;
+export declare const BrowserSurface: ComponentType<{ id: string; url: string; worktree?: string; visible?: boolean; onNavigate?(url: string): void }>;
 // The strip at the top of a screen: <ViewHeader title description actions />.
 // Render it anywhere in a screen and it takes the app's strip, so the screen
 // names itself once, the way the app's own views do.

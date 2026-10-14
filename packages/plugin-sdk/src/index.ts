@@ -184,6 +184,8 @@ export interface BerthApi {
   boxes(): Promise<BoxStatus[]>;
   locations(box: string): Promise<Location[]>;
   sessions(box: string): Promise<Session[]>;
+  // Start a shell (or command) in a worktree, returning its live session.
+  startSession(worktree: CurrentWorktree, command?: string): Promise<Session>;
   stats(box: string): Promise<Stats>;
   services(box: string): Promise<Service[]>;
   info(box: string): Promise<BoxInfo>;
@@ -562,6 +564,7 @@ export declare function useBerth(): BerthPluginContext;
 export declare function useBoxes(): BoxStatus[];
 export declare function useLocations(box: string): Location[] | undefined;
 export declare function useSessions(box: string): Session[] | undefined;
+export declare function useFleetSessions(): Record<string, Session[]>;
 export declare function useStats(box: string): Stats | undefined;
 export declare function useEvent(type: string, handler: EventHandler): void;
 // The worktree a component is for: inside a pane, that pane's (a tab can
