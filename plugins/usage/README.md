@@ -29,7 +29,9 @@ The numbers come from the files each agent writes on the box. Nothing is estimat
 
 - **Input** excludes cached input. Cache reads and writes are shown separately; Codex's `input_tokens` includes its cached tokens, so the plugin subtracts them.
 - **Cost** is shown only for Claude Code, and only as Claude Code's own estimate at API list prices. On a subscription (Claude Max or Pro) the screen says the plan covers the use. Codex gets no dollar figure: it records none, and the plugin keeps no price table.
-- **Plan limits** are shown only for Codex, which writes its 5-hour and weekly windows into its transcripts. They show as "as of" the last turn Codex took. A window that has reset since says so instead of showing an old percentage. Claude Code doesn't write its limits anywhere the plugin can read, so it shows none.
+- **Plan limits** come from the agents themselves. A window that has reset since says so instead of showing an old percentage.
+  - **Codex** writes its 5-hour and weekly windows into its transcripts; they show as "as of" the last turn Codex took.
+  - **Claude Code** writes its limits nowhere, but its own `/usage` prints them. For each signed-in account the box runs `claude --print --no-session-persistence --strict-mcp-config "/usage"` (with that account's `CLAUDE_CONFIG_DIR`) from `~/.cache/berth-usage/claude-usage`, at most once every 5 minutes per account (`BERTH_USAGE_CLAUDE_LIMITS_TTL`, in seconds), and shows the session, the week and any week scoped to one model. That flag set asks no trust question, writes no transcript and starts no MCP server; each read is one request to Anthropic, as `/usage` makes. `BERTH_USAGE_CLAUDE_LIMITS=0` turns it off. A login without a subscription prints no limits and shows none. (The approach is Codenotch's, MIT.)
 
 ### How it runs on the box
 

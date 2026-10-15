@@ -140,6 +140,16 @@ function report(box: string) {
     ],
     limits: [
       {
+        agent: "claude",
+        account: "default",
+        at: at(0.02),
+        limits: {
+          primary: { used_percent: 31, window_minutes: 300, resets_at: Math.round(now.getTime() / 1000 + 2 * 3600) },
+          secondary: { used_percent: 64, window_minutes: 10080, resets_at: Math.round(now.getTime() / 1000 + 3 * 86400) },
+          extra: [{ used_percent: 32, window_minutes: 10080, resets_at: Math.round(now.getTime() / 1000 + 3 * 86400), label: "Weekly limit (Fable)" }],
+        },
+      },
+      {
         agent: "codex",
         account: "default",
         at: at(gpu ? 5 : 0.05),
