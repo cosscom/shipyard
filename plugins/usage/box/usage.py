@@ -1,6 +1,7 @@
 """Usage and accounts for the Usage plugin, run on a box through exec.
 
-  usage.py report [DAYS]      token usage from Claude Code and Codex transcripts
+  usage.py report [DAYS]      token usage from Claude Code and Codex transcripts,
+                              and their plan limits (Claude Code's from /usage)
   usage.py accounts           logins per agent, and which one each session uses
   usage.py mkaccount AGENT NAME   an empty account folder to sign in to
 
@@ -141,6 +142,130 @@ def mkaccount(agent, name):
     d.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(d, 0o700)
     return {"agent": agent, "id": name, "dir": str(d)}
+
+
+# --- Claude Code's plan limits -----------------------------------------------
+
+# Claude Code writes its limits nowhere on disk, but its own `/usage` prints
+# them, off the login the CLI already holds:
+#
+#   Current session: 31% used · resets Oct 15 at 3:30am (Asia/Saigon)
+#   Current week (all models): 64% used · resets Oct 19 at 8am (Asia/Saigon)
+#   Current week (Fable): 32% used · resets Oct 19 at 8am (Asia/Saigon)
+#
+# --print skips the workspace-trust question, --no-session-persistence the
+# transcript, --strict-mcp-config every MCP server. Run from one folder of its
+# own, so Claude Code files no project for each read. (After Codenotch's
+# ClaudeUsageCLI, MIT.)
+CLAUDE_LIMITS_CACHE = HOME / ".cache" / "berth-usage" / "claude-limits.json"
+CLAUDE_LIMITS_TTL = float(os.environ.get("BERTH_USAGE_CLAUDE_LIMITS_TTL", "300"))
+CLAUDE_USAGE_ARGS = ["--print", "--no-session-persistence", "--strict-mcp-config", "/usage"]
+LIMIT_LINE = re.compile(r"^Current (?:(session)|week \(([^)]+)\)):\s*(\d+(?:\.\d+)?)%\s*used(?:\s*·\s*resets\s*(.+?))?\s*$", re.M)
+MONTHS = {m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
+RESET = re.compile(r"^([A-Za-z]{3})[a-z]*\s+(\d{1,2})\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)$", re.I)
+
+
+def reset_epoch(text, now=None):
+    """`Oct 19 at 8am (Asia/Saigon)` as Unix seconds, or None. No year is
+    printed: the candidate nearest now, over last, this and next year, is
+    taken, so a window read across New Year lands in the right one."""
+    now = now or dt.datetime.now(dt.timezone.utc)
+    text = text.strip()
+    zone = None
+    if text.endswith(")") and "(" in text:
+        name = text[text.rindex("(") + 1:-1]
+        text = text[:text.rindex("(")].strip()
+        try:
+            from zoneinfo import ZoneInfo
+            zone = ZoneInfo(name)
+        except Exception:
+            zone = None
+    m = RESET.match(text)
+    if not m or m.group(1).lower() not in MONTHS:
+        return None
+    month, day, hour, minute = MONTHS[m.group(1).lower()], int(m.group(2)), int(m.group(3)) % 12, int(m.group(4) or 0)
+    if m.group(5).lower() == "pm":
+        hour += 12
+    zone = zone or dt.datetime.now().astimezone().tzinfo
+    best = None
+    for year in (now.year - 1, now.year, now.year + 1):
+        try:
+            t = dt.datetime(year, month, day, hour, minute, tzinfo=zone)
+        except ValueError:
+            continue
+        if best is None or abs((t - now).total_seconds()) < abs((best - now).total_seconds()):
+            best = t
+    return int(best.timestamp()) if best else None
+
+
+def parse_claude_usage(text, now=None):
+    """`/usage`'s limit lines as the plugin's limits: the session window
+    first, the all-models week second, other weeks (one model's) after. None
+    without a session line: a reading with a hole in it is not shown."""
+    windows = {}
+    for m in LIMIT_LINE.finditer(text or ""):
+        kind = "session" if m.group(1) else ("week" if m.group(2).lower() == "all models" else "week:" + m.group(2))
+        if kind in windows:
+            continue
+        w = {"used_percent": float(m.group(3)), "window_minutes": 300 if kind == "session" else 7 * 24 * 60,
+             "resets_at": reset_epoch(m.group(4), now) if m.group(4) else None}
+        if kind.startswith("week:"):
+            w["label"] = f"Weekly limit ({m.group(2)})"
+        windows[kind] = w
+    if "session" not in windows:
+        return None
+    return {"primary": windows.pop("session"), "secondary": windows.pop("week", None), "extra": list(windows.values())}
+
+
+def claude_binary():
+    import shutil
+    return shutil.which("claude") or next((str(p) for p in [HOME / ".local" / "bin" / "claude", HOME / ".claude" / "local" / "claude"] if p.exists()), None)
+
+
+def claude_usage_text(name, d, binary):
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CONFIG_DIR"}
+    if name != "default":
+        env["CLAUDE_CONFIG_DIR"] = str(d)
+    cwd = CLAUDE_LIMITS_CACHE.parent / "claude-usage"
+    cwd.mkdir(parents=True, exist_ok=True, mode=0o700)
+    r = subprocess.run([binary, *CLAUDE_USAGE_ARGS], cwd=cwd, env=env, capture_output=True, text=True, timeout=25, stdin=subprocess.DEVNULL)
+    return r.stdout
+
+
+def claude_limits():
+    """Each signed-in Claude login's limits, read with `/usage` at most once
+    every CLAUDE_LIMITS_TTL seconds per login. Off with
+    BERTH_USAGE_CLAUDE_LIMITS=0."""
+    if os.environ.get("BERTH_USAGE_CLAUDE_LIMITS") == "0":
+        return []
+    binary = claude_binary()
+    if not binary:
+        return []
+    cache = read_json(CLAUDE_LIMITS_CACHE) or {}
+    out, changed = [], False
+    for name, d in claude_dirs():
+        if not claude_account(name, d)["signed_in"]:
+            continue
+        hit = cache.get(name)
+        if not hit or time.time() - hit.get("read", 0) > CLAUDE_LIMITS_TTL:
+            try:
+                limits = parse_claude_usage(claude_usage_text(name, d, binary))
+            except (OSError, subprocess.SubprocessError):
+                limits = None
+            now = dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z")
+            # A read that failed keeps the last good one, as of when it was.
+            hit = {"read": time.time(), "at": now, "limits": limits} if limits else {**(hit or {}), "read": time.time()}
+            cache[name], changed = hit, True
+        if hit.get("limits"):
+            out.append({"agent": "claude", "account": name, "at": hit["at"], "limits": hit["limits"]})
+    if changed:
+        tmp = CLAUDE_LIMITS_CACHE.with_name(f"claude-limits.{os.getpid()}.tmp")
+        try:
+            tmp.write_text(json.dumps(cache))
+            tmp.replace(CLAUDE_LIMITS_CACHE)
+        except OSError:
+            tmp.unlink(missing_ok=True)
+    return out
 
 
 # --- transcripts -------------------------------------------------------------
@@ -306,8 +431,11 @@ def report(days):
             for m in d:
                 if m not in row["models"]:
                     row["models"].append(m)
-        if s.get("limits") and (account not in limits or s["limits_at"] > limits[account]["at"]):
-            limits[account] = {"agent": agent, "account": account, "at": s["limits_at"], "limits": s["limits"]}
+        # Keyed by agent too: Claude Code and Codex each have a "default".
+        if s.get("limits") and ((agent, account) not in limits or s["limits_at"] > limits[(agent, account)]["at"]):
+            limits[(agent, account)] = {"agent": agent, "account": account, "at": s["limits_at"], "limits": s["limits"]}
+    for l in claude_limits():
+        limits[("claude", l["account"])] = l
 
     out = {
         "generated": dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),

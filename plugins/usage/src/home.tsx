@@ -51,7 +51,7 @@ export function summarizeUsage(reports: { box: string; report: Report }[], faile
       if (!newest.has(k) || newest.get(k)!.at < l.at) newest.set(k, l);
     }
     for (const l of newest.values())
-      for (const w of [l.limits.primary, l.limits.secondary]) if (w) limits.push({ label: `${AGENT_NAME[l.agent]} · ${windowName(w)}`, used: w.used_percent / 100, resets: w.resets_at * 1000 });
+      for (const w of [l.limits.primary, l.limits.secondary, ...(l.limits.extra ?? [])]) if (w?.resets_at) limits.push({ label: `${AGENT_NAME[l.agent]} · ${w.label ?? windowName(w)}`, used: w.used_percent / 100, resets: w.resets_at * 1000 });
   }
   return {
     today: at.get(today)?.tokens ?? 0,

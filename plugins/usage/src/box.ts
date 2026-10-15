@@ -42,14 +42,19 @@ export interface UsageSession {
 export interface Window {
   used_percent: number;
   window_minutes: number;
-  resets_at: number;
+  // Unix seconds; null when the agent printed a reset it couldn't be read from.
+  resets_at: number | null;
+  // The window's own name, for one scoped to a model ("Weekly limit (Fable)").
+  label?: string;
 }
 
 export interface Limits {
   agent: Agent;
   account: string;
   at: string;
-  limits: { plan_type?: string | null; primary?: Window | null; secondary?: Window | null };
+  // Codex reports a 5-hour and a weekly window in its transcripts; Claude Code
+  // reports its session, its week and a week per scoped model in `/usage`.
+  limits: { plan_type?: string | null; primary?: Window | null; secondary?: Window | null; extra?: Window[] };
 }
 
 export interface Account {
