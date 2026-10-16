@@ -65,7 +65,7 @@ func TestAgentCommandsQuoteThePrompt(t *testing.T) {
 	if got := AgentCommand(gemini, "hi"); got != "gemini -i 'hi'" {
 		t.Fatalf("gemini = %s", got)
 	}
-	if agentOf("/usr/local/bin/claude --resume") != "claude" || agentOf("cat") != "" {
+	if agentOf("/usr/local/bin/claude --resume") != "claude" || agentOf("cat") != "" || agentOf("grok --model grok-build") != "grok" {
 		t.Fatal("agentOf misread a command")
 	}
 }
@@ -127,6 +127,16 @@ func TestAgentCommandsPassAModelAndAnEffort(t *testing.T) {
 	gemini, _ := presetFor(nil, "gemini")
 	if _, err := AgentCommandWith(gemini, "", "pro", ""); err == nil {
 		t.Fatal("a model for an agent with no model flag was let through")
+	}
+	grok, _ := presetFor(nil, "grok")
+	if grok.Command != "grok" || grok.Name != "Grok CLI" || grok.PromptFlag != "" || grok.ModelFlag != "--model" || grok.EffortFlag != "--effort" {
+		t.Fatalf("grok preset = %+v", grok)
+	}
+	if got, err := AgentCommandWith(grok, "fix the bug", "grok-build", "high"); err != nil || got != "grok --model grok-build --effort high 'fix the bug'" {
+		t.Fatalf("grok = %q, %v", got, err)
+	}
+	if got, _ := AgentCommandWith(grok, "fix the bug", "", ""); got != "grok 'fix the bug'" {
+		t.Fatalf("grok prompt-only = %q", got)
 	}
 }
 

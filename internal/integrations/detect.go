@@ -42,6 +42,9 @@ var Tools = []Tool{
 		hookFile: filepath.Join(".config", "opencode", "plugin", "berth.js"), hookMarker: "hook opencode"},
 	{ID: "omp", Name: "oh-my-pi", Command: "omp", configDir: filepath.Join(".omp", "agent"),
 		hookFile: filepath.Join(".omp", "agent", "extensions", "berth.ts"), hookMarker: "hook omp"},
+	{ID: "grok", Name: "Grok CLI", Command: "grok", configDir: ".grok",
+		hookFile: filepath.Join(".grok", "hooks", "berth.json"), hookMarker: "hook grok",
+		currentMarker: "hook grok StopCancelled"},
 }
 
 // ToolByID finds a tool by its ID.

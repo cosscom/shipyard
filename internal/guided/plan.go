@@ -105,8 +105,8 @@ if command -v sudo >/dev/null 2>&1; then
 fi
 # An agent counts wherever an installer puts it, npm's under nvm, fnm,
 # volta or bun too: SSH's shell reads no ~/.bashrc, where nvm lives.
-for a in claude codex cursor-agent opencode gemini; do
-  if command -v "$a" >/dev/null 2>&1 || [ -x "$B/$a" ] || { [ "$a" = opencode ] && [ -x "$HOME/.opencode/bin/opencode" ]; }; then echo "agent $a"; continue; fi
+for a in claude codex cursor-agent opencode grok gemini; do
+  if command -v "$a" >/dev/null 2>&1 || [ -x "$B/$a" ] || { [ "$a" = opencode ] && [ -x "$HOME/.opencode/bin/opencode" ]; } || { [ "$a" = grok ] && [ -x "$HOME/.grok/bin/grok" ]; }; then echo "agent $a"; continue; fi
   for p in "$HOME"/.nvm/versions/node/*/bin/"$a" "$HOME"/.local/share/fnm/aliases/default/bin/"$a" "$HOME/.volta/bin/$a" "$HOME/.bun/bin/$a" "$HOME/.npm-global/bin/$a" "/usr/local/bin/$a" "/opt/homebrew/bin/$a"; do
     if [ -x "$p" ]; then echo "agent $a"; break; fi
   done

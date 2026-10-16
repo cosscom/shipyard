@@ -23,7 +23,7 @@ interface IntegrationsReport {
 }
 
 // The commands Shipyard has hooks for, by the tool they install for.
-const TOOLS: Record<string, string> = { claude: "claude", codex: "codex", "cursor-agent": "cursor", cursor: "cursor" };
+const TOOLS: Record<string, string> = { claude: "claude", codex: "codex", "cursor-agent": "cursor", cursor: "cursor", grok: "grok" };
 
 // hookToolFor is the tool an agent preset ID or command line needs hooks for.
 export function hookToolFor(agentOrCommand: string): string | undefined {

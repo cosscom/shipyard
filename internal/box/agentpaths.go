@@ -154,7 +154,7 @@ func agentChecks() []doctor.Check {
 	}
 	if found == 0 {
 		checks = append(checks, doctor.Check{Area: "Agents", Name: "agent CLIs", Status: doctor.Info,
-			Detail: "none found (claude, codex, opencode, gemini, cursor-agent, omp), through your shell or where installers put them",
+			Detail: "none found (claude, codex, opencode, gemini, cursor-agent, omp, grok), through your shell or where installers put them",
 			Fix:    "Add agents from Shipyard (Settings → Boxes), or: berthd agents install claude"})
 	}
 	st := agentFinder().Status()

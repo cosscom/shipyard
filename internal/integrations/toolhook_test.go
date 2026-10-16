@@ -64,6 +64,8 @@ func TestTranslateNeverCopiesContent(t *testing.T) {
 		{"codex", "PreToolUse", `{"cwd":"/w","tool_name":"Bash","tool_input":{"command":"SECRET-TEXT"}}`},
 		{"codex", "PostToolUse", `{"cwd":"/w","tool_name":"request_user_input","tool_input":{"questions":["SECRET-TEXT"]},"tool_response":"SECRET-TEXT"}`},
 		{"cursor", "stop", `{"prompt":"SECRET-TEXT","workspace_roots":["/w"]}`},
+		{"grok", "UserPromptSubmit", `{"prompt":"first line\nSECRET-TEXT","cwd":"/w","sessionId":"g"}`},
+		{"grok", "Notification", `{"message":"SECRET-TEXT","cwd":"/w","notificationType":"permission_prompt"}`},
 	} {
 		e, _ := Translate(tc[0], tc[1], []byte(tc[2]))
 		delete(e.Data, adapters.AskKey) // never published: see TestPermissionRequestAsk
@@ -78,6 +80,7 @@ func TestTranslateNeverCopiesContent(t *testing.T) {
 func TestUninterestingHooksAreIgnored(t *testing.T) {
 	for _, tc := range [][3]string{
 		{"claude", "PreToolUse", `{}`},
+		{"grok", "PreToolUse", `{}`},
 		{"cursor", "beforeShellExecution", `{}`},
 		{"codex", "notify", `{"type":"something-else"}`},
 		{"orca", "not-an-event-type", `{}`},
@@ -160,6 +163,14 @@ func TestEveryAgentAdapterMapsItsTurn(t *testing.T) {
 		{"omp", "tool_approval_resolved", `{"cwd":"/w"}`, "agent.started"},
 		{"omp", "agent_end", `{"cwd":"/w"}`, "agent.finished"},
 		{"omp", "session_shutdown", `{"cwd":"/w"}`, "agent.exited"},
+		{"grok", "SessionStart", `{"cwd":"/w","sessionId":"g"}`, "agent.ready"},
+		{"grok", "UserPromptSubmit", `{"cwd":"/w","sessionId":"g","prompt":"Fix it"}`, "agent.started"},
+		{"grok", "PostToolUse", `{"cwd":"/w","sessionId":"g"}`, "agent.started"},
+		{"grok", "Notification", `{"cwd":"/w","sessionId":"g","notificationType":"permission_prompt"}`, "agent.waiting"},
+		{"grok", "Stop", `{"cwd":"/w","sessionId":"g"}`, "agent.finished"},
+		{"grok", "StopFailure", `{"cwd":"/w","sessionId":"g"}`, "agent.finished"},
+		{"grok", "StopCancelled", `{"cwd":"/w","sessionId":"g"}`, "agent.finished"},
+		{"grok", "SessionEnd", `{"cwd":"/w","sessionId":"g"}`, "agent.exited"},
 	} {
 		e, ok := Translate(tc[0], tc[1], []byte(tc[2]))
 		if !ok || e.Type != tc[3] || e.Data["path"] != "/w" {
@@ -185,5 +196,36 @@ func TestCodexAsyncQuestionStaysAWait(t *testing.T) {
 	}
 	if e, ok := Translate("codex", "PostToolUse", []byte(`{"cwd":"/w","tool_name":"request_user_input"}`)); !ok || e.Type != "agent.started" {
 		t.Fatalf("answered question: %+v ok=%v", e, ok)
+	}
+}
+
+func TestGrokNotificationsAndCamelCaseFields(t *testing.T) {
+	e, ok := Translate("grok", "Stop", []byte(`{"sessionId":"g1","cwd":"/w/fix"}`))
+	if !ok || e.Type != "agent.finished" || e.Data["session_id"] != "g1" || e.Data["agent_session_id"] != "g1" {
+		t.Fatalf("grok Stop camelCase = %+v %v", e, ok)
+	}
+	e, ok = Translate("grok", "UserPromptSubmit", []byte(`{"session_id":"g2","cwd":"/w","prompt":"Fix the cart\nSECRET"}`))
+	if !ok || e.Type != "agent.started" || e.Data["title"] != "Fix the cart" || e.Data["session_id"] != "g2" {
+		t.Fatalf("grok UserPromptSubmit snake_case = %+v %v", e, ok)
+	}
+	for _, tc := range []struct {
+		payload, typ, reason string
+		ok                   bool
+	}{
+		{`{"cwd":"/w","notificationType":"permission_prompt","message":"Allow bash?"}`, "agent.waiting", "permission", true},
+		{`{"cwd":"/w","notification_type":"elicitation_dialog"}`, "agent.waiting", "question", true},
+		{`{"cwd":"/w","notificationType":"idle_prompt"}`, "agent.finished", "", true},
+		{`{"cwd":"/w","notificationType":"task_complete"}`, "agent.finished", "", true},
+		{`{"cwd":"/w","notificationType":"auth_success"}`, "", "", false},
+		{`{"cwd":"/w","notificationType":"something_new"}`, "", "", false},
+	} {
+		e, ok := Translate("grok", "Notification", []byte(tc.payload))
+		delete(e.Data, adapters.AskKey)
+		switch {
+		case !tc.ok && ok:
+			t.Errorf("%s became %+v", tc.payload, e)
+		case tc.ok && (!ok || e.Type != tc.typ || e.Data["reason"] != tc.reason && tc.reason != ""):
+			t.Errorf("%s: %+v ok=%v, want %s (%s)", tc.payload, e, ok, tc.typ, tc.reason)
+		}
 	}
 }
