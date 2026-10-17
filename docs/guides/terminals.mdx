@@ -21,7 +21,7 @@ update as you change it:
 | Cursor | Block, bar or underline, blinking or not. |
 | Scrollback | Lines kept in the app. The box's tmux keeps 50,000 more, redrawn when you reattach. |
 | Predict typing | Adaptive, Always or Never: see below. |
-| Copy on select | Selecting text copies it. |
+| Copy on select | Selecting text with the pointer copies it. Off by default: select, then ⌘C. |
 | Renderer | Ghostty or xterm.js. If Ghostty can't start, the app says why here. |
 
 ## Keys
@@ -34,9 +34,12 @@ Keys do what they do in a Mac terminal (Ghostty's and iTerm2's defaults):
 | ⌥← ⌥→ | Move back or forward a word. |
 | ⌘← ⌘→ | Go to the start or end of the line. |
 | ⌘⌫ | Delete back to the start of the line. |
+| ⌘C | Copy the selected text. |
+| ⌘A | Select all the text, scrollback included. |
+| ⌘V | Paste. A pasted image or file goes up to the box and its path is typed. |
 
 In the Linux app, Ctrl stands in for ⌘ and its keys go to the shell, so
-only ⇧↵ changes there.
+only ⇧↵ changes there; Ctrl+Shift+C and Ctrl+Shift+V copy and paste.
 
 ## Typing on a slow link
 

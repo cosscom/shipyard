@@ -57,6 +57,8 @@ export interface TermHandle {
   hasSelection(): boolean;
   // The selected text ("" with none).
   selection(): string;
+  // Selects all the text, scrollback included.
+  selectAll(): void;
   // Types text as a paste: bracketed when the program asked for that, as
   // Claude Code does, so it sees a pasted image's path as an image.
   paste(text: string): void;
@@ -220,6 +222,7 @@ function gated(t: RawHandle, hiddenFlushMs = HIDDEN_FLUSH_MS): TermHandle {
     onResize: (fn) => t.onResize(fn),
     hasSelection: () => t.hasSelection(),
     selection: () => t.selection(),
+    selectAll: () => t.selectAll(),
     paste: (text) => t.paste(text),
     registerLinkFinder: (find) => t.registerLinkFinder(find),
     onLinkHint: (fn) => t.onLinkHint(fn),
@@ -523,6 +526,11 @@ async function createGhostty(host: HTMLElement, colors: TerminalColors, prefs: T
     hung.stop();
     delete (t as { focus?: unknown }).focus;
   }
+  // ghostty-web copies every selection the pointer makes. Whether to is
+  // Settings → Terminal's Copy on select, which TerminalView keeps for
+  // both renderers.
+  const sm = (t as unknown as { selectionManager?: { copyToClipboard?: (text: string) => Promise<void> } }).selectionManager;
+  if (sm?.copyToClipboard) sm.copyToClipboard = async () => {};
   // open() makes the host contenteditable and focus() focuses the host, so
   // the browser blinked its own text caret there, as tall as the canvas, at
   // the terminal's left edge. The terminal draws its own cursor.
@@ -574,6 +582,10 @@ async function createGhostty(host: HTMLElement, colors: TerminalColors, prefs: T
     onResize: (fn) => void t.onResize(fn),
     hasSelection: () => t.hasSelection(),
     selection: () => t.getSelection(),
+    selectAll: () => {
+      t.selectAll();
+      frames?.kick();
+    },
     paste: (text) => {
       t.paste(text);
       frames?.kick();
@@ -905,6 +917,7 @@ async function createXterm(host: HTMLElement, colors: TerminalColors, prefs: Ter
     onResize: (fn) => void t.onResize(fn),
     hasSelection: () => t.hasSelection(),
     selection: () => t.getSelection(),
+    selectAll: () => t.selectAll(),
     paste: (text) => t.paste(text),
     screen: () => xtermScreen(t),
     geometry: () => {

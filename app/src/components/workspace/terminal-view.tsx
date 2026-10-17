@@ -9,7 +9,7 @@ import { useActiveTheme } from "@/hooks/use-theme";
 import { ApiError, type TerminalConnection } from "@/lib/api";
 import { attachable, localPaths, named, onThisComputer, pastedFiles, shrinkImage, uploadAttachment, uploadLocalFile } from "@/lib/attachments";
 import { copyText } from "@/lib/clipboard";
-import { IS_LINUX, IS_MAC, platformKeys } from "@/lib/platform";
+import { IS_MAC, platformKeys } from "@/lib/platform";
 import { usePrefs } from "@/lib/prefs";
 import { tryNow } from "@/lib/reconnect";
 import { useStore } from "@/lib/store";
@@ -18,7 +18,7 @@ import { findPaths, resolveIn } from "@/lib/editor-paths";
 import { OVERLAYS } from "@/lib/overlays";
 import { EchoPredictor } from "@/lib/predict-overlay";
 import { createTerminal, type TermHandle } from "@/lib/terminal";
-import { terminalKeyInput } from "@/lib/terminal-keys";
+import { terminalClipboardKey, terminalKeyInput } from "@/lib/terminal-keys";
 import { cn } from "@/lib/utils";
 import { WheelBatcher, wheelPixels } from "@/lib/wheel";
 
@@ -259,31 +259,58 @@ export function TerminalView({ box, session, agent, command, wsKey, tab, pane, v
       e.preventDefault();
       void take(fs);
     };
-    // On Linux, Ctrl+Shift+C and Ctrl+Shift+V copy and paste, as in other
-    // Linux terminals; Ctrl+C and Ctrl+V are the shell's.
+    // Copies the terminal's selection without a word: copying is what the
+    // key or the pointer was for.
+    const copySelection = () => {
+      const text = term.selection();
+      if (text) void navigator.clipboard.writeText(text).catch(() => copyText(text));
+    };
+    // Copy and select all are the terminal's, and on Linux paste too
+    // (lib/terminal-keys). A key the terminal takes is one macOS doesn't
+    // beep at.
     const onKey = (e: KeyboardEvent) => {
-      if (!IS_LINUX || !e.ctrlKey || !e.shiftKey || e.altKey || e.metaKey) return;
-      if (e.code === "KeyC") {
-        e.preventDefault();
-        e.stopPropagation();
-        const text = term.selection();
-        if (text) void navigator.clipboard.writeText(text).catch(() => copyText(text));
-      } else if (e.code === "KeyV") {
-        e.preventDefault();
-        e.stopPropagation();
+      const k = terminalClipboardKey(e, IS_MAC);
+      if (!k) return;
+      // Words selected on the page (not in the terminal) copy as ever.
+      if (k === "copy" && !term.hasSelection() && window.getSelection()?.toString()) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (k === "select-all") term.selectAll();
+      else if (k === "copy") copySelection();
+      else {
         void navigator.clipboard.readText().then(
           (text) => text && term.paste(text),
           () => toastManager.add({ type: "error", title: "Couldn't paste", description: "The clipboard refused it." }),
         );
       }
     };
+    // Copy on select (Settings → Terminal): what the pointer selected is
+    // copied once it lets go, wherever that is, or on a double-click's word.
+    // Off, selecting leaves the clipboard as it was.
+    let pressed = false;
+    const onDown = () => {
+      pressed = true;
+    };
+    const onUp = () => {
+      if (!pressed) return;
+      pressed = false;
+      if (usePrefs.getState().copyOnSelect && term.hasSelection()) copySelection();
+    };
     el.addEventListener("keydown", onKey, true);
     el.addEventListener("paste", onPaste, true);
+    el.addEventListener("mousedown", onDown, true);
+    el.addEventListener("dblclick", onDown, true);
+    el.addEventListener("dblclick", onUp);
+    document.addEventListener("mouseup", onUp);
     el.addEventListener("dragover", onDragOver);
     el.addEventListener("drop", onDrop);
     return () => {
       el.removeEventListener("keydown", onKey, true);
       el.removeEventListener("paste", onPaste, true);
+      el.removeEventListener("mousedown", onDown, true);
+      el.removeEventListener("dblclick", onDown, true);
+      el.removeEventListener("dblclick", onUp);
+      document.removeEventListener("mouseup", onUp);
       el.removeEventListener("dragover", onDragOver);
       el.removeEventListener("drop", onDrop);
     };

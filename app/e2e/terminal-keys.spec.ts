@@ -49,6 +49,62 @@ for (const renderer of ["ghostty", "xterm"] as const) {
   });
 }
 
+// ⌘A selects the terminal's text and ⌘C copies it. The selection is drawn
+// by the terminal, not the page's, so the menu bar's Copy found nothing and
+// macOS beeped; the terminal takes the keys now, and sends nothing for them.
+for (const renderer of ["ghostty", "xterm"] as const) {
+  test(`${renderer}: ⌘A and ⌘C copy the terminal's text`, async ({ app }) => {
+    mockOnly("the shell is on the mock's gpu box");
+    await app.open({ prefs: { terminal: { renderer } } });
+    const page = app.page;
+    await openShell(page);
+    await page.evaluate(() => {
+      const w = window as { __berthSent?: string[]; __copied?: string[] };
+      w.__berthSent = [];
+      w.__copied = [];
+      navigator.clipboard.writeText = async (text: string) => void w.__copied!.push(text);
+    });
+
+    await page.keyboard.press("Meta+KeyA");
+    await page.keyboard.press("Meta+KeyC");
+
+    await expect.poll(() => page.evaluate(() => ((window as { __copied?: string[] }).__copied ?? []).join("\n"))).toContain("me@gpu:~$");
+    expect(await sent(page)).toBe("");
+  });
+}
+
+// Copy on select (Settings → Terminal) is off unless turned on: a selection
+// made with the pointer leaves the clipboard alone, and turned on, it's
+// copied once the pointer lets go.
+for (const renderer of ["ghostty", "xterm"] as const) {
+  for (const copyOnSelect of [false, true]) {
+    test(`${renderer}: selecting with the pointer ${copyOnSelect ? "copies with" : "leaves the clipboard without"} Copy on select`, async ({ app }) => {
+      mockOnly("the shell is on the mock's gpu box");
+      await app.open({ prefs: { copyOnSelect, terminal: { renderer } } });
+      const page = app.page;
+      await openShell(page);
+      await page.evaluate(() => {
+        const w = window as { __copied?: string[] };
+        w.__copied = [];
+        navigator.clipboard.writeText = async (text: string) => void w.__copied!.push(text);
+      });
+      const box = await page.locator("[data-testid=pane]:visible [data-terminal]").locator(renderer === "ghostty" ? "canvas" : ".xterm-screen").first().boundingBox();
+      if (!box) throw new Error("no terminal canvas");
+      await page.mouse.move(box.x + 4, box.y + 6);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width / 2, box.y + 30, { steps: 8 });
+      await page.mouse.up();
+
+      const copied = () => page.evaluate(() => ((window as { __copied?: string[] }).__copied ?? []).join("\n"));
+      if (copyOnSelect) await expect.poll(copied).toContain("Last login");
+      else {
+        await page.waitForTimeout(300);
+        expect(await copied()).toBe("");
+      }
+    });
+  }
+}
+
 // ghostty-web makes the terminal's host contenteditable and focuses it, so
 // without caret-color the browser blinks its own caret, the canvas's height,
 // at the left edge beside the terminal's cursor.

@@ -9,6 +9,18 @@ upgrades with `berth upgrade BOX`, or by running the
 [install command](/getting-started/add-a-box#with-the-install-command)
 again.
 
+## Unreleased
+- **Copying from a terminal is quiet.** ⌘C with text selected in a
+  terminal copied it but played the Mac's alert sound. It copies without a
+  sound now, and ⌘A selects all of a terminal's text instead of typing an
+  "a".
+  [Terminals](/guides/terminals#keys)
+- **Copy on select does what it says.** The setting in Settings → Terminal
+  was ignored: with the Ghostty renderer every selection replaced what you'd
+  copied, and with xterm.js none did. Now it's off unless you turn it on, so
+  selecting text in a terminal leaves your clipboard alone until you press
+  ⌘C.
+
 ## v0.3.24
 
 - **Sidebar rows hover cleanly.** A row stays lit while the pointer is on its
@@ -106,6 +118,7 @@ again.
   commit's page (`…/tree/308bc75…/kits/web`) used to fail with "Git
   couldn't do that", because git can't clone a commit by its hash as if it
   were a branch. Shipyard now fetches the kit at that commit.
+
 
 ## v0.3.22
 
