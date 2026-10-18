@@ -38,15 +38,15 @@ guide is in [project config](/guides/project-config).
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `id` | string | The preset's id. The same id as a built-in (`claude`, `codex`, `opencode`, `gemini`, `cursor`) replaces it. |
+| `id` | string | The preset's id. The same id as a built-in (`claude`, `codex`, `opencode`, `gemini`, `cursor`, `grok`) replaces it. |
 | `name` | string | Shown in the app. |
 | `command` | string | What to run. |
 | `prompt_flag` | string | How the agent takes a first prompt, when it needs a flag (`--prompt`). Empty: the prompt is the last argument. |
 | `acp` | string | What follows `command` to start the agent's Agent Client Protocol server (`acp`, `--acp`). With it the agent can run as a [structured agent](/guides/labs#structured-agents). Given with an `id` and no `command`, it adds that to a built-in agent. |
 
 The built-ins are offered when their command is installed on the box:
-`claude`, `codex`, `opencode` (`--prompt`), `gemini` (`-i`), `omp` (oh-my-pi) and
-`cursor` (`cursor-agent`).
+`claude`, `codex`, `opencode` (`--prompt`), `gemini` (`-i`), `omp` (oh-my-pi),
+`cursor` (`cursor-agent`) and `grok`.
 
 ### `hooks`
 

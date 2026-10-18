@@ -109,7 +109,7 @@ announces `task.created`.
 
 An agent is a preset: an id, a name and a command. The box offers each
 built-in whose command it finds on its `PATH` (ids `claude`, `codex`,
-`opencode`, `gemini`, `omp` (oh-my-pi), and `cursor`, which runs
+`opencode`, `gemini`, `omp` (oh-my-pi), `grok`, and `cursor`, which runs
 `cursor-agent`), plus any a
 repository's config adds or replaces. `berth agents BOX` lists the
 built-ins the box has; a repository's own presets come with its location
@@ -122,7 +122,7 @@ A first prompt is passed as the command's last argument, or after its
 Shipyard knows what an agent is doing from the agent's own hooks, which
 `berthd install` sets up for the agent CLIs it finds on the box (later,
 `berthd integrations install claude`, or `codex`, `cursor`, `gemini`,
-`opencode`, `omp`, `all`; an upgrade brings hooks Shipyard installed before up to
+`opencode`, `omp`, `grok`, `all`; an upgrade brings hooks Shipyard installed before up to
 date):
 
 | State | In the app | Meaning | From |
@@ -246,6 +246,7 @@ screen shows.
 | Gemini CLI | ✓ | ✓ | ✓ | ✓ | hooks in `~/.gemini/settings.json` |
 | OpenCode | | ✓ | ✓ | ✓ | a plugin in `~/.config/opencode/plugin/berth.js` |
 | oh-my-pi | ✓ | ✓ | ✓ | ✓ | an extension in `~/.omp/agent/extensions/berth.ts` |
+| Grok CLI | ✓ | ✓ | ✓ | ✓ | hooks in `~/.grok/hooks/berth.json` |
 | anything else | screen | screen | screen | screen | the terminal |
 
 The box lists these as `adapters` in `GET /v1/info`, with `capabilities`

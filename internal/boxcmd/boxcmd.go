@@ -548,7 +548,7 @@ func Run(ctx context.Context, c *box.Client, args []string, out io.Writer) error
 		}
 		return show(out, *asJSON, i.Agents, func() {
 			if len(i.Agents) == 0 {
-				fmt.Fprintln(out, "No agent CLIs found on this box (claude, codex, opencode, gemini, cursor-agent, omp).")
+				fmt.Fprintln(out, "No agent CLIs found on this box (claude, codex, opencode, gemini, cursor-agent, omp, grok).")
 				return
 			}
 			w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)

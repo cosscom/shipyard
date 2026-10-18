@@ -11,6 +11,16 @@ again.
 
 ## Unreleased
 
+- **Grok CLI.** `grok` (xAI Grok Build) is a built-in agent preset: first
+  prompt as the last argument, `--model` and `--effort` as on the CLI.
+  `berthd integrations install grok` writes session-state hooks to
+  `~/.grok/hooks/berth.json`. Skills and MCP are not installed for Grok
+  yet. The guided install and `berthd agents install grok` run xAI's own
+  installer (`curl -fsSL https://x.ai/cli/install.sh | bash`) and link
+  `~/.grok/bin/grok` into `~/.local/bin`. See
+  [First agent](/getting-started/first-agent) and
+  [agent integrations](/guides/agent-integrations).
+
 - **A two-column sidebar, in Labs.** Turn it on in Settings › Labs and your
   projects sit in one column, with the tasks of the one you pick in the
   next. A project's row turns amber when something in it needs you and

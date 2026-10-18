@@ -1,4 +1,4 @@
-import { AsteriskIcon, CheckIcon, HexagonIcon, SparkleIcon, SquareTerminalIcon, TerminalIcon } from "lucide-react";
+import { AsteriskIcon, CheckIcon, HexagonIcon, SparkleIcon, SquareTerminalIcon, TerminalIcon, ZapIcon } from "lucide-react";
 
 import { Tip } from "@/components/tip";
 import type { SessionState } from "@/lib/derive";
@@ -26,6 +26,8 @@ export function AgentIcon({ agent, className, muted }: { agent?: string; classNa
       return <span className={cn("shrink-0 font-semibold text-label leading-none", tone("text-[#f472b6]"), className)}>π</span>;
     case "opencode":
       return <SquareTerminalIcon className={cn(cls, tone("text-foreground/80"))} />;
+    case "grok":
+      return <ZapIcon className={cn(cls, tone("text-foreground/80"))} strokeWidth={2.25} />;
     default:
       return <TerminalIcon className={cn(cls, tone("text-muted-foreground"))} />;
   }

@@ -21,7 +21,7 @@ export function AgentsSection({ repo, draft, setDraft, box }: { repo: RepoConfig
     <Section
       id="agents"
       title="Agents"
-      description="How agents start in this repo. A preset with a built-in's id (claude, codex, opencode, gemini, cursor) replaces it here."
+      description="How agents start in this repo. A preset with a built-in's id (claude, codex, opencode, gemini, cursor, grok) replaces it here."
       actions={
         <Button size="xs" variant="ghost" onClick={() => setOwn([...own, { id: ids.includes("claude") ? `agent-${own.length + 1}` : "claude", name: "", command: "" }])}>
           <PlusIcon />
