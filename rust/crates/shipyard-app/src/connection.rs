@@ -65,7 +65,11 @@ impl From<ApiError> for ConnectionIssue {
             ApiError::Http { status, .. } => Self::Http(status.as_u16()),
             ApiError::Decode(_) => Self::InvalidResponse,
             ApiError::Transport(_) | ApiError::StreamSilence => Self::Network,
-            ApiError::InvalidEndpoint | ApiError::InvalidToken => Self::Runtime,
+            ApiError::InvalidEndpoint
+            | ApiError::InvalidToken
+            | ApiError::InvalidDocumentKey
+            | ApiError::DocumentTooLarge
+            | ApiError::Encode => Self::Runtime,
         }
     }
 }
