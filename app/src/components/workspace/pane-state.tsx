@@ -22,7 +22,7 @@ function PaneState({ art, title, detail, children, panel }: { art: React.ReactNo
       <div className={cn("flex max-w-sm flex-col items-center text-center", panel && "rounded-xl border bg-popover/95 px-8 pt-6 pb-5 shadow-lg/5")}>
         <div className="mb-4 text-muted-foreground/80">{art}</div>
         {title}
-        {detail && <div className="mt-1 max-w-full text-muted-foreground text-xs">{detail}</div>}
+        {detail && <div className="mt-1 max-w-full text-desc text-muted-foreground">{detail}</div>}
         {children && <div className="mt-4 flex gap-2">{children}</div>}
       </div>
     </div>
@@ -44,7 +44,7 @@ export function SessionEnded({ box, session, agent, command, wsKey, tab, pane, o
       title={
         // Named as its tab named it; the session's id is for the curious.
         <Tip label={`${session} on ${box}`}>
-          <p className="font-medium text-sm">{agent ? `${label} has ended` : "The shell has ended"}</p>
+          <p className="text-row">{agent ? `${label} has ended` : "The shell has ended"}</p>
         </Tip>
       }
       detail={
@@ -53,7 +53,7 @@ export function SessionEnded({ box, session, agent, command, wsKey, tab, pane, o
           {command && (
             <>
               <span className="text-muted-foreground/48">·</span>
-              <code className="min-w-0 truncate font-mono text-[11px] text-foreground/72">{command}</code>
+              <code className="min-w-0 truncate font-mono text-meta text-foreground/72">{command}</code>
             </>
           )}
         </p>
@@ -101,7 +101,7 @@ export function BoxOffline({ box, state, onRetry }: { box: string; state?: strin
     <PaneState
       panel
       art={<Scene name="offline" width={128} />}
-      title={<p className="font-medium text-sm">{title}</p>}
+      title={<p className="text-row">{title}</p>}
       detail={
         <>
           {state !== "untrusted" && <RetryLine box={box} />}

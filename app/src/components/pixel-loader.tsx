@@ -50,7 +50,7 @@ export function PixelLoader({ label, since, className }: { label: string; since?
     <span role="status" className={cn("inline-flex min-w-0 items-center gap-2.5 text-muted-foreground", className)}>
       <PixelGrid />
       <span className="cv-shimmer min-w-0 truncate">{label}</span>
-      {ms >= 2000 && <span className="shrink-0 font-mono text-[0.92em] tabular-nums opacity-80">{elapsedWords(ms)}</span>}
+      {ms >= 2000 && <span className="shrink-0 font-mono text-mono tabular-nums opacity-80">{elapsedWords(ms)}</span>}
     </span>
   );
 }

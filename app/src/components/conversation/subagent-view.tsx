@@ -137,7 +137,7 @@ function HelperSheet({ box, session, ref: first, from, onClose }: OpenHelper & {
     <Sheet open onOpenChange={(o) => !o && onClose()}>
       <SheetPopup side="right" className="w-[min(760px,calc(100vw-48px))] max-w-none" aria-label={h ? `${h.name}: the helper's conversation` : "A helper's conversation"}>
         <div className="flex flex-col gap-3 border-b px-6 pt-5 pb-4">
-          <div className="flex items-center gap-2 pr-10 text-muted-foreground text-xs">
+          <div className="flex items-center gap-2 pr-10 text-muted-foreground text-meta">
             <BotIcon className="size-3.5" aria-hidden />
             <span className="min-w-0 truncate">{parent ? `A helper in “${parent}”` : "A helper"}</span>
             <span aria-hidden>·</span>
@@ -147,7 +147,7 @@ function HelperSheet({ box, session, ref: first, from, onClose }: OpenHelper & {
             </span>
           </div>
           <div className="flex items-center gap-3 pr-10">
-            <SheetTitle className="min-w-0 flex-1 truncate text-lg">{h?.name ?? (helpers ? "Helper not found" : "Opening the helper…")}</SheetTitle>
+            <SheetTitle className="min-w-0 flex-1 truncate text-heading">{h?.name ?? (helpers ? "Helper not found" : "Opening the helper…")}</SheetTitle>
             {h && (
               <Button
                 size="sm"
@@ -183,7 +183,7 @@ function HelperSheet({ box, session, ref: first, from, onClose }: OpenHelper & {
                   aria-selected={x.id === h?.id}
                   onClick={() => setSel(x.id)}
                   className={cn(
-                    "flex h-7 max-w-56 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "flex h-7 max-w-56 shrink-0 items-center gap-1.5 rounded-md px-2 text-meta outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     x.id === h?.id ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                   )}
                 >
@@ -195,13 +195,13 @@ function HelperSheet({ box, session, ref: first, from, onClose }: OpenHelper & {
           )}
         </div>
         {!helpers && !listError && (
-          <div className="flex flex-1 items-center justify-center text-muted-foreground text-sm">
+          <div className="flex flex-1 items-center justify-center text-muted-foreground text-body">
             <Spinner className="mr-2 size-4" />
             Reading the helpers…
           </div>
         )}
-        {listError && !helpers && <p className="m-6 text-destructive-foreground text-sm">Couldn't list the helpers: {listError}</p>}
-        {helpers && !h && <p className="m-6 text-muted-foreground text-sm">This helper's conversation isn't on {box} (it may be from before the agent was resumed, or another session's).</p>}
+        {listError && !helpers && <p className="m-6 text-destructive-foreground text-body">Couldn't list the helpers: {listError}</p>}
+        {helpers && !h && <p className="m-6 text-muted-foreground text-body">This helper's conversation isn't on {box} (it may be from before the agent was resumed, or another session's).</p>}
         {h && <HelperChat key={h.id} box={box} session={session} h={h} />}
       </SheetPopup>
     </Sheet>
@@ -281,13 +281,13 @@ export function HelperChat({ box, session, h, wide }: { box: string; session: st
       <div className={cn(wide && "mx-auto w-full max-w-(--berth-chat-w)")}>
       {prompt && <AskedBy text={prompt} />}
       {state === "loading" && (
-        <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
+        <div className="flex h-32 items-center justify-center text-muted-foreground text-body">
           <Spinner className="mr-2 size-4" />
           Reading its conversation…
         </div>
       )}
       {state === "error" && (
-        <div className="flex flex-col items-start gap-2 text-sm">
+        <div className="flex flex-col items-start gap-2 text-body">
           <p className="text-destructive-foreground">Couldn't read its conversation: {error}</p>
           <Button size="sm" variant="outline" onClick={() => setAttempt((n) => n + 1)}>
             <RefreshCwIcon />
@@ -295,7 +295,7 @@ export function HelperChat({ box, session, h, wide }: { box: string; session: st
           </Button>
         </div>
       )}
-      {state === "ready" && !shown.length && <p className="text-muted-foreground text-sm">It hasn't done anything yet.</p>}
+      {state === "ready" && !shown.length && <p className="text-muted-foreground text-body">It hasn't done anything yet.</p>}
       {state === "ready" && shown.length > 0 && <ConversationView items={shown} onAnswer={() => {}} edits={edits} who="The helper" className="max-w-none" />}
       </div>
     </div>
@@ -309,13 +309,13 @@ function AskedBy({ text }: { text: string }) {
   const long = text.length > 320 || text.split("\n").length > 6;
   return (
     <div className="mb-5 rounded-lg border bg-muted/40 px-4 py-3">
-      <div className="mb-1.5 font-medium text-muted-foreground text-xs">Asked by the agent</div>
-      <div className={cn("relative text-[0.8438rem]", long && !open && "max-h-32 overflow-hidden")}>
+      <div className="mb-1.5 text-muted-foreground text-label">Asked by the agent</div>
+      <div className={cn("relative text-desc", long && !open && "max-h-32 overflow-hidden")}>
         <Markdown text={text} copy={false} />
         {long && !open && <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-muted/90 to-transparent" />}
       </div>
       {long && (
-        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="mt-1.5 inline-flex items-center gap-1 rounded text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="mt-1.5 inline-flex items-center gap-1 rounded text-muted-foreground text-meta outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
           <ChevronDownIcon className={cn("size-3 transition-transform", open && "rotate-180")} />
           {open ? "Show less" : "Show all"}
         </button>

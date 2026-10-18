@@ -76,19 +76,19 @@ export function CloneForm({ box, onAdded, onCancel }: { box: string; onAdded(loc
             />
           </Labelled>
         </div>
-        <p className="truncate text-[13px] text-muted-foreground">
+        <p className="truncate text-desc text-muted-foreground">
           Clones to <span className="font-mono text-foreground/80">{`${parent.replace(/\/+$/, "") || "~/work"}/${shownName || "…"}`}</span> on {box}
         </p>
         {(busy || lines.length > 0) && (
           <Frame className="rounded-xl p-0.5">
             <FramePanel className="rounded-[10px] p-0 shadow-none before:hidden dark:bg-input/32">
-              <pre ref={logRef} aria-live="polite" className="max-h-40 overflow-y-auto whitespace-pre-wrap p-3 font-mono text-[12px] text-muted-foreground leading-relaxed">
+              <pre ref={logRef} aria-live="polite" className="max-h-40 overflow-y-auto whitespace-pre-wrap p-3 font-mono text-mono text-muted-foreground">
                 {lines.length ? lines.join("\n") : "Starting git clone…"}
               </pre>
             </FramePanel>
           </Frame>
         )}
-        {error && <ErrorText className="text-destructive text-sm" text={error} />}
+        {error && <ErrorText className="text-destructive text-body" text={error} />}
       </DialogPanel>
       <DialogFooter className="items-center px-5 py-3">
         {busy ? (
@@ -111,7 +111,7 @@ export function CloneForm({ box, onAdded, onCancel }: { box: string; onAdded(loc
 export function Labelled({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex min-w-0 flex-col gap-1.5">
-      <span className="font-medium text-[13px]">{label}</span>
+      <span className="font-medium text-desc">{label}</span>
       {children}
     </label>
   );

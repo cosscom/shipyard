@@ -69,7 +69,7 @@ export function StartFrom({
                 <button
                   type="button"
                   aria-label={`Read as: ${mode.label}`}
-                  className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 font-medium text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground data-popup-open:bg-accent data-popup-open:text-foreground"
+                  className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 font-medium text-desc text-muted-foreground hover:bg-accent hover:text-foreground data-popup-open:bg-accent data-popup-open:text-foreground"
                 />
               }
             >
@@ -91,7 +91,7 @@ export function StartFrom({
                       <m.Icon className="mt-0.5 size-3.5 shrink-0 opacity-80" />
                       <span className="flex min-w-0 flex-col">
                         <span>{m.label}</span>
-                        <span className="text-muted-foreground text-xs">{m.hint}</span>
+                        <span className="text-muted-foreground text-meta">{m.hint}</span>
                       </span>
                     </span>
                   </MenuRadioItem>
@@ -123,30 +123,30 @@ export function StartFrom({
                 onChange(shownBranches[active].name);
               }
             }}
-            className="h-9 min-w-0 flex-1 bg-transparent px-1.5 text-sm outline-none placeholder:text-muted-foreground/72"
+            className="h-9 min-w-0 flex-1 bg-transparent px-1.5 text-body outline-none placeholder:text-muted-foreground/72"
           />
         </div>
         {kind === "branch" && branches && (
           <div className="relative border-t">
             <div role="listbox" aria-label="Branches" className="h-[9.25rem] overflow-y-auto p-1 [mask-image:linear-gradient(to_bottom,black_calc(100%-1.25rem),transparent)]">
-              {shownBranches.length === 0 && <p className="px-2 py-1.5 text-muted-foreground text-[13px]">No branch matches, so this makes a new one.</p>}
+              {shownBranches.length === 0 && <p className="px-2 py-1.5 text-muted-foreground text-desc">No branch matches, so this makes a new one.</p>}
               {shownBranches.map((b, n) => (
                 <div key={`${b.remote ? "r" : "l"}:${b.name}`}>
-                  {(n === 0 || !!shownBranches[n - 1].remote !== !!b.remote) && <p className="px-2 pt-1.5 pb-0.5 font-medium text-[11px] text-muted-foreground">{b.remote ? "Remote" : "Local"}</p>}
+                  {(n === 0 || !!shownBranches[n - 1].remote !== !!b.remote) && <p className="px-2 pt-1.5 pb-0.5 font-medium text-tag text-muted-foreground">{b.remote ? "Remote" : "Local"}</p>}
                   <button
                     type="button"
                     role="option"
                     aria-selected={b.name === value}
                     onMouseMove={() => setActive(n)}
                     onClick={() => onChange(b.name)}
-                    className={cn("flex h-7 w-full items-center gap-2 rounded-md px-2 text-left font-mono text-[12.5px]", n === active && "bg-accent")}
+                    className={cn("flex h-7 w-full items-center gap-2 rounded-md px-2 text-left font-mono text-mono", n === active && "bg-accent")}
                   >
                     <GitBranchIcon className="size-3.5 shrink-0 text-muted-foreground" />
                     <span className="min-w-0 truncate">{b.name}</span>
-                    <span className="ml-auto flex shrink-0 items-center gap-1.5 font-sans text-muted-foreground text-xs">
+                    <span className="ml-auto flex shrink-0 items-center gap-1.5 font-sans text-muted-foreground text-meta">
                       {b.current && "checked out"}
                       {!b.current && b.name === branches.default && "default"}
-                      {b.remote && <span className="rounded border px-1 text-[11px]">origin</span>}
+                      {b.remote && <span className="rounded border px-1 text-tag">origin</span>}
                     </span>
                   </button>
                 </div>
@@ -161,7 +161,7 @@ export function StartFrom({
 }
 
 function Preview({ kind, value, resolution, pending, error, defaultBranch }: { kind: ResolveKind; value: string; resolution?: Resolution; pending: boolean; error?: string; defaultBranch?: string }) {
-  const row = "flex min-h-8 min-w-0 items-center gap-2 px-3 py-1.5 text-[13px]";
+  const row = "flex min-h-8 min-w-0 items-center gap-2 px-3 py-1.5 text-desc";
   if (!value.trim())
     return (
       <div className={cn(row, "text-muted-foreground")}>
@@ -207,11 +207,11 @@ function Preview({ kind, value, resolution, pending, error, defaultBranch }: { k
       <div className={row}>
         <Icon className={cn("size-3.5 shrink-0", r.kind === "pr" || r.kind === "issue" ? "text-success" : "text-muted-foreground")} />
         <span className="shrink-0 font-medium">{what}</span>
-        <span className={cn("min-w-0 truncate font-mono text-[12.5px] text-muted-foreground", r.title && "max-w-[40%] shrink-0")}>{how}</span>
+        <span className={cn("min-w-0 truncate font-mono text-mono text-muted-foreground", r.title && "max-w-[40%] shrink-0")}>{how}</span>
         {r.title && <span className="min-w-0 flex-1 truncate text-foreground/80">{r.title}</span>}
       </div>
       {r.note && (
-        <div className={cn(row, "-mt-1.5 text-muted-foreground text-xs")}>
+        <div className={cn(row, "-mt-1.5 text-muted-foreground text-meta")}>
           <InfoIcon className="size-3.5 shrink-0" />
           <span className="truncate">{r.note}</span>
         </div>

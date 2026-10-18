@@ -102,7 +102,7 @@ export function LivingHarbour({ className, position = 0.42, fade = 0.45, depth =
         </>
       )}
       {caption && (
-        <p className="pointer-events-none absolute top-3 left-4 rounded-md bg-background/70 px-2 py-1 text-xs backdrop-blur-sm">
+        <p className="pointer-events-none absolute top-3 left-4 rounded-md bg-background/70 px-2 py-1 text-meta backdrop-blur-sm">
           {!working.length && !waiting.length ? "All calm · no boats out" : `${working.length} out working${waiting.length ? ` · ${waiting.length} waiting at the lighthouse` : ""}`}
         </p>
       )}
@@ -145,7 +145,7 @@ function Boat({ r, x, y, s, kind, night, labels }: { r: AgentRow; x: number; y: 
       {kind !== "moored" && (
         <span
           className={cn(
-            "mb-0.5 flex max-w-48 items-center gap-1 whitespace-nowrap rounded-md bg-background/85 px-1.5 py-0.5 text-[11px] text-foreground shadow-xs backdrop-blur-sm transition-opacity",
+            "mb-0.5 flex max-w-48 items-center gap-1 whitespace-nowrap rounded-md bg-background/85 px-1.5 py-0.5 text-tag text-foreground shadow-xs backdrop-blur-sm transition-opacity",
             label ? "opacity-100" : "opacity-0 group-hover/boat:opacity-100 group-focus-visible/boat:opacity-100",
           )}
         >

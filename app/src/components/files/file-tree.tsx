@@ -28,7 +28,7 @@ const INDENT = 12;
 function Badge({ t }: { t: Touch }) {
   const [letter, cls, word] = t.deleted ? ["D", "text-destructive-foreground", "Deleted"] : t.created ? ["A", "text-success-foreground", "Added"] : ["M", "text-info-foreground", "Modified"];
   return (
-    <span aria-label={`${word} by ${agentName(t.agent)} this turn`} data-testid="tree-badge" className={cn("w-3 shrink-0 text-center font-sans font-semibold text-[11px] leading-none", cls)}>
+    <span aria-label={`${word} by ${agentName(t.agent)} this turn`} data-testid="tree-badge" className={cn("w-3 shrink-0 text-center font-sans font-semibold text-tag leading-none", cls)}>
       {letter}
     </span>
   );
@@ -36,7 +36,7 @@ function Badge({ t }: { t: Touch }) {
 
 function Counts({ t }: { t: Touch }) {
   return (
-    <span className="flex shrink-0 items-center gap-1 font-mono text-[10.5px] tabular-nums">
+    <span className="flex shrink-0 items-center gap-1 font-mono text-tag tabular-nums">
       {t.added > 0 && <span className="text-success-foreground">+{t.added}</span>}
       {t.removed > 0 && <span className="text-destructive-foreground">−{t.removed}</span>}
     </span>
@@ -72,7 +72,7 @@ function RowView({ row, index, active, current, filter, onPick }: { row: TreeRow
       data-live={row.live || undefined}
       onClick={(e) => onPick(row, e.metaKey || e.ctrlKey ? "external" : e.altKey ? "split" : "tab")}
       className={cn(
-        "group/row relative flex h-[26px] cursor-default select-none items-center gap-1.5 rounded-[5px] pr-2 text-[13px]",
+        "group/row relative flex h-[26px] cursor-default select-none items-center gap-1.5 rounded-[5px] pr-2 text-desc",
         active ? "bg-accent text-accent-foreground" : "hover:bg-accent/50",
         current && !active && "bg-accent/60",
       )}
@@ -129,7 +129,7 @@ function FilterSwitch({ filter, onChange, count }: { filter: Filter; onChange(f:
       aria-checked={filter === f}
       data-testid={`tree-filter-${f}`}
       onClick={() => onChange(f)}
-      className={cn("inline-flex h-[22px] items-center gap-1 rounded-[5px] px-2 font-medium text-[11.5px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring", filter === f ? "bg-background text-foreground shadow-xs dark:bg-accent" : "text-muted-foreground hover:text-foreground")}
+      className={cn("inline-flex h-[22px] items-center gap-1 rounded-[5px] px-2 text-label outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring", filter === f ? "bg-background text-foreground shadow-xs dark:bg-accent" : "text-muted-foreground hover:text-foreground")}
     >
       {label}
     </button>
@@ -196,16 +196,16 @@ function NewFile({ ws, wref, dir, onDone }: { ws: string; wref: WorktreeRef; dir
           spellCheck={false}
           autoCapitalize="off"
           autoCorrect="off"
-          className="min-w-0 flex-1 bg-transparent font-mono text-[12px] outline-none placeholder:text-muted-foreground/70"
+          className="min-w-0 flex-1 bg-transparent font-mono text-mono outline-none placeholder:text-muted-foreground/70"
         />
         {busy && <Spinner className="size-3" />}
       </div>
       {error ? (
-        <p role="alert" className="mt-1 text-destructive-foreground text-[11px] leading-snug">
+        <p role="alert" className="mt-1 text-destructive-foreground text-tag">
           {error}
         </p>
       ) : (
-        <p className="mt-1 flex min-w-0 gap-1 text-[11px] text-muted-foreground">
+        <p className="mt-1 flex min-w-0 gap-1 text-tag text-muted-foreground">
           {/* The folder's end shows when it is long: "…/lib/payments/". */}
           <span className="min-w-0 truncate" dir="rtl">
             <bdi>in {dir ? `${dir}/` : "the top folder"}</bdi>
@@ -292,7 +292,7 @@ export function TreePanel({ ws, wref, current, onOpen, onClose, className }: { w
     <div className={cn("flex min-h-0 flex-col", className)} data-testid="file-tree" data-filter={filter}>
       {/* The File tab's header line: 32px, so the two read as one row. */}
       <div className="flex h-8 shrink-0 items-center gap-1.5 border-b pr-1.5 pl-3">
-        <span className="font-medium text-muted-foreground text-xs">Files</span>
+        <span className="text-muted-foreground text-label">Files</span>
         <FilterSwitch filter={filter} onChange={(f) => pickFilter(ws, f)} count={count} />
         <Tip label="New file" side="bottom">
           <button type="button" aria-label="New file" data-testid="tree-new-file-button" onClick={() => setCreating({ ws, dir: folderOf(rows[focusAt]) })} className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
@@ -331,11 +331,11 @@ export function TreePanel({ ws, wref, current, onOpen, onClose, className }: { w
             <Spinner className="size-4 text-muted-foreground" />
           </div>
         ) : filter === "all" && error ? (
-          <p className="px-2 py-6 text-center text-muted-foreground text-xs">{error}</p>
+          <p className="px-2 py-6 text-center text-muted-foreground text-meta">{error}</p>
         ) : filter === "changed" && !rows.length ? (
           <div className="flex flex-col items-center gap-1 px-4 py-8 text-center" data-testid="tree-nothing-changed">
-            <p className="text-foreground text-xs">Nothing changed this turn</p>
-            <p className="text-[11px] text-muted-foreground">Files the agent edits show here as it goes.</p>
+            <p className="text-foreground text-meta">Nothing changed this turn</p>
+            <p className="text-tag text-muted-foreground">Files the agent edits show here as it goes.</p>
           </div>
         ) : (
           rows.map((r, i) => <RowView key={r.path} row={r} index={i} active={i === at} current={r.path === current} filter={filter} onPick={pick} />)
@@ -343,7 +343,7 @@ export function TreePanel({ ws, wref, current, onOpen, onClose, className }: { w
       </div>
       {filter === "changed" && count > 0 && <ChangedFooter files={touched ?? []} />}
       {filter === "all" && truncated && (
-        <p className="shrink-0 border-t px-3 py-1.5 text-[11px] text-muted-foreground leading-snug" data-testid="tree-truncated">
+        <p className="shrink-0 border-t px-3 py-1.5 text-tag text-muted-foreground" data-testid="tree-truncated">
           A folder here has more than 5,000 entries; it lists the first 5,000.
         </p>
       )}
@@ -357,7 +357,7 @@ function ChangedFooter({ files }: { files: TouchedFile[] }) {
   const removed = files.reduce((n, f) => n + f.removed, 0);
   const agents = [...new Set(files.map((f) => f.agent))];
   return (
-    <div className="flex h-7 shrink-0 items-center gap-1.5 border-t px-3 text-[11px] text-muted-foreground" data-testid="tree-changed-footer">
+    <div className="flex h-7 shrink-0 items-center gap-1.5 border-t px-3 text-tag text-muted-foreground" data-testid="tree-changed-footer">
       {agents.length === 1 && <AgentIcon agent={agents[0]} className="size-3" />}
       <span>
         {files.length} {files.length === 1 ? "file" : "files"} this turn

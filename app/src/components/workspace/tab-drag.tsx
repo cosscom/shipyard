@@ -258,7 +258,7 @@ export function DropOverlay() {
           style={{ left: pct(target.rect.x), top: pct(target.rect.y), width: pct(target.rect.w), height: pct(target.rect.h) }}
         >
           <div className="flex size-full items-center justify-center rounded-lg border-2 border-info/70 bg-info/14 shadow-[inset_0_0_0_1px_var(--background)]">
-            <span className="flex max-w-[calc(100%-16px)] items-center gap-1.5 rounded-md border border-info/40 bg-background/95 px-2 py-1 text-foreground text-xs shadow-sm">
+            <span className="flex max-w-[calc(100%-16px)] items-center gap-1.5 rounded-md border border-info/40 bg-background/95 px-2 py-1 text-foreground text-meta shadow-sm">
               <Icon className="size-3.5 shrink-0 text-info" />
               <span className="shrink-0 font-medium">{target.label}</span>
               <span className="flex min-w-0 items-center gap-1 text-muted-foreground">
@@ -289,7 +289,7 @@ export function DragGhost() {
   if (!s.source || s.target?.kind === "pane") return null;
   return createPortal(
     <div
-      className={cn("pointer-events-none fixed z-[1000] flex h-7 max-w-60 items-center gap-1.5 rounded-md border bg-popover px-2.5 text-popover-foreground text-xs shadow-lg/10", !s.target && "opacity-75")}
+      className={cn("pointer-events-none fixed z-[1000] flex h-7 max-w-60 items-center gap-1.5 rounded-md border bg-popover px-2.5 text-popover-foreground text-meta shadow-lg/10", !s.target && "opacity-75")}
       // Near the window's right edge it hangs to the pointer's left instead.
       style={s.x > window.innerWidth - 260 ? { right: window.innerWidth - s.x + 12, top: s.y + 14 } : { left: s.x + 12, top: s.y + 14 }}
     >

@@ -127,7 +127,7 @@ export function SshSetup({
               pick(matches[Math.max(active, 0)], false);
             }
           }}
-          className="h-full min-w-0 flex-1 bg-transparent font-mono text-[13px] outline-none placeholder:font-sans placeholder:text-muted-foreground/72 placeholder:text-sm disabled:opacity-64"
+          className="h-full min-w-0 flex-1 bg-transparent font-mono text-desc outline-none placeholder:font-sans placeholder:text-muted-foreground/72 placeholder:text-body disabled:opacity-64"
         />
         <Button type="submit" size="xs" variant="outline" className="shrink-0" disabled={running || (!host.trim() && active < 0)} data-testid="ssh-set-up">
           Set up
@@ -135,7 +135,7 @@ export function SshSetup({
       </form>
 
       {/* What Shipyard will use, before it connects: a wrong agent is obvious here. */}
-      <div aria-live="polite" className="mt-2 flex min-h-5 min-w-0 items-center gap-1.5 text-muted-foreground text-xs leading-5">
+      <div aria-live="polite" className="mt-2 flex min-h-5 min-w-0 items-center gap-1.5 text-muted-foreground text-meta">
         {host.trim() ? (
           plan === "loading" ? (
             <>
@@ -192,12 +192,12 @@ export function SshSetup({
                 className={cn("flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left", i === active && "bg-accent")}
               >
                 {s.os && s.os !== "linux" ? <MonitorIcon className="size-3.5 text-muted-foreground" /> : <ServerIcon className="size-3.5 text-muted-foreground" />}
-                <span className="font-mono text-[12.5px]">{s.label}</span>
-                <span className="ms-auto truncate text-muted-foreground text-xs">{s.detail}</span>
+                <span className="font-mono text-mono">{s.label}</span>
+                <span className="ms-auto truncate text-muted-foreground text-meta">{s.detail}</span>
               </button>
             </li>
           ))}
-          <li className="flex items-center gap-1.5 px-2 pt-1 pb-0.5 text-[11px] text-muted-foreground">
+          <li className="flex items-center gap-1.5 px-2 pt-1 pb-0.5 text-tag text-muted-foreground">
             <Kbd>⇥</Kbd> complete <Kbd className="ms-1">↵</Kbd> set up
           </li>
         </ul>
@@ -254,7 +254,7 @@ export function FailurePanel({
         <>
           <InstallCommand />
           {onSignIn && (
-            <p className="text-muted-foreground text-xs">
+            <p className="text-muted-foreground text-meta">
               Or, if the box is on a tailnet this computer isn't signed in to,{" "}
               <button type="button" className="text-foreground underline underline-offset-2 hover:no-underline" onClick={onSignIn}>
                 sign in to that tailnet
@@ -270,7 +270,7 @@ export function FailurePanel({
       action = (
         <>
           {failure.kind === "auth" && failure.tried && failure.tried.length > 0 && (
-            <p className="text-muted-foreground text-xs">
+            <p className="text-muted-foreground text-meta">
               Tried: <span className="font-mono">{failure.tried.join(", ")}</span>
             </p>
           )}
@@ -293,9 +293,9 @@ export function FailurePanel({
       action = (
         <>
           {failure.fingerprint && (
-            <p className="rounded-md bg-muted/60 px-2.5 py-1.5 font-mono text-[12px] [overflow-wrap:anywhere]">{failure.fingerprint}</p>
+            <p className="rounded-md bg-muted/60 px-2.5 py-1.5 font-mono text-mono [overflow-wrap:anywhere]">{failure.fingerprint}</p>
           )}
-          <p className="text-muted-foreground text-xs">Trust it only if it matches the box's own key: on the box, run ssh-keygen -lf on its host key in /etc/ssh.</p>
+          <p className="text-muted-foreground text-meta">Trust it only if it matches the box's own key: on the box, run ssh-keygen -lf on its host key in /etc/ssh.</p>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" disabled={!failure.fingerprint} onClick={() => onRetry(failure.fingerprint)}>
               Trust and connect
@@ -315,7 +315,7 @@ export function FailurePanel({
   }
   return (
     <div role="alert" className="mt-2 flex flex-col gap-2.5 rounded-lg border p-3">
-      <p className="flex items-start gap-2 text-sm">
+      <p className="flex items-start gap-2 text-body">
         {failure.kind === "host-key-changed" || failure.kind === "host-key-unknown" ? (
           <ShieldAlertIcon className="mt-0.5 size-4 shrink-0 text-destructive-foreground" />
         ) : null}

@@ -33,7 +33,7 @@ export function ComputersSection() {
       title="Computers"
       description={
         <>
-          Use Shipyard on more than one computer, a MacBook and a Mac mini say. Each pairs with your boxes with its own key, and they all work at once. <Code>berth invite</Code> and <Code>berth join</Code> do the same.
+          Use Shipyard on more than one computer. Each pairs with your boxes with its own key.
         </>
       }
     >
@@ -109,11 +109,11 @@ function BoxComputers({ box }: { box: BoxStatus }) {
       }
     >
       {!online ? (
-        <p className="px-4 py-3 text-muted-foreground text-sm">{box.name} is {box.state}, so its list can't be read.</p>
+        <p className="py-3.5 text-muted-foreground text-body">{box.name} is {box.state}, so its list can't be read.</p>
       ) : error ? (
         <BoxError className="mx-4 my-3" box={box.name} error={error} what="its paired computers" />
       ) : !list ? (
-        <div className="flex items-center gap-2 px-4 py-3 text-muted-foreground text-sm">
+        <div className="flex items-center gap-2 py-3.5 text-muted-foreground text-body">
           <Spinner className="size-4" /> Loading…
         </div>
       ) : (
@@ -127,14 +127,14 @@ function ComputerRow({ box, computer, onRemoved }: { box: string; computer: Trus
   const [removing, setRemoving] = useState(false);
   const Icon = computer.you ? LaptopIcon : MonitorIcon;
   return (
-    <div className="flex min-h-12 items-center gap-3 px-4 py-2.5">
+    <div className="flex min-h-12 items-center gap-3 py-3">
       <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2 text-sm">
-          <span className="truncate">{computer.name}</span>
-          {computer.you && <span className="shrink-0 rounded bg-muted px-1.5 py-px text-[10px] text-muted-foreground">This computer</span>}
+        <div className="flex items-baseline gap-2">
+          <span className="truncate text-row">{computer.name}</span>
+          {computer.you && <span className="shrink-0 rounded bg-muted px-1.5 py-px text-tag text-muted-foreground">This computer</span>}
         </div>
-        <div className="truncate font-mono text-[11px] text-muted-foreground">
+        <div className="truncate font-mono text-tag text-muted-foreground">
           {computer.fingerprint.slice(0, 12)} · paired {ago(computer.paired_at)}
         </div>
       </div>
@@ -224,8 +224,8 @@ function InviteFlow({ boxes, onClose }: { boxes: BoxStatus[]; onClose(): void })
                     }
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm">{b.name}</span>
-                    <span className="block truncate font-mono text-[11px] text-muted-foreground">
+                    <span className="block text-body">{b.name}</span>
+                    <span className="block truncate font-mono text-tag text-muted-foreground">
                       {online ? [b.address, b.network && `via ${b.network}`].filter(Boolean).join(" · ") : `${b.state}: it can't make a code until it's back`}
                     </span>
                   </span>
@@ -235,14 +235,14 @@ function InviteFlow({ boxes, onClose }: { boxes: BoxStatus[]; onClose(): void })
           })}
         </ul>
         {/* The confirmation is the step itself: what the link gives away. */}
-        <div className="mt-4 flex gap-2.5 rounded-lg border border-warning/32 bg-warning/6 px-3.5 py-3 text-sm">
+        <div className="mt-4 flex gap-2.5 rounded-lg border border-warning/32 bg-warning/6 px-3.5 py-3 text-body">
           <TriangleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-foreground" />
           <div className="min-w-0">
             <p>{names.length ? <>This lets another computer control {boxList(names)}.</> : "Choose at least one box."}</p>
-            <p className="mt-1 text-muted-foreground text-xs leading-relaxed">It can run commands, read code and open terminals there, as this computer can. Open the link only on a computer of yours, and don't post it in a chat or a ticket: anyone who has it can pair until it expires.</p>
+            <p className="mt-1 text-muted-foreground text-meta">It can run commands, read code and open terminals there, as this computer can. Open the link only on a computer of yours, and don't post it in a chat or a ticket: anyone who has it can pair until it expires.</p>
           </div>
         </div>
-        {error && <ErrorText className="mt-3 text-destructive-foreground text-sm" text={error} />}
+        {error && <ErrorText className="mt-3 text-destructive-foreground text-body" text={error} />}
       </DialogPanel>
       <DialogFooter variant="bare" className="px-5">
         <Button variant="ghost" onClick={onClose}>
@@ -286,12 +286,12 @@ function InviteLink({ invite, again, onBack, onAgain, onClose }: { invite: Invit
           <div className={cn("size-40 shrink-0 overflow-hidden rounded-lg bg-white p-1.5 [&_svg]:size-full", expired && "opacity-24")} aria-label="QR code of the join link" role="img" dangerouslySetInnerHTML={{ __html: svg }} />
           <div className="flex min-w-0 flex-1 flex-col gap-3">
             <div className="flex h-9 items-center gap-2 rounded-lg border bg-muted/40 ps-3 pe-1">
-              <code className="min-w-0 flex-1 truncate font-mono text-[12px] text-muted-foreground">{invite.link}</code>
+              <code className="min-w-0 flex-1 truncate font-mono text-mono text-muted-foreground">{invite.link}</code>
               <Button size="xs" variant="outline" className="shrink-0" disabled={expired} onClick={() => void copy()}>
                 <CopyIcon /> Copy
               </Button>
             </div>
-            <div aria-live="polite" className={cn("text-xs", expired ? "text-warning-foreground" : "text-muted-foreground")}>
+            <div aria-live="polite" className={cn("text-meta", expired ? "text-warning-foreground" : "text-muted-foreground")}>
               {expired ? (
                 <span className="flex items-center gap-2">
                   This link has expired.
@@ -305,11 +305,11 @@ function InviteLink({ invite, again, onBack, onAgain, onClose }: { invite: Invit
                 </>
               )}
             </div>
-            <div className="text-sm">
-              <div className="mb-1 text-muted-foreground text-xs">In the link</div>
+            <div className="text-body">
+              <div className="mb-1 text-muted-foreground text-meta">In the link</div>
               <div className="flex flex-wrap gap-1.5">
                 {invite.boxes.map((b) => (
-                  <span key={b.name} className="rounded-md border px-2 py-0.5 text-xs">
+                  <span key={b.name} className="rounded-md border px-2 py-0.5 text-meta">
                     {b.name}
                     {b.network && <span className="text-muted-foreground"> · {b.tailnet ?? b.network}</span>}
                   </span>
@@ -317,7 +317,7 @@ function InviteLink({ invite, again, onBack, onAgain, onClose }: { invite: Invit
               </div>
             </div>
             {invite.skipped.length > 0 && (
-              <div className="text-xs">
+              <div className="text-meta">
                 <div className="mb-1 text-muted-foreground">Left out</div>
                 <ul className="space-y-0.5">
                   {invite.skipped.map((s) => (
@@ -330,7 +330,7 @@ function InviteLink({ invite, again, onBack, onAgain, onClose }: { invite: Invit
             )}
           </div>
         </div>
-        <p className="mt-4 text-muted-foreground text-xs leading-relaxed">The QR code is the same link, for your phone's camera to copy across. The link holds a one-time code per box and the boxes' addresses and keys; never this computer's key.</p>
+        <p className="mt-4 text-muted-foreground text-meta">The QR code is the same link, for your phone's camera to copy across. The link holds a one-time code per box and the boxes' addresses and keys; never this computer's key.</p>
       </DialogPanel>
       <DialogFooter variant="bare" className="px-5">
         <Button onClick={onClose}>Done</Button>

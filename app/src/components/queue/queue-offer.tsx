@@ -17,11 +17,11 @@ export function QueueOffer({ failure, box, className }: { failure: SendFailure; 
   const offline = failure.kind === "offline";
   const Icon = offline ? CloudOffIcon : TriangleAlertIcon;
   return (
-    <div role="status" className={cn("flex gap-2.5 rounded-lg border px-3 py-2.5 text-[13px]", offline ? "border-info/24 bg-info/6" : "border-warning/32 bg-warning/8", className)}>
+    <div role="status" className={cn("flex gap-2.5 rounded-lg border px-3 py-2.5 text-desc", offline ? "border-info/24 bg-info/6" : "border-warning/32 bg-warning/8", className)}>
       <Icon className={cn("mt-0.5 size-4 shrink-0", offline ? "text-info-foreground dark:text-info" : "text-warning-foreground dark:text-warning")} />
       <div className="min-w-0">
         <p className="font-medium">{failure.message}</p>
-        <p className="text-muted-foreground text-xs">
+        <p className="text-muted-foreground text-meta">
           {offline
             ? `Shipyard can keep the prompt on this Mac and type it in when ${box} is back, after the agent's current turn. It's listed under Queued in the status bar.`
             : "Queue it only if you're sure it didn't arrive; otherwise the agent gets it twice."}

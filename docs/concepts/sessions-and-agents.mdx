@@ -170,12 +170,14 @@ notifications follow; it still takes prompts as if done, so held prompts
 and other agents' reports are delivered. Unfinished work that needs
 nothing from you is one of two kinds, and neither notifies. **Working**:
 something it started is still running and it acts when that ends (a
-delegated task, a build, a deploy, a test run, or a watcher it started);
-the session stays `finished` with `unfinished: true`. **Parked**: nothing
-runs for it, and it waits on someone else (a reply, another team, a
-vendor) or a later time ("check again in 24 hours", "continue on
-Thursday"); the session stays `finished` with `parked: true` and shows as
-**Idle**. Both are `agent.ready` with `source: "turncheck"` and the
+delegated task, a build, a deploy, a test run, or a watcher or background
+task it started); the session stays `finished` with `unfinished: true`.
+**Parked**: nothing runs for it, and it waits on someone else (a reply, a
+review, another team, a vendor) or a later time, such as a check-in it
+scheduled for itself ("tomorrow morning I'll check the numbers", "check
+again in 24 hours", "continue on Thursday"), even with the machine kept
+awake for it; the session stays `finished` with `parked: true` and shows
+as **Idle**. Both are `agent.ready` with `source: "turncheck"` and the
 model's `choice` (`working` or `parked`); both take prompts and end waits
 as done, and stay out of Review, so Done holds only work that is done. A
 dev server or shell left running after the agent is done is not work in

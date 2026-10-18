@@ -1,36 +1,29 @@
-import {
-  EllipsisIcon,
-  FolderPlusIcon,
-  GitBranchPlusIcon,
-  PanelLeftCloseIcon,
-  PanelLeftOpenIcon,
-  SearchIcon,
-  ServerIcon,
-  SettingsIcon,
-} from "lucide-react";
+import { EllipsisIcon, FolderPlusIcon, PanelLeftIcon, PanelLeftOpenIcon, PenLineIcon, SearchIcon, ServerIcon, SettingsIcon } from "lucide-react";
 import { useMemo } from "react";
 
 import { NotificationBell } from "@/components/notifications/notification-center";
 import { newSection } from "@/components/sidebar/actions";
-import { MoreItems, Nav as PlacesNav, useArrangedNav } from "@/components/sidebar/nav";
+import { MoreItems, Nav as PlacesNav, RowKeys, rowClass, useArrangedNav } from "@/components/sidebar/nav";
+import { ProjectsColumn, ShowTasks, TasksColumn, usePicked } from "@/components/sidebar/columns";
 import { Projects, useSidebarPrefs } from "@/components/sidebar/projects";
 import { RailAgents } from "@/components/sidebar/rail";
 import { SidebarResizeHandle } from "@/components/sidebar/resize-handle";
 import { RowLayer } from "@/components/sidebar/row-layer";
 import { RailSkillsNotices, SkillsNotices } from "@/components/sidebar/skills-notice";
+import { ink, inkScale } from "@/components/sidebar/ink";
+import { BoxesFoot } from "@/components/sidebar/task-parts";
 import { Tip } from "@/components/tip";
-import { Kbd } from "@/components/ui/kbd";
 import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
-import { SidebarContext, type SidebarContextProps } from "@/components/ui/sidebar";
+import { SidebarContext, type SidebarContextProps, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 import { usePrefs } from "@/lib/prefs";
 import { useStore } from "@/lib/store";
-import { SIDEBAR_DEFAULT, SIDEBAR_MAX, SIDEBAR_MIN } from "@/lib/sidebar-width";
+import { PROJECTS_COLUMN, SIDEBAR_DEFAULT, SIDEBAR_MAX, SIDEBAR_MIN } from "@/lib/sidebar-width";
 import { WhatsNewNudge } from "@/components/whats-new/whats-new-dialog";
 import { cn } from "@/lib/utils";
 import { openAddBox } from "@/views/onboarding/add-box-dialog";
 import { TeamSidebarCard } from "@/views/team/team-entry";
 import { AlphaBadge } from "@/components/alpha-badge";
-import { LINUX_ALPHA, platformKeys } from "@/lib/platform";
+import { LINUX_ALPHA } from "@/lib/platform";
 
 // The sidebar is always open on a desktop window; coss ui's menu pieces only
 // need to know that.
@@ -44,68 +37,127 @@ const alwaysOpen: SidebarContextProps = {
   toggleSidebar: () => {},
 };
 
-// AppSidebar: a short list of places at the top, then the repositories on
-// every box, then Settings.
+// AppSidebar: the window's controls, a short list of places, the tasks in
+// every project on every box, and at its foot the boxes and Settings. With
+// Labs' two-column sidebar, the projects and the tasks of the one picked
+// sit side by side (ColumnsSidebar).
 export function AppSidebar() {
-  const view = useStore((s) => s.view);
-  const setView = useStore((s) => s.setView);
   const [prefs, update] = useSidebarPrefs();
   const context = useMemo(() => alwaysOpen, []);
-  // A new account has no projects to list; onboarding fills the main area.
-  const noBoxes = useStore((s) => !!s.status && s.status.boxes.length === 0);
   const collapsed = usePrefs((p) => p.sidebarCollapsed);
+  const columns = usePrefs((p) => p.sidebarLayout === "columns");
 
   if (collapsed) return <Rail />;
 
   return (
     <SidebarContext.Provider value={context}>
-      {/* Its width is --sidebar-w (prefs), or --sidebar-live as a drag
-          runs, held to the narrowest and widest (lib/sidebar-width) even as
-          the window shrinks; a container, so rows show more of a worktree
-          when there is room. */}
-      <aside
-        aria-label="Sidebar"
-        data-testid="sidebar"
-        style={{ width: `clamp(${SIDEBAR_MIN}px, var(--sidebar-live, var(--sidebar-w, ${SIDEBAR_DEFAULT}px)), max(${SIDEBAR_DEFAULT}px, min(${SIDEBAR_MAX}px, 40vw)))` }}
-        className="@container/side relative flex shrink-0 flex-col border-sidebar-border border-r bg-sidebar text-sidebar-foreground"
-      >
-        <SidebarResizeHandle />
-        {/* Room for the macOS traffic lights; the strip drags the window. The
-            Linux app has none, and says it is an alpha there instead. */}
-        <div data-tauri-drag-region className="flex h-10 shrink-0 items-center justify-end px-2">
-          {LINUX_ALPHA && <AlphaBadge link className="mr-auto ml-1" />}
-          <NotificationBell />
-        </div>
+      {columns ? (
+        <ColumnsSidebar prefs={prefs} update={update} />
+      ) : (
+        // Its width is --sidebar-w (prefs), or --sidebar-live as a drag
+        // runs, held to the narrowest and widest (lib/sidebar-width) even as
+        // the window shrinks; a container, so rows show more of a worktree
+        // when there is room.
+        <aside
+          aria-label="Sidebar"
+          data-testid="sidebar"
+          style={{ width: `clamp(${SIDEBAR_MIN}px, var(--sidebar-live, var(--sidebar-w, ${SIDEBAR_DEFAULT}px)), max(${SIDEBAR_DEFAULT}px, min(${SIDEBAR_MAX}px, 40vw)))` }}
+          className={cn("@container/side relative flex shrink-0 flex-col border-sidebar-border border-r bg-sidebar pt-1.5 pb-2 text-sidebar-foreground", inkScale)}
+        >
+          <SidebarResizeHandle />
+          <WindowStrip />
+          <Places prefs={prefs} update={update} />
+          {/* A team setup while it runs, or a newer commit of one to review. */}
+          <TeamSidebarCard />
 
-        <div className="px-2 pb-1">
-          <button
-            type="button"
-            onClick={() => useStore.getState().setPaletteOpen(true)}
-            className="mb-1.5 flex h-7 w-full items-center gap-2 rounded-lg border border-sidebar-border bg-background/50 px-2 text-[13px] text-muted-foreground hover:bg-sidebar-accent"
-          >
-            <SearchIcon className="size-3.5" />
-            <span className="flex-1 text-left">Search</span>
-            <Kbd className="h-4.5 text-[10px]">⌘K</Kbd>
-          </button>
-          <PlacesNav />
-        </div>
-        {/* A team setup while it runs, or a newer commit of one to review. */}
-        <TeamSidebarCard />
+          {/* One context menu and one tooltip for every row in it. */}
+          <RowLayer className="min-h-0 flex-1 overflow-y-auto pt-5 pr-[11px] pb-3 pl-3.5">
+            <Projects prefs={prefs} update={update} />
+          </RowLayer>
 
-        <div className={cn("flex items-center justify-between pt-4 pr-2 pb-1 pl-3", noBoxes && "hidden")}>
-          <span className="font-medium text-[11px] text-muted-foreground">Projects</span>
-          <Menu>
-            <MenuTrigger
-              render={<button type="button" aria-label="Projects options" className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground data-popup-open:bg-sidebar-accent" />}
-            >
-              <EllipsisIcon className="size-3.5" />
-            </MenuTrigger>
-            <MenuPopup align="end" className="min-w-52">
-              <MenuItem onClick={() => useStore.getState().openNewWorktree()}>
-                <GitBranchPlusIcon />
-                New task…
-                <span className="ml-auto text-muted-foreground text-xs">{platformKeys("⌘N")}</span>
-              </MenuItem>
+          <Foot />
+        </aside>
+      )}
+    </SidebarContext.Provider>
+  );
+}
+
+type SidebarPrefsProps = { prefs: ReturnType<typeof useSidebarPrefs>[0]; update: ReturnType<typeof useSidebarPrefs>[1] };
+
+// ColumnsSidebar is the two-column sidebar (Settings › Labs): the first
+// column a fixed width with the window's controls, the places, a row per
+// project and the foot; the second the picked project's tasks, sized by its
+// own edge and folded away from its strip. One background, the sidebar's
+// border between them.
+function ColumnsSidebar({ prefs, update }: SidebarPrefsProps) {
+  const folded = usePrefs((p) => p.tasksFolded);
+  const noBoxes = useStore((s) => !!s.status && s.status.boxes.length === 0);
+  const picked = usePicked(prefs.groupBy);
+  return (
+    <aside aria-label="Sidebar" data-testid="sidebar" data-layout="columns" className={cn("relative flex shrink-0 flex-col border-sidebar-border border-r bg-sidebar pb-2 text-sidebar-foreground", inkScale)}>
+      <div className="mb-1 flex min-h-0 flex-1 border-sidebar-border border-b">
+        <div data-testid="sidebar-projects" style={{ width: PROJECTS_COLUMN }} className={cn("relative flex shrink-0 flex-col pt-1.5", !folded && !noBoxes && "border-sidebar-border border-r")}>
+          <WindowStrip extra={folded && !noBoxes ? <ShowTasks /> : undefined} />
+          <Places prefs={prefs} update={update} />
+          <TeamSidebarCard />
+          <ProjectsColumn prefs={prefs} update={update} picked={picked?.key} />
+        </div>
+        {!folded && !noBoxes && <TasksColumn picked={picked} prefs={prefs} update={update} />}
+      </div>
+      {/* The foot runs under both columns, so its notices and the boxes'
+          line have the whole width; its pieces sit in the sidebar itself,
+          which the notices' height is a share of. */}
+      <Foot />
+    </aside>
+  );
+}
+
+// WindowStrip is the sidebar's top: room for the macOS traffic lights, then
+// the notifications and the way to fold the sidebar; the strip drags the
+// window. The Linux app has no lights, and says it is an alpha there
+// instead. extra goes before the fold (the two-column sidebar's way back
+// to its tasks).
+function WindowStrip({ extra }: { extra?: React.ReactNode }) {
+  return (
+    <div data-tauri-drag-region className="flex h-8 shrink-0 items-center justify-end gap-0.5 pr-[6px] pl-4.5">
+      {LINUX_ALPHA && <AlphaBadge link className="mr-auto" />}
+      <NotificationBell className="size-7 rounded-lg [&_svg]:size-4" />
+      {extra}
+      <Tip label={"Hide the sidebar (⌘\\)"} side="bottom" align="end">
+        <button
+          type="button"
+          aria-label="Hide the sidebar"
+          onClick={() => usePrefs.setState({ sidebarCollapsed: true })}
+          className={cn("inline-flex size-7 items-center justify-center rounded-lg hover:bg-sidebar-accent hover:text-foreground [&_svg]:size-[18px]", ink.glyph)}
+        >
+          <PanelLeftIcon strokeWidth={1.8} />
+        </button>
+      </Tip>
+    </div>
+  );
+}
+
+// Places are the sidebar's places, with More's menu holding ways to add to
+// the projects below and how they show and group.
+function Places({ prefs, update }: SidebarPrefsProps) {
+  // A new account has no projects to list; onboarding fills the main area.
+  const noBoxes = useStore((s) => !!s.status && s.status.boxes.length === 0);
+  const labs = usePrefs((p) => p.labs);
+  return (
+    <div className="pt-5 pr-[11px] pl-3.5">
+      <PlacesNav
+        lead={
+          <>
+            {/* With Labs, Home is where a task starts and is New task. */}
+            {!labs && <TopAction label="New task" keys="⌘N" icon={<PenLineIcon />} onClick={() => useStore.getState().openNewWorktree()} />}
+            <TopAction label="Search" keys="⌘K" icon={<SearchIcon />} onClick={() => useStore.getState().setPaletteOpen(true)} />
+          </>
+        }
+        extra={
+          noBoxes ? undefined : (
+            // How the tasks below show and group, and ways to add to them.
+            <>
+              <MenuSeparator />
               <MenuItem onClick={() => useStore.getState().openAddLocation()}>
                 <FolderPlusIcon />
                 Add a project…
@@ -133,45 +185,55 @@ export function AppSidebar() {
                   <MenuRadioItem value="box">Box</MenuRadioItem>
                 </MenuRadioGroup>
               </MenuGroup>
-            </MenuPopup>
-          </Menu>
-        </div>
+            </>
+          )
+        }
+      />
+    </div>
+  );
+}
 
-        {/* One context menu and one tooltip for every row in it. */}
-        <RowLayer className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-          <Projects prefs={prefs} update={update} />
-        </RowLayer>
+// Foot is the sidebar's foot. Notices are a quiet line each, above it and
+// never over the list: a box whose Shipyard skills aren't installed or are
+// out of date, and what's new. Then the boxes and Settings.
+function Foot() {
+  const view = useStore((s) => s.view);
+  const setView = useStore((s) => s.setView);
+  return (
+    <>
+      <SkillsNotices />
+      <WhatsNewNudge />
+      <div className="flex h-[34px] shrink-0 items-center gap-1 pr-[15px] pl-3.5">
+        <BoxesFoot />
+        <Tip label="Settings · ⇧-click for Developer" side="top" align="end">
+          <button
+            type="button"
+            data-testid="nav-settings"
+            aria-label="Settings"
+            aria-current={view.kind === "settings" ? "page" : undefined}
+            // Shift-click goes straight to Developer.
+            onClick={(e) => setView({ kind: "settings", section: e.shiftKey ? "developer" : undefined })}
+            className={cn("inline-flex size-7 shrink-0 items-center justify-center rounded-lg hover:bg-sidebar-accent hover:text-foreground [&_svg]:size-4", ink.glyph, view.kind === "settings" && "bg-sidebar-accent text-foreground")}
+          >
+            <SettingsIcon strokeWidth={1.8} />
+          </button>
+        </Tip>
+      </div>
+    </>
+  );
+}
 
-        {/* A box whose Shipyard skills aren't installed or are out of date. */}
-        <SkillsNotices />
-        <WhatsNewNudge />
-        <div className="flex h-9 shrink-0 items-center gap-1 border-sidebar-border border-t px-2">
-          <Tip label="⇧-click for Developer settings" side="top" align="start">
-            <button
-              type="button"
-              data-testid="nav-settings"
-              aria-current={view.kind === "settings" ? "page" : undefined}
-              // Shift-click goes straight to Developer.
-              onClick={(e) => setView({ kind: "settings", section: e.shiftKey ? "developer" : undefined })}
-              className={cn("inline-flex h-6.5 items-center gap-1.5 rounded-md px-1.5 text-muted-foreground text-xs hover:bg-sidebar-accent hover:text-foreground", view.kind === "settings" && "text-foreground")}
-            >
-              <SettingsIcon className="size-3.5" />
-              Settings
-            </button>
-          </Tip>
-          <Tip label={"Hide the sidebar (⌘\\)"} side="top">
-            <button
-              type="button"
-              aria-label="Hide the sidebar"
-              onClick={() => usePrefs.setState({ sidebarCollapsed: true })}
-              className="ml-auto inline-flex size-6.5 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-            >
-              <PanelLeftCloseIcon className="size-3.5" />
-            </button>
-          </Tip>
-        </div>
-      </aside>
-    </SidebarContext.Provider>
+// TopAction is one of the sidebar's own rows among the places: start a
+// task (without Labs) and search. A place's row, its shortcut at the end.
+function TopAction({ label, keys, icon, onClick }: { label: string; keys: string; icon: React.ReactNode; onClick(): void }) {
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton size="sm" onClick={onClick} className={rowClass}>
+        {icon}
+        <span>{label}</span>
+      </SidebarMenuButton>
+      <RowKeys keys={keys} />
+    </SidebarMenuItem>
   );
 }
 
@@ -189,16 +251,16 @@ function Rail() {
         type="button"
         aria-label={label}
         onClick={onClick}
-        className={cn("relative inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-sidebar-accent hover:text-foreground [&_svg]:size-4", active && "bg-sidebar-accent text-foreground")}
+        className={cn("relative inline-flex size-8 items-center justify-center rounded-lg hover:bg-sidebar-accent hover:text-foreground [&_svg]:size-4", ink.row, active && "bg-sidebar-accent text-foreground")}
       >
         {icon}
         {/* Amber only when something needs you, as in the sidebar. */}
-        {badge?.count ? <span className={cn("absolute top-0.5 right-0.5 size-2 rounded-full", badge.loud ? "bg-warning" : "bg-muted-foreground/70")} /> : null}
+        {badge?.count ? <span className={cn("absolute top-0.5 right-0.5 size-2 rounded-full", badge.loud ? "bg-warning" : "bg-foreground/45")} /> : null}
       </button>
     </Tip>
   );
   return (
-    <aside aria-label="Sidebar" data-testid="sidebar-rail" className="relative flex w-19 shrink-0 flex-col items-center border-sidebar-border border-r bg-sidebar">
+    <aside aria-label="Sidebar" data-testid="sidebar-rail" className={cn("relative flex w-19 shrink-0 flex-col items-center border-sidebar-border border-r bg-sidebar", inkScale)}>
       <SidebarResizeHandle folded />
       <div data-tauri-drag-region className="h-10 w-full shrink-0" />
       <div className="flex flex-col items-center gap-1">
@@ -215,7 +277,8 @@ function Rail() {
                   type="button"
                   aria-label="More"
                   className={cn(
-                    "inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-sidebar-accent hover:text-foreground data-popup-open:bg-sidebar-accent",
+                    "inline-flex size-8 items-center justify-center rounded-lg hover:bg-sidebar-accent hover:text-foreground data-popup-open:bg-sidebar-accent",
+                    ink.row,
                     more.some((n) => n.active) && "bg-sidebar-accent text-foreground",
                   )}
                 />

@@ -30,7 +30,7 @@ export function AgentsSection({ repo, draft, setDraft, box }: { repo: RepoConfig
       }
     >
       {ids.length === 0 ? (
-        <p className="px-4 py-3 text-muted-foreground text-sm">Using the built-ins. Add a preset to change how one starts, like Claude with a model or flags.</p>
+        <p className="px-4 py-3 text-muted-foreground text-body">Using the built-ins. Add a preset to change how one starts, like Claude with a model or flags.</p>
       ) : (
         <div className="divide-y divide-border/70">
           {ids.map((id, row) => {
@@ -42,12 +42,12 @@ export function AgentsSection({ repo, draft, setDraft, box }: { repo: RepoConfig
             return (
               <div key={row} className="grid grid-cols-[1.25rem_8rem_minmax(0,10rem)_minmax(0,1fr)_auto_3.5rem] items-center gap-3 px-4 py-2">
                 <AgentIcon agent={a.id} />
-                {mine && !c ? <Input value={mine.id} onChange={(e) => update(i, { id: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })} size="sm" className="font-mono text-xs" aria-label="Preset id" /> : <code className="truncate font-mono text-xs">{id}</code>}
-                {mine ? <Input value={mine.name} onChange={(e) => update(i, { name: e.target.value })} placeholder="Name" size="sm" /> : <span className="truncate text-sm">{a.name}</span>}
+                {mine && !c ? <Input value={mine.id} onChange={(e) => update(i, { id: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })} size="sm" className="font-mono text-mono" aria-label="Preset id" /> : <code className="truncate font-mono text-mono">{id}</code>}
+                {mine ? <Input value={mine.name} onChange={(e) => update(i, { name: e.target.value })} placeholder="Name" size="sm" /> : <span className="truncate text-row">{a.name}</span>}
                 {mine ? (
-                  <Input value={mine.command} onChange={(e) => update(i, { command: e.target.value })} placeholder="claude --model opus" size="sm" className="font-mono text-xs" spellCheck={false} />
+                  <Input value={mine.command} onChange={(e) => update(i, { command: e.target.value })} placeholder="claude --model opus" size="sm" className="font-mono text-mono" spellCheck={false} />
                 ) : (
-                  <code className="truncate px-2.5 font-mono text-muted-foreground text-xs">{a.command}</code>
+                  <code className="truncate px-2.5 font-mono text-muted-foreground text-mono">{a.command}</code>
                 )}
                 <SourceBadge source={source} box={box} field="agents" entry={id} />
                 <span className="flex justify-end">

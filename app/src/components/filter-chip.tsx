@@ -16,7 +16,7 @@ export function FilterChip({ pressed, onPressedChange, children, className }: { 
       aria-pressed={pressed}
       onClick={() => onPressedChange(!pressed)}
       className={cn(
-        "inline-flex h-7 max-w-44 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs text-muted-foreground outline-none transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-3 [&_svg]:shrink-0",
+        "inline-flex h-7 max-w-44 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-meta text-muted-foreground outline-none transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-3 [&_svg]:shrink-0",
         pressed && "border-foreground/25 bg-accent text-foreground",
         className,
       )}

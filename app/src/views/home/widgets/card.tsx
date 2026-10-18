@@ -17,7 +17,7 @@ function Count({ use }: { use: NonNullable<WidgetDef["useCount"]> }) {
   const c = use();
   if (!c || c.n <= 0) return null;
   return (
-    <span className={cn("rounded-sm px-1 font-medium text-[11px] tabular-nums", c.urgent ? "bg-warning/14 text-warning-foreground" : "text-muted-foreground")} aria-label={`${c.n}${c.urgent ? ", needs you" : ""}`}>
+    <span className={cn("rounded-sm px-1 font-medium text-tag tabular-nums", c.urgent ? "bg-warning/14 text-warning-foreground" : "text-muted-foreground")} aria-label={`${c.n}${c.urgent ? ", needs you" : ""}`}>
       {c.n}
     </span>
   );
@@ -38,7 +38,7 @@ export function WidgetHeading({ def, id, actions, className }: { def: WidgetDef;
   return (
     <div className={cn("flex h-9 shrink-0 items-center gap-2 pr-1.5 pl-3", className)}>
       <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-      <h2 id={id} className="truncate font-medium text-[13px]">
+      <h2 id={id} className="truncate text-section">
         {def.title}
       </h2>
       <CountBadge def={def} />
@@ -81,7 +81,7 @@ export function WidgetMenu({ def, size, onSize, onRefresh, onRemove, onCustomize
                 <MenuRadioItem key={s} value={s}>
                   <span className="flex w-full items-center gap-3">
                     {SIZES[s].label}
-                    <span className="ml-auto text-muted-foreground text-xs tabular-nums">
+                    <span className="ml-auto text-meta text-muted-foreground tabular-nums">
                       {SIZES[s].c}×{SIZES[s].r}
                     </span>
                   </span>

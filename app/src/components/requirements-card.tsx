@@ -158,12 +158,12 @@ export function RequirementsCard({ box, agent, noAgent, team, className }: { box
         : `Install it on ${box}, then check again.`;
 
   return (
-    <div role="status" data-requirements-card={card} className={cn("flex gap-3 rounded-lg border border-warning/32 bg-warning/4 px-3.5 py-3 text-sm", className)}>
+    <div role="status" data-requirements-card={card} className={cn("flex gap-3 rounded-lg border border-warning/32 bg-warning/4 px-3.5 py-3 text-body", className)}>
       <PackageIcon className="mt-0.5 size-4 shrink-0 text-warning" />
       <div className="flex min-w-0 flex-1 flex-col gap-2.5">
         <div className="flex flex-col gap-0.5">
           <p className="font-medium">{copyText.title}</p>
-          <p className="text-muted-foreground text-xs leading-relaxed">{copyText.body}</p>
+          <p className="text-muted-foreground text-meta">{copyText.body}</p>
         </div>
         {copyText.first && (
           <Command
@@ -186,7 +186,7 @@ export function RequirementsCard({ box, agent, noAgent, team, className }: { box
           />
         )}
         {copyText.command && <Command step={two ? 2 : undefined} label={two ? "Then tmux" : undefined} text={copyText.command} />}
-        <p className="text-muted-foreground text-xs leading-relaxed">{howTo}</p>
+        <p className="text-muted-foreground text-meta">{howTo}</p>
         <div className="flex flex-wrap items-center gap-2">
           {canOpen && line && (
             <Button size="sm" variant={opened ? "outline" : "default"} onClick={() => void openIt()}>
@@ -198,7 +198,7 @@ export function RequirementsCard({ box, agent, noAgent, team, className }: { box
             <RefreshCwIcon />
             Check again
           </Button>
-          {checked && !entry.checking && <span className="text-muted-foreground text-xs">Still missing on {local ? thisComputer("this Mac") : box}.</span>}
+          {checked && !entry.checking && <span className="text-muted-foreground text-meta">Still missing on {local ? thisComputer("this Mac") : box}.</span>}
         </div>
       </div>
     </div>
@@ -216,13 +216,13 @@ function Command({ text, step, label }: { text: string; step?: number; label?: R
   return (
     <div className="flex flex-col gap-1">
       {label && (
-        <span className="text-muted-foreground text-[11px]">
+        <span className="text-muted-foreground text-tag">
           {step ? `${step}.\u00a0` : ""}
           {label}
         </span>
       )}
       <div className="flex items-start gap-2 rounded-md border bg-background/70 px-2.5 py-2">
-        <code className="min-w-0 flex-1 break-all font-mono text-[11px] leading-relaxed">{text}</code>
+        <code className="min-w-0 flex-1 break-all font-mono text-tag">{text}</code>
         <button
           type="button"
           aria-label="Copy the command"

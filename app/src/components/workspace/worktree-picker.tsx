@@ -248,7 +248,7 @@ export function WorktreePicker() {
                       >
                         {item.icon}
                         <span className="truncate">{item.label}</span>
-                        {item.detail && <span className="ml-auto min-w-0 shrink truncate text-muted-foreground text-xs">{item.detail}</span>}
+                        {item.detail && <span className="ml-auto min-w-0 shrink truncate text-muted-foreground text-meta">{item.detail}</span>}
                         {item.trailing}
                       </CommandItem>
                     )}
@@ -257,7 +257,7 @@ export function WorktreePicker() {
               )}
             </CommandList>
           </CommandPanel>
-          <CommandFooter className="text-[11px] text-muted-foreground">
+          <CommandFooter className="text-tag text-muted-foreground">
             {picked ? (
               <button type="button" className="flex items-center gap-1 hover:text-foreground" onClick={() => useWorktreePicker.setState({ picked: undefined })}>
                 <ArrowLeftIcon className="size-3" />
@@ -289,7 +289,7 @@ export function WorktreePicker() {
 // OnScreen marks a worktree that already shows, in its colour.
 function OnScreen({ wsKey }: { wsKey: string }) {
   return (
-    <span className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs">
+    <span className="flex shrink-0 items-center gap-1 text-muted-foreground text-meta">
       <WtDot wsKey={wsKey} className="size-1.5" />
       on screen
     </span>

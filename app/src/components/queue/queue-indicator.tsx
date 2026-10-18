@@ -35,11 +35,11 @@ export function QueueIndicator() {
           render={
             <button
               type="button"
-              className={cn("-mx-1 flex items-center gap-1.5 rounded px-1 hover:bg-accent hover:text-foreground data-popup-open:bg-accent data-popup-open:text-foreground", failed > 0 && "text-destructive-foreground")}
+              className={cn("-mx-1 flex items-center gap-1.5 rounded px-1 hover:bg-accent hover:text-foreground data-popup-open:bg-accent data-popup-open:text-foreground", failed > 0 && "text-warning-foreground")}
             />
           }
         >
-          {failed > 0 ? <span className="size-1.5 rounded-full bg-destructive" /> : <ListStartIcon className="size-3" />}
+          {failed > 0 ? <span className="size-1.5 rounded-full bg-warning" /> : <ListStartIcon className="size-3" />}
           Queued ({items.length})
         </PopoverTrigger>
       </Tip>
@@ -57,14 +57,14 @@ function QueuePanel({ items, list }: { items: QueueItem[]; list: RefObject<HTMLD
   return (
     <div className="flex max-h-[min(32rem,70vh)] flex-col">
       <div className="border-b px-4 pt-3 pb-2.5">
-        <div className="font-medium text-sm">Queued prompts</div>
-        <p className="text-muted-foreground text-xs">Kept by Shipyard on this Mac and typed in when their box is back, in order for each agent, after its current turn.</p>
+        <div className="text-row">Queued prompts</div>
+        <p className="text-muted-foreground text-meta">Kept by Shipyard on this Mac and typed in when their box is back, in order for each agent, after its current turn.</p>
       </div>
       <div ref={list} tabIndex={-1} role="region" aria-label="Queued prompts" className="min-h-0 flex-1 overflow-y-auto outline-none">
-        {items.length === 0 && <p className="px-4 py-8 text-center text-muted-foreground text-sm">Nothing queued. A prompt for a box that is offline can wait here.</p>}
+        {items.length === 0 && <p className="px-4 py-8 text-center text-muted-foreground text-body">Nothing queued. A prompt for a box that is offline can wait here.</p>}
         {byBox.map(([box, list]) => (
           <div key={box}>
-            <div className="sticky top-0 z-1 flex items-center gap-1.5 border-b bg-popover px-4 py-1 font-medium text-[11px] text-muted-foreground">
+            <div className="sticky top-0 z-1 flex items-center gap-1.5 border-b bg-popover px-4 py-1 font-medium text-tag text-muted-foreground">
               <span className={cn("size-1.5 rounded-full", state(box) === "online" ? "bg-success" : state(box) === "offline" ? "bg-muted-foreground/50" : "bg-warning")} />
               {box}
               <span className="font-normal">· {state(box) === "online" ? "online" : state(box) === "offline" ? "offline" : state(box)}</span>
@@ -108,17 +108,17 @@ function Row({ it, online }: { it: QueueItem; online: boolean }) {
       <div className="flex min-w-0 items-center gap-2">
         <AgentIcon agent={session ? agentOf(session) : guessAgent(it.session)} />
         <Tip label={`Session ${it.session} on ${it.box}`} align="start">
-          <span className="min-w-0 truncate font-medium text-[13px]">{targetName(it.box, it.session)}</span>
+          <span className="min-w-0 truncate font-medium text-desc">{targetName(it.box, it.session)}</span>
         </Tip>
-        <span className="ml-auto shrink-0 text-[11px] text-muted-foreground tabular-nums">{ago(it.created)}</span>
+        <span className="ml-auto shrink-0 text-tag text-muted-foreground tabular-nums">{ago(it.created)}</span>
       </div>
-      <p className="mt-1 line-clamp-2 break-words text-[12.5px] text-foreground/80 leading-snug" title={it.text}>
+      <p className="mt-1 line-clamp-2 break-words text-meta text-foreground/80" title={it.text}>
         {preview(it.text, 240)}
       </p>
       {/* The agent's errors name the session by id; say it as the row does. */}
-      {it.error && <p className="mt-1 text-destructive-foreground text-xs">{it.error.split(it.session).join(targetName(it.box, it.session))}</p>}
+      {it.error && <p className="mt-1 text-destructive-foreground text-meta">{it.error.split(it.session).join(targetName(it.box, it.session))}</p>}
       <div className="mt-1.5 flex min-w-0 items-center gap-1">
-        <span className={cn("flex min-w-0 items-center gap-1 truncate text-[11px]", st.className)}>
+        <span className={cn("flex min-w-0 items-center gap-1 truncate text-tag", st.className)}>
           {(it.state === "sending" || it.state === "waiting") && <Spinner className="size-3" />}
           {!online && it.state === "queued" && !it.blocked && <CloudOffIcon className="size-3" />}
           {st.text}
@@ -127,7 +127,7 @@ function Row({ it, online }: { it: QueueItem; online: boolean }) {
         {it.state === "failed" && <MoveTo it={it} />}
         {it.state === "failed" && (
           <Tip label="Put it back in line, to send when the agent is free">
-            <Button size="xs" variant="ghost" className="h-6 text-[11px]" loading={busy === "retry"} onClick={() => act("retry", () => retry(it.id))}>
+            <Button size="xs" variant="ghost" className="h-6 text-tag" loading={busy === "retry"} onClick={() => act("retry", () => retry(it.id))}>
               <RotateCcwIcon />
               Retry
             </Button>
@@ -137,7 +137,7 @@ function Row({ it, online }: { it: QueueItem; online: boolean }) {
           <Button
             size="xs"
             variant="ghost"
-            className="h-6 text-[11px]"
+            className="h-6 text-tag"
             disabled={!online || it.state === "sending"}
             loading={busy === "send"}
             onClick={() =>
@@ -180,7 +180,7 @@ function MoveTo({ it }: { it: QueueItem }) {
   return (
     <SimpleSelect
       size="sm"
-      className="h-6 w-32 min-w-0 text-[11px]"
+      className="h-6 w-32 min-w-0 text-tag"
       options={options}
       value=""
       placeholder="Move to…"
@@ -198,14 +198,14 @@ function Simulator() {
   useStore((s) => s.status);
   const boxes = mockBoxes();
   return (
-    <div className="flex flex-wrap items-center gap-1.5 border-t bg-muted/40 px-4 py-2 text-[11px] text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-1.5 border-t bg-muted/40 px-4 py-2 text-tag text-muted-foreground">
       <span className="font-medium">Simulate</span>
       {boxes.map((b) => (
         <Button
           key={b.name}
           size="xs"
           variant="outline"
-          className="h-6 text-[11px]"
+          className="h-6 text-tag"
           onClick={() => {
             mockSetBoxOnline(b.name, !b.online);
           }}

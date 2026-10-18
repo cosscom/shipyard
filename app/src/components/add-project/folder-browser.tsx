@@ -113,11 +113,11 @@ export function FolderBrowser({ box, start, onAdded }: { box: string; start?: st
                 else if (selected) open(selected);
               }
             }}
-            className="h-9 min-w-0 flex-1 rounded-lg border border-input bg-background px-3 font-mono text-[13px] shadow-xs/5 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/24 sm:h-8 dark:bg-input/32"
+            className="h-9 min-w-0 flex-1 rounded-lg border border-input bg-background px-3 font-mono text-desc shadow-xs/5 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/24 sm:h-8 dark:bg-input/32"
           />
         </div>
         <Frame className="rounded-xl p-0.5">
-          <nav aria-label="Folder" className="flex h-7 min-w-0 items-center gap-1 overflow-hidden px-2.5 text-muted-foreground text-xs">
+          <nav aria-label="Folder" className="flex h-7 min-w-0 items-center gap-1 overflow-hidden px-2.5 text-muted-foreground text-meta">
             {crumbs.map((c, i) => (
               <span key={c.path} className="flex min-w-0 items-center gap-1">
                 {i > 0 && <span className="text-muted-foreground/48">/</span>}
@@ -131,11 +131,11 @@ export function FolderBrowser({ box, start, onAdded }: { box: string; start?: st
           <FramePanel className="rounded-[10px] p-0 shadow-none before:hidden dark:bg-input/32">
             <div ref={listRef} role="listbox" aria-label="Folders" className="h-64 overflow-y-auto p-1">
               {loading && !listing ? (
-                <p className="flex items-center gap-2 px-2.5 py-2 text-[13px] text-muted-foreground">
+                <p className="flex items-center gap-2 px-2.5 py-2 text-desc text-muted-foreground">
                   <LoaderIcon className="size-3.5 animate-spin" /> Reading {box}…
                 </p>
               ) : entries.length === 0 ? (
-                <p className="px-2.5 py-2 text-[13px] text-muted-foreground">No folders here.</p>
+                <p className="px-2.5 py-2 text-desc text-muted-foreground">No folders here.</p>
               ) : (
                 entries.map((e, n) => (
                   <button
@@ -146,13 +146,13 @@ export function FolderBrowser({ box, start, onAdded }: { box: string; start?: st
                     aria-selected={n === active}
                     onClick={() => setActive(n)}
                     onDoubleClick={() => open(e)}
-                    className={cn("flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm", n === active ? "bg-accent text-accent-foreground" : "hover:bg-accent/50")}
+                    className={cn("flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-body", n === active ? "bg-accent text-accent-foreground" : "hover:bg-accent/50")}
                   >
                     {e.git ? <GitBranchIcon className="size-4 shrink-0 text-success" /> : <FolderIcon className="size-4 shrink-0 text-muted-foreground" />}
                     <span className="min-w-0 truncate">{e.name}</span>
                     <span className="ml-auto flex min-w-0 shrink items-center gap-2">
-                      {e.slug && <span className="min-w-0 truncate font-mono text-muted-foreground text-xs">{e.slug}</span>}
-                      {existing(e) && <span className="shrink-0 rounded border px-1.5 text-[11px] text-muted-foreground">added</span>}
+                      {e.slug && <span className="min-w-0 truncate font-mono text-muted-foreground text-mono">{e.slug}</span>}
+                      {existing(e) && <span className="shrink-0 rounded border px-1.5 text-tag text-muted-foreground">added</span>}
                     </span>
                   </button>
                 ))
@@ -161,15 +161,15 @@ export function FolderBrowser({ box, start, onAdded }: { box: string; start?: st
           </FramePanel>
         </Frame>
         {target && !target.git && !existing(target) && (
-          <p className="flex items-center gap-1.5 text-muted-foreground text-xs">
+          <p className="flex items-center gap-1.5 text-muted-foreground text-meta">
             <TriangleAlertIcon className="size-3.5 shrink-0 text-warning" />
             {target.name || "This folder"} is not a git repository: it can be a project, but worktrees need git.
           </p>
         )}
-        {error && <ErrorText className="text-destructive text-sm" text={error} />}
+        {error && <ErrorText className="text-destructive text-body" text={error} />}
       </DialogPanel>
       <DialogFooter className="items-center px-5 py-3 sm:justify-between">
-        <span className="min-w-0 truncate text-[13px] text-muted-foreground">↵ opens a folder or adds a repository</span>
+        <span className="min-w-0 truncate text-desc text-muted-foreground">↵ opens a folder or adds a repository</span>
         <Button className="shrink-0" loading={adding} disabled={!target || loading} onClick={() => target && void add(target)}>
           {existing(target) ? "Go to" : "Add"} {target?.name ? <span className="max-w-40 truncate">{target.name}</span> : "this folder"}
         </Button>

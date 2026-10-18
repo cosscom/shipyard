@@ -110,7 +110,7 @@ export function GuardDialog({ box, open, onOpenChange }: { box: string; open: bo
         <DialogPanel className="flex flex-col gap-4 px-5 pb-5">
           {status && status.memory.total > 0 && (
             <div className="rounded-lg border bg-muted/30 px-3 py-2.5">
-              <div className="flex items-baseline justify-between text-xs">
+              <div className="flex items-baseline justify-between text-meta">
                 <span className="text-muted-foreground">Memory now</span>
                 <span className="font-mono tabular-nums">{used.toFixed(0)}%</span>
               </div>
@@ -122,15 +122,15 @@ export function GuardDialog({ box, open, onOpenChange }: { box: string; open: bo
               </Tip>
             </div>
           )}
-          {status && status.memory.total === 0 && <p className="text-muted-foreground text-xs">This box doesn't report its memory, so the guard can't watch it.</p>}
+          {status && status.memory.total === 0 && <p className="text-muted-foreground text-meta">This box doesn't report its memory, so the guard can't watch it.</p>}
 
-          <label className="flex items-center gap-2.5 text-sm">
+          <label className="flex items-center gap-2.5 text-body">
             <Switch checked={draft.enabled} onCheckedChange={(enabled) => setDraft({ ...draft, enabled })} />
             Watch {box}'s memory
           </label>
 
           <fieldset disabled={!draft.enabled} className={cn("flex flex-col gap-3", !draft.enabled && "opacity-60")}>
-            <div className="flex flex-wrap items-center gap-2 text-sm">
+            <div className="flex flex-wrap items-center gap-2 text-body">
               <span>When memory stays above</span>
               <Input
                 type="number"
@@ -146,19 +146,19 @@ export function GuardDialog({ box, open, onOpenChange }: { box: string; open: bo
                 <SimpleSelect aria-label="For how long" value={draft.sustain ?? "1m"} onChange={(sustain) => setDraft({ ...draft, sustain })} options={SUSTAIN} size="sm" />
               </div>
             </div>
-            <ol className="flex flex-col gap-2 text-sm">
+            <ol className="flex flex-col gap-2 text-body">
               <li className="flex items-start gap-2.5">
                 <Switch checked={stopServices} onCheckedChange={(v) => setDraft({ ...draft, stop_services: v })} />
                 <span>
                   First, stop dev servers in worktrees where no agent is working
-                  <span className="block text-muted-foreground text-xs">Idle longest first, one worktree at a time. This frees memory straight away.</span>
+                  <span className="block text-muted-foreground text-meta">Idle longest first, one worktree at a time. This frees memory straight away.</span>
                 </span>
               </li>
               <li className="flex items-start gap-2.5">
                 <Switch checked={pauseAgents} onCheckedChange={(v) => setDraft({ ...draft, pause_agents: v })} />
                 <span>
                   Then, pause worktrees whose agents are all idle or finished
-                  <span className="block text-muted-foreground text-xs">Paused agents use no CPU and the box can swap them out. Resume them from the Worktrees view.</span>
+                  <span className="block text-muted-foreground text-meta">Paused agents use no CPU and the box can swap them out. Resume them from the Worktrees view.</span>
                 </span>
               </li>
             </ol>
@@ -166,8 +166,8 @@ export function GuardDialog({ box, open, onOpenChange }: { box: string; open: bo
 
           {status && status.actions.length > 0 && (
             <div>
-              <h4 className="mb-1.5 font-medium text-muted-foreground text-xs">Recently</h4>
-              <ul className="flex flex-col gap-1 text-xs">
+              <h4 className="mb-1.5 text-muted-foreground text-label">Recently</h4>
+              <ul className="flex flex-col gap-1 text-meta">
                 {status.actions
                   .slice()
                   .reverse()
@@ -183,7 +183,7 @@ export function GuardDialog({ box, open, onOpenChange }: { box: string; open: bo
               </ul>
             </div>
           )}
-          {error && <ErrorText className="text-destructive-foreground text-xs" text={error} />}
+          {error && <ErrorText className="text-destructive-foreground text-meta" text={error} />}
         </DialogPanel>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>

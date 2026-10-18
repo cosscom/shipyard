@@ -30,7 +30,7 @@ export function PanelPane({ wsKey, plugin, panel }: { wsKey: string; plugin: str
             ? "Its worktree is no longer on its box."
             : "This panel's plugin is turned off.";
     return (
-      <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground text-sm">
+      <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground text-body">
         <PuzzleIcon className="size-4" />
         {text}
       </div>

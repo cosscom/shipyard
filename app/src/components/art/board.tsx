@@ -34,15 +34,15 @@ export default function Board({ wt, focus }: { wt?: string; focus?: string }) {
       <header className="sticky top-0 z-10 shrink-0 border-b bg-background/95 px-5 pt-3 pb-2.5 backdrop-blur">
         <div className="mx-auto flex w-full max-w-[80rem] flex-wrap items-center gap-x-3 gap-y-2">
           <LayoutGridIcon className="size-4 text-muted-foreground" aria-hidden />
-          <h2 className="font-semibold text-base">Artifacts</h2>
-          <span className="text-muted-foreground text-xs">
+          <h2 className="text-heading">Artifacts</h2>
+          <span className="text-muted-foreground text-meta">
             {ref ? (ref.main ? ref.location : ref.worktree) : ""}
             {list.length ? ` · ${list.length} made by its agents · live` : ""}
           </span>
           {kinds.length > 0 && (
             <div className="ml-auto flex flex-wrap items-center gap-1" role="toolbar" aria-label="Show">
               {[{ kind: "all", plural: "All" }, ...kinds].map((k) => (
-                <button key={k.kind} type="button" aria-pressed={filter === k.kind} data-filter={k.kind} onClick={() => setFilter(k.kind)} className={cn("rounded-md border px-2 py-0.5 text-xs", filter === k.kind ? "border-transparent bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/60")}>
+                <button key={k.kind} type="button" aria-pressed={filter === k.kind} data-filter={k.kind} onClick={() => setFilter(k.kind)} className={cn("rounded-md border px-2 py-0.5 text-meta", filter === k.kind ? "border-transparent bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/60")}>
                   {k.plural}
                   {k.kind !== "all" && <span className="ms-1 text-muted-foreground tabular-nums">{list.filter((a) => a.kind === k.kind).length}</span>}
                 </button>
@@ -93,10 +93,10 @@ function Tile({ art, lead }: { art: Art; lead?: boolean }) {
       <div className="flex min-w-0 items-center gap-1.5 px-2.5 py-2">
         <ArtGlyph art={art} className="text-muted-foreground" />
         <div className="min-w-0 flex-1">
-          <div className="truncate font-medium text-[0.8125rem]">{art.title}</div>
-          <GistLine art={art} className="text-xs" />
+          <div className="truncate font-medium text-desc">{art.title}</div>
+          <GistLine art={art} className="text-meta" />
           {lead && <KindChips art={art} className="py-0.5" />}
-          <div className="flex min-w-0 items-center gap-1 text-muted-foreground text-xs">
+          <div className="flex min-w-0 items-center gap-1 text-muted-foreground text-meta">
             <span className="truncate">
               <KindWord art={art} />
             </span>

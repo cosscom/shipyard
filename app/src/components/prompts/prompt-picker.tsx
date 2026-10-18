@@ -106,7 +106,7 @@ function Body({ d }: { d: PickerDraft }) {
           {list.map((p, i) => (
             <PromptRow key={p.id} p={p} active={p === current} onHover={() => setActive(i)} onPick={() => setPicked(p)} />
           ))}
-          {list.length === 0 && <p className="px-2.5 py-6 text-center text-muted-foreground text-sm">{query ? "No prompt matches." : "No saved prompts yet."}</p>}
+          {list.length === 0 && <p className="px-2.5 py-6 text-center text-muted-foreground text-body">{query ? "No prompt matches." : "No saved prompts yet."}</p>}
         </div>
       </div>
       <DialogFooter className="items-center px-5 py-3 sm:justify-between">
@@ -118,7 +118,7 @@ function Body({ d }: { d: PickerDraft }) {
               Send to several…
             </Button>
           )}
-          <span className="flex items-center gap-1 text-muted-foreground text-xs">
+          <span className="flex items-center gap-1 text-muted-foreground text-meta">
             <Kbd>↵</Kbd> to choose
           </span>
         </div>
@@ -222,13 +222,13 @@ function Fill({ d, prompt, target, setTarget, onBack }: { d: PickerDraft; prompt
       <DialogPanel className="flex flex-col gap-4 px-5 pb-5">
         {!insert && !d.session && (
           <label className="flex min-w-0 flex-col gap-1.5">
-            <span className="font-medium text-[13px]">Send to</span>
+            <span className="font-medium text-desc">Send to</span>
             <SessionSelect value={target} onChange={setTarget} />
           </label>
         )}
         <VariableFields vars={vars} values={values} autoFocus onChange={(name, v) => setValues((s) => ({ ...s, [name]: v }))} />
         <div className="flex min-w-0 flex-col gap-1.5">
-          <span className="flex items-center gap-2 font-medium text-[13px]">
+          <span className="flex items-center gap-2 font-medium text-desc">
             {edited == null ? "Preview" : "Text"}
             {edited == null ? (
               <Button type="button" size="xs" variant="ghost" className="ml-auto h-6 text-muted-foreground" onClick={() => setEdited(text)}>
@@ -246,10 +246,10 @@ function Fill({ d, prompt, target, setTarget, onBack }: { d: PickerDraft; prompt
           ) : (
             <Textarea autoFocus rows={7} value={edited} onChange={(e) => setEdited(e.target.value)} />
           )}
-          {!target && !insert && <span className="text-muted-foreground text-xs">Built-in variables like {"{{branch}}"} fill in once you choose a session.</span>}
+          {!target && !insert && <span className="text-muted-foreground text-meta">Built-in variables like {"{{branch}}"} fill in once you choose a session.</span>}
         </div>
         {offer && target && <QueueOffer failure={offer} box={target.box} />}
-        {error && <ErrorText className="text-destructive text-sm" text={error} />}
+        {error && <ErrorText className="text-destructive text-body" text={error} />}
       </DialogPanel>
 
       <DialogFooter className="items-center px-5 py-3">
@@ -274,7 +274,7 @@ export function TargetChip({ target, className }: { target: Target; className?: 
   const { session, short, detail } = useTargetLabel(target.box, target.session);
   return (
     <Tip label={`${detail} · session ${target.session}`}>
-      <span className={`inline-flex h-6 min-w-0 items-center gap-1.5 rounded-md border bg-muted/72 px-2 text-[13px] ${className ?? ""}`}>
+      <span className={`inline-flex h-6 min-w-0 items-center gap-1.5 rounded-md border bg-muted/72 px-2 text-desc ${className ?? ""}`}>
         <AgentIcon agent={session && agentOf(session)} className="size-3" />
         <span className="truncate">{short}</span>
         <span className="shrink-0 text-muted-foreground">{target.box}</span>

@@ -54,10 +54,10 @@ export function TailnetMachines({
   return (
     <section aria-labelledby="tailnet-heading">
       <div className="mb-2 flex h-6 min-w-0 items-center gap-2">
-        <h2 id="tailnet-heading" className="shrink-0 text-sm">
+        <h2 id="tailnet-heading" className="shrink-0 text-row">
           On your tailnet
         </h2>
-        {sources.length === 1 && <span className="min-w-0 truncate text-muted-foreground text-xs">{source.label}</span>}
+        {sources.length === 1 && <span className="min-w-0 truncate text-muted-foreground text-meta">{source.label}</span>}
         <Button size="xs" variant="ghost" data-focus-skip="" className="-me-2 ms-auto shrink-0 text-muted-foreground" disabled={running} onClick={onSignIn}>
           <PlusIcon /> Sign in to another tailnet
         </Button>
@@ -156,7 +156,7 @@ function MachineList({
 
   if (found.state === "loading") {
     return (
-      <div className="flex h-24 items-center justify-center gap-2 rounded-lg border text-muted-foreground text-sm">
+      <div className="flex h-24 items-center justify-center gap-2 rounded-lg border text-muted-foreground text-body">
         <Spinner className="size-4" /> Listing machines…
       </div>
     );
@@ -164,9 +164,9 @@ function MachineList({
   if (found.state === "error") {
     const login = /needs a login/i.test(found.message);
     return (
-      <div className="flex min-h-24 flex-col items-start justify-center gap-2 rounded-lg border px-3.5 py-3 text-sm">
+      <div className="flex min-h-24 flex-col items-start justify-center gap-2 rounded-lg border px-3.5 py-3 text-body">
         <span>{login ? `Shipyard is signed out of ${source.label}.` : `Couldn't list the machines on ${source.label}.`}</span>
-        {!login && <span className="text-muted-foreground text-xs">{found.message}</span>}
+        {!login && <span className="text-muted-foreground text-meta">{found.message}</span>}
         <Button size="xs" variant="outline" onClick={login ? onSignIn : found.retry}>
           {login ? "Sign in again" : "Try again"}
         </Button>
@@ -175,7 +175,7 @@ function MachineList({
   }
   if (all.length === 0) {
     return (
-      <div className="flex min-h-24 items-center rounded-lg border px-3.5 py-3 text-muted-foreground text-sm">
+      <div className="flex min-h-24 items-center rounded-lg border px-3.5 py-3 text-muted-foreground text-body">
         Nothing on {source.label} can be a box yet: berthd runs on Linux and macOS. Add a machine to the tailnet, or run the command below on any box.
       </div>
     );
@@ -194,7 +194,7 @@ function MachineList({
             spellCheck={false}
             autoComplete="off"
             data-focus-skip=""
-            className="h-full min-w-0 flex-1 bg-transparent text-foreground text-sm outline-none placeholder:text-muted-foreground/72"
+            className="h-full min-w-0 flex-1 bg-transparent text-foreground text-body outline-none placeholder:text-muted-foreground/72"
           />
         </label>
       )}
@@ -210,7 +210,7 @@ function MachineList({
             onPick={() => onPick(m.ip === picked ? undefined : m.ip)}
           />
         ))}
-        {machines.length === 0 && <li className="flex h-10 items-center px-3 text-muted-foreground text-sm">No machine matches “{filter.trim()}”.</li>}
+        {machines.length === 0 && <li className="flex h-10 items-center px-3 text-muted-foreground text-body">No machine matches “{filter.trim()}”.</li>}
       </ul>
       {machine && found.state === "ok" && (
         <MachineSetup
@@ -236,18 +236,18 @@ function MachineRow({ machine: m, picked, locked, autoFocus, onPick }: { machine
       <Tip label={m.online ? "Online" : "Offline"}>
         <span role="img" aria-label={m.online ? "Online" : "Offline"} className={cn("size-1.5 shrink-0 rounded-full", m.online ? "bg-success" : "bg-muted-foreground/40")} />
       </Tip>
-      <span className="min-w-0 truncate text-sm">{m.name}</span>
-      <span className="hidden shrink-0 text-muted-foreground text-xs sm:inline">
+      <span className="min-w-0 truncate text-row">{m.name}</span>
+      <span className="hidden shrink-0 text-muted-foreground text-meta sm:inline">
         {kind}
         {m.ssh ? " · Tailscale SSH" : ""}
       </span>
       <span className="ms-auto flex shrink-0 items-center">
         {m.box ? (
-          <span className="flex items-center gap-1 pe-1 text-muted-foreground text-xs">
+          <span className="flex items-center gap-1 pe-1 text-muted-foreground text-meta">
             <CheckIcon className="size-3.5" /> Paired as {m.box}
           </span>
         ) : !m.online ? (
-          <span className="pe-1 text-muted-foreground text-xs">Offline</span>
+          <span className="pe-1 text-muted-foreground text-meta">Offline</span>
         ) : picked ? (
           <Button size="xs" variant="ghost" className="text-muted-foreground" disabled={locked} onClick={onPick}>
             Cancel
@@ -316,7 +316,7 @@ function MachineSetup({
   if (m.os !== "linux") {
     return (
       <div className="border-t p-3">
-        <p className="text-muted-foreground text-xs leading-relaxed">
+        <p className="text-muted-foreground text-meta">
           Shipyard sets up Linux machines over SSH. On a Mac like {m.name}, run the command in step 1 below, then paste what it prints into step 2.
         </p>
       </div>
@@ -339,7 +339,7 @@ function MachineSetup({
           go();
         }}
       >
-        <div className="flex h-8 min-w-0 flex-1 items-center rounded-md border border-input bg-background px-2.5 font-mono text-[13px] shadow-xs/5 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/24 dark:bg-input/32">
+        <div className="flex h-8 min-w-0 flex-1 items-center rounded-md border border-input bg-background px-2.5 font-mono text-desc shadow-xs/5 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/24 dark:bg-input/32">
           <input
             autoFocus
             value={user}
@@ -364,7 +364,7 @@ function MachineSetup({
           Install and pair
         </Button>
       </form>
-      <div aria-live="polite" className="mt-2 flex min-h-5 min-w-0 items-center gap-1.5 text-muted-foreground text-xs leading-5">
+      <div aria-live="polite" className="mt-2 flex min-h-5 min-w-0 items-center gap-1.5 text-muted-foreground text-meta">
         {userError ? (
           <span className="text-destructive-foreground">{userError}</span>
         ) : m.ssh ? (
@@ -397,7 +397,7 @@ function MachineSetup({
       </div>
       {!team && <InlineAgents value={agents} onChange={setAgents} disabled={running} />}
       {state === "ready" && (
-        <p className="mt-1 text-muted-foreground text-xs leading-relaxed">
+        <p className="mt-1 text-muted-foreground text-meta">
           Shipyard logs in once to install berthd for that user. It listens on {m.name}'s tailnet address only, and Shipyard never needs SSH for it again.
         </p>
       )}
@@ -443,10 +443,10 @@ export function UseTailscale({ system, onRefresh, onSignIn }: { system?: SystemT
             : "Shipyard couldn't ask Tailscale on this Mac for its machines.";
   return (
     <div className="space-y-3">
-      <p className="text-muted-foreground text-xs leading-relaxed">
+      <p className="text-muted-foreground text-meta">
         Tailscale puts your machines on one private network. With it on this Mac, they're listed here and Shipyard sets one up in a click: no ports to open, and berthd listens on the tailnet only.
       </p>
-      {said && <p className="text-sm">{said}</p>}
+      {said && <p className="text-body">{said}</p>}
       <div className="flex flex-wrap items-center gap-2">
         {state === "missing" ? (
           <Button size="sm" variant="outline" onClick={() => void openUrl(TAILSCALE_DOWNLOAD)}>

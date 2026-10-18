@@ -80,7 +80,7 @@ async function settle(entry: ReviewEntry) {
 
 function Target({ entry }: { entry: ReviewEntry }) {
   return (
-    <span className="inline-flex min-w-0 items-center gap-1.5 rounded-md border bg-muted/40 px-1.5 py-0.5 text-muted-foreground text-xs">
+    <span className="inline-flex min-w-0 items-center gap-1.5 rounded-md border bg-muted/40 px-1.5 py-0.5 text-meta text-muted-foreground">
       <AgentIcon agent={entry.agent} />
       <span className="truncate text-foreground">{reviewName(entry)}</span>
       <span className="shrink-0">· {entry.box}</span>
@@ -172,27 +172,27 @@ export function ApproveDialog({ entry, initial, onClose }: { entry?: ReviewEntry
           <PickOne<ApproveMode> label="What to do" value={mode} options={options} onChange={setMode} />
           {hasFiles && (
             <label className="flex flex-col gap-1.5">
-              <span className="font-medium text-xs">Commit message</span>
+              <span className="text-label">Commit message</span>
               <Textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={5}
                 placeholder="What the agent changed, in one line, then details"
-                className="font-mono text-xs"
+                className="font-mono text-mono"
                 autoFocus
               />
-              <span className="text-muted-foreground text-xs">Drafted from {agentLabel(entry.agent)}'s last message. The first line is the subject{mode === "pr" && openPR ? " and the PR's title" : ""}.</span>
+              <span className="text-meta text-muted-foreground">Drafted from {agentLabel(entry.agent)}'s last message. The first line is the subject{mode === "pr" && openPR ? " and the PR's title" : ""}.</span>
             </label>
           )}
           {pushes && (
-            <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-2.5 py-2 text-xs">
+            <p className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/8 px-2.5 py-2 text-meta">
               <AlertTriangleIcon className="mt-px size-3.5 shrink-0 text-warning" />
               <span>
                 This pushes <span className="font-mono">{entry.branch}</span> to origin from {entry.box}, with that box's git credentials.
               </span>
             </p>
           )}
-          {(error || output) && <pre className={cn("max-h-40 overflow-auto whitespace-pre-wrap rounded-md p-2 font-mono text-[11px]", error ? "bg-destructive/8 text-destructive-foreground" : "bg-muted/60 text-muted-foreground")}>{error ?? output}</pre>}
+          {(error || output) && <pre className={cn("max-h-40 overflow-auto whitespace-pre-wrap rounded-md p-2 font-mono text-mono", error ? "bg-destructive/8 text-destructive-foreground" : "bg-muted/60 text-muted-foreground")}>{error ?? output}</pre>}
         </DialogPanel>
         <DialogFooter className="items-center px-5 py-3">
           <Button variant="ghost" onClick={onClose} disabled={busy}>
@@ -200,7 +200,7 @@ export function ApproveDialog({ entry, initial, onClose }: { entry?: ReviewEntry
           </Button>
           <Button onClick={() => void go()} loading={busy} disabled={!valid}>
             {options.find((o) => o.value === mode)?.label}
-            <Kbd className="ml-1 h-4.5 bg-primary-foreground/15 text-[10px] text-primary-foreground">⌘↵</Kbd>
+            <Kbd className="ml-1 h-4.5 bg-primary-foreground/15 text-tag text-primary-foreground">⌘↵</Kbd>
           </Button>
         </DialogFooter>
       </DialogPopup>
@@ -258,7 +258,7 @@ export function SendBackDialog({ entry, onClose }: { entry?: ReviewEntry; onClos
             autoFocus
             onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
           />
-          {error && <ErrorText className="rounded-md bg-destructive/8 p-2 text-xs text-destructive-foreground" text={error} />}
+          {error && <ErrorText className="rounded-md bg-destructive/8 p-2 text-meta text-destructive-foreground" text={error} />}
         </DialogPanel>
         <DialogFooter className="items-center px-5 py-3">
           <Button variant="ghost" onClick={onClose} disabled={busy}>
@@ -266,7 +266,7 @@ export function SendBackDialog({ entry, onClose }: { entry?: ReviewEntry; onClos
           </Button>
           <Button onClick={() => void go()} loading={busy} disabled={!!files.blocker || !note.replace(/^Changes requested:\s*/, "").trim()}>
             Send back
-            <Kbd className="ml-1 h-4.5 bg-primary-foreground/15 text-[10px] text-primary-foreground">⌘↵</Kbd>
+            <Kbd className="ml-1 h-4.5 bg-primary-foreground/15 text-tag text-primary-foreground">⌘↵</Kbd>
           </Button>
         </DialogFooter>
       </DialogPopup>
@@ -309,15 +309,15 @@ export function DiscardDialog({ entry, onClose }: { entry?: ReviewEntry; onClose
           </DialogDescription>
         </DialogHeader>
         <DialogPanel className="flex flex-col gap-2 px-5 pb-5">
-          <div className="flex items-baseline justify-between text-xs">
-            <span className="font-medium">
+          <div className="flex items-baseline justify-between text-meta">
+            <span className="text-label">
               {entry.files.length} file{entry.files.length === 1 ? "" : "s"} lost
             </span>
             {lost > 0 && <span className="font-mono text-muted-foreground tabular-nums">{lost} line{lost === 1 ? "" : "s"}</span>}
           </div>
           <ul className="max-h-52 overflow-auto rounded-md border bg-muted/30 py-1">
             {entry.files.map((f) => (
-              <li key={f.path} className="flex items-center gap-2 px-2.5 py-0.5 font-mono text-[11px]">
+              <li key={f.path} className="flex items-center gap-2 px-2.5 py-0.5 font-mono text-meta">
                 <span className="w-16 shrink-0 font-sans text-muted-foreground">{describeCode(f.code).label}</span>
                 <span className="min-w-0 flex-1 truncate">{f.path}</span>
                 {!f.binary && (
@@ -328,8 +328,8 @@ export function DiscardDialog({ entry, onClose }: { entry?: ReviewEntry; onClose
               </li>
             ))}
           </ul>
-          <p className="font-mono text-[11px] text-muted-foreground">{DISCARD_COMMAND}</p>
-          {error && <ErrorText className="rounded-md bg-destructive/8 p-2 text-xs text-destructive-foreground" text={error} />}
+          <p className="font-mono text-mono text-muted-foreground">{DISCARD_COMMAND}</p>
+          {error && <ErrorText className="rounded-md bg-destructive/8 p-2 text-meta text-destructive-foreground" text={error} />}
         </DialogPanel>
         <DialogFooter className="items-center px-5 py-3">
           <Button variant="ghost" onClick={onClose} disabled={busy}>

@@ -47,7 +47,7 @@ export function Avatar({ src, name, size = 16 }: { src?: string; name: string; s
 export function SudoTag({ className }: { className?: string }) {
   return (
     <Tip label="Asks for your password on the box, in its terminal. Shipyard never sees it.">
-      <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-md border border-warning/35 bg-warning/8 px-1.5 py-px font-medium text-[10.5px] text-warning-foreground", className)}>
+      <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-md border border-warning/35 bg-warning/8 px-1.5 py-px font-medium text-tag text-warning-foreground", className)}>
         <KeyRoundIcon className="size-2.5" /> sudo
       </span>
     </Tip>
@@ -57,7 +57,7 @@ export function SudoTag({ className }: { className?: string }) {
 export function BerthTag() {
   return (
     <Tip label="Shipyard's own step, in every team setup: the box signs in to GitHub itself, so this computer's sign-in is never copied there">
-      <span className="inline-flex shrink-0 items-center rounded-md border px-1.5 py-px text-[10.5px] text-muted-foreground">Shipyard</span>
+      <span className="inline-flex shrink-0 items-center rounded-md border px-1.5 py-px text-tag text-muted-foreground">Shipyard</span>
     </Tip>
   );
 }
@@ -72,14 +72,14 @@ export function SourceTag({ source }: { source: ProjectSource }) {
   const tone = { repo: "border-success/35 bg-success/8 text-success-foreground", kit: "border-info/35 bg-info/8 text-info-foreground", none: "border-border bg-muted/60 text-muted-foreground" }[source];
   return (
     <Tip label={SOURCE_TIP[source]}>
-      <span className={cn("inline-flex shrink-0 items-center rounded-md border px-1.5 py-px font-mono text-[10.5px]", tone)}>{SOURCE_LABEL[source]}</span>
+      <span className={cn("inline-flex shrink-0 items-center rounded-md border px-1.5 py-px font-mono text-tag", tone)}>{SOURCE_LABEL[source]}</span>
     </Tip>
   );
 }
 
 export function PrivateTag() {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 text-[10.5px] text-muted-foreground">
+    <span className="inline-flex shrink-0 items-center gap-1 text-tag text-muted-foreground">
       <LockIcon className="size-2.5" /> private
     </span>
   );
@@ -91,14 +91,14 @@ export function StateIcon({ state, className }: { state: StepState | RepoState; 
   if (state === "skipped") return <span role="img" aria-label="already done" className={cn(base, "border border-success/60 text-success")}><CheckIcon className="size-2.5" strokeWidth={3} /></span>;
   if (state === "running" || state === "cloning" || state === "setting-up") return <Spinner aria-label="running" className={cn("size-4 shrink-0 text-foreground", className)} />;
   if (state === "waiting") return <span role="img" aria-label="waiting for you" className={cn(base, "bg-warning/20 text-warning-foreground ring-1 ring-warning/55")}><KeyRoundIcon className="size-2.5" /></span>;
-  if (state === "failed") return <span role="img" aria-label="failed" className={cn(base, "bg-destructive font-bold text-[10px] text-white")}>!</span>;
+  if (state === "failed") return <span role="img" aria-label="failed" className={cn(base, "bg-destructive font-bold text-tag text-white")}>!</span>;
   return <span role="img" aria-label="to do" className={cn(base, "border border-muted-foreground/35")} />;
 }
 
 // Cmds is what a row runs, exactly: commands with a prompt, comments dim.
 export function Cmds({ lines, className }: { lines: string[]; className?: string }) {
   return (
-    <pre className={cn("overflow-x-auto rounded-md border bg-muted/40 px-3 py-2 font-mono text-[11.5px] text-foreground/85 leading-relaxed", className)}>
+    <pre className={cn("overflow-x-auto rounded-md border bg-muted/40 px-3 py-2 font-mono text-mono text-foreground/85", className)}>
       {lines.map((l, i) => (
         <div key={i} className={l.startsWith("#") ? "text-muted-foreground" : undefined}>
           {l.startsWith("#") || l.startsWith(" ") ? l : `$ ${l}`}
@@ -161,10 +161,10 @@ export function Section({ title, aside, children, className, id }: { title: Reac
   return (
     <section aria-labelledby={id} className={cn("mb-6", className)}>
       <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-        <h2 id={id} className="font-semibold text-sm">
+        <h2 id={id} className="text-section">
           {title}
         </h2>
-        {aside && <span className="text-muted-foreground text-xs">{aside}</span>}
+        {aside && <span className="text-meta text-muted-foreground">{aside}</span>}
       </div>
       {children}
     </section>
@@ -189,12 +189,12 @@ export function OrgHeader({ view, compact, badge, from }: { view: TeamView; comp
     <div className="border-b bg-gradient-to-b from-muted/50 to-transparent">
       <div className={cn("mx-auto max-w-6xl px-8 @max-[819px]:px-5", compact ? "py-4" : "pt-6 pb-5")}>
         {from === "link" && (
-          <p className="mb-3 inline-flex max-w-full items-center gap-1.5 truncate rounded-full border bg-card px-2.5 py-0.5 text-muted-foreground text-xs">
+          <p className="mb-3 inline-flex max-w-full items-center gap-1.5 truncate rounded-full border bg-card px-2.5 py-0.5 text-muted-foreground text-meta">
             Opened from a link · <span className="truncate font-mono">{link ? `berth://team?src=${source.key}` : `berth://team?org=${org.login}`}</span>
           </p>
         )}
         {from === "suggestion" && (
-          <p data-testid="team-suggested" className="mb-3 inline-flex max-w-full items-center gap-1.5 truncate rounded-full border bg-card px-2.5 py-0.5 text-muted-foreground text-xs">
+          <p data-testid="team-suggested" className="mb-3 inline-flex max-w-full items-center gap-1.5 truncate rounded-full border bg-card px-2.5 py-0.5 text-muted-foreground text-meta">
             Suggested because your projects come from {org.login} · nothing runs until you choose
           </p>
         )}
@@ -206,23 +206,23 @@ export function OrgHeader({ view, compact, badge, from }: { view: TeamView; comp
                 type="button"
                 data-testid="team-source"
                 onClick={() => void openUrl(source.html_url)}
-                className="flex min-w-0 max-w-full flex-wrap items-center gap-x-1.5 rounded text-left font-mono text-muted-foreground text-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex min-w-0 max-w-full flex-wrap items-center gap-x-1.5 rounded text-left font-mono text-muted-foreground text-body outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <GitHubMark className="size-3.5 text-foreground/80" />
                 <span className="min-w-0 truncate">{source.label}</span>
-                {repo && <span className="ml-1 rounded-full border px-1.5 py-px font-sans text-[10.5px]">{repo.private ? "Private" : "Public"}</span>}
+                {repo && <span className="ml-1 rounded-full border px-1.5 py-px font-sans text-tag">{repo.private ? "Private" : "Public"}</span>}
               </button>
             ) : (
-              <p className="flex flex-wrap items-center gap-x-1.5 font-mono text-muted-foreground text-sm">
+              <p className="flex flex-wrap items-center gap-x-1.5 font-mono text-muted-foreground text-body">
                 <GitHubMark className="size-3.5 text-foreground/80" />
                 <span>{org.login}</span>
                 <span>/</span>
                 <span className="font-semibold text-foreground">.berth</span>
-                {repo && <span className="ml-1 rounded-full border px-1.5 py-px font-sans text-[10.5px]">{repo.private ? "Private" : "Public"}</span>}
+                {repo && <span className="ml-1 rounded-full border px-1.5 py-px font-sans text-tag">{repo.private ? "Private" : "Public"}</span>}
               </p>
             )}
-            <h1 className="mt-1 font-semibold text-2xl tracking-tight @max-[819px]:text-xl">{name} team setup</h1>
-            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground text-xs">
+            <h1 className="mt-1 text-title">{name} team setup</h1>
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground text-meta">
               {link ? (
                 <span data-testid="team-provenance">
                   A team setup for {name}, loaded from {org.login}'s repo, not from <span className="font-mono">{view.setup?.org ?? "its org"}/.berth</span>

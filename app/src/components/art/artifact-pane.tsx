@@ -81,7 +81,7 @@ function Shown({ art }: { art: Art }) {
     <div data-testid="artifact-pane" data-art-id={art.id} className={cn("flex min-h-0 flex-1 flex-col bg-background", kind.compact && "@container/art")}>
       <header className={cn("shrink-0 border-b px-5 pt-3 pb-2.5", narrow("@max-[40rem]/art:px-3 @max-[40rem]/art:py-1.5"))} data-art-header>
         <div className={cn("mx-auto flex w-full flex-col gap-1.5", kind.wide ? "max-w-[88rem]" : "max-w-[72rem]")}>
-          <div className={cn("flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs", narrow("@max-[40rem]/art:sr-only"))}>
+          <div className={cn("flex min-w-0 items-center gap-1.5 text-muted-foreground text-meta", narrow("@max-[40rem]/art:sr-only"))}>
             <BotIcon className="size-3.5 shrink-0" aria-hidden />
             <span className="min-w-0 truncate">Made by {madeBy(art)}</span>
             {art.file && (
@@ -99,11 +99,11 @@ function Shown({ art }: { art: Art }) {
           </div>
           <div className={cn("flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1", narrow("@max-[40rem]/art:flex-nowrap @max-[40rem]/art:gap-x-1.5"))}>
             <ArtGlyph art={art} body={body} className="size-4 shrink-0 text-muted-foreground" />
-            <h2 className={cn("min-w-0 truncate font-semibold text-base", narrow("@max-[40rem]/art:text-sm"))}>{art.title}</h2>
-            <span className={cn("shrink-0 text-muted-foreground text-xs", narrow("@max-[40rem]/art:hidden"))}>
+            <h2 className={cn("min-w-0 truncate text-heading", narrow("@max-[40rem]/art:text-row @max-[40rem]/art:font-semibold"))}>{art.title}</h2>
+            <span className={cn("shrink-0 text-muted-foreground text-meta", narrow("@max-[40rem]/art:hidden"))}>
               <KindWord art={art} />
             </span>
-            <span data-testid="art-live" data-pulse={pulse || undefined} className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[0.6875rem] tabular-nums", pulse ? "art-pulse border-info/40 bg-info/10 text-info-foreground" : "text-muted-foreground", narrow("@max-[40rem]/art:hidden"))}>
+            <span data-testid="art-live" data-pulse={pulse || undefined} className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-tag tabular-nums", pulse ? "art-pulse border-info/40 bg-info/10 text-info-foreground" : "text-muted-foreground", narrow("@max-[40rem]/art:hidden"))}>
               <span className={cn("size-1.5 rounded-full", pulse ? "art-dot bg-info" : art.watched ? "bg-success" : "bg-muted-foreground/60")} aria-hidden />
               {pulse ? `Updated just now · v${cur.n}` : `${art.watched ? "Live" : "Latest"} · v${cur.n} · ${when(cur.at)}`}
             </span>
@@ -123,9 +123,9 @@ function Shown({ art }: { art: Art }) {
               </Tip>
             </span>
           </div>
-          <GistLine art={art} className={cn("text-[0.8125rem]", narrow("@max-[40rem]/art:sr-only"))} />
+          <GistLine art={art} className={cn("text-desc", narrow("@max-[40rem]/art:sr-only"))} />
           {art.problem && (
-            <div className="flex items-center gap-1.5 text-warning-foreground text-xs">
+            <div className="flex items-center gap-1.5 text-warning-foreground text-meta">
               <TriangleAlertIcon className="size-3.5 shrink-0" aria-hidden />
               <span className="min-w-0 truncate">The latest rewrite of {art.file ?? "its file"} wasn't taken: {art.problem}</span>
             </div>
@@ -140,7 +140,7 @@ function Shown({ art }: { art: Art }) {
                   role="radio"
                   aria-checked={x.n === v.n}
                   onClick={() => pick(x.n)}
-                  className={cn("inline-flex min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-0.5 text-xs", x.n === v.n ? "border-ring bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/60")}
+                  className={cn("inline-flex min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-0.5 text-meta", x.n === v.n ? "border-ring bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/60")}
                 >
                   <span className="font-medium tabular-nums">v{x.n}</span>
                   <span className="tabular-nums">{x.n === cur.n ? "latest" : when(x.at)}</span>
@@ -153,7 +153,7 @@ function Shown({ art }: { art: Art }) {
         </div>
       </header>
       {old && (
-        <div className="flex shrink-0 items-center gap-2 border-b bg-warning/8 px-5 py-1.5 text-xs" data-testid="art-old">
+        <div className="flex shrink-0 items-center gap-2 border-b bg-warning/8 px-5 py-1.5 text-meta" data-testid="art-old">
           <HistoryIcon className="size-3.5 text-warning-foreground" aria-hidden />
           <span>
             Showing v{v.n} from {when(v.at)}. The latest is v{cur.n}.
@@ -194,7 +194,7 @@ function VersionMenu({ art, cur, v, pulse, onPick, className }: { art: Art; cur:
         aria-label={`Version: v${v.n}${v.n === cur.n ? `, the latest (${state.toLowerCase()})` : `, the latest is v${cur.n}`}. ${art.versions.length} ${art.versions.length === 1 ? "version" : "versions"}`}
         data-testid="art-version-menu"
         data-pulse={pulse || undefined}
-        className={cn("shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[0.6875rem] tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring", pulse ? "art-pulse border-info/40 bg-info/10 text-info-foreground" : "text-muted-foreground hover:bg-accent/60", className)}
+        className={cn("shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-tag tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring", pulse ? "art-pulse border-info/40 bg-info/10 text-info-foreground" : "text-muted-foreground hover:bg-accent/60", className)}
       >
         <span className={cn("size-1.5 rounded-full", pulse ? "art-dot bg-info" : art.watched ? "bg-success" : "bg-muted-foreground/60")} aria-hidden />
         v{v.n}

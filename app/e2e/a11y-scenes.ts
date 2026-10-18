@@ -354,6 +354,16 @@ export const scenes: Scene[] = [
     },
   },
   {
+    // The two-column sidebar (Settings › Labs): a project picked, its
+    // tasks beside the projects.
+    id: "sidebar-columns",
+    async run(app, theme) {
+      await app.open({ theme, prefs: { sidebarLayout: "columns" } });
+      await app.page.locator("[data-testid=column-project][data-project=shop]").click();
+      await expect(app.worktree("devl/checkout-fix")).toBeVisible();
+    },
+  },
+  {
     // The sidebar's notice that boxes' skills aren't installed or are out
     // of date (components/sidebar/skills-notice.tsx), unfolded, with an
     // install a hook on the box refused.

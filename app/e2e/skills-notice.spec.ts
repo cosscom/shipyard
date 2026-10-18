@@ -138,9 +138,13 @@ test("a hook that refuses the install is said in the notice, with Retry and the 
   await expect(agents.getByRole("button", { name: "Install all" })).toBeVisible();
   // Once the hook lets it through, Retry finishes the job.
   await mock(page, "allow", "gpu");
+  // Settings has the window; the notice is back in the sidebar once it closes.
+  await app.leaveSettings();
   await gpu.getByRole("button", { name: "Retry" }).click();
   await expect(gpu).toHaveCount(0);
-  await expect(agents.getByRole("button", { name: "All installed" })).toBeVisible();
+  const again = await app.openSettings("agents");
+  await again.getByRole("button", { name: "gpu", exact: true }).click();
+  await expect(again.getByRole("button", { name: "All installed" })).toBeVisible();
 });
 
 test("a box that goes offline mid-install keeps its notice, saying it can't be reached", async ({ app }) => {
@@ -209,6 +213,7 @@ test("a snooze made while skills were out of date holds through the next upgrade
   await expect(agents.getByRole("button", { name: "Update", exact: true }).first()).toBeVisible();
   await expect(agents.getByTestId("skills-reminder")).toContainText(/Snoozed until tomorrow at 9:00.*while its skills are out of date/);
   // Still snoozed.
+  await app.leaveSettings();
   await expect(notice(page, "gpu")).toHaveCount(0);
   await expect(more(page)).toHaveCount(0);
   // The next morning it says so again, with what the upgrade left.
@@ -227,6 +232,7 @@ test("Settings → Agents shows a snooze and ends it with Remind me now", async 
   await expect(row).toContainText(/Snoozed until (19 October|October 19), while its skills aren't installed\./);
   await row.getByRole("button", { name: "Remind me now" }).click();
   await expect(row.getByRole("button", { name: "Remind me now" })).toHaveCount(0);
+  await app.leaveSettings();
   await expect(notice(page, "devl")).toBeVisible();
 });
 
@@ -254,6 +260,7 @@ test("Don't remind me for a box holds until Settings → Agents turns it back on
   await agents.getByRole("button", { name: "devl", exact: true }).click();
   await remind.click();
   await expect(remind).toBeChecked();
+  await app.leaveSettings();
   await expect(notice(page, "devl")).toContainText("devl: Shipyard's skills aren't installed for Claude Code");
 });
 
@@ -276,6 +283,7 @@ test("the switch in Settings turns a box's reminder off, too", async ({ app }) =
   await expect(remind).toBeChecked();
   await remind.click();
   await expect(remind).not.toBeChecked();
+  await app.leaveSettings();
   await expect(notice(page, "devl")).toHaveCount(0);
   await expect(notice(page, "gpu")).toBeVisible();
 });
@@ -287,6 +295,7 @@ test("installing from Settings → Agents puts the sidebar's notice away", async
   const agents = await app.openSettings("agents");
   await agents.getByRole("button", { name: "Install all" }).click();
   await expect(agents.getByRole("button", { name: "All installed" })).toBeVisible();
+  await app.leaveSettings();
   await expect(notice(page, "devl")).toHaveCount(0);
   await expect(notice(page, "gpu")).toBeVisible();
 });

@@ -37,9 +37,9 @@ export function AgentStep({ box, location, sample, onFinish }: { box: string; lo
       <div className="mt-6">
         <TaskComposer draft={{ box, location, text: sample ? SAMPLE_TASK : undefined }} autoFocus onDone={onFinish} />
       </div>
-      {none && <p className="mt-3 text-muted-foreground text-xs">No agent CLI on {local ? thisComputer("this Mac") : box} yet. Settings → Agents shows how to install Claude Code or Codex.</p>}
+      {none && <p className="mt-3 text-muted-foreground text-meta">No agent CLI on {local ? thisComputer("this Mac") : box} yet. Settings → Agents shows how to install Claude Code or Codex.</p>}
       <div className="mt-8 flex items-center justify-between gap-3">
-        <p className="text-muted-foreground text-xs">
+        <p className="text-muted-foreground text-meta">
           Later: <Kbd>⌘N</Kbd> new task · <Kbd>⌘K</Kbd> everything else
         </p>
         <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onFinish}>

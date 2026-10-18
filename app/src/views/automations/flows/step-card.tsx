@@ -62,11 +62,11 @@ export function StepCard({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-xs tabular-nums">{index + 1}.</span>
-            <h3 className="truncate font-medium text-sm">{meta.label}</h3>
+            <span className="text-meta text-muted-foreground tabular-nums">{index + 1}.</span>
+            <h3 className="truncate text-section">{meta.label}</h3>
             {result && <ResultBadge result={result} />}
           </div>
-          <p className="truncate text-muted-foreground text-xs">{meta.hint}</p>
+          <p className="truncate text-desc text-muted-foreground">{meta.hint}</p>
         </div>
         {!readOnly && (
           <Menu>
@@ -97,11 +97,11 @@ export function StepCard({
       </div>
 
       <footer className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t bg-muted/30 px-3.5 py-2">
-        <span className="text-muted-foreground text-xs">Runs</span>
+        <span className="text-muted-foreground text-meta">Runs</span>
         {index === 0 ? (
-          <span className="text-muted-foreground text-xs">first, when the trigger fires</span>
+          <span className="text-muted-foreground text-meta">first, when the trigger fires</span>
         ) : readOnly ? (
-          <span className="text-xs">{WHENS.find((w) => w.value === when)?.label}</span>
+          <span className="text-meta">{WHENS.find((w) => w.value === when)?.label}</span>
         ) : (
           <PickOne<StepWhen>
             label="Runs when"
@@ -112,14 +112,14 @@ export function StepCard({
           />
         )}
         <span className="ml-auto flex items-center gap-1.5">
-          <span className="text-muted-foreground text-xs">Name</span>
+          <span className="text-muted-foreground text-meta">Name</span>
           <Input
             value={step.id ?? ""}
             readOnly={readOnly}
             onChange={(e) => set({ id: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") || undefined })}
             placeholder="optional"
             size="sm"
-            className="w-28 font-mono text-xs"
+            className="w-28 font-mono text-mono"
             aria-label="Step name, for {{steps.NAME.output}}"
           />
         </span>
@@ -133,8 +133,8 @@ export function StepCard({
 function Fields({ step, set, variables, agents, readOnly }: { step: Step; set(p: Partial<Step>): void; variables: Variable[]; agents: AgentPreset[]; readOnly?: boolean }) {
   const timeout = (placeholder: string) => (
     <label className="block w-32">
-      <span className="mb-1 block font-medium text-muted-foreground text-xs">Timeout</span>
-      <Input value={step.timeout ?? ""} readOnly={readOnly} onChange={(e) => set({ timeout: e.target.value || undefined })} placeholder={placeholder} className="font-mono text-xs" />
+      <span className="mb-1 block text-label text-muted-foreground">Timeout</span>
+      <Input value={step.timeout ?? ""} readOnly={readOnly} onChange={(e) => set({ timeout: e.target.value || undefined })} placeholder={placeholder} className="font-mono text-mono" />
     </label>
   );
   switch (step.kind) {
@@ -142,7 +142,7 @@ function Fields({ step, set, variables, agents, readOnly }: { step: Step; set(p:
       return (
         <>
           <TemplateField label="Command" mono value={step.command ?? ""} onChange={(command) => set({ command })} variables={variables} placeholder="pnpm test" readOnly={readOnly} />
-          <p className="text-muted-foreground text-xs">Variables reach the command as quoted environment variables ($BERTH_FLOW_…), so a PR comment or branch name is always text, never run.</p>
+          <p className="text-desc text-muted-foreground">Variables reach the command as quoted environment variables ($BERTH_FLOW_…), so a PR comment or branch name is always text, never run.</p>
           {timeout("10m")}
         </>
       );
@@ -151,8 +151,8 @@ function Fields({ step, set, variables, agents, readOnly }: { step: Step; set(p:
         <>
           <TemplateField label="Prompt" multiline value={step.text ?? ""} onChange={(text) => set({ text })} variables={variables} placeholder="The tests failed: {{prev.output}} — fix them." readOnly={readOnly} />
           <label className="block">
-            <span className="mb-1 block font-medium text-muted-foreground text-xs">Session</span>
-            <Input value={step.session ?? ""} readOnly={readOnly} onChange={(e) => set({ session: e.target.value || undefined })} placeholder="The agent that triggered this flow" className="font-mono text-xs" />
+            <span className="mb-1 block text-label text-muted-foreground">Session</span>
+            <Input value={step.session ?? ""} readOnly={readOnly} onChange={(e) => set({ session: e.target.value || undefined })} placeholder="The agent that triggered this flow" className="font-mono text-mono" />
           </label>
         </>
       );
@@ -160,7 +160,7 @@ function Fields({ step, set, variables, agents, readOnly }: { step: Step; set(p:
       return (
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <span className="mb-1 block font-medium text-muted-foreground text-xs">Until the agent is</span>
+            <span className="mb-1 block text-label text-muted-foreground">Until the agent is</span>
             <div className="flex items-center gap-1">
               {WAIT_STATES.map((s) => {
                 const on = (step.for ?? ["finished", "waiting"]).includes(s.value);
@@ -175,7 +175,7 @@ function Fields({ step, set, variables, agents, readOnly }: { step: Step; set(p:
                       const next = on ? cur.filter((x) => x !== s.value) : [...cur, s.value];
                       set({ for: next.length ? next : undefined });
                     }}
-                    className={cn("inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs", on ? "border-ring/40 bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}
+                    className={cn("inline-flex h-7 items-center gap-1 rounded-md border px-2 text-meta", on ? "border-ring/40 bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}
                   >
                     {on ? <CheckIcon className="size-3" /> : <MinusIcon className="size-3 opacity-40" />}
                     {s.label}
@@ -192,7 +192,7 @@ function Fields({ step, set, variables, agents, readOnly }: { step: Step; set(p:
         <>
           <div className="flex flex-wrap items-end gap-4">
             <div className="w-48">
-              <span className="mb-1 block font-medium text-muted-foreground text-xs">Agent</span>
+              <span className="mb-1 block text-label text-muted-foreground">Agent</span>
               <SimpleSelect
                 value={step.agent ?? ""}
                 disabled={readOnly}
@@ -200,19 +200,19 @@ function Fields({ step, set, variables, agents, readOnly }: { step: Step; set(p:
                 options={(agents.length ? agents : [{ id: "claude", name: "Claude Code", command: "claude" }, { id: "codex", name: "Codex", command: "codex" }]).map((a) => ({ value: a.id, label: a.name }))}
               />
             </div>
-            <label className="flex h-8 items-center gap-2 text-sm">
+            <label className="flex h-8 items-center gap-2 text-body">
               <Switch checked={!!step.new_worktree} disabled={readOnly} onCheckedChange={(v) => set({ new_worktree: v || undefined })} />
               In a new worktree
             </label>
             {step.new_worktree && (
               <label className="block w-44">
-                <span className="mb-1 block font-medium text-muted-foreground text-xs">Worktree name</span>
-                <Input value={step.name ?? ""} readOnly={readOnly} onChange={(e) => set({ name: e.target.value || undefined })} placeholder="{{worktree.name}}-review" className="font-mono text-xs" />
+                <span className="mb-1 block text-label text-muted-foreground">Worktree name</span>
+                <Input value={step.name ?? ""} readOnly={readOnly} onChange={(e) => set({ name: e.target.value || undefined })} placeholder="{{worktree.name}}-review" className="font-mono text-mono" />
               </label>
             )}
           </div>
           <TemplateField label="Its first prompt" multiline value={step.text ?? ""} onChange={(text) => set({ text })} variables={variables} placeholder="Review the changes in {{worktree.path}}." readOnly={readOnly} />
-          <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+          <div className="flex items-center gap-1.5 text-muted-foreground text-meta">
             <AgentIcon agent={step.agent} />
             Starts beside the agent that triggered this, in {step.new_worktree ? "a fresh worktree" : "the same worktree"}.
           </div>
@@ -230,7 +230,7 @@ function Fields({ step, set, variables, agents, readOnly }: { step: Step; set(p:
         <>
           <TemplateField label="URL" mono value={step.url ?? ""} onChange={(url) => set({ url })} variables={variables} placeholder="https://hooks.slack.com/services/…" readOnly={readOnly} />
           <TemplateField label="JSON body" mono multiline value={step.text ?? ""} onChange={(text) => set({ text: text || undefined })} variables={variables} placeholder="Empty sends the run's context" readOnly={readOnly} />
-          <p className="text-muted-foreground text-xs">Public addresses only; private ones must be allowed in ~/.berth/network.json on the box.</p>
+          <p className="text-desc text-muted-foreground">Public addresses only; private ones must be allowed in ~/.berth/network.json on the box.</p>
         </>
       );
   }
@@ -240,7 +240,7 @@ function ResultBadge({ result }: { result: StepRun }) {
   const tone = result.status === "succeeded" ? "bg-success/12 text-success" : result.status === "failed" ? "bg-destructive/12 text-destructive-foreground" : "bg-muted text-muted-foreground";
   const Icon = result.status === "succeeded" ? CheckIcon : result.status === "failed" ? XIcon : MinusIcon;
   return (
-    <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-px text-[11px]", tone)}>
+    <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-px text-tag", tone)}>
       <Icon className="size-3" />
       {result.status === "skipped" ? "skipped" : result.duration || result.status}
       {result.kind === "run" && result.status !== "skipped" && <span className="opacity-70">· exit {result.exit_code}</span>}
@@ -252,12 +252,12 @@ function ResultOutput({ result }: { result: StepRun }) {
   const [open, setOpen] = useState(result.status === "failed");
   return (
     <div className="border-t">
-      <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center gap-1.5 px-3.5 py-1.5 text-left text-muted-foreground text-xs hover:text-foreground">
+      <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center gap-1.5 px-3.5 py-1.5 text-left text-muted-foreground text-meta hover:text-foreground">
         <ChevronRightIcon className={cn("size-3 transition-transform", open && "rotate-90")} />
         {result.error ? "Error" : "Output"}
       </button>
       {open && (
-        <pre className="mx-3.5 mb-3 max-h-56 overflow-auto rounded-md bg-muted/60 p-2 font-mono text-[11px] text-muted-foreground leading-snug">
+        <pre className="mx-3.5 mb-3 max-h-56 overflow-auto rounded-md bg-muted/60 p-2 font-mono text-mono text-muted-foreground">
           {[result.error, result.output].filter(Boolean).join("\n")}
         </pre>
       )}

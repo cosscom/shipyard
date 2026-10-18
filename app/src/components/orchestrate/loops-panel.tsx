@@ -170,7 +170,7 @@ function LoopCard({ loop: l }: { loop: Loop }) {
   return (
     <div
       className={cn(
-        "rounded-xl border bg-popover p-3 text-sm shadow-lg/5",
+        "rounded-xl border bg-popover p-3 text-body shadow-lg/5",
         l.outcome === "needs-you" && "border-warning/60",
         l.outcome === "passed" && "border-success/40",
         (l.outcome === "failed" || l.outcome === "error" || l.outcome === "exited" || l.outcome === "timed-out") && "border-destructive/40",
@@ -179,13 +179,13 @@ function LoopCard({ loop: l }: { loop: Loop }) {
       <div className="flex items-center gap-2">
         <StatusIcon loop={l} />
         <span className="font-medium">{live ? phases[l.phase] : outcomes[l.outcome!]}</span>
-        <span className="text-muted-foreground text-xs tabular-nums">
+        <span className="text-muted-foreground text-meta tabular-nums">
           Round {l.round}
           {l.max > 0 && ` of ${l.max}`}
         </span>
         {l.runId && (
           <Tip label={`Runs on ${l.box} (${l.runId}): it keeps going if the app quits`}>
-            <span className="rounded bg-muted px-1 text-[10px] text-muted-foreground">on {l.box}</span>
+            <span className="rounded bg-muted px-1 text-tag text-muted-foreground">on {l.box}</span>
           </Tip>
         )}
         {!live && (
@@ -202,18 +202,18 @@ function LoopCard({ loop: l }: { loop: Loop }) {
         )}
       </div>
       <Tip label={`Session ${l.session} on ${l.box}`} align="start">
-        <p className="mt-1 truncate text-muted-foreground text-xs">
+        <p className="mt-1 truncate text-muted-foreground text-meta">
           {name} · <span className="font-mono">{l.check}</span>
         </p>
       </Tip>
-      <p className="mt-1 text-[13px] text-foreground/80">{said}</p>
+      <p className="mt-1 text-desc text-foreground/80">{said}</p>
       {l.output !== undefined && (
         <>
-          <button type="button" className="mt-1.5 inline-flex items-center gap-1 text-muted-foreground text-xs hover:text-foreground" aria-expanded={open} onClick={() => setOpen(!open)}>
+          <button type="button" className="mt-1.5 inline-flex items-center gap-1 text-muted-foreground text-meta hover:text-foreground" aria-expanded={open} onClick={() => setOpen(!open)}>
             <ChevronRightIcon className={cn("size-3 transition-transform", open && "rotate-90")} />
             Last check exited {l.exitCode}
           </button>
-          {open && <pre className="mt-1.5 max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-muted/72 p-2 font-mono text-[11px] leading-snug">{l.output.trim() || "(no output)"}</pre>}
+          {open && <pre className="mt-1.5 max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-muted/72 p-2 font-mono text-tag">{l.output.trim() || "(no output)"}</pre>}
         </>
       )}
       <div className="mt-2.5 flex items-center gap-1.5">

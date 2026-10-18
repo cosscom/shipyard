@@ -70,9 +70,9 @@ export function EditorsSettings() {
         </Button>
       }
     >
-      {error && <ErrorText className="px-4 py-3 text-destructive-foreground text-sm" text={error} />}
+      {error && <ErrorText className="px-4 py-3 text-destructive-foreground text-body" text={error} />}
       {!editors && !error && (
-        <div className="flex items-center gap-2 px-4 py-3 text-muted-foreground text-sm">
+        <div className="flex items-center gap-2 px-4 py-3 text-muted-foreground text-body">
           <Spinner className="size-3.5" /> Looking for editors…
         </div>
       )}
@@ -89,7 +89,7 @@ export function EditorsSettings() {
         </SettingsRow>
       )}
       {chosen && !chosen.lines && (
-        <p className="px-4 py-2 text-muted-foreground text-xs">
+        <p className="px-4 py-2 text-muted-foreground text-meta">
           {chosen.cli ? `${chosen.name} opens files without their line over SSH links.` : `${chosen.name}'s command line tool isn't installed, so files open as their folder. Install it from ${chosen.name}'s command palette.`}
         </p>
       )}
@@ -97,8 +97,8 @@ export function EditorsSettings() {
         <div className="px-4 py-3">
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
-              <div className="text-sm">SSH hosts for editors</div>
-              <div className="mt-0.5 text-muted-foreground text-xs leading-relaxed">
+              <div className="text-body">SSH hosts for editors</div>
+              <div className="mt-0.5 text-muted-foreground text-meta">
                 {ready ? (
                   <span className="inline-flex items-center gap-1 text-success-foreground">
                     <CheckCircle2Icon className="size-3.5" /> Set up. Editors reach {remote.map((h) => h.host).join(", ")}.
@@ -121,11 +121,11 @@ export function EditorsSettings() {
             <div className="mt-3 space-y-2">
               {plan.changes.map((c) => (
                 <div key={c.path} className="overflow-hidden rounded-lg border">
-                  <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-1.5 font-mono text-[11px]">
+                  <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-1.5 font-mono text-tag">
                     <span className={cn("rounded px-1.5 py-px uppercase tracking-wide", c.action === "remove" ? "bg-destructive/10 text-destructive-foreground" : "bg-muted text-muted-foreground")}>{c.action}</span>
                     <span className="min-w-0 truncate">{c.path}</span>
                   </div>
-                  <pre tabIndex={0} className="overflow-x-auto px-3 py-2 font-mono text-[11px] leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+                  <pre tabIndex={0} className="overflow-x-auto px-3 py-2 font-mono text-tag outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
                     {c.diff.trimEnd().split("\n").map((l, i) => (
                       <div key={i} className={cn(l.startsWith("+ ") && "text-success-foreground", l.startsWith("- ") && "text-destructive-foreground", l.startsWith("  ") && "text-muted-foreground")}>
                         {l || " "}

@@ -83,9 +83,9 @@ export function HookSheet({ editing, onSave, onClose }: { editing?: Editing; onS
           <section>
             <Label>When</Label>
             <EventPicker machine={machine} value={hook.on} onChange={(on) => setHook({ ...hook, on })} />
-            {hook.on && !onValid && <p className="mt-1.5 text-destructive-foreground text-xs">Use an event like agent.finished, a prefix like worktree.*, *, or before: one of those.</p>}
+            {hook.on && !onValid && <p className="mt-1.5 text-destructive-foreground text-meta">Use an event like agent.finished, a prefix like worktree.*, *, or before: one of those.</p>}
             {d.gate && onValid && (
-              <p className="mt-1.5 flex items-start gap-1.5 text-muted-foreground text-xs">
+              <p className="mt-1.5 flex items-start gap-1.5 text-desc text-muted-foreground">
                 <ShieldIcon className="mt-0.5 size-3 shrink-0 text-warning" />A gate: it runs first, and exiting non-zero stops the action. What it prints is the reason shown.
               </p>
             )}
@@ -99,13 +99,13 @@ export function HookSheet({ editing, onSave, onClose }: { editing?: Editing; onS
               onChange={(e) => setHook({ ...hook, run: e.target.value })}
               placeholder={d.gate ? 'test "$BERTH_NAME" != main' : 'cd "$BERTH_PATH" && pnpm install'}
               rows={2}
-              className="font-mono text-xs [&_textarea]:max-h-48 [&_textarea]:min-h-13"
+              className="font-mono text-mono [&_textarea]:max-h-48 [&_textarea]:min-h-13"
               spellCheck={false}
             />
-            <p className="mt-2 text-muted-foreground text-xs">Through /bin/sh, with the event as JSON on stdin. Click to insert:</p>
+            <p className="mt-2 text-desc text-muted-foreground">Through /bin/sh, with the event as JSON on stdin. Click to insert:</p>
             <div className="mt-1.5 flex flex-wrap gap-1">
               {[...d.fields.map(envName), ...ALWAYS_ENV].map((v) => (
-                <button key={v} type="button" onClick={() => insert(`"$${v}"`)} className="rounded-md border bg-muted/40 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground hover:border-ring/40 hover:text-foreground">
+                <button key={v} type="button" onClick={() => insert(`"$${v}"`)} className="rounded-md border bg-muted/40 px-1.5 py-0.5 font-mono text-tag text-muted-foreground hover:border-ring/40 hover:text-foreground">
                   ${v}
                 </button>
               ))}
@@ -115,16 +115,16 @@ export function HookSheet({ editing, onSave, onClose }: { editing?: Editing; onS
           <section className="grid grid-cols-[8rem_1fr] gap-3">
             <div>
               <Label>Timeout</Label>
-              <Input value={hook.timeout ?? ""} onChange={(e) => setHook({ ...hook, timeout: e.target.value })} placeholder={d.gate ? "30s" : "1m"} className="font-mono text-xs" />
+              <Input value={hook.timeout ?? ""} onChange={(e) => setHook({ ...hook, timeout: e.target.value })} placeholder={d.gate ? "30s" : "1m"} className="font-mono text-mono" />
             </div>
             <div>
               <Label>Integration (optional)</Label>
-              <Input value={hook.tool ?? ""} onChange={(e) => setHook({ ...hook, tool: e.target.value })} placeholder="e.g. slack" className="font-mono text-xs" />
-              <p className="mt-1 text-muted-foreground text-xs">Skips events this integration caused, so two integrations can't loop.</p>
+              <Input value={hook.tool ?? ""} onChange={(e) => setHook({ ...hook, tool: e.target.value })} placeholder="e.g. slack" className="font-mono text-mono" />
+              <p className="mt-1 text-desc text-muted-foreground">Skips events this integration caused, so two integrations can't loop.</p>
             </div>
           </section>
 
-          {error && <ErrorText className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-destructive-foreground text-xs" text={error} />}
+          {error && <ErrorText className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-destructive-foreground text-meta" text={error} />}
         </SheetPanel>
         <SheetFooter>
           <Button variant="ghost" onClick={onClose}>
@@ -140,7 +140,7 @@ export function HookSheet({ editing, onSave, onClose }: { editing?: Editing; onS
 }
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <div className="mb-1.5 font-medium text-xs">{children}</div>;
+  return <div className="mb-1.5 text-label">{children}</div>;
 }
 
 // EventPicker is a filterable list of what this machine can follow. Typing
@@ -161,8 +161,8 @@ function EventPicker({ machine, value, onChange }: { machine: string; value: str
       <div className="flex items-center gap-2.5 rounded-lg border px-3 py-2">
         {d.gate ? <ShieldIcon className="size-3.5 shrink-0 text-warning" /> : <ZapIcon className="size-3.5 shrink-0 text-muted-foreground" />}
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm">{d.label}</span>
-          <code className="block truncate font-mono text-[11px] text-muted-foreground">{value}</code>
+          <span className="block truncate text-body">{d.label}</span>
+          <code className="block truncate font-mono text-meta text-muted-foreground">{value}</code>
         </span>
         <Button size="xs" variant="outline" onClick={() => setPicking(true)}>
           Change
@@ -206,7 +206,7 @@ function EventPicker({ machine, value, onChange }: { machine: string; value: str
             hint={e.hint}
           />
         ))}
-        {!custom && shown.length === 0 && <li className="px-3 py-2 text-muted-foreground text-xs">Nothing matches. A valid pattern can be typed and kept with Enter.</li>}
+        {!custom && shown.length === 0 && <li className="px-3 py-2 text-muted-foreground text-meta">Nothing matches. A valid pattern can be typed and kept with Enter.</li>}
       </ul>
     </div>
   );
@@ -218,10 +218,10 @@ function Row({ selected, onPick, icon, label, on, hint }: { selected: boolean; o
       <button type="button" role="option" aria-selected={selected} onClick={onPick} className={cn("flex w-full items-center gap-2.5 px-3 py-1.5 text-left hover:bg-accent", selected && "bg-accent")}>
         {icon}
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm">{label}</span>
-          {hint && <span className="block truncate text-muted-foreground text-xs">{hint}</span>}
+          <span className="block truncate text-body">{label}</span>
+          {hint && <span className="block truncate text-muted-foreground text-meta">{hint}</span>}
         </span>
-        <code className="shrink-0 font-mono text-[11px] text-muted-foreground">{on}</code>
+        <code className="shrink-0 font-mono text-tag text-muted-foreground">{on}</code>
       </button>
     </li>
   );

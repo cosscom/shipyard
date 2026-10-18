@@ -22,7 +22,7 @@ export default function VisualDiffKindView({ art, version, body, size, height }:
   const v = useMemo(() => parseVdiff(body), [body]);
   if (!v)
     return (
-      <div className="flex items-center justify-center rounded-md border border-dashed p-3 text-muted-foreground text-xs" style={{ height: height ?? 120 }}>
+      <div className="flex items-center justify-center rounded-md border border-dashed p-3 text-muted-foreground text-meta" style={{ height: height ?? 120 }}>
         This visual diff's manifest doesn't parse.
       </div>
     );
@@ -51,7 +51,7 @@ function Summary({ art, version, v }: { art: Art; version: ArtVersion; v: Visual
   // for screen readers.
   return (
     <div className="flex min-w-0 flex-col gap-1.5 @max-[480px]:flex-row @max-[480px]:flex-wrap @max-[480px]:items-center" data-vd-summary>
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 text-muted-foreground text-xs @max-[480px]:order-2 @max-[480px]:ml-auto">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 text-muted-foreground text-meta @max-[480px]:order-2 @max-[480px]:ml-auto">
         <span className="hidden min-w-0 truncate font-mono @[560px]:inline" data-vd-compare>
           {v.base.kind === "baseline" ? `${v.base.label} baseline` : v.base.label}
           {v.base.commit ? `@${v.base.commit}` : ""} → {v.head.label}
@@ -69,7 +69,7 @@ function Summary({ art, version, v }: { art: Art; version: ArtVersion; v: Visual
         <AcceptButton art={art} version={version} v={v} />
       </div>
       {v.notice && (
-        <div className="flex items-start gap-1.5 text-warning-foreground text-xs @max-[480px]:order-3 @max-[480px]:w-full" data-vd-notice>
+        <div className="flex items-start gap-1.5 text-warning-foreground text-meta @max-[480px]:order-3 @max-[480px]:w-full" data-vd-notice>
           <InfoIcon className="mt-px size-3.5 shrink-0" aria-hidden />
           <span className="min-w-0">{v.notice}</span>
         </div>
@@ -83,7 +83,7 @@ function Summary({ art, version, v }: { art: Art; version: ArtVersion; v: Visual
 // that fails, a new or gone page; then how many pages are unchanged.
 export function VdiffChips({ v, className, max }: { v: VisualDiff; className?: string; max?: number }) {
   const f = flags(v);
-  const chip = "inline-flex shrink-0 items-center gap-1 rounded-[0.3125rem] border px-1.5 text-[0.6875rem] leading-[1.125rem]";
+  const chip = "inline-flex shrink-0 items-center gap-1 rounded-[0.3125rem] border px-1.5 text-tag leading-[1.125rem]";
   if (allClear(v))
     return (
       <div className={cn("flex min-w-0 flex-wrap gap-1", className)} data-vd-chips>
@@ -156,7 +156,7 @@ function AcceptButton({ art, version, v }: { art: Art; version: ArtVersion; v: V
     <span className="relative inline-flex shrink-0 items-center gap-1.5">
       {ask ? (
         <span className="inline-flex flex-wrap items-center gap-1.5 rounded-md border border-info/30 bg-info/6 py-0.5 pr-0.5 pl-2 text-foreground" data-vd-accept-ask>
-          <span className="max-w-[26rem] text-xs">
+          <span className="max-w-[26rem] text-meta">
             Keep these {shots} after-shots as {art.worktree}'s accepted look? <span className="text-muted-foreground">Main isn't changed.</span>
           </span>
           <Button
@@ -189,7 +189,7 @@ function AcceptButton({ art, version, v }: { art: Art; version: ArtVersion; v: V
           </Button>
         </Tip>
       )}
-      {err && <span className="text-destructive-foreground text-xs">{err}</span>}
+      {err && <span className="text-destructive-foreground text-meta">{err}</span>}
     </span>
   );
 }
@@ -266,7 +266,7 @@ function SliderFirst({ art, v }: { art: Art; v: VisualDiff }) {
   const focus = cur && cur.page.path === page.path && cur.shot === shot && cur.kind === "region" ? cur.n - 1 : undefined;
 
   const stepper = (
-    <div className="inline-flex shrink-0 items-center gap-1 text-xs" data-vd-stepper role="group" aria-label="Changes">
+    <div className="inline-flex shrink-0 items-center gap-1 text-meta" data-vd-stepper role="group" aria-label="Changes">
       <span className="hidden text-muted-foreground @[720px]:inline">Changes</span>
       <Tip label="Previous change · p">
         <Button size="icon-xs" variant="outline" aria-label="Previous change" onClick={() => go((step ?? 1) - 1)} disabled={!items.length || step === 0}>
@@ -285,7 +285,7 @@ function SliderFirst({ art, v }: { art: Art; v: VisualDiff }) {
   );
   const allBtn = (
     <Tip label={all ? "Back to one page" : "Every page and size at once"}>
-      <button type="button" aria-pressed={all} onClick={() => setAll((x) => !x)} data-vd-all className={cn("inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-xs", all ? "border-ring bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/60")}>
+      <button type="button" aria-pressed={all} onClick={() => setAll((x) => !x)} data-vd-all className={cn("inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-meta", all ? "border-ring bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/60")}>
         <LayoutGridIcon className="size-3.5" aria-hidden />
         <span className="hidden @[480px]:inline">All {v.summary.shots} shots</span>
         <span className="@[480px]:hidden">All</span>
@@ -314,7 +314,7 @@ function SliderFirst({ art, v }: { art: Art; v: VisualDiff }) {
         <>
           <div className="sticky -top-4 z-40 -mx-4 flex flex-wrap items-center gap-2 border-b bg-background/95 px-4 pt-4 pb-2.5 backdrop-blur">
             {allBtn}
-            <span className="hidden text-muted-foreground text-xs @[560px]:inline">most changed first · click a shot to compare it</span>
+            <span className="hidden text-muted-foreground text-meta @[560px]:inline">most changed first · click a shot to compare it</span>
             <span className="ml-auto" />
             {schemeSeg}
             {stepper}
@@ -362,8 +362,8 @@ function SliderFirst({ art, v }: { art: Art; v: VisualDiff }) {
 function ChangeCaption({ it }: { it: Change; total: number }) {
   const over = overflow(it.shot);
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs" data-vd-caption>
-      <span className={cn("inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 font-semibold text-[10.5px] text-white", it.kind === "region" ? "" : it.kind === "error" ? "bg-destructive" : "bg-info")} style={it.kind === "region" ? { background: REGION } : undefined}>
+    <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-meta" data-vd-caption>
+      <span className={cn("inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 font-semibold text-tag text-white", it.kind === "region" ? "" : it.kind === "error" ? "bg-destructive" : "bg-info")} style={it.kind === "region" ? { background: REGION } : undefined}>
         {it.kind === "region" ? it.n : "!"}
       </span>
       <span className="font-medium font-mono">{it.page.path}</span>
@@ -458,7 +458,7 @@ function PageChips({ pages, cur, scheme, onPick }: { pages: VdPage[]; cur: strin
       {pages.map((p) => {
         const top = worstShot(p, scheme);
         return (
-          <button key={p.path} type="button" role="tab" aria-selected={p.path === cur} data-vd-page-chip={p.path} onClick={() => onPick(p.path)} className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-xs", p.path === cur ? "border-ring bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/60")}>
+          <button key={p.path} type="button" role="tab" aria-selected={p.path === cur} data-vd-page-chip={p.path} onClick={() => onPick(p.path)} className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-meta", p.path === cur ? "border-ring bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/60")}>
             <span className="font-medium font-mono text-foreground/90">{p.path}</span>
             <VerdictTag shot={top} all={p.shots.filter((s) => schemeOf(s) === scheme)} />
           </button>
@@ -494,7 +494,7 @@ function SizeTabs({ shots, cur, onPick }: { shots: VdShot[]; cur: number; onPick
   return (
     <div className="inline-flex rounded-lg border bg-muted/40 p-0.5" role="tablist" aria-label="Sizes">
       {shots.map((s) => (
-        <button key={s.size} type="button" role="tab" aria-selected={s.size === cur} data-vd-size-tab={s.size} onClick={() => onPick(s.size)} className={cn("inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs", s.size === cur ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground")}>
+        <button key={s.size} type="button" role="tab" aria-selected={s.size === cur} data-vd-size-tab={s.size} onClick={() => onPick(s.size)} className={cn("inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-meta", s.size === cur ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground")}>
           <span className="font-medium">
             <span className="hidden @[620px]:inline">{sizeName(s.size)} </span>
             <span className="tabular-nums">{s.size}</span>
@@ -511,7 +511,7 @@ function Seg<T extends string>({ value, onChange, items, label }: { value: T; on
     <div className="inline-flex rounded-lg border bg-muted/40 p-0.5" role="radiogroup" aria-label={label}>
       {items.map((it) => (
         <Tip key={it.v} label={it.label}>
-          <button type="button" role="radio" aria-checked={value === it.v} aria-label={it.label} data-vd-mode={it.v} onClick={() => onChange(it.v)} className={cn("inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs @[480px]:px-2", value === it.v ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground")}>
+          <button type="button" role="radio" aria-checked={value === it.v} aria-label={it.label} data-vd-mode={it.v} onClick={() => onChange(it.v)} className={cn("inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-meta @[480px]:px-2", value === it.v ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground")}>
             <it.icon className="size-3.5" />
             <span className="hidden @[900px]:inline">{it.label}</span>
           </button>
@@ -526,7 +526,7 @@ function OverlayControls({ ov, shot }: { ov: ReturnType<typeof useOverlays>; sho
   return (
     <div className="inline-flex items-center gap-1">
       <Tip label="Changed pixels, glowing by how much they changed">
-        <button type="button" aria-pressed={ov.heat} aria-label="Heatmap" data-vd-heat-toggle onClick={() => ov.setHeat((h) => !h)} disabled={!shot.heat} className={cn("inline-flex items-center gap-1 rounded-md border px-1.5 py-1 text-xs disabled:opacity-50 @[480px]:px-2", ov.heat && shot.heat ? "border-[#f97316]/50 bg-[#f97316]/10 text-foreground" : "text-muted-foreground hover:bg-accent/60")}>
+        <button type="button" aria-pressed={ov.heat} aria-label="Heatmap" data-vd-heat-toggle onClick={() => ov.setHeat((h) => !h)} disabled={!shot.heat} className={cn("inline-flex items-center gap-1 rounded-md border px-1.5 py-1 text-meta disabled:opacity-50 @[480px]:px-2", ov.heat && shot.heat ? "border-[#f97316]/50 bg-[#f97316]/10 text-foreground" : "text-muted-foreground hover:bg-accent/60")}>
           <FlameIcon className={cn("size-3.5", ov.heat && shot.heat && "text-[#f97316]")} aria-hidden />
           <span className="hidden @[560px]:inline">Heatmap</span>
         </button>
@@ -537,7 +537,7 @@ function OverlayControls({ ov, shot }: { ov: ReturnType<typeof useOverlays>; sho
         </span>
       )}
       <Tip label="Numbered boxes around each change">
-        <button type="button" aria-pressed={ov.regions} aria-label={n ? `Regions, ${n}` : "Regions"} data-vd-regions-toggle onClick={() => ov.setRegions((r) => !r)} className={cn("inline-flex items-center gap-1 rounded-md border px-1.5 py-1 text-xs @[480px]:px-2", ov.regions ? "border-[#2563eb]/40 bg-[#2563eb]/8 text-foreground" : "text-muted-foreground hover:bg-accent/60")}>
+        <button type="button" aria-pressed={ov.regions} aria-label={n ? `Regions, ${n}` : "Regions"} data-vd-regions-toggle onClick={() => ov.setRegions((r) => !r)} className={cn("inline-flex items-center gap-1 rounded-md border px-1.5 py-1 text-meta @[480px]:px-2", ov.regions ? "border-[#2563eb]/40 bg-[#2563eb]/8 text-foreground" : "text-muted-foreground hover:bg-accent/60")}>
           <SquareDashedIcon className={cn("size-3.5", ov.regions && "text-[#3b82f6]")} aria-hidden />
           <span className="hidden @[560px]:inline">Regions</span>
           {n ? <span className="text-muted-foreground tabular-nums">{n}</span> : null}
@@ -549,7 +549,7 @@ function OverlayControls({ ov, shot }: { ov: ReturnType<typeof useOverlays>; sho
 
 function Range({ label, value, onChange }: { label: string; value: number; onChange(n: number): void }) {
   return (
-    <label className="inline-flex items-center gap-1.5 text-muted-foreground text-xs">
+    <label className="inline-flex items-center gap-1.5 text-muted-foreground text-meta">
       <span className="hidden @[720px]:inline">{label}</span>
       <input type="range" min={0} max={1} step={0.05} value={value} onChange={(e) => onChange(Number(e.target.value))} className="vd-range h-1 w-20 cursor-pointer" aria-label={label} />
     </label>
@@ -560,7 +560,7 @@ function Banner({ v, page, shot }: { v: VisualDiff; page: VdPage; shot: VdShot }
   const over = overflow(shot);
   const base = baseName(v);
   const line = (tone: "bad" | "warn" | "info" | "good", icon: React.ReactNode, text: React.ReactNode) => (
-    <div data-vd-banner={tone} className={cn("mb-3 flex shrink-0 items-start gap-2 rounded-lg border px-3 py-1.5 text-[0.8125rem] @[560px]:py-2", tone === "bad" ? "border-destructive/30 bg-destructive/6" : tone === "warn" ? "border-warning/30 bg-warning/8" : tone === "good" ? "border-success/30 bg-success/6" : "border-info/30 bg-info/6")}>
+    <div data-vd-banner={tone} className={cn("mb-3 flex shrink-0 items-start gap-2 rounded-lg border px-3 py-1.5 text-desc @[560px]:py-2", tone === "bad" ? "border-destructive/30 bg-destructive/6" : tone === "warn" ? "border-warning/30 bg-warning/8" : tone === "good" ? "border-success/30 bg-success/6" : "border-info/30 bg-info/6")}>
       {icon}
       <div className="min-w-0">{text}</div>
     </div>
@@ -574,7 +574,7 @@ function Banner({ v, page, shot }: { v: VisualDiff; page: VdPage; shot: VdShot }
           {page.path} fails on {shot.why?.startsWith("before") ? base : v.head.label}
         </span>{" "}
         <span className="text-muted-foreground">· {shot.why}</span>
-        {shot.after?.errors?.[0] && <div className="mt-0.5 truncate font-mono text-muted-foreground text-xs">{shot.after.errors[0]}</div>}
+        {shot.after?.errors?.[0] && <div className="mt-0.5 truncate font-mono text-muted-foreground text-mono">{shot.after.errors[0]}</div>}
       </>,
     );
   if (shot.verdict === "new")
@@ -627,13 +627,13 @@ function RegionList({ shot, focus, onPick }: { shot: VdShot; focus?: number; onP
   return (
     <aside className="hidden w-52 shrink-0 flex-col gap-1 @[1000px]:flex" aria-label="Regions" data-vd-region-list>
       <div className="sticky top-[8.5rem] flex flex-col gap-0.5">
-        <div className="px-1 pb-1 font-medium text-muted-foreground text-xs">
+        <div className="px-1 pb-1 text-muted-foreground text-label">
           {total} {total === 1 ? "region" : "regions"} · {shot.changed_px.toLocaleString("en-US")} px
         </div>
         {shot.regions!.map((r, i) => (
-          <button key={`${r.x}-${r.y}-${i}`} type="button" onClick={() => onPick(i)} className={cn("flex min-w-0 flex-col gap-0.5 rounded-md px-1.5 py-1 text-left text-xs hover:bg-accent/60", focus === i && "bg-accent")}>
+          <button key={`${r.x}-${r.y}-${i}`} type="button" onClick={() => onPick(i)} className={cn("flex min-w-0 flex-col gap-0.5 rounded-md px-1.5 py-1 text-left text-meta hover:bg-accent/60", focus === i && "bg-accent")}>
             <span className="flex w-full items-center gap-2">
-              <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 font-semibold text-[10.5px] text-white" style={{ background: REGION }}>
+              <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 font-semibold text-tag text-white" style={{ background: REGION }}>
                 {i + 1}
               </span>
               <span className="tabular-nums">
@@ -641,10 +641,10 @@ function RegionList({ shot, focus, onPick }: { shot: VdShot; focus?: number; onP
               </span>
               <span className="ml-auto text-muted-foreground tabular-nums">{r.px >= 1000 ? `${(r.px / 1000).toFixed(1)}k px` : `${r.px} px`}</span>
             </span>
-            {r.el && <span className="truncate ps-[26px] font-mono text-[0.6875rem] text-muted-foreground">{r.el}</span>}
+            {r.el && <span className="truncate ps-[26px] font-mono text-tag text-muted-foreground">{r.el}</span>}
           </button>
         ))}
-        {total > shot.regions!.length && <div className="px-1.5 text-muted-foreground text-xs">+{total - shot.regions!.length} smaller</div>}
+        {total > shot.regions!.length && <div className="px-1.5 text-muted-foreground text-meta">+{total - shot.regions!.length} smaller</div>}
       </div>
     </aside>
   );
@@ -653,7 +653,7 @@ function RegionList({ shot, focus, onPick }: { shot: VdShot; focus?: number; onP
 function Settings({ v, shot }: { v: VisualDiff; shot: VdShot }) {
   const ms = Math.max(shot.before?.ms ?? 0, shot.after?.ms ?? 0);
   return (
-    <div className="mt-3 flex shrink-0 flex-wrap gap-x-2 gap-y-0.5 border-t pt-2 text-muted-foreground text-xs">
+    <div className="mt-3 flex shrink-0 flex-wrap gap-x-2 gap-y-0.5 border-t pt-2 text-muted-foreground text-meta">
       <span>
         {shot.viewport[0]}×{shot.viewport[1]} at {v.settings.scale}x{schemeOf(shot) === "dark" ? ", dark" : ""}
       </span>
@@ -690,7 +690,7 @@ function ShotGrid({ art, v, pages, scheme, onPick }: { art: Art; v: VisualDiff; 
     <div data-vd-grid className="grid gap-x-3 gap-y-4 pt-3" style={{ gridTemplateColumns: `minmax(5.5rem,8rem) repeat(${sizes.length}, minmax(0,1fr))` }}>
       <span />
       {sizes.map((s) => (
-        <span key={s} className="font-medium text-muted-foreground text-xs">
+        <span key={s} className="text-muted-foreground text-label">
           <span className="hidden @[620px]:inline">{sizeName(s)} </span>
           <span className="tabular-nums">{s}</span>
         </span>
@@ -700,8 +700,8 @@ function ShotGrid({ art, v, pages, scheme, onPick }: { art: Art; v: VisualDiff; 
         return (
           <div key={p.path} className="contents">
             <div className="flex min-w-0 flex-col gap-0.5 pt-1">
-              <span className="truncate font-medium font-mono text-[0.8125rem]">{p.path}</span>
-              <span className="truncate text-muted-foreground text-xs">{p.title}</span>
+              <span className="truncate font-medium font-mono text-mono">{p.path}</span>
+              <span className="truncate text-muted-foreground text-meta">{p.title}</span>
             </div>
             {sizes.map((size) => {
               const s = p.shots.find((x) => x.size === size && schemeOf(x) === scheme);
@@ -746,11 +746,11 @@ function Cell({ art, path, s, dim, onPick }: { art: Art; path: string; s: VdShot
       {s.verdict === "error" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-background/85 p-2 text-center">
           <XCircleIcon className="size-5 text-destructive-foreground" aria-hidden />
-          <span className="font-medium text-xs">{s.why}</span>
+          <span className="text-label">{s.why}</span>
         </div>
       )}
       <div className="absolute inset-x-1.5 bottom-1.5 flex flex-wrap items-center gap-1">
-        <span className="inline-flex items-center gap-1 rounded-md bg-background/92 px-1.5 py-0.5 text-[11px] shadow-xs backdrop-blur">
+        <span className="inline-flex items-center gap-1 rounded-md bg-background/92 px-1.5 py-0.5 text-tag shadow-xs backdrop-blur">
           <VerdictTag shot={s} />
           {s.verdict === "changed" && (
             <span className="text-muted-foreground tabular-nums">
@@ -758,7 +758,7 @@ function Cell({ art, path, s, dim, onPick }: { art: Art; path: string; s: VdShot
             </span>
           )}
         </span>
-        {over ? <span className="rounded-md bg-[#be123c] px-1.5 py-0.5 font-medium text-[11px] text-white shadow-xs">↔ +{over}px</span> : null}
+        {over ? <span className="rounded-md bg-[#be123c] px-1.5 py-0.5 font-medium text-tag text-white shadow-xs">↔ +{over}px</span> : null}
       </div>
     </button>
   );
@@ -774,8 +774,8 @@ function AllClear({ art, v }: { art: Art; v: VisualDiff }) {
         <span className="vd-clear flex size-12 items-center justify-center rounded-full bg-success/12 text-success-foreground">
           <CheckCircle2Icon className="size-6" aria-hidden />
         </span>
-        <h3 className="font-semibold text-lg">No visual changes</h3>
-        <p className="max-w-md text-balance text-muted-foreground text-sm">
+        <h3 className="text-heading">No visual changes</h3>
+        <p className="max-w-md text-balance text-muted-foreground text-body">
           All {v.summary.shots} shots of {v.pages.length} {v.pages.length === 1 ? "page" : "pages"} match {baseName(v)} pixel for pixel{v.settings.mask?.length ? ", with dynamic content masked" : ""}.
         </p>
       </div>
@@ -784,7 +784,7 @@ function AllClear({ art, v }: { art: Art; v: VisualDiff }) {
           <ClearTile key={p.path} art={art} p={p} />
         ))}
       </div>
-      <div className="flex flex-wrap justify-center gap-x-2 text-muted-foreground text-xs">
+      <div className="flex flex-wrap justify-center gap-x-2 text-muted-foreground text-meta">
         <span>sizes {v.settings.sizes.join(", ")}</span>
         {sch.length > 1 && (
           <>
@@ -816,7 +816,7 @@ function ClearTile({ art, p }: { art: Art; p: VdPage }) {
   return (
     <div ref={ref} className="overflow-hidden rounded-lg border bg-card">
       <Crop art={art} shot={s} r={{ x: 0, y: 0, w: s.size, h: s.size * (h / w) }} side="after" w={w} h={h} />
-      <div className="flex items-center gap-1 px-2 py-1.5 text-xs">
+      <div className="flex items-center gap-1 px-2 py-1.5 text-meta">
         <span className="truncate font-medium font-mono">{p.path}</span>
         <span className="ml-auto inline-flex items-center gap-0.5 text-success-foreground tabular-nums">
           <CheckCircle2Icon className="size-3" aria-hidden />
@@ -852,7 +852,7 @@ function VdiffThumb({ art, v, height }: { art: Art; v: VisualDiff; height: numbe
           const s = [...p.shots].sort((x, y) => y.size - x.size)[0];
           return <Crop key={p.path} art={art} shot={s} r={{ x: 0, y: 0, w: s.size, h: s.size * (height / cw) }} side="after" w={cw} h={height} className="rounded-sm" />;
         })}
-        <span className="absolute right-1 bottom-1 inline-flex items-center gap-0.5 rounded-full bg-[#15803d] px-1.5 py-0.5 font-medium text-[10px] text-white shadow">
+        <span className="absolute right-1 bottom-1 inline-flex items-center gap-0.5 rounded-full bg-[#15803d] px-1.5 py-0.5 font-medium text-tag text-white shadow">
           <CheckCircle2Icon className="size-3" aria-hidden /> All clear
         </span>
       </div>
@@ -882,8 +882,8 @@ function VdiffThumb({ art, v, height }: { art: Art; v: VisualDiff; height: numbe
         <Crop art={art} shot={shot} r={r} side="before" w={w} h={height} />
       </div>
       <div className="absolute inset-y-0 w-0.5 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.2)]" style={{ left: w / 2 - 1 }} />
-      <span className="absolute bottom-1 left-1 rounded bg-[#18181b]/75 px-1 font-medium text-[9.5px] text-white">before</span>
-      <span className="absolute right-1 bottom-1 rounded bg-[#1d4ed8]/90 px-1 font-medium text-[9.5px] text-white">
+      <span className="absolute bottom-1 left-1 rounded bg-[#18181b]/75 px-1 font-medium text-tag text-white">before</span>
+      <span className="absolute right-1 bottom-1 rounded bg-[#1d4ed8]/90 px-1 font-medium text-tag text-white">
         after · {it.page.path} {shot.size}
       </span>
     </div>

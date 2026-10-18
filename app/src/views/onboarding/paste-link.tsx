@@ -104,7 +104,7 @@ export function PasteLink({
             setText(e.target.value);
             setError(undefined);
           }}
-          className="h-full min-w-0 flex-1 truncate bg-transparent font-mono text-[13px] outline-none placeholder:font-sans placeholder:text-muted-foreground/72 placeholder:text-sm disabled:opacity-64"
+          className="h-full min-w-0 flex-1 truncate bg-transparent font-mono text-desc outline-none placeholder:font-sans placeholder:text-muted-foreground/72 placeholder:text-body disabled:opacity-64"
         />
         <Tip label={!link ? "Paste a pairing link first" : undefined}>
           <Button type="submit" size="xs" className="shrink-0" disabled={!link || !!done} loading={busy && !done}>
@@ -112,7 +112,7 @@ export function PasteLink({
           </Button>
         </Tip>
       </form>
-      <div aria-live="polite" className="mt-2 min-h-5 text-xs leading-5">
+      <div aria-live="polite" className="mt-2 min-h-5 text-meta">
         {done ? (
           <span className="flex items-center gap-1.5 text-success-foreground">
             <CheckIcon className="size-3.5" /> Paired with {done}

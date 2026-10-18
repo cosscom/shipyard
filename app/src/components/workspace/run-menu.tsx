@@ -112,7 +112,7 @@ export function RunMenu() {
   };
 
   return (
-    <div className="flex h-6.5 items-stretch rounded-md text-xs">
+    <div className="flex h-6.5 items-stretch rounded-md text-meta">
       <Tip label={away ? `${ref.box} is offline, so nothing can start there` : primary ? (running ? `Open ${primary.name}` : `Start ${primary.name}: ${primary.run}`) : "This repository defines no services"} side="bottom">
         <button
           type="button"
@@ -135,12 +135,12 @@ export function RunMenu() {
         </MenuTrigger>
         <MenuPopup align="end" className="min-w-64">
           {services === undefined && (
-            <div className="flex items-center gap-2 px-2 py-2 text-muted-foreground text-xs">
+            <div className="flex items-center gap-2 px-2 py-2 text-muted-foreground text-meta">
               <Spinner className="size-3" /> Loading services…
             </div>
           )}
           {services?.length === 0 && (
-            <div className="max-w-64 px-2 py-2 text-muted-foreground text-xs">
+            <div className="max-w-64 px-2 py-2 text-muted-foreground text-meta">
               {error ?? `${ref.location} defines no services yet. Add a dev server so every worktree can run its own on its own ports.`}
             </div>
           )}
@@ -150,7 +150,7 @@ export function RunMenu() {
               <MenuGroupLabel className="flex items-center gap-1.5">
                 <span className={cn("size-1.5 rounded-full", live(svc) ? "bg-success" : svc.state === "failed" ? "bg-destructive" : "bg-muted-foreground/40")} />
                 <span className="font-medium text-foreground">{svc.name}</span>
-                <span className="truncate font-mono text-[10px]">{svc.terminal ? (live(svc) ? "running" : "stopped") : svc.state}{svc.port ? ` · :${svc.port}` : ""}</span>
+                <span className="truncate font-mono text-tag">{svc.terminal ? (live(svc) ? "running" : "stopped") : svc.state}{svc.port ? ` · :${svc.port}` : ""}</span>
               </MenuGroupLabel>
               {live(svc) ? (
                 <>

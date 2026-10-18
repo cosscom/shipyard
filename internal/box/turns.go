@@ -593,7 +593,7 @@ func (t *Turns) sent(e events.Event) {
 // the single live agent session in its directory (of its agent, when the
 // directory has several). ok is false when it cannot tell.
 func (t *Turns) resolve(e events.Event) (s *sessTrack, ambiguous bool) {
-	if name := str(e.Data, "session"); name != "" {
+	if name := t.claimed(e.Data); name != "" {
 		return t.track(name, str(e.Data, "agent"), str(e.Data, "path"), time.Time{}), false
 	}
 	path := str(e.Data, "path")
@@ -624,6 +624,31 @@ func (t *Turns) resolve(e events.Event) (s *sessTrack, ambiguous bool) {
 		return match[0], false
 	}
 	return nil, false
+}
+
+// claimed is the session an agent event belongs to by name, or "" when it
+// names none it can be: then its directory says. A Codex whose hooks run
+// from its shared daemon reports every session's events with the
+// BERTH_SESSION of the session that started the daemon
+// (cosscom/shipyard#8), so for Codex a conversation another live session
+// already holds is that session's, and an event from another directory than
+// the named session's is not the named session's.
+func (t *Turns) claimed(data map[string]any) string {
+	name := str(data, "session")
+	if name == "" || str(data, "agent") != "codex" {
+		return name
+	}
+	if id := str(data, "agent_session_id"); id != "" {
+		for _, s := range t.sess {
+			if s.AgentSessionID == id && s.State != "exited" {
+				return s.Name
+			}
+		}
+	}
+	if s, path := t.sess[name], str(data, "path"); s != nil && s.Dir != "" && path != "" && !sameDir(s.Dir, filepath.Clean(path)) {
+		return ""
+	}
+	return name
 }
 
 func sameDir(a, b string) bool {
@@ -844,7 +869,7 @@ func (t *Turns) SessionOf(data map[string]any) string {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.init()
-	if name := str(data, "session"); name != "" {
+	if name := t.claimed(data); name != "" {
 		if _, ok := t.sess[name]; ok {
 			return name
 		}

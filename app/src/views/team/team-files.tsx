@@ -33,7 +33,7 @@ export function TeamFiles({ view, open, onOpenChange }: { view: TeamView; open: 
                 role="tab"
                 aria-selected={f.path === file?.path}
                 onClick={() => setAt(f.path)}
-                className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-xs outline-none hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring", f.path === file?.path ? "border-foreground/30 bg-accent text-foreground" : "text-muted-foreground")}
+                className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-mono outline-none hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring", f.path === file?.path ? "border-foreground/30 bg-accent text-foreground" : "text-muted-foreground")}
               >
                 <FileIcon className="size-3" />
                 {f.path}
@@ -42,7 +42,7 @@ export function TeamFiles({ view, open, onOpenChange }: { view: TeamView; open: 
           </div>
           {file && (
             <div className="min-h-0 overflow-hidden rounded-lg border">
-              <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-1.5 text-muted-foreground text-xs">
+              <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-1.5 text-meta text-muted-foreground">
                 <span className="font-mono text-foreground">{file.path}</span>
                 <span>{bytes(file.size)}</span>
                 {sudoLines > 0 && (
@@ -52,9 +52,9 @@ export function TeamFiles({ view, open, onOpenChange }: { view: TeamView; open: 
                 )}
               </div>
               {file.text === undefined ? (
-                <p className="px-3 py-6 text-center text-muted-foreground text-sm">Not text, or too large to show here. It's on GitHub.</p>
+                <p className="px-3 py-6 text-center text-muted-foreground text-body">Not text, or too large to show here. It's on GitHub.</p>
               ) : (
-                <pre data-testid="team-file" className="overflow-x-auto py-2 font-mono text-[11.5px] leading-relaxed">
+                <pre data-testid="team-file" className="overflow-x-auto py-2 font-mono text-mono">
                   {file.text.split("\n").map((l, i) => {
                     const sudo = /\bsudo\b/.test(l) && !l.trimStart().startsWith("#");
                     return (

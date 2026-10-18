@@ -44,8 +44,8 @@ export function StepHeader({
     return (
       <header className={cn("relative", className)}>
         {back}
-        <h1 className="font-semibold text-xl tracking-tight">{title}</h1>
-        {description && <p className="mt-2 text-muted-foreground text-sm leading-relaxed">{description}</p>}
+        <h1 className="text-title">{title}</h1>
+        {description && <p className="mt-2 text-muted-foreground text-subtitle">{description}</p>}
       </header>
     );
   }
@@ -56,10 +56,10 @@ export function StepHeader({
       <div className="flex h-6 min-w-0 items-center gap-2">
         {back}
         {/* The title is short and says what this is; the aside gives way. */}
-        <DialogTitle className={cn("text-base leading-6", aside ? "shrink-0" : "min-w-0 truncate")}>{title}</DialogTitle>
+        <DialogTitle className={cn("text-heading", aside ? "shrink-0" : "min-w-0 truncate")}>{title}</DialogTitle>
         {aside && <span className="flex min-w-0">{aside}</span>}
       </div>
-      {description && <DialogDescription className={hideDescription ? "sr-only" : "text-[13px]"}>{description}</DialogDescription>}
+      {description && <DialogDescription className={hideDescription ? "sr-only" : "text-desc"}>{description}</DialogDescription>}
     </DialogHeader>
   );
 }

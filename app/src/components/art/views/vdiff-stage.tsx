@@ -56,7 +56,7 @@ export function Stage({ art, v, shot, mode, o, wipe, setWipe, onion = 0.5, class
 
   return (
     <div className={cn("w-full", className)} style={{ maxWidth: W }} data-vd-stage={mode}>
-      <div className="mb-1.5 flex min-h-5 items-center justify-between gap-2 whitespace-nowrap text-xs">
+      <div className="mb-1.5 flex min-h-5 items-center justify-between gap-2 whitespace-nowrap text-meta">
         {mode === "slider" && (
           <>
             <Pill tone="before">← Before · {base}</Pill>
@@ -158,7 +158,7 @@ function Layer({ art, name, h, H, dim = 0 }: { art: A; name?: string; h: number;
 }
 
 export function Missing({ what }: { what: string }) {
-  return <div className="absolute inset-0 flex items-start justify-center bg-[repeating-linear-gradient(135deg,#e4e4e7_0_10px,#f4f4f5_10px_20px)] pt-[12%] font-medium text-[#52525b] text-sm">{what}</div>;
+  return <div className="absolute inset-0 flex items-start justify-center bg-[repeating-linear-gradient(135deg,#e4e4e7_0_10px,#f4f4f5_10px_20px)] pt-[12%] text-[#52525b] text-row">{what}</div>;
 }
 
 function Handle({ wipe, setWipe }: { wipe: number; setWipe(n: number): void }) {
@@ -209,7 +209,7 @@ function Marks({ art, shot, o, W, H }: { art: A; shot: VdShot; o: Overlays; W: n
       {o.regions && shot.shift && (
         <div className="pointer-events-none absolute right-0 z-10 flex items-start justify-end" style={{ top: `${(shot.shift.y / H) * 100}%`, height: `${(shot.shift.h / H) * 100}%`, width: "30%" }}>
           <div className="h-full w-1 rounded-l bg-[#0ea5e9]/70" />
-          <span className="absolute top-1 right-2 inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-[#0369a1] px-2 py-0.5 font-medium text-[11px] text-white shadow">
+          <span className="absolute top-1 right-2 inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-[#0369a1] px-2 py-0.5 font-medium text-tag text-white shadow">
             <ArrowDownIcon className="size-3" />
             only moved {shot.shift.dy > 0 ? "+" : ""}
             {shot.shift.dy}px
@@ -219,7 +219,7 @@ function Marks({ art, shot, o, W, H }: { art: A; shot: VdShot; o: Overlays; W: n
       {o.regions && (shot.regions ?? []).map((r, i) => <RegionBox key={`${r.x}-${r.y}-${i}`} r={r} n={i + 1} W={W} H={H} loud={o.focus === i} />)}
       {over ? (
         <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-1.5 bg-[repeating-linear-gradient(180deg,#e11d48_0_8px,transparent_8px_14px)]" data-vd-overflow>
-          <span className="sticky top-[30%] -ml-[188px] inline-flex w-[180px] items-center gap-1 rounded-md bg-[#be123c] px-2 py-1 font-medium text-[11px] text-white shadow-lg">
+          <span className="sticky top-[30%] -ml-[188px] inline-flex w-[180px] items-center gap-1 rounded-md bg-[#be123c] px-2 py-1 font-medium text-tag text-white shadow-lg">
             <MoveHorizontalIcon className="size-3.5 shrink-0" />
             Scrolls sideways: {over}px wider than the screen
           </span>
@@ -244,7 +244,7 @@ function MaskMarks({ shot, W, H }: { shot: VdShot; W: number; H: number }) {
 function RegionBox({ r, n, W, H, loud }: { r: VdRegion; n: number; W: number; H: number; loud?: boolean }) {
   return (
     <div data-vd-region={n} data-loud={loud || undefined} className={cn("pointer-events-none absolute z-10 rounded-[3px]", loud && "vd-loud")} style={{ ...box({ x: r.x - 3, y: r.y - 3, w: r.w + 6, h: r.h + 6 }, W, H), boxShadow: `0 0 0 ${loud ? 3 : 2}px ${REGION}, 0 0 0 ${loud ? 5 : 3}px rgba(255,255,255,0.7)` }}>
-      <span className="absolute -top-[9px] -left-[9px] inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 font-semibold text-[10.5px] text-white tabular-nums shadow" style={{ background: REGION }}>
+      <span className="absolute -top-[9px] -left-[9px] inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 font-semibold text-tag text-white tabular-nums shadow" style={{ background: REGION }}>
         {n}
       </span>
     </div>
@@ -253,7 +253,7 @@ function RegionBox({ r, n, W, H, loud }: { r: VdRegion; n: number; W: number; H:
 
 function Pill({ tone, live, children }: { tone: "before" | "after"; live?: boolean; children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 font-medium text-xs" aria-live={live ? "polite" : undefined}>
+    <span className="inline-flex items-center gap-1.5 text-label" aria-live={live ? "polite" : undefined}>
       <span className={cn("size-2 rounded-full", tone === "before" ? "bg-muted-foreground" : "bg-[#2563eb]")} />
       {children}
     </span>
@@ -262,7 +262,7 @@ function Pill({ tone, live, children }: { tone: "before" | "after"; live?: boole
 
 function SideLabel({ side, label }: { side: string; label: string }) {
   return (
-    <div className="mb-1.5 flex items-center gap-1.5 text-xs">
+    <div className="mb-1.5 flex items-center gap-1.5 text-meta">
       <span className={cn("size-2 rounded-full", side === "Before" ? "bg-muted-foreground" : "bg-[#2563eb]")} />
       <span className="font-medium">{side}</span>
       <span className="truncate text-muted-foreground">{label}</span>

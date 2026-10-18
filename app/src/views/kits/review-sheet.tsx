@@ -140,11 +140,11 @@ function ReviewBody() {
           <div className="min-w-0 flex-1">
             <SheetTitle className="flex items-baseline gap-2">
               {kit ? kit.name : review.kind === "link" ? "Reviewing a kit" : review.id}
-              {kit?.version && <span className="font-normal font-mono text-muted-foreground text-xs">v{kit.version}</span>}
+              {kit?.version && <span className="font-normal font-mono text-meta text-muted-foreground">v{kit.version}</span>}
             </SheetTitle>
             <SheetDescription>{kit ? kit.description || "No description." : "Fetching it to show you what it does…"}</SheetDescription>
             {kit && (
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-muted-foreground">
                 {plugin ? (
                   <span className="flex items-center gap-1">
                     <PuzzleIcon className="size-3" /> From the {plugin} plugin
@@ -163,7 +163,7 @@ function ReviewBody() {
                     {kit.source.commit.slice(0, 7)}
                   </span>
                 )}
-                {kit.match?.slug && <span className="rounded-md border px-1.5 font-mono text-[11px]">for {kit.match.slug}</span>}
+                {kit.match?.slug && <span className="rounded-md border px-1.5 font-mono text-tag">for {kit.match.slug}</span>}
               </div>
             )}
           </div>
@@ -171,7 +171,7 @@ function ReviewBody() {
       </SheetHeader>
 
       <SheetPanel className="space-y-6">
-        {error && <ErrorText className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2.5 text-destructive-foreground text-sm" text={error} />}
+        {error && <ErrorText className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2.5 text-destructive-foreground text-body" text={error} />}
         {!kit && !error && (
           <div className="space-y-3">
             <Skeleton className="h-20 rounded-lg" />
@@ -180,7 +180,7 @@ function ReviewBody() {
         )}
         {kit && (
           <>
-            <div className="flex items-start gap-2.5 rounded-lg border border-warning/25 bg-warning/6 px-3 py-2.5 text-xs leading-relaxed">
+            <div className="flex items-start gap-2.5 rounded-lg border border-warning/25 bg-warning/6 px-3 py-2.5 text-desc">
               <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0 text-warning-foreground" />
               <p>
                 <span className="font-medium">Its scripts run on the boxes you apply it to,</span> as you, in every new worktree of those projects. Read them below
@@ -190,8 +190,8 @@ function ReviewBody() {
             </div>
             <KitSummary kit={kit} />
             <section ref={applyRef} className="scroll-mt-4">
-              <h3 className="mb-1 font-semibold text-sm">Apply to</h3>
-              <p className="mb-2.5 text-muted-foreground text-xs">
+              <h3 className="mb-1 text-section">Apply to</h3>
+              <p className="mb-2.5 text-desc text-muted-foreground">
                 {kit.match?.slug ? `Projects of ${kit.match.slug} are picked. ` : ""}A project has one kit; applying replaces the one it has.
               </p>
               <ProjectPicker kitId={kit.id} slug={kit.match?.slug} selected={selected} onChange={setSelected} results={results} installed={installed} disabled={!!busy} />
@@ -201,7 +201,7 @@ function ReviewBody() {
       </SheetPanel>
 
       <SheetFooter className="flex-row items-center justify-between gap-2 border-t">
-        <span className="text-muted-foreground text-xs">{targets.length ? `${targets.length} ${targets.length === 1 ? "project" : "projects"} picked` : kept ? "Kept on this laptop" : "Nothing is kept until you add it"}</span>
+        <span className="text-meta text-muted-foreground">{targets.length ? `${targets.length} ${targets.length === 1 ? "project" : "projects"} picked` : kept ? "Kept on this laptop" : "Nothing is kept until you add it"}</span>
         <div className="flex gap-2">
           {done ? (
             <Button size="sm" onClick={closeReview}>

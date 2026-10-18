@@ -65,7 +65,7 @@ export function HelperPane({ box, session, helper, title, onResolve, onClose }: 
     <div data-testid="helper" data-state={h ? h.state : offline ? "offline" : missing ? "missing" : error ? "error" : "loading"} className="flex min-h-0 flex-1 flex-col bg-background">
       <header className="shrink-0 border-b px-6 pt-4 pb-3">
         <div className="mx-auto flex w-full max-w-(--berth-chat-w) flex-col gap-1.5">
-          <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
+          <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-meta">
             <BotIcon className="size-3.5 shrink-0" aria-hidden />
             <span className="shrink-0">Sent out by</span>
             <button
@@ -86,9 +86,9 @@ export function HelperPane({ box, session, helper, title, onResolve, onClose }: 
             </span>
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-            <h2 className="min-w-0 truncate font-semibold text-base">{name}</h2>
+            <h2 className="min-w-0 truncate text-heading">{name}</h2>
             {h && (
-              <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground text-xs" data-testid="helper-state">
+              <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground text-meta" data-testid="helper-state">
                 <StateGlyph state={h.state === "running" ? "running" : "finished"} className="size-3" />
                 {h.state === "running" ? `Working · ${elapsed(now - h.started)}` : `Back · took ${elapsed(h.updated - h.started)}`}
               </span>
@@ -119,7 +119,7 @@ export function HelperPane({ box, session, helper, title, onResolve, onClose }: 
       ) : error && !helpers ? (
         <Gone icon={<RefreshCwIcon />} title="Couldn't read this helper" description={<ErrorText className="items-center" text={error} />} onClose={onClose} onRetry={retry} />
       ) : !h || !client ? (
-        <div className="flex flex-1 items-center justify-center text-muted-foreground text-sm">
+        <div className="flex flex-1 items-center justify-center text-muted-foreground text-body">
           <Spinner className="mr-2 size-4" />
           Reading the helper…
         </div>

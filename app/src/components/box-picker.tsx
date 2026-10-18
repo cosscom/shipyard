@@ -90,8 +90,8 @@ export function BoxPicker() {
                       <CommandItem key={item.box} value={item} disabled={!!item.blocked} data-box={item.box} className="gap-2" onClick={() => pick(item.box)}>
                         <BoxDot box={item.box} />
                         <span className="truncate font-medium">{item.box}</span>
-                        {item.last && <span className="shrink-0 rounded bg-accent px-1 py-px text-[10px] text-muted-foreground">last used</span>}
-                        <span className={cn("ml-auto min-w-0 shrink truncate text-xs tabular-nums", item.blocked ? "text-muted-foreground" : "text-muted-foreground/80")}>{item.detail}</span>
+                        {item.last && <span className="shrink-0 rounded bg-accent px-1 py-px text-tag text-muted-foreground">last used</span>}
+                        <span className={cn("ml-auto min-w-0 shrink truncate text-meta tabular-nums", item.blocked ? "text-muted-foreground" : "text-muted-foreground/80")}>{item.detail}</span>
                       </CommandItem>
                     )}
                   </CommandCollection>
@@ -99,7 +99,7 @@ export function BoxPicker() {
               )}
             </CommandList>
           </CommandPanel>
-          <CommandFooter className="text-[11px] text-muted-foreground">
+          <CommandFooter className="text-tag text-muted-foreground">
             <span className="flex items-center gap-1">
               <Kbd>↵</Kbd> open a terminal in its home
             </span>

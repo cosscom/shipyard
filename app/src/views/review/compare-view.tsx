@@ -22,7 +22,7 @@ import { ErrorText } from "@/components/error-note";
 export function CompareStrip({ runs, onOpen }: { runs: BoxRun[]; onOpen(r: BoxRun): void }) {
   if (!runs.length) return null;
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b bg-muted/30 px-6 py-2 text-xs">
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b bg-muted/30 px-6 py-2 text-meta">
       <GitCompareArrowsIcon className="size-3.5 text-muted-foreground" />
       <span className="text-muted-foreground">Attempts to compare:</span>
       {runs.map((r) => (
@@ -126,8 +126,8 @@ export function CompareView({ box, id, onClose }: { box: string; id: string; onC
           Review
         </Button>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium text-sm">{title}</p>
-          <p className="truncate text-muted-foreground text-xs">
+          <p className="truncate text-row">{title}</p>
+          <p className="truncate text-meta text-muted-foreground">
             {multi ? all.map((r) => r.box).join(" and ") : box} · {data ? `${data.run.status.replace("_", " ")} · started ${ago(data.run.created)}` : "…"}
             {data?.run.usage && ` · ${tokens(data.run.usage)}`}
           </p>
@@ -139,9 +139,9 @@ export function CompareView({ box, id, onClose }: { box: string; id: string; onC
           </Button>
         )}
       </div>
-      {error && <ErrorText className="px-6 py-3 text-destructive-foreground text-sm" text={error} />}
+      {error && <ErrorText className="px-6 py-3 text-destructive-foreground text-body" text={error} />}
       {!data && !error && (
-        <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground text-sm">
+        <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground text-body">
           <Spinner className="size-4" /> Reading the attempts…
         </div>
       )}
@@ -150,12 +150,12 @@ export function CompareView({ box, id, onClose }: { box: string; id: string; onC
           {all
             .filter((r) => r.data.judge)
             .map((r) => (
-              <p key={`${r.box}/${r.id}`} className="mb-4 rounded-xl border bg-muted/30 px-4 py-2.5 text-sm">
+              <p key={`${r.box}/${r.id}`} className="mb-4 rounded-xl border bg-muted/30 px-4 py-2.5 text-body">
                 <span className="font-medium">Judge{multi ? ` on ${r.box}` : ""}: </span>
                 {r.data.judge}
               </p>
             ))}
-          {!cands.length && <p className="text-muted-foreground text-sm">No attempt has finished yet.</p>}
+          {!cands.length && <p className="text-muted-foreground text-body">No attempt has finished yet.</p>}
           <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.max(1, cands.length)}, minmax(260px, 1fr))` }}>
             {cands.map((c) => {
               const files = c.review?.files ?? [];
@@ -163,22 +163,22 @@ export function CompareView({ box, id, onClose }: { box: string; id: string; onC
                 <section key={`${c.box}/${c.runId}/${c.index}`} className={cn("flex min-w-0 flex-col rounded-xl border bg-card", c.picked && "border-success/60", isBest(c) && canPick && "border-primary/50")}>
                   <header className="flex items-center gap-2 border-b px-3 py-2">
                     <AgentIcon agent={c.agent} />
-                    <span className="shrink-0 whitespace-nowrap font-medium text-sm">Attempt {c.index + 1}</span>
-                    <span className="min-w-0 truncate text-muted-foreground text-xs">{multi ? `${c.box} · ${c.worktree}` : c.worktree}</span>
+                    <span className="shrink-0 whitespace-nowrap text-row">Attempt {c.index + 1}</span>
+                    <span className="min-w-0 truncate text-meta text-muted-foreground">{multi ? `${c.box} · ${c.worktree}` : c.worktree}</span>
                     {isBest(c) && (
-                      <span className="ml-auto inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] text-primary">
+                      <span className="ml-auto inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-meta text-primary">
                         <CrownIcon className="size-3" />
                         judge's pick
                       </span>
                     )}
                     {c.picked && (
-                      <span className="ml-auto inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] text-success-foreground">
+                      <span className="ml-auto inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-meta text-success-foreground">
                         <CheckIcon className="size-3" />
                         picked
                       </span>
                     )}
                   </header>
-                  <dl className="grid grid-cols-[80px_1fr] gap-x-2 gap-y-1 px-3 py-2 text-xs">
+                  <dl className="grid grid-cols-[80px_1fr] gap-x-2 gap-y-1 px-3 py-2 text-meta">
                     <dt className="text-muted-foreground">Check</dt>
                     <dd className={c.verify.passed ? "text-success-foreground" : "text-destructive-foreground"}>
                       {c.verify.passed ? "passed" : `failed (exit ${c.verify.exit_code})`}
@@ -210,8 +210,8 @@ export function CompareView({ box, id, onClose }: { box: string; id: string; onC
                       </>
                     )}
                   </dl>
-                  {!c.verify.passed && c.verify.tail && <pre className="mx-3 mb-2 max-h-28 overflow-auto rounded-lg bg-muted/60 p-2 font-mono text-[11px] text-muted-foreground">{c.verify.tail}</pre>}
-                  <ul className="min-h-0 flex-1 space-y-0.5 border-t px-3 py-2 text-[11px]">
+                  {!c.verify.passed && c.verify.tail && <pre className="mx-3 mb-2 max-h-28 overflow-auto rounded-lg bg-muted/60 p-2 font-mono text-mono text-muted-foreground">{c.verify.tail}</pre>}
+                  <ul className="min-h-0 flex-1 space-y-0.5 border-t px-3 py-2 text-meta">
                     {files.slice(0, 14).map((f) => (
                       <li key={f.path} className="flex items-center gap-2">
                         <span className="min-w-0 flex-1 truncate font-mono">{f.path}</span>

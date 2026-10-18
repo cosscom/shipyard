@@ -21,9 +21,9 @@ export function AgentIcon({ agent, className, muted }: { agent?: string; classNa
     case "gemini":
       return <SparkleIcon className={cn(cls, tone("text-[#6f9bff]"))} strokeWidth={2.25} />;
     case "pi":
-      return <span className={cn("shrink-0 font-semibold text-xs leading-none", tone("text-[#a78bfa]"), className)}>π</span>;
+      return <span className={cn("shrink-0 font-semibold text-label leading-none", tone("text-[#a78bfa]"), className)}>π</span>;
     case "omp":
-      return <span className={cn("shrink-0 font-semibold text-xs leading-none", tone("text-[#f472b6]"), className)}>π</span>;
+      return <span className={cn("shrink-0 font-semibold text-label leading-none", tone("text-[#f472b6]"), className)}>π</span>;
     case "opencode":
       return <SquareTerminalIcon className={cn(cls, tone("text-foreground/80"))} />;
     case "grok":

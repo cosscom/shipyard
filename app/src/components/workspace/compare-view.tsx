@@ -121,7 +121,7 @@ function useAgentState(key: string) {
   });
 }
 
-const btn = "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-sidebar";
+const btn = "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-meta outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-sidebar";
 
 export function CompareBar({ wsKey, tab }: { wsKey: string; tab: WsTab }) {
   const c = tab.compare!;
@@ -246,7 +246,7 @@ function Side({ wsKey, tab, i, pane, focused, shown, other, stats, preview, tiny
     const Icon = state === "gone" ? ArchiveIcon : CloudOffIcon;
     const why = state === "gone" ? `${label} was archived` : `${ref?.box ?? splitKey(key).box} is offline`;
     return (
-      <div role="status" className={cn("-m-1 flex min-w-0 items-center gap-2 overflow-hidden p-1 text-muted-foreground text-xs", right && "justify-end")}>
+      <div role="status" className={cn("-m-1 flex min-w-0 items-center gap-2 overflow-hidden p-1 text-muted-foreground text-meta", right && "justify-end")}>
         <Icon className="size-3.5 shrink-0" aria-hidden />
         <Tip label={`${why}, so ${other} shows alone. Pick another worktree to compare it with, or close the tab.`} side="bottom">
           <span className="truncate">{why}</span>
@@ -269,13 +269,13 @@ function Side({ wsKey, tab, i, pane, focused, shown, other, stats, preview, tiny
         aria-label={`${label}, ${where} side${focused ? ", focused" : ""}${state === "away" ? `, ${ref?.box} is offline` : ""}`}
         aria-pressed={focused}
         onClick={() => focusPane(wsKey, tab.id, pane)}
-        className={cn(btn, "h-6 min-w-0 gap-1 px-1.5 font-medium text-[11px]", tiny ? "max-w-32" : "max-w-48")}
+        className={cn(btn, "h-6 min-w-0 gap-1 px-1.5 font-medium text-tag", tiny ? "max-w-32" : "max-w-48")}
         style={focused ? { background: tone, color: "var(--background)" } : { background: `color-mix(in oklab, ${tone} 15%, transparent)`, color: tone }}
       >
         <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: focused ? "var(--background)" : tone }} />
         <span className="truncate">{label}</span>
         {/* Its box, unless its name already says it (the same repository on two). */}
-        {ref && !tiny && !label.endsWith(` · ${ref.box}`) && <span className="shrink-0 font-mono text-[10px]">{ref.box}</span>}
+        {ref && !tiny && !label.endsWith(` · ${ref.box}`) && <span className="shrink-0 font-mono text-tag">{ref.box}</span>}
       </ToolbarPrimitive.Button>
     </Tip>
   );
@@ -313,7 +313,7 @@ function Side({ wsKey, tab, i, pane, focused, shown, other, stats, preview, tiny
     </>
   );
   return (
-    <div className={cn("-m-1 flex min-w-0 items-center gap-2 overflow-hidden p-1 text-xs", right && "flex-row-reverse")}>
+    <div className={cn("-m-1 flex min-w-0 items-center gap-2 overflow-hidden p-1 text-meta", right && "flex-row-reverse")}>
       {chip}
       {tiny ? null : right ? <span className="flex min-w-0 flex-row-reverse items-center gap-2">{facts}</span> : facts}
     </div>
@@ -328,18 +328,18 @@ export function EmptySide({ owner, tab, pane, label }: { owner: string; tab: str
   const presets = useMemo(() => (ref ? agentPresets(ref.box, ref.location).slice(0, 3) : []), [ref]);
   if (label === "Diff")
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm">
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-body">
         <FileDiffIcon className="size-5 text-muted-foreground" />
         <p className="font-medium">The Diff plugin is off</p>
-        <p className="max-w-xs text-muted-foreground text-xs">Turn it on in Settings → Plugins to compare the two diffs here.</p>
+        <p className="max-w-xs text-muted-foreground text-meta">Turn it on in Settings → Plugins to compare the two diffs here.</p>
       </div>
     );
   const start = (command: string, what: string) => void startSession(command, { kind: "replace", tab, pane }, what, owner);
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-sm">
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-body">
       <BotIcon className="size-5 text-muted-foreground" />
       <p className="font-medium">{name} has no agent running</p>
-      <p className="max-w-xs text-muted-foreground text-xs">Start one here to compare its chat; its Diff and Preview lanes work without one.</p>
+      <p className="max-w-xs text-muted-foreground text-meta">Start one here to compare its chat; its Diff and Preview lanes work without one.</p>
       <div className="flex flex-wrap justify-center gap-2">
         {presets.map((p) => (
           <Button key={p.id} size="sm" variant="outline" onClick={() => start(p.command, p.name)}>

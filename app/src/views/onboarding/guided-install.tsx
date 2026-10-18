@@ -150,8 +150,8 @@ function Header({ icon, title, sub, right }: { icon: ReactNode; title: ReactNode
     <header className="flex h-14 shrink-0 items-center gap-3 border-b px-5" data-tauri-drag-region>
       <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border bg-muted/50 text-muted-foreground">{icon}</span>
       <div className="min-w-0 flex-1">
-        <h1 className="truncate font-semibold text-[15px] leading-tight">{title}</h1>
-        {sub && <p className="truncate text-muted-foreground text-xs">{sub}</p>}
+        <h1 className="truncate text-heading">{title}</h1>
+        {sub && <p className="truncate text-muted-foreground text-meta">{sub}</p>}
       </div>
       {right}
     </header>
@@ -188,23 +188,23 @@ function PlanStage({ target, agents, onAgents, onStart, onClose, team }: { targe
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto grid w-full max-w-6xl gap-x-10 gap-y-8 px-6 pt-7 pb-10 min-[1100px]:grid-cols-[340px_1fr]">
           <section aria-labelledby="agents-heading" data-testid="install-agents">
-            <h2 id="agents-heading" className="font-medium text-sm">
+            <h2 id="agents-heading" className="text-row">
               Agents
             </h2>
-            <p className="mt-0.5 text-muted-foreground text-xs leading-relaxed">Installed on the box without sudo. You sign in to each the first time it starts.</p>
+            <p className="mt-0.5 text-muted-foreground text-meta">Installed on the box without sudo. You sign in to each the first time it starts.</p>
             <AgentPicker choices={plan?.agents ?? []} value={agents} onChange={onAgents} />
           </section>
 
           <section aria-labelledby="plan-heading">
             <div className="flex items-baseline gap-2">
-              <h2 id="plan-heading" className="font-medium text-sm">
+              <h2 id="plan-heading" className="text-row">
                 What will run
               </h2>
-              {plan && <span className="text-muted-foreground text-xs">{plan.steps.length} steps · each is skipped if the box already has it</span>}
+              {plan && <span className="text-muted-foreground text-meta">{plan.steps.length} steps · each is skipped if the box already has it</span>}
             </div>
-            {error && <p className="mt-2 text-destructive-foreground text-sm">{error}</p>}
+            {error && <p className="mt-2 text-destructive-foreground text-body">{error}</p>}
             {!plan && !error && (
-              <p className="mt-3 flex items-center gap-2 text-muted-foreground text-sm">
+              <p className="mt-3 flex items-center gap-2 text-muted-foreground text-body">
                 <Spinner className="size-3.5" /> Reading the plan…
               </p>
             )}
@@ -218,8 +218,8 @@ function PlanStage({ target, agents, onAgents, onStart, onClose, team }: { targe
             {plan && team && (
               <>
                 <div className="mt-6 flex items-baseline gap-2">
-                  <h2 className="font-medium text-sm">Then {team.name}'s setup</h2>
-                  <span className="text-muted-foreground text-xs">
+                  <h2 className="text-row">Then {team.name}'s setup</h2>
+                  <span className="text-muted-foreground text-meta">
                     on the box, in its own terminal · then {team.repos === 1 ? "1 repo" : `${team.repos} repos`}
                   </span>
                 </div>
@@ -235,7 +235,7 @@ function PlanStage({ target, agents, onAgents, onStart, onClose, team }: { targe
       </div>
       <footer className="shrink-0 border-t bg-background/95">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-3 px-6 py-3">
-          <p className="flex min-w-0 flex-1 basis-80 items-start gap-2 text-muted-foreground text-xs leading-relaxed">
+          <p className="flex min-w-0 flex-1 basis-80 items-start gap-2 text-muted-foreground text-meta">
             <KeyRoundIcon className="mt-0.5 size-3.5 shrink-0" />
             <span>
               {sudo.length > 0 ? (
@@ -285,7 +285,7 @@ function AgentPicker({ choices, value, onChange, installed = [] }: { choices: Ag
                 aria-label={a.name}
               />
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1.5 text-[13px]">
+                <span className="flex items-center gap-1.5 text-desc">
                   {a.name}
                   {a.default && (
                     <Badge variant="secondary" size="sm">
@@ -293,15 +293,15 @@ function AgentPicker({ choices, value, onChange, installed = [] }: { choices: Ag
                     </Badge>
                   )}
                 </span>
-                <span className="mt-0.5 block text-muted-foreground text-xs leading-snug">{done ? "Installed on this box" : a.verified}</span>
+                <span className="mt-0.5 block text-muted-foreground text-meta">{done ? "Installed on this box" : a.verified}</span>
               </span>
             </label>
           );
         })}
       </div>
       {left.map((a) => (
-        <p key={a.id} data-testid={`agent-${a.id}`} className="mt-2.5 text-muted-foreground text-xs leading-relaxed">
-          <span className="text-foreground">{a.name}</span> isn't installed by Shipyard: {a.why}. <code className="font-mono text-[11.5px]">{a.install}</code>
+        <p key={a.id} data-testid={`agent-${a.id}`} className="mt-2.5 text-muted-foreground text-meta">
+          <span className="text-foreground">{a.name}</span> isn't installed by Shipyard: {a.why}. <code className="font-mono text-mono">{a.install}</code>
         </p>
       ))}
     </>
@@ -317,22 +317,22 @@ function PlanRow({ step, n, bundledTmux }: { step: InstallPlanStep; n: number; b
   return (
     <li data-testid={`plan-${step.id}`} className="group">
       <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="flex w-full items-start gap-3 px-4 py-2.5 text-left outline-none hover:bg-accent/30 focus-visible:bg-accent/40">
-        <span aria-hidden className="mt-px flex size-5 shrink-0 items-center justify-center rounded-full border font-mono text-[10px] text-muted-foreground">
+        <span aria-hidden className="mt-px flex size-5 shrink-0 items-center justify-center rounded-full border font-mono text-tag text-muted-foreground">
           {n}
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="font-medium text-[13px]">{step.title}</span>
+            <span className="font-medium text-desc">{step.title}</span>
             {step.sudo && (
               <Badge variant="warning" size="sm" data-testid="sudo-badge">
                 <KeyRoundIcon /> sudo
               </Badge>
             )}
-            {step.sudo && step.when && <span className="text-muted-foreground text-xs">{step.when}</span>}
+            {step.sudo && step.when && <span className="text-muted-foreground text-meta">{step.when}</span>}
           </span>
-          {detail && <span className="mt-0.5 block text-muted-foreground text-xs leading-relaxed">{detail}</span>}
+          {detail && <span className="mt-0.5 block text-muted-foreground text-meta">{detail}</span>}
         </span>
-        <span className="mt-0.5 flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
+        <span className="mt-0.5 flex shrink-0 items-center gap-2 text-tag text-muted-foreground">
           <span className="flex items-center gap-1">
             {step.where === "laptop" ? <LaptopIcon className="size-3" /> : <ServerIcon className="size-3" />}
             {step.where === "laptop" ? "this computer" : "the box"}
@@ -341,7 +341,7 @@ function PlanRow({ step, n, bundledTmux }: { step: InstallPlanStep; n: number; b
         </span>
       </button>
       {open && (
-        <pre data-testid={`plan-commands-${step.id}`} className="mx-4 mb-3 ml-12 overflow-x-auto rounded-md bg-muted/60 px-3 py-2 font-mono text-[12px] leading-relaxed dark:bg-input/24">
+        <pre data-testid={`plan-commands-${step.id}`} className="mx-4 mb-3 ml-12 overflow-x-auto rounded-md bg-muted/60 px-3 py-2 font-mono text-mono dark:bg-input/24">
           {step.commands.join("\n")}
         </pre>
       )}
@@ -623,7 +623,7 @@ function RunStage({
       <CheckIcon /> Ready
     </Badge>
   ) : busy ? (
-    <span data-testid="install-status" className="flex items-center gap-1.5 text-muted-foreground text-xs">
+    <span data-testid="install-status" className="flex items-center gap-1.5 text-muted-foreground text-meta">
       <Spinner className="size-3" /> Installing
     </span>
   ) : run.state === "failed" ? (
@@ -659,7 +659,7 @@ function RunStage({
             </div>
           )}
           {!narrow && (
-            <p className="mx-4 mt-2 mb-4 flex items-start gap-1.5 border-t pt-3 text-muted-foreground text-xs leading-relaxed">
+            <p className="mx-4 mt-2 mb-4 flex items-start gap-1.5 border-t pt-3 text-muted-foreground text-meta">
               <ShieldCheckIcon className="mt-0.5 size-3.5 shrink-0" />
               <span>What you type goes to {target.host.split("@").pop()} through this terminal, and nowhere else. Shipyard doesn't keep it.</span>
             </p>
@@ -812,7 +812,7 @@ function TeamPhase({
         right={
           <div className="flex items-center gap-2">
             {busy ? (
-              <span data-testid="install-status" className="flex items-center gap-1.5 text-muted-foreground text-xs">
+              <span data-testid="install-status" className="flex items-center gap-1.5 text-muted-foreground text-meta">
                 <Spinner className="size-3" /> {team.name}'s setup
               </span>
             ) : boxDone ? (
@@ -827,22 +827,22 @@ function TeamPhase({
       <div data-testid="team-phase" data-phase={teamRun?.phase ?? start.state} className={cn("flex min-h-0 flex-1", narrow ? "flex-col" : "flex-row")}>
         <aside className={cn("shrink-0 overflow-y-auto", narrow ? "max-h-[38%] border-b" : "w-[320px] border-r")}>
           <StepList steps={run.steps} narrow={narrow} onRetry={() => {}} busy={false} />
-          <h3 className="mx-4 mt-1 border-t pt-3 font-medium text-muted-foreground text-xs">{team.name}'s setup</h3>
+          <h3 className="mx-4 mt-1 border-t pt-3 text-muted-foreground text-label">{team.name}'s setup</h3>
           <ol data-testid="team-phase-steps" className={cn("px-2 py-2", narrow && "grid grid-cols-2 gap-x-2")}>
             {rows.map((s) => (
               <li key={s.id} data-testid={`team-step-${s.id}`} data-state={s.state} className={cn("rounded-lg px-2.5 py-2", s.state === "running" && "bg-accent/50", s.state === "fail" && "bg-destructive/6")}>
                 <div className="flex items-center gap-2.5">
                   <StepIcon state={s.state} />
-                  <span className={cn("min-w-0 flex-1 truncate text-[13px]", (s.state === "todo" || s.state === "skip") && "text-muted-foreground", s.state === "running" && "font-medium")}>{s.title}</span>
+                  <span className={cn("min-w-0 flex-1 truncate text-desc", (s.state === "todo" || s.state === "skip") && "text-muted-foreground", s.state === "running" && "font-medium")}>{s.title}</span>
                   {s.sudo && s.state !== "skip" && <KeyRoundIcon aria-label="needs sudo" className="size-3 shrink-0 text-warning-foreground" />}
                 </div>
-                {s.message && !narrow && <p className={cn("mt-0.5 ml-7.5 text-xs leading-relaxed", s.state === "fail" ? "text-destructive-foreground" : "text-muted-foreground")}>{s.message}</p>}
+                {s.message && !narrow && <p className={cn("mt-0.5 ml-7.5 text-meta", s.state === "fail" ? "text-destructive-foreground" : "text-muted-foreground")}>{s.message}</p>}
               </li>
             ))}
           </ol>
         </aside>
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div data-testid="team-phase-banner" aria-live="polite" className={cn("flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b px-5 py-2.5 text-sm", tone)}>
+          <div data-testid="team-phase-banner" aria-live="polite" className={cn("flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b px-5 py-2.5 text-body", tone)}>
             <p className="min-w-0 flex-1 basis-72 leading-relaxed">{text}</p>
             {action}
           </div>
@@ -893,7 +893,7 @@ function StepList({ steps, narrow, onRetry, busy, waiting }: { steps: StepRow[];
         <li key={s.id} data-testid={`step-${s.id}`} data-state={s.state} className={cn("rounded-lg px-2.5 py-2", s.state === "running" && "bg-accent/50", s.state === "fail" && "bg-destructive/6", narrow && "py-1.5")}>
           <div className="flex items-center gap-2.5">
             <StepIcon state={s.state} />
-            <span className={cn("min-w-0 flex-1 truncate text-[13px]", s.state === "todo" && "text-muted-foreground", s.state === "skip" && "text-muted-foreground", s.state === "running" && "font-medium")}>{s.title}</span>
+            <span className={cn("min-w-0 flex-1 truncate text-desc", s.state === "todo" && "text-muted-foreground", s.state === "skip" && "text-muted-foreground", s.state === "running" && "font-medium")}>{s.title}</span>
             {s.sudo && s.state !== "skip" && (
               <Tip label="sudo asks for your password on the box, if it needs to">
                 <KeyRoundIcon aria-label="needs sudo" className="size-3 shrink-0 text-warning-foreground" />
@@ -901,15 +901,15 @@ function StepList({ steps, narrow, onRetry, busy, waiting }: { steps: StepRow[];
             )}
           </div>
           {s.state === "running" && waiting === "password" ? (
-            <p data-testid="step-waiting" className="mt-0.5 ml-7.5 flex items-center gap-1 text-warning-foreground text-xs">
+            <p data-testid="step-waiting" className="mt-0.5 ml-7.5 flex items-center gap-1 text-warning-foreground text-meta">
               <KeyRoundIcon className="size-3" /> Waiting for your password
             </p>
           ) : (
-            s.message && s.state !== "fail" && !narrow && <p className="mt-0.5 ml-7.5 truncate text-muted-foreground text-xs">{s.message}</p>
+            s.message && s.state !== "fail" && !narrow && <p className="mt-0.5 ml-7.5 truncate text-muted-foreground text-meta">{s.message}</p>
           )}
           {s.state === "fail" && (
             <div className={cn("mt-1.5 ml-7.5 space-y-2", narrow && "col-span-2")}>
-              {s.message && <p className="text-destructive-foreground text-xs leading-relaxed">{s.message}</p>}
+              {s.message && <p className="text-destructive-foreground text-meta">{s.message}</p>}
               {s.command && <CommandLine command={s.command} onRun={() => onRetry(s.id)} />}
               {!busy && (
                 <Button size="xs" data-testid={`retry-${s.id}`} onClick={() => onRetry(s.id === "connect" ? "connect" : s.id)}>
@@ -930,7 +930,7 @@ export function CommandLine({ command, onRun }: { command: string; onRun?: () =>
   const [copied, setCopied] = useState(false);
   return (
     <div data-testid="command-line" className="overflow-hidden rounded-md border bg-muted/40 dark:bg-input/16">
-      <code className="block overflow-x-auto whitespace-pre px-2.5 py-1.5 font-mono text-[11.5px] leading-relaxed">{command}</code>
+      <code className="block overflow-x-auto whitespace-pre px-2.5 py-1.5 font-mono text-mono">{command}</code>
       <div className="flex items-center gap-1 border-t px-1 py-1">
         <Button
           size="xs"
@@ -970,8 +970,8 @@ function Banner({ run, ready, readyLabel, onReady, onBack, agents }: { run: Inst
           <CheckIcon className="size-4" strokeWidth={3} />
         </span>
         <div className="min-w-0 flex-1 basis-72">
-          <p className="font-medium text-sm">Ready</p>
-          <p className="text-muted-foreground text-xs">
+          <p className="text-row">Ready</p>
+          <p className="text-muted-foreground text-meta">
             {run.box} runs berthd{agents.length ? `, with ${agentNames(agents)}` : ""}.{agents.includes("claude") ? " Claude Code asks you to sign in the first time it starts, right in the chat." : agents.length ? " Each agent asks you to sign in the first time it starts." : ""}
           </p>
         </div>
@@ -1023,7 +1023,7 @@ function Banner({ run, ready, readyLabel, onReady, onBack, agents }: { run: Inst
       );
   }
   return (
-    <div data-testid="install-banner" data-waiting={run.waiting ?? ""} aria-live="polite" className={cn("flex shrink-0 items-center gap-2.5 border-b px-5 py-2.5 text-sm", tone)}>
+    <div data-testid="install-banner" data-waiting={run.waiting ?? ""} aria-live="polite" className={cn("flex shrink-0 items-center gap-2.5 border-b px-5 py-2.5 text-body", tone)}>
       <span className="shrink-0 text-muted-foreground">{icon}</span>
       <p className="min-w-0 flex-1 leading-relaxed">{text}</p>
     </div>
@@ -1182,9 +1182,9 @@ export function AddAgents({ box, open, onClose }: { box: string; open: boolean; 
               <Header icon={<ServerIcon className="size-4" />} title={`Add agents to ${box}`} sub="Into ~/.local/bin on the box, without sudo, with Shipyard's hooks and skills." right={<CloseButton onClick={onClose} />} />
               <div className="min-h-0 flex-1 overflow-y-auto">
                 <div className="mx-auto w-full max-w-md px-6 pt-8 pb-10">
-                  {error && <p className="text-destructive-foreground text-sm">{error}</p>}
+                  {error && <p className="text-destructive-foreground text-body">{error}</p>}
                   {!have && !error && (
-                    <p className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <p className="flex items-center gap-2 text-muted-foreground text-body">
                       <Spinner className="size-3.5" /> Asking {box}…
                     </p>
                   )}
@@ -1220,7 +1220,7 @@ export function AddAgents({ box, open, onClose }: { box: string; open: boolean; 
               <div className="flex min-h-0 flex-1">
                 <aside className="w-[300px] shrink-0 overflow-y-auto border-r">
                   <StepList steps={steps} narrow={false} busy={state === "running"} onRetry={() => void run()} />
-                  {error && <p className="px-4 text-destructive-foreground text-xs leading-relaxed">{error}</p>}
+                  {error && <p className="px-4 text-destructive-foreground text-meta">{error}</p>}
                   {state === "done" && (
                     <div className="px-4 pt-1">
                       <Button size="sm" data-testid="add-agents-done" onClick={onClose}>

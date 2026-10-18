@@ -63,13 +63,13 @@ export function KitSection({ box, location, kit, onChanged }: { box: string; loc
             <PackageIcon className="size-4 text-violet-600 dark:text-violet-400" />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="flex items-baseline gap-2 text-sm">
-              <span className="truncate font-medium">{kit.name || kit.id}</span>
-              {kit.version && <span className="font-mono text-[11px] text-muted-foreground">v{kit.version}</span>}
-              {outdated && <span className="rounded-md border border-warning/30 px-1.5 text-[11px] text-warning-foreground">Newer version on this laptop</span>}
+            <div className="flex items-baseline gap-2 text-body">
+              <span className="truncate text-row">{kit.name || kit.id}</span>
+              {kit.version && <span className="font-mono text-tag text-muted-foreground">v{kit.version}</span>}
+              {outdated && <span className="rounded-md border border-warning/30 px-1.5 text-tag text-warning-foreground">Newer version on this laptop</span>}
             </div>
             <Tip label={kit.source}>
-              <p className="flex min-w-0 items-center gap-1 text-muted-foreground text-xs">
+              <p className="flex min-w-0 items-center gap-1 text-muted-foreground text-meta">
                 <LinkIcon className="size-3 shrink-0" />
                 <span className="truncate">{describeSource(kit.source)}</span>
                 <span className="shrink-0">· applied {new Date(kit.installed_at).toLocaleDateString()}</span>
@@ -99,7 +99,7 @@ export function KitSection({ box, location, kit, onChanged }: { box: string; loc
         </div>
       ) : (
         <div className="flex items-center gap-3 px-4 py-3">
-          <p className="min-w-0 flex-1 text-muted-foreground text-sm">No kit. Apply one to set this project up like it is elsewhere.</p>
+          <p className="min-w-0 flex-1 text-muted-foreground text-body">No kit. Apply one to set this project up like it is elsewhere.</p>
           <ApplyMenu kits={kits ?? []} onApply={(k) => openKit(k.id, true, here)} />
         </div>
       )}
@@ -138,7 +138,7 @@ function ApplyMenu({ kits, onApply }: { kits: KitInfo[]; onApply(k: KitInfo): vo
               <MenuItem key={k.id} onClick={() => onApply(k)}>
                 <PackageIcon />
                 <span className="min-w-0 flex-1 truncate">{k.name}</span>
-                {k.match?.slug && <span className="font-mono text-[10px] text-muted-foreground">{k.match.slug}</span>}
+                {k.match?.slug && <span className="font-mono text-tag text-muted-foreground">{k.match.slug}</span>}
               </MenuItem>
             ))}
           </MenuGroup>
@@ -190,13 +190,13 @@ function SaveKitDialog({ open, onOpenChange, box, location, existing }: { open: 
               <DialogTitle>Saved {saved.name}</DialogTitle>
               <DialogDescription>It's on this laptop, ready to apply to {location} on your other boxes from Kits.</DialogDescription>
             </DialogHeader>
-            <DialogPanel className="space-y-3 text-sm">
+            <DialogPanel className="space-y-3 text-body">
               <p className="font-medium">To share it with your team</p>
-              <ol className="list-decimal space-y-1.5 pl-5 text-muted-foreground text-xs leading-relaxed">
+              <ol className="list-decimal space-y-1.5 pl-5 text-muted-foreground text-meta">
                 <li>Push this folder to a git repository, alone or as a folder in one:</li>
               </ol>
               <div className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2">
-                <code className="min-w-0 flex-1 truncate font-mono text-xs">{saved.path}</code>
+                <code className="min-w-0 flex-1 truncate font-mono text-mono">{saved.path}</code>
                 <Button
                   size="icon-xs"
                   variant="ghost"
@@ -209,7 +209,7 @@ function SaveKitDialog({ open, onOpenChange, box, location, existing }: { open: 
                   <CopyIcon />
                 </Button>
               </div>
-              <ol start={2} className="list-decimal space-y-1.5 pl-5 text-muted-foreground text-xs leading-relaxed">
+              <ol start={2} className="list-decimal space-y-1.5 pl-5 text-muted-foreground text-meta">
                 <li>
                   Send them the repository's link, or a Shipyard link like <code className="font-mono">berth://kit?src=https://github.com/acme/kits/tree/main/{saved.id}</code>. Opening it in Shipyard
                   shows them everything the kit does before they apply it.
@@ -241,15 +241,15 @@ function SaveKitDialog({ open, onOpenChange, box, location, existing }: { open: 
             </DialogHeader>
             <DialogPanel className="space-y-3">
               <label className="block space-y-1">
-                <span className="text-muted-foreground text-xs">Name</span>
+                <span className="text-muted-foreground text-meta">Name</span>
                 <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} />
               </label>
               <label className="block space-y-1">
-                <span className="text-muted-foreground text-xs">Id</span>
-                <Input value={kitId} onChange={(e) => setId(slug(e.target.value))} className="font-mono text-xs" />
+                <span className="text-muted-foreground text-meta">Id</span>
+                <Input value={kitId} onChange={(e) => setId(slug(e.target.value))} className="font-mono text-mono" />
               </label>
               <label className="block space-y-1">
-                <span className="text-muted-foreground text-xs">Description</span>
+                <span className="text-muted-foreground text-meta">Description</span>
                 <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Each worktree gets its own database and dev server." className="min-h-16" />
               </label>
             </DialogPanel>

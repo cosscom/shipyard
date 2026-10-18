@@ -152,6 +152,31 @@ pub fn run() {
             browser::browser_inspect,
             browser::browser_close,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, _event| {
+            // A dev build wears an orange icon in the Dock, so it is never
+            // taken for the installed app. Tauri puts the app's own there as
+            // it gets ready, just before this.
+            #[cfg(all(debug_assertions, target_os = "macos"))]
+            if let tauri::RunEvent::Ready = _event {
+                dev_dock_icon();
+            }
+        });
+}
+
+#[cfg(all(debug_assertions, target_os = "macos"))]
+fn dev_dock_icon() {
+    use objc2::rc::{Allocated, Retained};
+    use objc2::runtime::{AnyClass, AnyObject};
+    use objc2::msg_send;
+    static ICON: &[u8] = include_bytes!("../icons/dev/icon.png");
+    let (Some(app), Some(data), Some(image)) = (AnyClass::get(c"NSApplication"), AnyClass::get(c"NSData"), AnyClass::get(c"NSImage")) else { return };
+    unsafe {
+        let app: *mut AnyObject = msg_send![app, sharedApplication];
+        let data: *mut AnyObject = msg_send![data, dataWithBytes: ICON.as_ptr().cast::<std::ffi::c_void>(), length: ICON.len()];
+        let blank: Allocated<AnyObject> = msg_send![image, alloc];
+        let Some(icon): Option<Retained<AnyObject>> = msg_send![blank, initWithData: data] else { return };
+        let _: () = msg_send![app, setApplicationIconImage: &*icon];
+    }
 }

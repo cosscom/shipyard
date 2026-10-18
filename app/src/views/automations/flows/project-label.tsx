@@ -7,7 +7,7 @@ import { hereRef } from "@/lib/workspaces";
 
 // BoxChip names a box the way the sidebar does.
 export function BoxChip({ box, className }: { box: string; className?: string }) {
-  return <span className={cn("inline-flex h-4 shrink-0 items-center rounded bg-muted px-1 font-mono text-[10px] text-muted-foreground leading-none", className)}>{box}</span>;
+  return <span className={cn("inline-flex h-4 shrink-0 items-center rounded bg-muted px-1 font-mono text-tag text-muted-foreground leading-none", className)}>{box}</span>;
 }
 
 // ProjectLabel names where a flow runs: a project as "shop · acme/shop" on

@@ -109,8 +109,21 @@ func TestAgentCommandsPassAModelAndAnEffort(t *testing.T) {
 		t.Fatalf("claude = %q, %v", got, err)
 	}
 	codex, _ := presetFor(nil, "codex")
+	takes := false
+	old := codexNoDaemon
+	codexNoDaemon = func(string) bool { return takes }
+	t.Cleanup(func() { codexNoDaemon = old })
 	if got, err := AgentCommandWith(codex, "", "gpt-5-codex", "low"); err != nil || got != "codex --model gpt-5-codex -c model_reasoning_effort=low" {
 		t.Fatalf("codex = %q, %v", got, err)
+	}
+	// A Codex that knows --no-daemon gets it, so its hooks run in its own
+	// session (cosscom/shipyard#8); Claude never does.
+	takes = true
+	if got, err := AgentCommandWith(codex, "", "gpt-5-codex", ""); err != nil || got != "codex --no-daemon --model gpt-5-codex" {
+		t.Fatalf("codex = %q, %v", got, err)
+	}
+	if got, _ := AgentCommandWith(AgentPreset{ID: "codex", Command: "codex --no-daemon"}, "", "", ""); got != "codex --no-daemon" {
+		t.Fatalf("given twice: %q", got)
 	}
 	if got, _ := AgentCommandWith(claude, "hi", "", ""); got != "claude 'hi'" {
 		t.Fatalf("the defaults added flags: %q", got)

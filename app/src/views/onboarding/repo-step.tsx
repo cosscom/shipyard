@@ -88,14 +88,14 @@ export function RepoStep({ box, onDone }: { box: string; onDone(location: string
         <>
           {existing.length > 0 && (
             <div className="mt-6">
-              <div className="mb-2 text-muted-foreground text-xs">Already on {where}</div>
+              <div className="mb-2 text-muted-foreground text-meta">Already on {where}</div>
               <ul className="divide-y divide-border/70 rounded-xl border">
                 {existing.map((l) => (
                   <li key={l.name} className="flex items-center gap-3 px-3.5 py-2.5">
                     <FolderGit2Icon className="size-4 text-muted-foreground" />
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm">{l.name}</div>
-                      <div className="truncate font-mono text-[11px] text-muted-foreground">{l.path}</div>
+                      <div className="text-row">{l.name}</div>
+                      <div className="truncate font-mono text-tag text-muted-foreground">{l.path}</div>
                     </div>
                     <Button size="xs" variant="outline" onClick={() => onDone(l.name)}>
                       Use this
@@ -112,10 +112,10 @@ export function RepoStep({ box, onDone }: { box: string; onDone(location: string
                   <SparklesIcon className="size-4" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <h2 id="sample-heading" className="font-medium text-sm">
+                  <h2 id="sample-heading" className="text-row">
                     Try the sample project
                   </h2>
-                  <p className="mt-0.5 text-muted-foreground text-xs leading-relaxed">
+                  <p className="mt-0.5 text-muted-foreground text-meta">
                     <span className="font-mono">hello</span>: a tiny Node web server and its test, made in ~/work/hello on {where}. A good size for a first task.
                   </p>
                 </div>
@@ -123,11 +123,11 @@ export function RepoStep({ box, onDone }: { box: string; onDone(location: string
                   Use the sample <ArrowRightIcon />
                 </Button>
               </div>
-              {error && <p className="mt-2 ps-13 text-destructive-foreground text-xs">{error}</p>}
+              {error && <p className="mt-2 ps-13 text-destructive-foreground text-meta">{error}</p>}
             </section>
           )}
           <div className="mt-6 space-y-2">
-            <div className="text-muted-foreground text-xs">{existing.length > 0 ? "Or add another" : canSample !== false ? "Or one of your own" : "Add one"}</div>
+            <div className="text-muted-foreground text-meta">{existing.length > 0 ? "Or add another" : canSample !== false ? "Or one of your own" : "Add one"}</div>
             <WayButton icon={<FolderOpenIcon />} title={wayTitles.browse} detail={wayDetails(box, local).browse} onClick={() => setWay("browse")} />
             <WayButton icon={<GitForkIcon />} title={wayTitles.clone} detail={wayDetails(box, local).clone} onClick={() => setWay("clone")} />
             <WayButton icon={<FolderPlusIcon />} title={wayTitles.create} detail={wayDetails(box, local).create} onClick={() => setWay("create")} />
@@ -147,8 +147,8 @@ function WayButton({ icon, title, detail, onClick }: { icon: ReactNode; title: s
     >
       <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border bg-background text-muted-foreground [&_svg]:size-4">{icon}</span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm">{title}</span>
-        <span className="mt-0.5 block truncate text-muted-foreground text-xs">{detail}</span>
+        <span className="block text-row">{title}</span>
+        <span className="mt-0.5 block truncate text-muted-foreground text-meta">{detail}</span>
       </span>
       <ChevronRightIcon className="size-4 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5" />
     </button>

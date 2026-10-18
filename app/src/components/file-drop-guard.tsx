@@ -68,7 +68,7 @@ export function FileDropGuard() {
       data-testid="file-drop-hint"
       data-shown={refused || undefined}
       className={cn(
-        "pointer-events-none fixed bottom-[calc(var(--berth-status-h,26px)+20px)] left-1/2 z-80 flex -translate-x-1/2 items-center gap-2 rounded-full border bg-popover py-2 ps-3 pe-4 text-popover-foreground text-sm shadow-xl/20",
+        "pointer-events-none fixed bottom-[calc(var(--berth-status-h,26px)+20px)] left-1/2 z-80 flex -translate-x-1/2 items-center gap-2 rounded-full border bg-popover py-2 ps-3 pe-4 text-popover-foreground text-body shadow-xl/20",
         "invisible translate-y-1 opacity-0 transition-[opacity,translate,visibility] duration-150 ease-out data-shown:visible data-shown:translate-y-0 data-shown:opacity-100",
       )}
     >

@@ -20,8 +20,8 @@ export function HooksTable({ data, label, onAdd, onEdit, onDelete }: { data: Mac
     <section className="@container overflow-hidden rounded-xl border bg-card">
       <header className="flex items-center gap-2.5 border-b px-4 py-2.5">
         <MachineIcon className="size-4 shrink-0 text-muted-foreground" />
-        <h2 className="font-medium text-sm">{label}</h2>
-        {data.file?.path && <code className="hidden min-w-0 truncate font-mono text-[11px] text-muted-foreground @md:block">{data.file.path}</code>}
+        <h2 className="text-section">{label}</h2>
+        {data.file?.path && <code className="hidden min-w-0 truncate font-mono text-meta text-muted-foreground @md:block">{data.file.path}</code>}
         <span className="ml-auto" />
         <Button size="xs" variant="ghost" onClick={onAdd} disabled={!data.file}>
           <PlusIcon />
@@ -31,7 +31,7 @@ export function HooksTable({ data, label, onAdd, onEdit, onDelete }: { data: Mac
 
       {data.error ? (
         data.machine === LAPTOP ? (
-          <ErrorText className="px-4 py-3 text-muted-foreground text-xs" text={`Couldn't read this computer's hooks. ${data.error}`} />
+          <ErrorText className="px-4 py-3 text-muted-foreground text-meta" text={`Couldn't read this computer's hooks. ${data.error}`} />
         ) : (
           <BoxError className="mx-4 my-3" box={data.machine} error={data.error} what="its hooks" />
         )
@@ -41,7 +41,7 @@ export function HooksTable({ data, label, onAdd, onEdit, onDelete }: { data: Mac
           <Skeleton className="h-4 w-1/2" />
         </div>
       ) : hooks.length === 0 ? (
-        <button type="button" onClick={onAdd} className="flex w-full items-center gap-2 px-4 py-3 text-left text-muted-foreground text-sm hover:bg-accent/40">
+        <button type="button" onClick={onAdd} className="flex w-full items-center gap-2 px-4 py-3 text-left text-muted-foreground text-body hover:bg-accent/40">
           <PlusIcon className="size-3.5" />
           No hooks yet. Add one, or start from a template above.
         </button>
@@ -76,11 +76,11 @@ function HookRow({ hook, onEdit, onDelete }: { hook: Hook; onEdit(): void; onDel
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
           {d.gate ? <ShieldIcon className="size-3.5 shrink-0 text-warning" /> : <ZapIcon className="size-3.5 shrink-0 text-muted-foreground" />}
-          <span className="truncate font-medium text-sm">{d.label}</span>
+          <span className="truncate text-row">{d.label}</span>
         </div>
-        <code className="mt-0.5 block truncate pl-5 font-mono text-[11px] text-muted-foreground">{hook.on}</code>
+        <code className="mt-0.5 block truncate pl-5 font-mono text-meta text-muted-foreground">{hook.on}</code>
       </div>
-      <code className="block min-w-0 truncate rounded-md bg-muted/50 px-2 py-1 font-mono text-xs" title={hook.run}>
+      <code className="block min-w-0 truncate rounded-md bg-muted/50 px-2 py-1 font-mono text-mono" title={hook.run}>
         {hook.run}
       </code>
       <div className="flex items-center justify-end gap-1.5">
@@ -113,7 +113,7 @@ function HookRow({ hook, onEdit, onDelete }: { hook: Hook; onEdit(): void; onDel
 function Chip({ children, mono, title }: { children: React.ReactNode; mono?: boolean; title?: string }) {
   return (
     <Tip label={title}>
-      <span className={cn("inline-flex h-5 shrink-0 items-center gap-1 rounded border px-1.5 text-[11px] text-muted-foreground", mono && "font-mono")}>{children}</span>
+      <span className={cn("inline-flex h-5 shrink-0 items-center gap-1 rounded border px-1.5 text-tag text-muted-foreground", mono && "font-mono")}>{children}</span>
     </Tip>
   );
 }

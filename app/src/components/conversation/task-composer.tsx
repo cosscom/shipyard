@@ -503,7 +503,7 @@ function StartBody({ draft, text, setText, tabs, fixed, dialog, autoFocus, place
           <>
             {tabs}
             {followed && (
-              <span className="flex min-w-0 items-center gap-1.5 px-2 text-muted-foreground text-xs">
+              <span className="flex min-w-0 items-center gap-1.5 px-2 text-muted-foreground text-meta">
                 {from.kind === "review" ? "Reviews" : "Picks up from"}
                 <span className="flex min-w-0 items-center gap-1 rounded-md bg-background/70 px-1.5 py-0.5 text-foreground">
                   <AgentIcon agent={fromSession && agentOf(fromSession)} className="size-3" />
@@ -564,18 +564,18 @@ function StartBody({ draft, text, setText, tabs, fixed, dialog, autoFocus, place
                       </Button>
                     </span>
                   </Tip>
-                  {blocker && <span className="text-muted-foreground text-xs">{blocker}</span>}
+                  {blocker && <span className="text-muted-foreground text-meta">{blocker}</span>}
                 </div>
               </AlertDescription>
             </Alert>
           )}
-          {error && <ErrorText className="px-3 pt-2 text-destructive-foreground text-sm" text={error} />}
+          {error && <ErrorText className="px-3 pt-2 text-destructive-foreground text-body" text={error} />}
         </>
       }
       footer={
         <>
           {fixed && (
-            <span className="flex min-w-0 items-center gap-1.5 px-2.5 text-muted-foreground text-xs">
+            <span className="flex min-w-0 items-center gap-1.5 px-2.5 text-muted-foreground text-meta">
               <GitBranchIcon className="size-3.5 shrink-0" />
               <span className="truncate">{attempts ? "Each attempt in a new worktree from this branch" : `In ${fixed.name}`}</span>
             </span>
@@ -790,7 +790,7 @@ function SendBody({ draft, text, setText, tabs, dialog, autoFocus, onDone, onKin
       }
       notice={
         ended.length > 0 && (
-          <div role="status" className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border bg-background/60 px-3 py-2 text-sm">
+          <div role="status" className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border bg-background/60 px-3 py-2 text-body">
             <span className="min-w-0 flex-1">
               {endedNames.join(", ")} {ended.length === 1 ? "has" : "have"} ended, so {ended.length === 1 ? "it can't" : "they can't"} take a prompt. Hand the work to a new agent instead.
             </span>
@@ -904,7 +904,7 @@ function ToBody({ to, onSend, onFail, autoFocus, className }: TaskComposerProps 
       }
       footer={
         <>
-          <span className="flex min-w-0 items-center gap-1.5 px-2.5 text-muted-foreground text-xs">
+          <span className="flex min-w-0 items-center gap-1.5 px-2.5 text-muted-foreground text-meta">
             <AgentIcon agent={to.agent} className="size-3.5" />
             {who} · {AGENT_WORDS.idle.lower}, waiting for a first task
           </span>
@@ -953,9 +953,9 @@ function Editor({ value, onChange, onSubmit, onPaste, above, autoFocus, label, p
         }}
         aria-label={label}
         placeholder={placeholder}
-        className="field-sizing-content block max-h-60 min-h-[76px] w-full resize-none rounded-[inherit] bg-transparent px-3.5 py-3 text-[0.875rem] outline-none placeholder:text-muted-foreground/72"
+        className="field-sizing-content block max-h-60 min-h-[76px] w-full resize-none rounded-[inherit] bg-transparent px-3.5 py-3 text-body outline-none placeholder:text-muted-foreground/72"
       />
-      {hint && <p className="-mt-1 truncate px-3.5 pb-2.5 text-xs">{hint}</p>}
+      {hint && <p className="-mt-1 truncate px-3.5 pb-2.5 text-meta">{hint}</p>}
       {menu?.chip}
       {menu?.menu}
     </>
@@ -1015,7 +1015,7 @@ function ModeTabs({ mode, onMode }: { mode: "start" | "send"; onMode(m: "start" 
       aria-selected={mode === m}
       onClick={() => onMode(m)}
       className={cn(
-        "inline-flex h-6 items-center gap-1.5 rounded-md px-2 font-medium text-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+        "inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-label outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
         mode === m ? "bg-background text-foreground shadow-xs/5" : "text-muted-foreground hover:text-foreground",
       )}
     >
@@ -1057,8 +1057,8 @@ function NoProjects({ className, tabs }: { className?: string; tabs?: React.Reac
       {tabs && <div className="-mt-0.5 mb-0.5 flex h-8 items-center px-0.5">{tabs}</div>}
       <FramePanel className="flex flex-col items-center justify-center gap-1 px-8 py-8 text-center">
         <Scene name={copy.scene} width={120} className="mb-3" />
-        <p className="font-medium text-sm">{copy.title}</p>
-        <p className="max-w-xs text-balance text-muted-foreground text-xs">{copy.text}</p>
+        <p className="text-row">{copy.title}</p>
+        <p className="max-w-xs text-balance text-muted-foreground text-meta">{copy.text}</p>
         <Button size="sm" className="mt-3" onClick={go}>
           <ServerIcon />
           {state === "no-boxes" ? "Add a box" : state === "offline" ? "Open Boxes" : "Add a project"}

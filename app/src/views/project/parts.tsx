@@ -15,8 +15,8 @@ export function Section({ id, title, description, actions, children }: { id: str
     <section id={id} className="scroll-mt-6">
       <div className="mb-2.5 flex items-end gap-3">
         <div className="min-w-0 flex-1">
-          <h2 className="font-semibold text-sm">{title}</h2>
-          {description && <p className="mt-0.5 text-muted-foreground text-xs leading-relaxed">{description}</p>}
+          <h2 className="text-section">{title}</h2>
+          {description && <p className="mt-0.5 text-desc text-muted-foreground">{description}</p>}
         </div>
         {actions && <div className="flex shrink-0 items-center gap-1">{actions}</div>}
       </div>
@@ -48,7 +48,7 @@ export function SourceBadge({ source, box, field, entry }: { source: Source; box
   }[source];
   return (
     <Tip label={map.title}>
-      <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-px text-[11px]", map.cls)}>
+      <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-px text-tag", map.cls)}>
         <map.Icon className="size-3" />
         {map.label}
       </span>
@@ -82,7 +82,7 @@ export function LayeredScript({
   return (
     <div className="px-4 py-3.5">
       <div className="mb-1.5 flex items-center gap-2">
-        <span className="font-medium text-sm">{label}</span>
+        <span className="text-row">{label}</span>
         {source && <SourceBadge source={source} box={box} field={field} />}
         <span className="ml-auto flex gap-1">
           {repo && !overriding && (
@@ -99,11 +99,11 @@ export function LayeredScript({
           )}
         </span>
       </div>
-      <p className="mb-2 text-muted-foreground text-xs">{hint}</p>
+      <p className="mb-2 text-desc text-muted-foreground">{hint}</p>
       {repo && !overriding ? (
-        <pre className="overflow-x-auto rounded-lg border bg-muted/40 px-3 py-2 font-mono text-xs leading-relaxed">{repo}</pre>
+        <pre className="overflow-x-auto rounded-lg border bg-muted/40 px-3 py-2 font-mono text-mono">{repo}</pre>
       ) : (
-        <Textarea value={local ?? ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="min-h-16 font-mono text-xs" spellCheck={false} />
+        <Textarea value={local ?? ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="min-h-16 font-mono text-mono" spellCheck={false} />
       )}
     </div>
   );

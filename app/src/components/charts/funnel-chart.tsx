@@ -627,17 +627,17 @@ function SegmentLabel({
   const still = useReducedMotion();
 
   const valueEl = showValues && (
-    <span className="whitespace-nowrap font-semibold text-foreground text-sm">
+    <span className="whitespace-nowrap font-semibold text-foreground text-row">
       {display}
     </span>
   );
   const pctEl = showPercentage && (
-    <span className="rounded-full bg-foreground px-3 py-1 font-bold text-background text-xs shadow-sm">
+    <span className="rounded-full bg-foreground px-3 py-1 font-bold text-background text-label shadow-sm">
       {formatPercentage(pct)}
     </span>
   );
   const labelEl = showLabels && (
-    <span className="whitespace-nowrap font-medium text-muted-foreground text-xs">
+    <span className="whitespace-nowrap text-muted-foreground text-label">
       {stage.label}
     </span>
   );

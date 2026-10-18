@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { type ChatBackground, DEFAULT_CHAT_BACKGROUND, normalizeChatBackground } from "@/lib/chat-background";
 import { DEFAULT_HEADER_PICTURE, type HeaderPicture, normalizeHeaderPicture } from "@/lib/header-picture";
 import type { HomeLayout } from "@/lib/home-layout";
-import { clampWidth, SIDEBAR_DEFAULT } from "@/lib/sidebar-width";
+import { clampTasks, clampWidth, defaultWidth, SIDEBAR_DEFAULT, SIDEBAR_NARROW_DEFAULT, TASKS_DEFAULT } from "@/lib/sidebar-width";
 import { load, save } from "@/lib/storage";
 import { DEFAULT_TERMINAL_PREFS, type TerminalPrefs } from "@/lib/terminal";
 
@@ -25,6 +25,15 @@ export interface Prefs {
   sidebarCollapsed: boolean;
   // How wide the open sidebar is, dragged by its edge (lib/sidebar-width).
   sidebarWidth: number;
+  // Labs: the sidebar as one list of every project's tasks, or as two
+  // columns, the projects and the tasks of the one picked
+  // (components/sidebar/columns.tsx).
+  sidebarLayout: "list" | "columns";
+  // Two columns: how wide the tasks column is, whether it is folded away,
+  // and the project last picked in the first column.
+  tasksWidth: number;
+  tasksFolded: boolean;
+  sidebarPick: string | null;
   // Ask before closing a pane or tab stops a shell on its box.
   confirmCloseShells: boolean;
   // What closing an agent's pane or tab does to the agent: stop it (with a
@@ -100,6 +109,10 @@ const DEFAULTS: Prefs = {
   enabledPlugins: [],
   sidebarCollapsed: false,
   sidebarWidth: SIDEBAR_DEFAULT,
+  sidebarLayout: "list",
+  tasksWidth: TASKS_DEFAULT,
+  tasksFolded: false,
+  sidebarPick: null,
   confirmCloseShells: true,
   closeAgents: "stop",
   closeAgentsChosen: false,
@@ -161,7 +174,11 @@ export const usePrefs = create<Prefs>()(() => ({
   systemThemes: { ...DEFAULTS.systemThemes, ...saved.systemThemes },
   chatBackground: normalizeChatBackground(saved.chatBackground),
   headerPicture: normalizeHeaderPicture(saved.headerPicture),
-  sidebarWidth: clampWidth(saved.sidebarWidth ?? SIDEBAR_DEFAULT),
+  // 240px was the default before the task sidebar: a saved 240 is a sidebar
+  // never dragged, so it starts at today's default for this window.
+  sidebarLayout: saved.sidebarLayout === "columns" ? "columns" : "list",
+  tasksWidth: clampTasks(saved.tasksWidth),
+  sidebarWidth: saved.sidebarWidth === undefined || saved.sidebarWidth === SIDEBAR_NARROW_DEFAULT ? defaultWidth(typeof window === "undefined" ? Infinity : window.innerWidth) : clampWidth(saved.sidebarWidth),
 }));
 
 usePrefs.subscribe((p) => save("berth.prefs", { ...p, version: PREFS_VERSION }));
@@ -189,10 +206,12 @@ function applyUiPrefs(p: Prefs) {
   // The sidebar reads its width from here; a drag sets it as it goes
   // (components/sidebar/resize-handle.tsx) and saves it here at the end.
   root.style.setProperty("--sidebar-w", `${p.sidebarWidth}px`);
+  // And the two-column sidebar's tasks column, the same way.
+  root.style.setProperty("--tasks-w", `${p.tasksWidth}px`);
 }
 applyUiPrefs(usePrefs.getState());
 usePrefs.subscribe((p, prev) => {
-  if (p.uiFontSize !== prev.uiFontSize || p.density !== prev.density || p.chatWidth !== prev.chatWidth || p.sidebarWidth !== prev.sidebarWidth) applyUiPrefs(p);
+  if (p.uiFontSize !== prev.uiFontSize || p.density !== prev.density || p.chatWidth !== prev.chatWidth || p.sidebarWidth !== prev.sidebarWidth || p.tasksWidth !== prev.tasksWidth) applyUiPrefs(p);
 });
 
 // useTerminalPrefs is what a terminal needs to draw itself; it changes only

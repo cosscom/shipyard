@@ -92,7 +92,7 @@ export function KindWord({ art }: { art: Art }) {
 
 export function Version({ art, pulse }: { art: Art; pulse: boolean }) {
   return (
-    <span data-art-version className={cn("inline-flex shrink-0 items-center gap-1 rounded-[0.3125rem] border px-1.5 font-medium text-[0.6875rem] tabular-nums leading-[1.0625rem]", pulse ? "border-info/40 bg-info/10 text-info-foreground" : "border-border bg-muted/60 text-muted-foreground")}>
+    <span data-art-version className={cn("inline-flex shrink-0 items-center gap-1 rounded-[0.3125rem] border px-1.5 font-medium text-tag tabular-nums leading-[1.0625rem]", pulse ? "border-info/40 bg-info/10 text-info-foreground" : "border-border bg-muted/60 text-muted-foreground")}>
       {pulse && <span className="art-dot size-1.5 rounded-full bg-info" aria-hidden />}v{latest(art).n}
     </span>
   );
@@ -106,7 +106,7 @@ export function LocalArtifactCard({ it }: { it: Extract<TranscriptItem, { kind: 
   const loaded = useArt((s) => !pane?.worktree || pane.worktree in s.byWt);
   if (!art)
     return loaded ? (
-      <div className="cv-in w-[min(100%,40rem)] self-start rounded-lg border border-dashed px-3 py-2 text-muted-foreground text-xs">“{it.text}” is no longer on the box</div>
+      <div className="cv-in w-[min(100%,40rem)] self-start rounded-lg border border-dashed px-3 py-2 text-muted-foreground text-meta">“{it.text}” is no longer on the box</div>
     ) : (
       <div className="cv-in h-[6.5rem] w-[min(100%,40rem)] animate-pulse self-start rounded-lg border bg-card" />
     );
@@ -126,7 +126,7 @@ function Card({ art }: { art: Art }) {
   const open = useOpen(art);
   const note = art.by.helper ? `by ${helperName(art.by.helper)}` : v.note;
   return (
-    <div data-art-card={art.id} data-testid="art-card" className={cn("cv-in @container flex w-[min(100%,40rem)] min-w-0 self-start overflow-hidden rounded-lg border bg-card text-[0.8125rem] shadow-xs/5 transition-colors", pulse && "art-pulse border-info/50")}>
+    <div data-art-card={art.id} data-testid="art-card" className={cn("cv-in @container flex w-[min(100%,40rem)] min-w-0 self-start overflow-hidden rounded-lg border bg-card text-desc shadow-xs/5 transition-colors", pulse && "art-pulse border-info/50")}>
       <Press onPress={(e) => open(e)} label={`Open ${art.title}`} className="group relative hidden w-[13.5rem] shrink-0 overflow-hidden border-r bg-background p-2 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset @[420px]:block">
         <ArtView art={art} size="thumb" height={84} />
         <span className="absolute inset-0 bg-foreground/0 transition-colors group-hover:bg-foreground/4" />
@@ -154,7 +154,7 @@ function Card({ art }: { art: Art }) {
         </div>
         <GistLine art={art} className="font-medium" />
         <KindChips art={art} />
-        <div className="flex min-w-0 items-center gap-x-1.5 text-muted-foreground text-xs">
+        <div className="flex min-w-0 items-center gap-x-1.5 text-muted-foreground text-meta">
           <span className="shrink-0">
             <KindWord art={art} />
           </span>
@@ -165,7 +165,7 @@ function Card({ art }: { art: Art }) {
           {note && <span aria-hidden>·</span>}
           {note && <span className="min-w-0 truncate">{note}</span>}
         </div>
-        {art.problem && <span className="truncate text-warning-foreground text-xs">Its latest rewrite wasn't taken: {art.problem}</span>}
+        {art.problem && <span className="truncate text-warning-foreground text-meta">Its latest rewrite wasn't taken: {art.problem}</span>}
       </div>
     </div>
   );
@@ -177,12 +177,12 @@ function UpdateLine({ art, it }: { art: Art; it: Extract<TranscriptItem, { kind:
   const n = it.version ?? latest(art).n;
   const note = art.versions.find((x) => x.n === n)?.note;
   return (
-    <div data-art-card={art.id} data-testid="art-update" className="cv-in @container flex w-[min(100%,40rem)] min-w-0 items-center gap-2 self-start rounded-lg border border-info/30 bg-info/5 py-1 pr-1 pl-2.5 text-[0.8125rem]">
+    <div data-art-card={art.id} data-testid="art-update" className="cv-in @container flex w-[min(100%,40rem)] min-w-0 items-center gap-2 self-start rounded-lg border border-info/30 bg-info/5 py-1 pr-1 pl-2.5 text-desc">
       <ArtGlyph art={art} className="text-info-foreground" />
       <span className="shrink-0 text-muted-foreground">Updated</span>
       <span className="min-w-0 truncate font-medium">{art.title}</span>
-      <span className="shrink-0 text-muted-foreground text-xs tabular-nums">to v{n}</span>
-      {note && <span className="hidden min-w-0 truncate text-muted-foreground text-xs @[520px]:inline">· {note}</span>}
+      <span className="shrink-0 text-muted-foreground text-meta tabular-nums">to v{n}</span>
+      {note && <span className="hidden min-w-0 truncate text-muted-foreground text-meta @[520px]:inline">· {note}</span>}
       <span className="ml-auto" />
       <Tip label="Open · ⌘-click beside the chat">
         <Button size="xs" variant="ghost" className="shrink-0 text-muted-foreground hover:text-foreground" onClick={(e) => open(e)}>

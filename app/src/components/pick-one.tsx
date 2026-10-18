@@ -62,7 +62,7 @@ export function PickOne<T extends string>({
           key={toItem(o.value)}
           value={toItem(o.value)}
           className={cn(
-            "gap-1.5 rounded-md px-2.5 font-normal text-[13px] text-foreground/80 hover:bg-background/60 hover:text-foreground data-pressed:bg-background data-pressed:font-medium data-pressed:text-foreground data-pressed:shadow-xs/5 dark:hover:bg-input/32 dark:data-pressed:bg-input",
+            "gap-1.5 rounded-md px-2.5 font-normal text-desc text-foreground/80 hover:bg-background/60 hover:text-foreground data-pressed:bg-background data-pressed:font-medium data-pressed:text-foreground data-pressed:shadow-xs/5 dark:hover:bg-input/32 dark:data-pressed:bg-input",
             o.className,
           )}
         >

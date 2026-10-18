@@ -9,6 +9,7 @@ import { paneKey, toggleDrawer } from "@/lib/devtools";
 import { useStore } from "@/lib/store";
 import type { ShowId } from "@/lib/whats-new-model";
 import { worktreeLabel } from "@/lib/worktree-names";
+import { closeSettings } from "@/views/settings/open";
 import { here, openFor, recentWorktrees, refFor, selectWorktree, useWorkspaces, wsKey } from "@/lib/workspaces";
 
 // What each "Show me" on the What's new card does: the app's own ways
@@ -107,7 +108,19 @@ export function showerFor(id: ShowId): Shower | undefined {
       const long = all.filter((x) => !x.wt.title && x.wt.name.length >= 16).sort((a, b) => b.wt.name.length - a.wt.name.length)[0];
       const pick = at(h) ?? long ?? keys.map(at).find(Boolean);
       if (!pick) return undefined;
-      return { label: `Rename ${worktreeLabel(pick.wt)}`, run: () => openRenameWorktree(pick.box, pick.loc, pick.wt) };
+      return {
+        label: `Rename ${worktreeLabel(pick.wt)}`,
+        run: () => {
+          // Settings has the sidebar's place: leave it, and rename in the row
+          // once the sidebar is back.
+          if (useStore.getState().view.kind !== "settings") return openRenameWorktree(pick.box, pick.loc, pick.wt);
+          closeSettings();
+          const row = `[data-testid="worktree-row"][data-worktree="${CSS.escape(`${pick.box}/${pick.wt.name}`)}"]`;
+          let frames = 0;
+          const go = () => (document.querySelector(row) || ++frames > 30 ? openRenameWorktree(pick.box, pick.loc, pick.wt) : requestAnimationFrame(go));
+          requestAnimationFrame(go);
+        },
+      };
     }
     case "settings-boxes":
       return { label: "Settings › Boxes", run: () => st.setView({ kind: "settings", section: "boxes" }) };

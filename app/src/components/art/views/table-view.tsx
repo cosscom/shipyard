@@ -56,11 +56,11 @@ function Table({ t, thumb }: { t: ReturnType<typeof parseTable>; thumb?: boolean
   const counts = si >= 0 ? { fail: rows.filter((r) => verdict(r[si] ?? "") === "fail").length, pass: rows.filter((r) => verdict(r[si] ?? "") === "pass").length, skip: rows.filter((r) => verdict(r[si] ?? "") === "skip").length } : undefined;
   const numeric = head.map((_, i) => rows.length > 0 && rows.every((r) => (r[i] ?? "") === "" || isNum(r[i] ?? "")));
   const limit = thumb ? 8 : 2000;
-  if (!head.length) return <div className="flex h-full items-center justify-center text-muted-foreground text-xs">This table has no rows.</div>;
+  if (!head.length) return <div className="flex h-full items-center justify-center text-muted-foreground text-meta">This table has no rows.</div>;
   return (
     <div className={cn("flex h-full min-h-0 flex-col", thumb && "pointer-events-none")} data-art-table>
       {counts && !thumb && (
-        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 pb-2 text-xs">
+        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 pb-2 text-meta">
           <span className="text-muted-foreground tabular-nums">{rows.length.toLocaleString("en-US")} rows</span>
           <span className="inline-flex items-center gap-1.5 tabular-nums">
             <span className="size-2 rounded-full bg-[var(--chart-good)]" aria-hidden />
@@ -72,14 +72,14 @@ function Table({ t, thumb }: { t: ReturnType<typeof parseTable>; thumb?: boolean
           </span>
           {counts.skip > 0 && <span className="text-muted-foreground tabular-nums">{counts.skip} skipped</span>}
           {counts.fail > 0 && (
-            <button type="button" onClick={() => setOnly((o) => !o)} aria-pressed={only} className={cn("ml-auto rounded-md border px-2 py-0.5 text-xs", only ? "border-transparent bg-destructive/15 text-destructive-foreground" : "text-muted-foreground hover:bg-accent")}>
+            <button type="button" onClick={() => setOnly((o) => !o)} aria-pressed={only} className={cn("ml-auto rounded-md border px-2 py-0.5 text-meta", only ? "border-transparent bg-destructive/15 text-destructive-foreground" : "text-muted-foreground hover:bg-accent")}>
               Failures only
             </button>
           )}
         </div>
       )}
       <div className={cn("min-h-0 flex-1 rounded-md border", thumb ? "overflow-hidden" : "overflow-auto")}>
-        <table className={cn("w-full border-collapse", thumb ? "text-[11px] leading-4" : "text-xs")}>
+        <table className={cn("w-full border-collapse", thumb ? "text-tag leading-4" : "text-meta")}>
           <thead className="sticky top-0 z-10 bg-muted/90 backdrop-blur">
             <tr>
               {head.map((c, i) => (
@@ -122,7 +122,7 @@ function Table({ t, thumb }: { t: ReturnType<typeof parseTable>; thumb?: boolean
           </tbody>
         </table>
       </div>
-      {shown.length > limit && !thumb && <div className="pt-1.5 text-muted-foreground text-xs">and {(shown.length - limit).toLocaleString("en-US")} more rows; the source has them all</div>}
+      {shown.length > limit && !thumb && <div className="pt-1.5 text-muted-foreground text-meta">and {(shown.length - limit).toLocaleString("en-US")} more rows; the source has them all</div>}
     </div>
   );
 }

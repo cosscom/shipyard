@@ -53,7 +53,7 @@ export function BoxOnePasswordNote({ box }: { box: string }) {
       {runs.map((r) => {
         const n = r.projects.reduce((c, p) => c + (p.deferred?.length ?? 0), 0);
         return (
-          <div key={r.id} data-testid="box-1password-skipped" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border bg-muted/30 px-3 py-2 text-xs">
+          <div key={r.id} data-testid="box-1password-skipped" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border bg-muted/30 px-3 py-2 text-meta">
             <span className="min-w-0 flex-1 text-muted-foreground">
               <span className="text-foreground">{r.name}'s setup</span> skipped 1Password: {n === 1 ? "1 shared key was" : `${n} shared keys were`} typed or left missing.
             </span>
@@ -81,16 +81,16 @@ export function ProjectTeamKeys({ box, location, env, onAdd }: { box: string; lo
     <>
       {rows.map(({ run, missing, deferred }) => (
         <section key={run.id} data-testid="project-missing-keys" className="rounded-xl border border-warning/30 bg-warning/6 px-4 py-3">
-          <p className="flex items-start gap-2 text-sm">
+          <p className="flex items-start gap-2 text-body">
             <KeyRoundIcon className="mt-0.5 size-4 shrink-0 text-warning-foreground" />
             <span>
               {missing.length > 0 ? (
                 <>
-                  <span className="font-medium">Missing keys</span> from {run.name}'s setup: <span className="font-mono text-[13px]">{missing.join(", ")}</span>. Add them in Environment below, then Save.
+                  <span className="font-medium">Missing keys</span> from {run.name}'s setup: <span className="font-mono text-desc">{missing.join(", ")}</span>. Add them in Environment below, then Save.
                 </>
               ) : (
                 <>
-                  {run.name}'s setup skipped 1Password for <span className="font-mono text-[13px]">{deferred.join(", ")}</span>; the values typed for them are used.
+                  {run.name}'s setup skipped 1Password for <span className="font-mono text-desc">{deferred.join(", ")}</span>; the values typed for them are used.
                 </>
               )}
             </span>
@@ -104,7 +104,7 @@ export function ProjectTeamKeys({ box, location, env, onAdd }: { box: string; lo
             {deferred.length > 0 && (
               <>
                 <UseOnePassword run={run} />
-                <span className="text-muted-foreground text-xs">reads {deferred.length === 1 ? "it" : `all ${deferred.length}`} with the team's 1Password references; op signs in once on {box}</span>
+                <span className="text-meta text-muted-foreground">reads {deferred.length === 1 ? "it" : `all ${deferred.length}`} with the team's 1Password references; op signs in once on {box}</span>
               </>
             )}
           </div>

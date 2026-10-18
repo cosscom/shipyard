@@ -64,13 +64,13 @@ export function FlowList({
         <div className="flex items-center gap-5 px-1">
           <Scene name="chart" width={112} />
           <div className="min-w-0">
-            <p className="font-medium text-sm">No flows yet</p>
-            <p className="mt-0.5 max-w-md text-muted-foreground text-xs">A flow runs steps on a box when something happens, or on a schedule. Start with one of these and change it to fit.</p>
+            <p className="text-row">No flows yet</p>
+            <p className="mt-0.5 max-w-md text-desc text-muted-foreground">A flow runs steps on a box when something happens, or on a schedule. Start with one of these and change it to fit.</p>
           </div>
         </div>
       )}
       <section>
-        <h2 className="mb-2.5 font-medium text-[13px] text-muted-foreground">{total ? "Start from a template" : "Start with one of these"}</h2>
+        <h2 className="mb-2.5 text-section">{total ? "Start from a template" : "Start with one of these"}</h2>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-2">
           {STARTERS.map((s) => {
             const kinds = [...new Set(s.flow.steps.map((x) => x.kind))];
@@ -93,8 +93,8 @@ export function FlowList({
                   })}
                 </span>
                 <span>
-                  <span className="block font-medium text-sm leading-snug">{s.title}</span>
-                  <span className="mt-0.5 block text-muted-foreground text-xs">{s.description}</span>
+                  <span className="block text-row">{s.title}</span>
+                  <span className="mt-0.5 block text-desc text-muted-foreground">{s.description}</span>
                 </span>
               </button>
             );
@@ -103,7 +103,7 @@ export function FlowList({
       </section>
 
       {many.length > 0 && (
-        <p className="rounded-xl border bg-muted/40 px-4 py-3 text-muted-foreground text-xs">
+        <p className="rounded-xl border bg-muted/40 px-4 py-3 text-desc text-muted-foreground">
           To run a flow for {many[0].name}
           {many.length > 1 ? " and other projects" : ""} on every box that has it, commit it to the repository's <code>.berth/config.json</code> (or the project's kit): each box runs it from there. A flow saved here belongs to one box.
         </p>
@@ -146,10 +146,10 @@ function ScopeGroup({
   return (
     <section>
       <header className="mb-2.5 flex items-center gap-2">
-        <h2 className="min-w-0 font-medium text-[13px]">
+        <h2 className="min-w-0 text-section">
           <ProjectLabel box={box} scope={scope} />
         </h2>
-        <span className="text-muted-foreground text-xs tabular-nums">{shown.length}</span>
+        <span className="text-meta text-muted-foreground tabular-nums">{shown.length}</span>
         <span className="ml-auto flex items-center gap-1">
           {loc && (
             <Button size="xs" variant="ghost" onClick={() => openProjectSettings(box, loc)}>
@@ -167,7 +167,7 @@ function ScopeGroup({
         <button
           type="button"
           onClick={() => onNew(box, scope)}
-          className="flex w-full items-center gap-2 rounded-xl border border-dashed px-4 py-3 text-left text-muted-foreground text-sm hover:border-ring/40 hover:text-foreground"
+          className="flex w-full items-center gap-2 rounded-xl border border-dashed px-4 py-3 text-left text-muted-foreground text-body hover:border-ring/40 hover:text-foreground"
         >
           <WorkflowIcon className="size-4" />
           No flows {loc ? `for ${loc}` : `for every project on ${box}`} yet. Make one, or start from a template above.
@@ -207,10 +207,10 @@ function FlowRow({ f, run, onEdit, onToggle, overridden }: { f: ScopedFlow; run?
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate font-medium text-sm">{flow.name}</span>
+          <span className="truncate text-row">{flow.name}</span>
           {f.source === "repo" && (
             <Tip label="Committed in the repository's .berth/config.json">
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-px text-[11px] text-muted-foreground">
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-px text-tag text-muted-foreground">
                 <LockIcon className="size-2.5" />
                 In repo
               </span>
@@ -218,17 +218,17 @@ function FlowRow({ f, run, onEdit, onToggle, overridden }: { f: ScopedFlow; run?
           )}
           {f.source === "kit" && (
             <Tip label="From the project's kit">
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-px text-[11px] text-muted-foreground">
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-px text-tag text-muted-foreground">
                 <PackageIcon className="size-2.5" />
                 From kit
               </span>
             </Tip>
           )}
-          {overridden && <span className="shrink-0 rounded-md border border-ring/30 px-1.5 py-px text-[11px] text-muted-foreground">Overridden here</span>}
+          {overridden && <span className="shrink-0 rounded-md border border-ring/30 px-1.5 py-px text-tag text-muted-foreground">Overridden here</span>}
         </div>
-        <p className="mt-0.5 truncate text-muted-foreground text-xs">{summary(flow)}</p>
+        <p className="mt-0.5 truncate text-desc text-muted-foreground">{summary(flow)}</p>
       </div>
-      <div className="flex w-36 shrink-0 items-center justify-end gap-1.5 text-muted-foreground text-xs">
+      <div className="flex w-36 shrink-0 items-center justify-end gap-1.5 text-meta text-muted-foreground">
         {run ? (
           <>
             <RunStatus status={run.status} />

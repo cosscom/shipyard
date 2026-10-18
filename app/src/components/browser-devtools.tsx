@@ -142,7 +142,7 @@ export function DevtoolsDrawer({ logKey, pageUrl, ctx, proxied, agent }: DrawerP
   };
 
   return (
-    <section ref={root} data-testid="devtools-drawer" aria-label="Console and network" style={{ height }} className="relative flex max-h-[75%] min-h-30 shrink-0 flex-col border-t bg-background text-xs">
+    <section ref={root} data-testid="devtools-drawer" aria-label="Console and network" style={{ height }} className="relative flex max-h-[75%] min-h-30 shrink-0 flex-col border-t bg-background text-meta">
       <div
         role="separator"
         tabIndex={0}
@@ -174,7 +174,7 @@ export function DevtoolsDrawer({ logKey, pageUrl, ctx, proxied, agent }: DrawerP
             Network
           </DrawerTab>
         </div>
-        {agent && <span className="ml-2 truncate text-[11px] text-muted-foreground">The agent's browser, on its box</span>}
+        {agent && <span className="ml-2 truncate text-tag text-muted-foreground">The agent's browser, on its box</span>}
         <div className="ml-auto flex items-center gap-0.5">
           {!agent && (
             <Tip label={tab === "console" ? "Clear the console" : "Clear the requests"} side={DOWN}>
@@ -209,7 +209,7 @@ function DrawerTab({ id, active, onClick, count, children }: { id: string; activ
       aria-selected={active}
       tabIndex={active ? 0 : -1}
       onClick={onClick}
-      className={cn("inline-flex h-6 items-center gap-1.5 rounded-md px-2 font-medium text-[11.5px]", active ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground")}
+      className={cn("inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-label", active ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground")}
     >
       {children}
       {count > 0 && <ErrorBadge n={count} />}
@@ -225,7 +225,7 @@ function Chip({ on, onClick, children, label }: { on: boolean; onClick(): void; 
       aria-pressed={on}
       aria-label={label}
       onClick={onClick}
-      className={cn("inline-flex h-5.5 items-center gap-1 rounded px-1.5 text-[11px] tabular-nums", on ? "bg-foreground/10 text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground")}
+      className={cn("inline-flex h-5.5 items-center gap-1 rounded px-1.5 text-tag tabular-nums", on ? "bg-foreground/10 text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground")}
     >
       {children}
     </button>
@@ -241,7 +241,7 @@ function FilterBar({ children, filter, onFilter }: { children: React.ReactNode; 
         onChange={(e) => onFilter(e.target.value)}
         placeholder="Filter"
         spellCheck={false}
-        className="h-5.5 w-36 min-w-0 rounded border bg-background px-1.5 text-[11px] outline-none placeholder:text-muted-foreground/70 focus:border-ring"
+        className="h-5.5 w-36 min-w-0 rounded border bg-background px-1.5 text-tag outline-none placeholder:text-muted-foreground/70 focus:border-ring"
       />
       <span className="mx-0.5 h-3.5 w-px bg-border" />
       {children}
@@ -293,7 +293,7 @@ function ConsoleList({ log, agent, sending, onSend }: { log?: PaneLog; agent?: b
           const el = e.currentTarget;
           pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
         }}
-        className="min-h-0 flex-1 overflow-y-auto font-mono text-[11.5px] leading-[1.45]"
+        className="min-h-0 flex-1 overflow-y-auto font-mono text-mono"
       >
         {log?.dropped ? <p className="border-b px-3 py-1 text-muted-foreground">{log.dropped} earlier messages were dropped: the page logged faster than they could be kept.</p> : null}
         {shown.map((e) => (
@@ -365,12 +365,12 @@ function ConsoleRowView({ e, sending, onSend }: { e: ConsoleEntry; sending: bool
         <div className={cn("whitespace-pre-wrap break-words", stack && "cursor-pointer")} onClick={stack ? () => setOpen((o) => !o) : undefined}>
           {e.text}
         </div>
-        {open && e.stack && <pre className="mt-0.5 whitespace-pre-wrap break-all pl-2 text-[11px] opacity-75">{e.stack}</pre>}
+        {open && e.stack && <pre className="mt-0.5 whitespace-pre-wrap break-all pl-2 text-tag opacity-75">{e.stack}</pre>}
       </div>
-      {e.count > 1 && <span className="mt-px shrink-0 rounded-full bg-foreground/10 px-1.5 text-[10px] tabular-nums">{e.count}</span>}
+      {e.count > 1 && <span className="mt-px shrink-0 rounded-full bg-foreground/10 px-1.5 text-tag tabular-nums">{e.count}</span>}
       {e.at && (
         <Tip label={<span className="break-all font-mono">{e.at}</span>} side={DOWN} className="max-w-md">
-          <span className="mt-px max-w-48 shrink-0 truncate text-[11px] text-muted-foreground underline decoration-dotted underline-offset-2">{shortAt(e.at)}</span>
+          <span className="mt-px max-w-48 shrink-0 truncate text-tag text-muted-foreground underline decoration-dotted underline-offset-2">{shortAt(e.at)}</span>
         </Tip>
       )}
       {sendable && <SendButton onClick={() => onSend(e)} />}
@@ -388,7 +388,7 @@ function SendButton({ onClick }: { onClick(): void }) {
           ev.stopPropagation();
           onClick();
         }}
-        className="-my-0.5 inline-flex h-5 shrink-0 items-center gap-1 rounded border bg-background px-1.5 font-sans text-[10.5px] text-foreground opacity-0 shadow-xs hover:bg-accent focus-visible:opacity-100 group-hover:opacity-100 group-data-[selected=true]:opacity-100"
+        className="-my-0.5 inline-flex h-5 shrink-0 items-center gap-1 rounded border bg-background px-1.5 font-sans text-tag text-foreground opacity-0 shadow-xs hover:bg-accent focus-visible:opacity-100 group-hover:opacity-100 group-data-[selected=true]:opacity-100"
       >
         <SendIcon className="size-3" />
         Send to agent
@@ -424,9 +424,9 @@ function NetworkList({ log, pageUrl, proxied, agent, sending, onSend }: { log?: 
           Failed {failures}
         </Chip>
       </FilterBar>
-      <div role="table" aria-label="Requests" data-testid="devtools-network" className="min-h-0 flex-1 overflow-y-auto text-[11.5px]">
+      <div role="table" aria-label="Requests" data-testid="devtools-network" className="min-h-0 flex-1 overflow-y-auto text-meta">
         {proxied && list.length > 0 && (
-          <div role="row" className={cn(COLS, "sticky top-0 z-[1] border-b bg-background px-2 py-1 font-medium text-[10.5px] text-muted-foreground")}>
+          <div role="row" className={cn(COLS, "sticky top-0 z-[1] border-b bg-background px-2 py-1 font-medium text-tag text-muted-foreground")}>
             <span role="columnheader">Status</span>
             <span role="columnheader">Method</span>
             <span role="columnheader">Path</span>
@@ -513,7 +513,7 @@ function RequestDetail({ n, pageUrl }: { n: NetEntry; pageUrl: string }) {
     // The path alone.
   }
   return (
-    <div ref={box} className="space-y-1 border-b bg-muted/40 px-3 py-2 font-mono text-[11px]">
+    <div ref={box} className="space-y-1 border-b bg-muted/40 px-3 py-2 font-mono text-tag">
       <p className="break-all">{url}</p>
       <p className="text-muted-foreground">
         {statusText(n)}
@@ -559,8 +559,8 @@ function Sender({ sending, pageUrl, ctx, agent, onDone }: { sending: Sending; pa
       }}
     >
       <SendIcon className="size-3.5 shrink-0 text-muted-foreground" />
-      <Tip label={<pre className="max-h-64 max-w-lg overflow-hidden whitespace-pre-wrap break-all font-mono text-[11px]">{message}</pre>} side={DOWN} className="max-w-lg">
-        <span className="max-w-[40%] shrink-0 truncate font-mono text-[11px]">{summary}</span>
+      <Tip label={<pre className="max-h-64 max-w-lg overflow-hidden whitespace-pre-wrap break-all font-mono text-tag">{message}</pre>} side={DOWN} className="max-w-lg">
+        <span className="max-w-[40%] shrink-0 truncate font-mono text-tag">{summary}</span>
       </Tip>
       <input
         autoFocus
@@ -569,7 +569,7 @@ function Sender({ sending, pageUrl, ctx, agent, onDone }: { sending: Sending; pa
         onChange={(e) => setNote(e.target.value)}
         placeholder={session ? "Add a note (optional)" : "No agent runs in this worktree"}
         disabled={!session}
-        className="h-6 min-w-0 flex-1 rounded border bg-background px-2 text-xs outline-none focus:border-ring"
+        className="h-6 min-w-0 flex-1 rounded border bg-background px-2 text-meta outline-none focus:border-ring"
       />
       <Button type="submit" size="xs" disabled={!session || busy}>
         <SendIcon />

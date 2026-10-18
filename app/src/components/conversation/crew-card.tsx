@@ -105,33 +105,33 @@ export function CrewCard({ crew, teammates = [], chat }: { crew: CrewMember[]; t
           className="-my-1 flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <UsersIcon className={cn("size-3.5 shrink-0", working ? "text-muted-foreground" : "text-success")} aria-hidden />
-          <span className="shrink-0 font-medium text-[0.8125rem]">Crew</span>
-          <span className="shrink-0 text-muted-foreground/60 text-xs" aria-hidden>
+          <span className="shrink-0 font-medium text-desc">Crew</span>
+          <span className="shrink-0 text-muted-foreground/60 text-meta" aria-hidden>
             ·
           </span>
-          <span className="shrink-0 text-muted-foreground text-xs tabular-nums">{crew.length + teammates.length}</span>
-          <span className="shrink-0 text-muted-foreground/60 text-xs" aria-hidden>
+          <span className="shrink-0 text-muted-foreground text-meta tabular-nums">{crew.length + teammates.length}</span>
+          <span className="shrink-0 text-muted-foreground/60 text-meta" aria-hidden>
             ·
           </span>
-          <span className={cn("shrink-0 text-xs", working ? "text-info-foreground" : crew.length ? "text-success-foreground" : "text-muted-foreground")} data-crew-status>
+          <span className={cn("shrink-0 text-meta", working ? "text-info-foreground" : crew.length ? "text-success-foreground" : "text-muted-foreground")} data-crew-status>
             {working ? `${busy} working` : crew.length ? "All back" : `${teammates.length} teammate${teammates.length === 1 ? "" : "s"}`}
           </span>
           {asking > 0 && (
             <>
-              <span className="shrink-0 text-muted-foreground/60 text-xs" aria-hidden>
+              <span className="shrink-0 text-muted-foreground/60 text-meta" aria-hidden>
                 ·
               </span>
-              <span data-crew-needs className="shrink-0 text-warning-foreground text-xs">
+              <span data-crew-needs className="shrink-0 text-warning-foreground text-meta">
                 {asking} needs you
               </span>
             </>
           )}
           {!open && first && (
             <>
-              <span className="shrink-0 text-muted-foreground/60 text-xs" aria-hidden>
+              <span className="shrink-0 text-muted-foreground/60 text-meta" aria-hidden>
                 ·
               </span>
-              <span className="cv-shimmer min-w-0 truncate text-muted-foreground text-xs">{first.doing}</span>
+              <span className="cv-shimmer min-w-0 truncate text-muted-foreground text-meta">{first.doing}</span>
             </>
           )}
           <ChevronDownIcon className={cn("ml-auto size-3.5 shrink-0 text-muted-foreground transition-transform duration-200", open && "rotate-180")} aria-hidden />
@@ -147,11 +147,11 @@ export function CrewCard({ crew, teammates = [], chat }: { crew: CrewMember[]; t
                 <>
                   <StateGlyph state={c.state} />
                   <span className="min-w-0 max-w-[45%] shrink-0 truncate font-medium">{c.name.replace(/^Explore:\s*/, "")}</span>
-                  <span className="min-w-0 flex-1 truncate text-muted-foreground text-xs">{c.doing}</span>
-                  <span className="shrink-0 text-muted-foreground text-xs @max-[560px]:hidden">{KIND[c.kind]}</span>
+                  <span className="min-w-0 flex-1 truncate text-muted-foreground text-meta">{c.doing}</span>
+                  <span className="shrink-0 text-muted-foreground text-meta @max-[560px]:hidden">{KIND[c.kind]}</span>
                   {report && <span className="w-[3.75rem] shrink-0" aria-hidden />}
                   {/* Wide enough for "12m 00s" on one line. */}
-                  <span className="w-[3.75rem] shrink-0 whitespace-nowrap text-right font-mono text-muted-foreground text-xs tabular-nums">{elapsed((c.state === "finished" ? (c.until ?? now) : now) - c.since)}</span>
+                  <span className="w-[3.75rem] shrink-0 whitespace-nowrap text-right font-mono text-muted-foreground text-mono tabular-nums">{elapsed((c.state === "finished" ? (c.until ?? now) : now) - c.since)}</span>
                 </>
               );
               return (
@@ -164,7 +164,7 @@ export function CrewCard({ crew, teammates = [], chat }: { crew: CrewMember[]; t
                         data-helper={c.id}
                         onClick={(e) => openHelper(chat.box, chat.session, c.id, { from, title: c.name, event: e })}
                         aria-label={`${c.name}: open its conversation in a tab`}
-                        className="flex h-7 w-full items-center gap-2.5 rounded-md pr-1 pl-2 text-left text-[0.8125rem] outline-none hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring"
+                        className="flex h-7 w-full items-center gap-2.5 rounded-md pr-1 pl-2 text-left text-desc outline-none hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         {row}
                         <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/row:opacity-0 group-focus-within/row:opacity-100" />
@@ -176,7 +176,7 @@ export function CrewCard({ crew, teammates = [], chat }: { crew: CrewMember[]; t
                             type="button"
                             data-crew-report={c.id}
                             onClick={() => showInChat(key, report.id)}
-                            className="absolute top-1 right-[6.125rem] inline-flex h-5 w-[3.5rem] items-center justify-center gap-1 rounded-md border bg-background text-[0.6875rem] text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                            className="absolute top-1 right-[6.125rem] inline-flex h-5 w-[3.5rem] items-center justify-center gap-1 rounded-md border bg-background text-tag text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             <span className={cn(`am-c-${senderColor(report.msg.from, i)}`, "size-1.5 rounded-full bg-(--am)")} aria-hidden />
                             {report.msg.status === "failed" ? "Failed" : "Report"}
@@ -196,7 +196,7 @@ export function CrewCard({ crew, teammates = [], chat }: { crew: CrewMember[]; t
                       </Tip>
                     </>
                   ) : (
-                    <div className="flex h-7 items-center gap-2.5 rounded-md pr-[1.375rem] pl-2 text-[0.8125rem]">{row}</div>
+                    <div className="flex h-7 items-center gap-2.5 rounded-md pr-[1.375rem] pl-2 text-desc">{row}</div>
                   )}
                 </li>
               );
@@ -208,20 +208,20 @@ export function CrewCard({ crew, teammates = [], chat }: { crew: CrewMember[]; t
                     type="button"
                     data-teammate={t.id}
                     onClick={() => showInChat(key, t.lastId)}
-                    className="flex h-7 w-full items-center gap-2.5 rounded-md pr-[1.375rem] pl-2 text-left text-[0.8125rem] outline-none hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex h-7 w-full items-center gap-2.5 rounded-md pr-[1.375rem] pl-2 text-left text-desc outline-none hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <Avatar from={{ id: t.id, name: t.name, kind: "teammate", color: t.color }} color={senderColor({ id: t.id, name: t.name, kind: "teammate", color: t.color })} className="size-4 rounded text-[0.5rem]" />
+                    <Avatar from={{ id: t.id, name: t.name, kind: "teammate", color: t.color }} color={senderColor({ id: t.id, name: t.name, kind: "teammate", color: t.color })} className="size-5 rounded" />
                     <span className="min-w-0 max-w-[45%] shrink-0 truncate font-medium">{t.name}</span>
-                    <span className="min-w-0 flex-1 truncate text-muted-foreground text-xs">{t.last}</span>
+                    <span className="min-w-0 flex-1 truncate text-muted-foreground text-meta">{t.last}</span>
                     {t.open ? (
-                      <span data-teammate-needs className="inline-flex shrink-0 items-center gap-1 text-warning-foreground text-xs">
+                      <span data-teammate-needs className="inline-flex shrink-0 items-center gap-1 text-warning-foreground text-meta">
                         <span className="size-1.5 rounded-full bg-warning" aria-hidden />
                         Needs you
                       </span>
                     ) : (
-                      <span className="shrink-0 text-muted-foreground text-xs @max-[560px]:hidden">Teammate</span>
+                      <span className="shrink-0 text-muted-foreground text-meta @max-[560px]:hidden">Teammate</span>
                     )}
-                    <span className="w-[3.75rem] shrink-0 whitespace-nowrap text-right text-muted-foreground text-xs tabular-nums">
+                    <span className="w-[3.75rem] shrink-0 whitespace-nowrap text-right text-muted-foreground text-meta tabular-nums">
                       {t.count} msg{t.count === 1 ? "" : "s"}
                     </span>
                   </button>

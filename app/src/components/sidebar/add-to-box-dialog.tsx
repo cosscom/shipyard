@@ -129,7 +129,7 @@ function Body({ project }: { project: Project }) {
       <DialogPanel className="flex flex-col gap-4">
         {phase === "form" ? (
           candidates.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Every online box already has {project.name}.</p>
+            <p className="text-muted-foreground text-body">Every online box already has {project.name}.</p>
           ) : (
             <>
               <Field>
@@ -144,11 +144,11 @@ function Body({ project }: { project: Project }) {
                 </FieldDescription>
               </Field>
               {kit && (
-                <label className="flex items-start gap-2.5 text-sm">
+                <label className="flex items-start gap-2.5 text-body">
                   <Checkbox className="mt-0.5" checked={applyKit} onCheckedChange={(v) => setApplyKit(!!v)} />
                   <span>
                     Also apply the {kit.name} kit
-                    <span className="block text-muted-foreground text-xs">Its setup, services and agents for this repository.</span>
+                    <span className="block text-muted-foreground text-meta">Its setup, services and agents for this repository.</span>
                   </span>
                 </label>
               )}
@@ -156,15 +156,15 @@ function Body({ project }: { project: Project }) {
           )
         ) : (
           <>
-            <pre ref={log} className="max-h-56 min-h-24 overflow-auto rounded-md bg-muted/60 p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
+            <pre ref={log} className="max-h-56 min-h-24 overflow-auto rounded-md bg-muted/60 p-3 font-mono text-mono whitespace-pre-wrap">
               {lines.join("\n") || "Starting…"}
             </pre>
             {phase === "done" && (
-              <p className="flex items-center gap-1.5 text-sm">
+              <p className="flex items-center gap-1.5 text-body">
                 <CheckIcon className="size-4 text-success" /> {project.name} is on {box}.
               </p>
             )}
-            {error && <ErrorText className="text-destructive-foreground text-sm" text={error} />}
+            {error && <ErrorText className="text-destructive-foreground text-body" text={error} />}
           </>
         )}
       </DialogPanel>

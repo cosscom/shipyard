@@ -38,7 +38,7 @@ Each returns a `Dispose`. Everything is also removed when the plugin unloads.
 | Call | What it does |
 | --- | --- |
 | `addScreen({ id, title, description?, layout?, Component })` | A screen under the app's header strip. `layout: "fill"` hands it the whole area. `Component` gets `{ berth }`. |
-| `addSidebarItem({ id, title, icon?, screen })` | A place that opens one of its screens, under the sidebar's **More** menu until the person pins it. `icon` is a [lucide](https://lucide.dev/icons) name. |
+| `addSidebarItem({ id, title, icon?, screen, useCount? })` | A place that opens one of its screens, under the sidebar's **More** menu until the person pins it. `icon` is a [lucide](https://lucide.dev/icons) name. `useCount` puts a [count on its row](#sidebar-counts). |
 | `addWorktreePanel({ id, title, icon?, Component })` | A view about one worktree, opened as a tab or split. `Component` gets `{ berth, box, location, worktree, path, main? }`. |
 | `addWorktreeSection({ id, title?, Component })` | A [section under the composer](#worktree-sections) where work starts in a worktree. `Component` gets `{ berth, box, location, worktree, path, main? }`. |
 | `addHomeWidget({ id, title, icon?, sizes, Component, … })` | A [widget for Home's grid](#home-widgets), in its **Add widget** picker under your plugin's name. `Component` gets `{ berth, size, visible, preview? }`. |
@@ -88,6 +88,30 @@ export default definePlugin((berth) => {
 ```
 
 The `hello-ports` example plugin adds one too: the ports open in the worktree, as buttons.
+
+### Sidebar counts
+
+A sidebar item's `useCount` is a hook for the count on its row, shaped like a [Home widget's](#home-widgets): a number, or `{ n, urgent }`. Use it for something waiting on the person, such as sessions waiting for a reply, which Home's own count doesn't see.
+
+- A count shows in amber, like Home's agents waiting. `urgent: false` shows it quiet instead, like Review's.
+- 0 or `undefined` shows no count.
+- While the item is under **More**, an amber count shows on More's row too.
+- The app calls it on every render, under your plugin's context like your components, so the SDK's hooks work in it. Keep it cheap: read a value you keep up to date, don't fetch in it.
+- A `useCount` that throws shows no count and is logged in the console. The rest of the sidebar carries on.
+
+```tsx
+import { definePlugin, useStorage } from "@berth/plugin";
+
+export default definePlugin((berth) => {
+  berth.addSidebarItem({
+    id: "intake",
+    title: "Intake",
+    icon: "Inbox",
+    screen: "intake",
+    useCount: () => useStorage<number>("waiting", 0)[0],
+  });
+});
+```
 
 ### Home widgets
 

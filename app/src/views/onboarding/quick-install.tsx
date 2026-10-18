@@ -75,8 +75,8 @@ export function QuickInstall({ target, onClose, onReady, readyLabel }: { target?
               <ServerIcon className="size-4" />
             </span>
             <div className="min-w-0">
-              <DialogTitle className="truncate text-base leading-tight">{title}</DialogTitle>
-              <DialogDescription className="mt-0.5 text-xs">{sub}</DialogDescription>
+              <DialogTitle className="truncate text-heading">{title}</DialogTitle>
+              <DialogDescription className="mt-0.5 text-meta">{sub}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
@@ -87,7 +87,7 @@ export function QuickInstall({ target, onClose, onReady, readyLabel }: { target?
             ))}
           </ol>
           {question && (
-            <div data-testid="quick-question" className="mt-3 rounded-lg border bg-info/6 px-3 py-2 text-xs leading-relaxed">
+            <div data-testid="quick-question" className="mt-3 rounded-lg border bg-info/6 px-3 py-2 text-meta">
               <span className="font-medium">{where} needs an answer.</span> Answer in the terminal below and press <Kbd>↵</Kbd>.
             </div>
           )}
@@ -99,7 +99,7 @@ export function QuickInstall({ target, onClose, onReady, readyLabel }: { target?
           {run.failure && run.state === "failed" && <FailurePanel failure={run.failure} identity={identity} setIdentity={setIdentity} onRetry={(trust) => run.start(request({ trust_host_key: trust ?? target?.trust_host_key }))} />}
           {run.state === "failed" && !showTerminal && (
             <div className="mt-3">
-              <button type="button" className="flex items-center gap-1 text-muted-foreground text-xs hover:text-foreground" aria-expanded={output} onClick={() => setOutput((o) => !o)}>
+              <button type="button" className="flex items-center gap-1 text-muted-foreground text-meta hover:text-foreground" aria-expanded={output} onClick={() => setOutput((o) => !o)}>
                 <ChevronRightIcon className={cn("size-3.5 transition-transform", output && "rotate-90")} /> {output ? "Hide" : "Show"} what the box printed
               </button>
               {output && (
@@ -162,8 +162,8 @@ function QuickRow({ step: s, run, host, user, busy, agents, needed, onRetry }: {
     <li data-testid={`quick-step-${s.id}`} data-state={s.state} data-needs={s.needs ?? ""} className={cn("rounded-lg px-2 py-1.5", (needed || s.needs === "ask") && "bg-warning/8", s.state === "fail" && "bg-destructive/6")}>
       <div className="flex min-w-0 items-center gap-2.5">
         <StepIcon state={s.state} />
-        <span className={cn("shrink-0 text-[13px]", (s.state === "todo" || s.state === "skip") && "text-muted-foreground", s.state === "running" && "font-medium")}>{s.id === "tools" ? "tmux and git" : s.title}</span>
-        <span className="min-w-0 truncate text-muted-foreground text-xs">{message ?? hint(s, agents)}</span>
+        <span className={cn("shrink-0 text-desc", (s.state === "todo" || s.state === "skip") && "text-muted-foreground", s.state === "running" && "font-medium")}>{s.id === "tools" ? "tmux and git" : s.title}</span>
+        <span className="min-w-0 truncate text-muted-foreground text-meta">{message ?? hint(s, agents)}</span>
         {s.sudo && s.state !== "skip" && (
           <Badge variant="warning" size="sm" className="ms-auto shrink-0">
             <KeyRoundIcon /> sudo
@@ -171,14 +171,14 @@ function QuickRow({ step: s, run, host, user, busy, agents, needed, onRetry }: {
         )}
       </div>
       {needed && (
-        <p data-testid="quick-password" className="mt-1 ml-7.5 text-xs leading-relaxed">
+        <p data-testid="quick-password" className="mt-1 ml-7.5 text-meta">
           Type it in the terminal below and press <Kbd>↵</Kbd>; nothing shows as you type. It goes to sudo on {host}: Shipyard never sees it or keeps it.
         </p>
       )}
       {s.needs === "ask" && s.state === "running" && <LingerChoice run={run} user={user} host={host} question={s.question} />}
       {s.state === "fail" && (
         <div className="mt-1.5 ml-7.5 space-y-2">
-          {s.message && <p className="text-destructive-foreground text-xs leading-relaxed">{s.message}</p>}
+          {s.message && <p className="text-destructive-foreground text-meta">{s.message}</p>}
           {s.command && <CommandLine command={s.command} />}
           {!busy && (
             <Button size="xs" data-testid={`quick-retry-${s.id}`} onClick={onRetry}>
@@ -199,7 +199,7 @@ function LingerChoice({ run, user, host }: { run: InstallRun; user: string; host
   useEffect(() => yes.current?.focus(), []);
   return (
     <div data-testid="quick-linger" className="mt-1.5 ml-7.5 space-y-2">
-      <p className="text-xs leading-relaxed">
+      <p className="text-meta">
         {host} needs root to keep berthd running after you log out: sudo asks for {user}'s password, once. Without it, berthd stops when your last login there ends, and the box goes offline until you log in again.
       </p>
       <div className="flex flex-wrap gap-2">
@@ -220,7 +220,7 @@ export function InlineAgents({ value, onChange, disabled }: { value: string[]; o
   const offered = useAgentCatalog().filter((a) => a.offered);
   if (!offered.length) return <div className="mt-2 h-4" />;
   return (
-    <div data-testid="inline-agents" className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
+    <div data-testid="inline-agents" className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-meta">
       <span className="text-muted-foreground">Agents</span>
       {offered.map((a) => {
         const on = value.includes(a.id);

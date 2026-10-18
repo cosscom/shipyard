@@ -29,7 +29,7 @@ export function TerminalSection() {
   return (
     <SettingsPage
       title="Terminal"
-      description="Applies to every terminal pane; open ones update as you change these."
+      description="Every terminal pane. Open ones update as you change these."
       actions={
         <Button size="xs" variant="ghost" className="text-muted-foreground" onClick={() => setTerminalPrefs(DEFAULT_TERMINAL_PREFS)}>
           Restore defaults

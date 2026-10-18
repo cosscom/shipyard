@@ -18,8 +18,8 @@ export function TeamSuggestLine({ box, location }: { box: string; location: stri
     <section aria-label="Team setup" data-testid="team-suggest-line" className="flex items-start gap-3 rounded-xl border bg-card/40 px-4 py-3">
       <UsersRoundIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1">
-        <h2 className="font-medium text-sm">Team setup</h2>
-        <p className="mt-0.5 text-muted-foreground text-xs leading-relaxed">
+        <h2 className="text-section">Team setup</h2>
+        <p className="mt-0.5 text-desc text-muted-foreground">
           {sentence(setsUpLine(s, p))}{" "}
           {p.kit_applied ? `This project follows its kit; the rest waits until you review it.` : "Nothing changes here until you review it and set it up."}
         </p>

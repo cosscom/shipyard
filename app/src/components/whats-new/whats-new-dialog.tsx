@@ -1,6 +1,7 @@
 import { XIcon } from "lucide-react";
 import { Suspense } from "react";
 
+import { Tip } from "@/components/tip";
 import { Button } from "@/components/ui/button";
 import { lazyView } from "@/lib/lazy-view";
 import { dismissNudge, openWhatsNew, useWhatsNew } from "@/lib/whats-new";
@@ -19,27 +20,22 @@ export function WhatsNewDialog() {
   );
 }
 
-// WhatsNewNudge is the note at the foot of the sidebar after an update.
-
+// WhatsNewNudge is the note at the foot of the sidebar after an update: one
+// quiet line above the boxes, what's in it in its tip.
 export function WhatsNewNudge() {
   const { nudge, release } = useWhatsNew();
   if (!nudge || !release) return null;
   const [a, b] = release.items;
   return (
-    <div className="mx-2 mb-2 flex flex-col gap-2 rounded-lg border bg-background p-3 shadow-xs" data-testid="whats-new-nudge" role="region" aria-label="What's new">
-      <div className="flex flex-col gap-0.5">
-        <div className="flex items-center gap-2">
-          <span className="min-w-0 flex-1 font-medium text-xs">New in Shipyard {release.version}</span>
-          <Button size="icon-xs" variant="ghost" aria-label="Dismiss" className="-my-1 -mr-1.5" onClick={dismissNudge}>
-            <XIcon />
-          </Button>
-        </div>
-        <span className="text-muted-foreground text-xs leading-snug">
-          {a.title}, {b.title.toLowerCase()} and more.
-        </span>
-      </div>
-      <Button size="xs" variant="outline" className="self-start" onClick={() => openWhatsNew("update", release)}>
+    <div className="flex h-7 shrink-0 items-center gap-0.5 pr-[11px] pl-3.5 text-meta" data-testid="whats-new-nudge" role="region" aria-label="What's new">
+      <Tip label={`${a.title}, ${b.title.toLowerCase()} and more.`} side="top" align="start">
+        <span className="min-w-0 flex-1 truncate pl-2.5 font-medium text-foreground/80">New in Shipyard {release.version}</span>
+      </Tip>
+      <Button size="xs" variant="ghost" className="shrink-0 px-1.5 font-medium text-foreground" onClick={() => openWhatsNew("update", release)}>
         See what's new
+      </Button>
+      <Button size="icon-xs" variant="ghost" aria-label="Dismiss" className="shrink-0 text-muted-foreground" onClick={dismissNudge}>
+        <XIcon />
       </Button>
     </div>
   );

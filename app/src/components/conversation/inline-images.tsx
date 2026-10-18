@@ -78,7 +78,7 @@ function Picture({ src, alt, draft }: { src: string; alt: string; draft: boolean
   return (
     <span role="group" aria-label={alt || fileName(path)} data-testid="chat-worktree-image" data-path={path} className="my-3 block max-w-xl overflow-hidden rounded-lg border bg-card shadow-xs/5">
       {source ? (
-        <span className="block overflow-x-auto p-3 font-mono text-xs text-muted-foreground">{written}</span>
+        <span className="block overflow-x-auto p-3 font-mono text-mono text-muted-foreground">{written}</span>
       ) : state.kind === "ready" ? (
         <button type="button" aria-label={`Open ${alt || fileName(path)}`} onClick={open} className="flex max-h-80 w-full items-center justify-center overflow-hidden bg-[repeating-conic-gradient(color-mix(in_oklab,var(--muted)_70%,transparent)_0%_25%,transparent_0%_50%)] bg-size-[16px_16px] outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <img src={state.url} alt={alt || fileName(path)} className="max-h-80 max-w-full object-contain" />
@@ -86,7 +86,7 @@ function Picture({ src, alt, draft }: { src: string; alt: string; draft: boolean
       ) : (
         <span className="flex h-40 items-center justify-center text-muted-foreground"><Spinner className="size-4" /></span>
       )}
-      <span className="flex min-h-8 items-center gap-2 border-t px-2.5 py-1 text-xs">
+      <span className="flex min-h-8 items-center gap-2 border-t px-2.5 py-1 text-meta">
         <ImageIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
         <span className="min-w-0 flex-1 truncate">{alt || fileName(path)}</span>
         <button type="button" onClick={() => setSource((v) => !v)} className="rounded px-1.5 py-0.5 text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">{source ? "Image" : "Source"}</button>

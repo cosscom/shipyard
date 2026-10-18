@@ -29,10 +29,10 @@ export function JoinTeamCard() {
   const ref = teamRef(v);
   return (
     <section aria-label="Joining a team?" className="mt-2 rounded-xl border bg-card/40 px-4 py-3.5">
-      <h2 className="flex items-center gap-2 font-medium text-sm">
+      <h2 className="flex items-center gap-2 text-section">
         <GitHubMark className="size-3.5" /> Joining a team?
       </h2>
-      <p className="mt-0.5 text-muted-foreground text-xs leading-relaxed">Type your company's GitHub org, or paste a link to a team setup. Shipyard sets your box up the way the team's are: tools, services and repos.</p>
+      <p className="mt-0.5 text-desc text-muted-foreground">Type your company's GitHub org, or paste a link to a team setup. Shipyard sets your box up the way the team's are: tools, services and repos.</p>
       <form
         className="mt-3 flex gap-2"
         onSubmit={(e) => {
@@ -58,8 +58,8 @@ export function TeamBoxEntry({ onPick }: { onPick(): void }) {
         <GitHubMark />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block font-medium text-sm">Set this box up for a team</span>
-        <span className="block text-muted-foreground text-xs">Your company's team setup from GitHub: its tools, services and repos, in one go.</span>
+        <span className="block text-row">Set this box up for a team</span>
+        <span className="block text-desc text-muted-foreground">Your company's team setup from GitHub: its tools, services and repos, in one go.</span>
       </span>
       <ArrowRightIcon className="size-4 text-muted-foreground" />
     </button>
@@ -85,7 +85,7 @@ export function TeamSidebarCard() {
         onClick={() => useStore.getState().setView({ kind: "team", org: keyOf(useTeam.getState(), run), box: run.box, from: "sidebar" })}
         className={cn("mx-2 mt-3 block w-[calc(100%-16px)] rounded-lg border bg-card px-2.5 py-2 text-left hover:bg-accent/40", view.kind === "team" && "border-foreground/20")}
       >
-        <span className="flex items-center gap-1.5 font-medium text-[12px]">
+        <span className="flex items-center gap-1.5 text-label">
           {sum.tone === "failed" ? <CircleAlertIcon className="size-3.5 text-destructive" /> : sum.tone === "waiting" ? <KeyRoundIcon className="size-3.5 text-warning-foreground" /> : done ? <GitHubMark className="size-3.5" /> : <Spinner className="size-3.5" />}
           <span className="min-w-0 flex-1 truncate">{done ? `Set up for ${run.name}` : `${run.name} on ${run.box}`}</span>
         </span>
@@ -98,9 +98,9 @@ export function TeamSidebarCard() {
           {run.projects
             .filter((p) => p.state !== "skipped")
             .map((p) => (
-              <span key={p.id} className="flex items-center gap-1.5 text-[11.5px]">
+              <span key={p.id} className="flex items-center gap-1.5 text-meta">
                 <span className={cn("min-w-0 flex-1 truncate", p.state === "queued" && "text-muted-foreground")}>{p.id}</span>
-                <span className={cn("flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground", p.state === "ready" && "rounded bg-info/15 px-1 font-medium text-info-foreground", p.state === "failed" && "text-destructive-foreground")}>
+                <span className={cn("flex shrink-0 items-center gap-1 text-tag text-muted-foreground", p.state === "ready" && "rounded bg-info/15 px-1 font-medium text-info-foreground", p.state === "failed" && "text-destructive-foreground")}>
                   {(p.state === "cloning" || p.state === "setting-up") && <Spinner className="size-2.5" />}
                   {REPO_WORDS[p.state]}
                 </span>
@@ -115,11 +115,11 @@ export function TeamSidebarCard() {
     const name = useTeam.getState().accepted.find((a) => (a.key ?? a.org) === org)?.name ?? org;
     return (
       <div data-testid="team-update-card" className="mx-2 mt-3 rounded-lg border bg-card px-2.5 py-2">
-        <p className="flex items-center gap-1.5 font-medium text-[12px]">
+        <p className="flex items-center gap-1.5 text-label">
           <GitHubMark className="size-3.5" />
           <span className="min-w-0 flex-1 truncate">{name}'s setup changed</span>
         </p>
-        <p className="mt-0.5 text-[11.5px] text-muted-foreground">
+        <p className="mt-0.5 text-meta text-muted-foreground">
           {u.changes.length} changes · {u.from} → {u.to}
           {u.sudo.length ? " · asks for your password" : ""}
         </p>

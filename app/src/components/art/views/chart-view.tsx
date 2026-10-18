@@ -70,7 +70,7 @@ export default function ChartView({ body, size, height }: Pick<ViewProps, "body"
     <div className="flex h-full min-h-0 flex-1 flex-col gap-3" data-chart-type={spec.type}>
       {(spec.subtitle || legend(spec).length > 0) && (
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          {spec.subtitle && <p className="text-muted-foreground text-xs">{spec.subtitle}</p>}
+          {spec.subtitle && <p className="text-muted-foreground text-meta">{spec.subtitle}</p>}
           <Legend spec={spec} />
         </div>
       )}
@@ -83,7 +83,7 @@ export default function ChartView({ body, size, height }: Pick<ViewProps, "body"
       </div>
       <Changes spec={spec} />
       {spec.notes?.length ? (
-        <ul className="list-disc ps-4 text-muted-foreground text-xs">
+        <ul className="list-disc ps-4 text-muted-foreground text-meta">
           {spec.notes.map((n) => (
             <li key={n}>{n}</li>
           ))}
@@ -276,7 +276,7 @@ function Heatmap({ p, units, thumb }: { p: Extract<ChartPlan, { type: "heatmap" 
         </tbody>
       </table>
       {!thumb && (
-        <div className="mt-2 flex items-center justify-end gap-1.5 text-[0.6875rem] text-muted-foreground">
+        <div className="mt-2 flex items-center justify-end gap-1.5 text-tag text-muted-foreground">
           <span className="tabular-nums">{fmt(p.min, units)}</span>
           {[1, 2, 3, 4, 5].map((l) => (
             <span key={l} className="h-2.5 w-5 rounded-[3px]" style={{ background: `var(--chart-scale-0${l})` }} />
@@ -292,7 +292,7 @@ function Legend({ spec }: { spec: BerthChart }) {
   const items = legend(spec);
   if (!items.length) return null;
   return (
-    <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs" aria-label="Legend">
+    <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-meta" aria-label="Legend">
       {items.map((s) => (
         <li key={s.label} className="flex items-center gap-1.5">
           <span className="size-2 rounded-full" style={{ background: s.color }} aria-hidden />
@@ -320,7 +320,7 @@ function Changes({ spec }: { spec: BerthChart }) {
         const good = spec.better === "higher" ? d > 0 : d < 0;
         const flat = Math.abs(d) < 0.005;
         return (
-          <li key={String(r[x])} className="inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-xs">
+          <li key={String(r[x])} className="inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-meta">
             <span className="text-muted-foreground">{String(r[x])}</span>
             <span className={cn("font-medium tabular-nums", flat ? "text-muted-foreground" : good ? "text-success-foreground" : "text-destructive-foreground")}>
               {flat ? "±0%" : `${d > 0 ? "+" : "−"}${Math.abs(Math.round(d * 100))}%`}
@@ -333,5 +333,5 @@ function Changes({ spec }: { spec: BerthChart }) {
 }
 
 function Broken({ why }: { why: string }) {
-  return <div className="flex h-full min-h-20 items-center justify-center rounded-md border border-dashed text-muted-foreground text-xs">{why}</div>;
+  return <div className="flex h-full min-h-20 items-center justify-center rounded-md border border-dashed text-muted-foreground text-meta">{why}</div>;
 }

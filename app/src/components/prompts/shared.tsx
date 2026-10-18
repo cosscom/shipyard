@@ -50,11 +50,11 @@ export function useTargetLabel(box: string, session: string) {
 // is marked, and what is still missing stands out.
 export function PromptPreview({ body, values, className }: { body: string; values: Record<string, string | undefined>; className?: string }) {
   return (
-    <div className={cn("whitespace-pre-wrap break-words rounded-lg border bg-muted/40 px-3 py-2.5 text-[13px] leading-relaxed", className)}>
+    <div className={cn("whitespace-pre-wrap break-words rounded-lg border bg-muted/40 px-3 py-2.5 text-desc", className)}>
       {segments(body, values).map((s, i) =>
         s.variable ? (
           <Tip key={i} label={s.missing ? `{{${s.variable}}} has no value yet` : `{{${s.variable}}}`}>
-            <span className={cn("rounded-[3px] px-0.5", s.missing ? "bg-warning/12 font-mono text-[12px] text-warning-foreground" : "bg-primary/10 text-foreground")}>{s.text}</span>
+            <span className={cn("rounded-[3px] px-0.5", s.missing ? "bg-warning/12 font-mono text-mono text-warning-foreground" : "bg-primary/10 text-foreground")}>{s.text}</span>
           </Tip>
         ) : (
           <span key={i}>{s.text}</span>
@@ -72,9 +72,9 @@ export function VariableFields({ vars, values, onChange, autoFocus }: { vars: Pr
     <div className="grid gap-3">
       {vars.map((v, i) => (
         <label key={v.name} className="flex min-w-0 flex-col gap-1.5">
-          <span className="flex items-baseline gap-2 font-medium text-[13px]">
+          <span className="flex items-baseline gap-2 font-medium text-desc">
             {variableLabel(v)}
-            <span className="font-mono font-normal text-[11px] text-muted-foreground">{`{{${v.name}}}`}</span>
+            <span className="font-mono font-normal text-tag text-muted-foreground">{`{{${v.name}}}`}</span>
           </span>
           {v.multiline ? (
             <Textarea autoFocus={autoFocus && i === 0} rows={3} value={values[v.name] ?? ""} placeholder={v.default} onChange={(e) => onChange(v.name, e.target.value)} />
@@ -108,7 +108,7 @@ export function PromptRow({ p, active, onPick, onHover }: { p: SavedPrompt; acti
       className={cn("flex w-full min-w-0 flex-col gap-0.5 rounded-md px-2.5 py-2 text-left outline-none", active ? "bg-accent" : "hover:bg-accent/50")}
     >
       <span className="flex min-w-0 items-center gap-2">
-        <span className="min-w-0 flex-1 truncate font-medium text-[13px]">{p.title}</span>
+        <span className="min-w-0 flex-1 truncate font-medium text-desc">{p.title}</span>
         {p.project && (
           <Badge size="sm" variant="info">
             project
@@ -120,7 +120,7 @@ export function PromptRow({ p, active, onPick, onHover }: { p: SavedPrompt; acti
           </Badge>
         ))}
       </span>
-      <span className="truncate text-muted-foreground text-xs">{p.body.replace(/\s+/g, " ")}</span>
+      <span className="truncate text-muted-foreground text-meta">{p.body.replace(/\s+/g, " ")}</span>
     </button>
   );
 }

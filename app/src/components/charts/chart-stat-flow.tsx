@@ -83,8 +83,8 @@ export function ChartStatFlow({
   formatOptions = defaultChartStatFlowFormat,
   prefix,
   suffix,
-  valueClassName = "text-2xl font-bold",
-  labelClassName = "text-xs",
+  valueClassName = "text-title font-bold",
+  labelClassName = "text-meta",
   icon,
 }: ChartStatFlowProps) {
   const numberFlowReady = useNumberFlowElementReady();

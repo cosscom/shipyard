@@ -3,7 +3,8 @@ import type { Page } from "@playwright/test";
 import { expect, mockOnly, test } from "./fixtures";
 
 // The sidebar with hundreds of worktrees (?bench=fleet, src/lib/mock-bench.ts:
-// 300 more over four boxes, each with an agent). Its rows sit in a RowLayer
+// 300 more over four boxes, each with an agent; 310 rows with the plain
+// fixtures', a main checkout with an agent at work among them). Its rows sit in a RowLayer
 // (components/sidebar/row-layer.tsx): one context menu and one tooltip for
 // all of them, and a row's buttons and menus made only once it is pointed
 // at or focused. What that keeps small is counted here, which doesn't move
@@ -35,7 +36,7 @@ test("300 worktrees: the sidebar stays small and its rows make no menus or toolt
   await app.open({ params: FLEET });
   const page = app.page;
   const sidebar = page.getByTestId("sidebar");
-  await expect(sidebar.getByTestId("worktree-row")).toHaveCount(309);
+  await expect(sidebar.getByTestId("worktree-row")).toHaveCount(310);
 
   // Nothing per row but the row: no tooltip, menu or context menu of its own.
   await expect(page.locator(ROOTS)).toHaveCount(0);
@@ -62,7 +63,7 @@ test("300 worktrees: the sidebar stays small and its rows make no menus or toolt
   // Its + and ⋯ menus (and at most the row the pointer came by).
   expect(await page.locator("[data-row-menu] [data-slot=menu-trigger]").count()).toBeLessThanOrEqual(4);
   await actions.click();
-  await expect(page.getByRole("menuitem", { name: /Copy path/ })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Copy", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menu")).toHaveCount(0);
 
@@ -90,7 +91,7 @@ test("the keyboard: Shift+F10 and the menu key open a row's menu, F2 renames it,
   await row.focus();
 
   await page.keyboard.press("Shift+F10");
-  await expect(page.getByRole("menuitem", { name: /Copy branch/ })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "New agent", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menu")).toHaveCount(0);
 
@@ -124,8 +125,8 @@ test("projects fold and open, and drag into a section", async ({ app }) => {
   await app.open({ params: FLEET });
   const page = app.page;
   const sidebar = page.getByTestId("sidebar");
-  await expect(sidebar.getByTestId("worktree-row")).toHaveCount(309);
-  const all = 309;
+  await expect(sidebar.getByTestId("worktree-row")).toHaveCount(310);
+  const all = 310;
 
   // The project's row is the tree's node (aria-expanded); its chevron is
   // the pointer's way to fold it, with a tip from the list's one tooltip,

@@ -1,26 +1,29 @@
+import type { SidebarItem } from "@berth/plugin";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
+  ClockIcon,
   EllipsisIcon,
   EyeIcon,
   EyeOffIcon,
   GitBranchIcon,
   GripVerticalIcon,
-  HouseIcon,
   InboxIcon,
   LayoutDashboardIcon,
   ListIcon,
   PackageIcon,
+  PenLineIcon,
   PinIcon,
   PinOffIcon,
   RotateCcwIcon,
   SlidersHorizontalIcon,
-  WorkflowIcon,
 } from "lucide-react";
-import { type ReactNode, useMemo } from "react";
+import { Component, Fragment, type ErrorInfo, type ReactNode, useEffect, useMemo, useRef } from "react";
 import { create } from "zustand";
 
 import { type Action, ContextRow } from "@/components/sidebar/actions";
+import { ink } from "@/components/sidebar/ink";
+import { selectedRow } from "@/components/sidebar/task-parts";
 import { Tip } from "@/components/tip";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
@@ -28,11 +31,15 @@ import { Sheet, SheetDescription, SheetFooter, SheetHeader, SheetPanel, SheetPop
 import { SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 import { useAgentCounts } from "@/hooks/use-agent-counts";
 import { arrange, type NavList, navActions, useNav } from "@/lib/nav";
+import { type NavBadge, readNavBadge } from "@/lib/nav-badge";
+import { platformKeys } from "@/lib/platform";
 import { usePrefs } from "@/lib/prefs";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { goHome, homeBox, useWorkspaces } from "@/lib/workspaces";
-import { useRegistry } from "@/plugins/registry";
+import { PluginReactContext } from "@/plugins/context";
+import { pluginContexts } from "@/plugins/plugin-boundary";
+import { type Contribution, useRegistry } from "@/plugins/registry";
 import { Icon } from "@/plugins/ui";
 import { useReviewCount } from "@/views/review/review-store";
 
@@ -48,14 +55,16 @@ export interface NavItem {
   active: boolean;
   // go opens the place. Every way in (a row, the rail, zen, ⌘K) calls it.
   go(): void;
-  badge?: { count: number; loud?: boolean; title: string };
+  badge?: NavBadge;
+  // A shortcut, said at the row's end in the sidebar.
+  keys?: string;
 }
 
 // useNavItems is every place there is, in its default order.
 //
 // Home is where you start work and see your agents. With Labs that is the
-// harbour home (a composer and your agents), and the Agent Dashboard is a
-// place of its own under More. Without Labs there is no harbour, so the
+// harbour home (a composer and your agents), so its row is "New task"; the
+// Agent Dashboard is a place of its own under More. Without Labs there is no harbour, so the
 // first place is the Agent Dashboard itself, under its own name.
 export function useNavItems(): NavItem[] {
   const view = useStore((s) => s.view);
@@ -63,6 +72,7 @@ export function useNavItems(): NavItem[] {
   const noWorktree = useWorkspaces((s) => !s.current || !!homeBox(s.current));
   const labs = usePrefs((p) => p.labs);
   const plugins = useRegistry((s) => s.sidebarItems);
+  const pluginBadges = usePluginBadges();
   const counts = useAgentCounts();
   const toReview = useReviewCount();
   return useMemo(() => {
@@ -73,23 +83,109 @@ export function useNavItems(): NavItem[] {
     const dashboard = { label: "Agent Dashboard", icon: <LayoutDashboardIcon />, go: open({ kind: "dashboard" }), active: view.kind === "dashboard" };
     const items: NavItem[] = [
       labs
-        ? { id: "home", label: "Home", icon: <HouseIcon />, go: goHome, active: view.kind === "workspace" && noWorktree, badge: waiting }
+        ? { id: "home", label: "New task", icon: <PenLineIcon />, go: goHome, active: view.kind === "workspace" && noWorktree, badge: waiting, keys: "⌘N" }
         : { id: "home", ...dashboard, badge: waiting },
       { id: "review", label: "Review", icon: <InboxIcon />, go: open({ kind: "review" }), active: view.kind === "review", badge: toReview ? { count: toReview, title: `${toReview} to review` } : undefined },
       { id: "worktrees", label: "Worktrees", icon: <GitBranchIcon />, go: open({ kind: "worktrees" }), active: view.kind === "worktrees" },
-      { id: "automations", label: "Automations", icon: <WorkflowIcon />, go: open({ kind: "automations" }), active: view.kind === "automations" },
+      { id: "automations", label: "Automations", icon: <ClockIcon />, go: open({ kind: "automations" }), active: view.kind === "automations" },
       ...(labs ? [{ id: "dashboard", ...dashboard }] : []),
       { id: "kits", label: "Kits", icon: <PackageIcon />, go: open({ kind: "kits" }), active: view.kind === "kits" },
       ...plugins.map(({ plugin, item }) => ({
-        id: `plugin:${plugin}:${item.id}`,
+        id: pluginNavId(plugin, item),
         label: item.title,
         icon: <Icon name={item.icon ?? "Puzzle"} />,
         go: open({ kind: "plugin", screen: item.screen }),
         active: view.kind === "plugin" && view.screen === item.screen,
+        badge: pluginBadges[pluginNavId(plugin, item)],
       })),
     ];
     return items;
-  }, [view, noWorktree, labs, plugins, counts.waiting, toReview]);
+  }, [view, noWorktree, labs, plugins, pluginBadges, counts.waiting, toReview]);
+}
+
+const pluginNavId = (plugin: string, item: SidebarItem) => `plugin:${plugin}:${item.id}`;
+
+// The badges plugin sidebar items have, by nav id. A list that changes
+// can't call a hook per item, so each item's useCount runs in its own
+// PluginNavCount, under its plugin's context like the plugin's components,
+// and puts what it says here.
+const usePluginBadges = create<Record<string, NavBadge>>()(() => ({}));
+
+// One key per contribution, so a plugin that reloads gets a fresh count and
+// a fresh boundary.
+const countKeys = new WeakMap<Contribution<SidebarItem>, number>();
+let nextCountKey = 0;
+const countKey = (c: Contribution<SidebarItem>) => {
+  let k = countKeys.get(c);
+  if (k === undefined) countKeys.set(c, (k = nextCountKey++));
+  return k;
+};
+
+// PluginNavCounts runs the plugins' sidebar counts. It draws nothing; App
+// mounts it once, so the sidebar, the rail and zen's switcher all see them.
+// What a count throws while its plugin is removed (an effect's cleanup)
+// passes its own boundary, which goes with it, so the outer one stays to
+// catch it there rather than in App's; it tries again when the list changes.
+export function PluginNavCounts() {
+  const items = useRegistry((s) => s.sidebarItems);
+  return (
+    <CountBoundary reset={items}>
+      {items.map((c) =>
+        c.item.useCount ? (
+          <PluginReactContext.Provider key={countKey(c)} value={pluginContexts.get(c.plugin) ?? null}>
+            <CountBoundary plugin={c.plugin}>
+              <PluginNavCount id={pluginNavId(c.plugin, c.item)} plugin={c.plugin} title={c.item.title} use={c.item.useCount} />
+            </CountBoundary>
+          </PluginReactContext.Provider>
+        ) : null,
+      )}
+    </CountBoundary>
+  );
+}
+
+function PluginNavCount({ id, plugin, title, use }: { id: string; plugin: string; title: string; use: NonNullable<SidebarItem["useCount"]> }) {
+  // Logged once, not on every render it fails in.
+  const logged = useRef(false);
+  const badge = readNavBadge(title, use, (err) => {
+    if (logged.current) return;
+    logged.current = true;
+    console.error(`plugin ${plugin}: the count for sidebar item ${title} failed`, err);
+  });
+  const count = badge?.count;
+  const loud = badge?.loud;
+  const tip = badge?.title;
+  useEffect(() => {
+    if (count === undefined || tip === undefined) return;
+    usePluginBadges.setState({ [id]: { count, loud, title: tip } });
+    return () =>
+      usePluginBadges.setState((s) => {
+        const { [id]: _, ...rest } = s;
+        return rest;
+      }, true);
+  }, [id, count, loud, tip]);
+  return null;
+}
+
+// CountBoundary is the backstop for a count that breaks React itself (a
+// hook called a different number of times): it logs, and the badge goes.
+class CountBoundary extends Component<{ plugin?: string; reset?: unknown; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error(this.props.plugin ? `plugin ${this.props.plugin}: a sidebar count failed` : "a plugin's sidebar count failed", error, info.componentStack);
+  }
+
+  componentDidUpdate(prev: { reset?: unknown }) {
+    if (this.state.failed && prev.reset !== this.props.reset) this.setState({ failed: false });
+  }
+
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
 }
 
 // useArrangedNav is the items in their lists.
@@ -157,14 +253,22 @@ function dragProps(id: string) {
 function RowBadge({ badge }: { badge: NonNullable<NavItem["badge"]> }) {
   return (
     <Tip label={badge.title} side="right">
-      <SidebarMenuBadge className={cn("top-1/2 h-4.5 min-w-4.5 -translate-y-1/2 peer-data-[size=sm]/menu-button:top-1/2 rounded-full px-1 text-[10px] leading-none", badge.loud ? "bg-warning/15 text-warning-foreground" : "bg-sidebar-accent text-sidebar-foreground")}>
+      <SidebarMenuBadge data-testid="nav-badge" className={cn("top-1/2 right-1.5 h-5 min-w-5 -translate-y-1/2 peer-data-[size=sm]/menu-button:top-1/2 rounded-full px-1 text-tag leading-none tabular-nums", badge.loud ? "bg-warning/15 text-warning-foreground" : ink.faint)}>
         {badge.count}
       </SidebarMenuBadge>
     </Tip>
   );
 }
 
-const rowClass = "h-side-row text-[13px] data-[active=true]:font-normal [&>svg]:size-3.5 [&>svg]:text-muted-foreground";
+// RowKeys is a place's shortcut at its row's end, where a count would be.
+export function RowKeys({ keys }: { keys: string }) {
+  return <span aria-hidden className={cn("pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-tag peer-data-[active=true]/menu-button:text-foreground", ink.faint)}>{platformKeys(keys)}</span>;
+}
+
+// A place's row, sized as Settings' nav: 28px at the default density, a
+// 14px icon and its name in text-desc, in the ordinary row's ink; the one
+// you are on is full ink on the selected tint.
+export const rowClass = cn("h-side-row gap-2 px-2 text-desc font-normal hover:text-foreground [&>svg]:size-3.5 [&>svg]:text-(color:--ink-glyph) data-[active=true]:[&>svg]:text-(color:--ink-row)", ink.row, selectedRow, "data-[active=true]:font-normal");
 
 function NavRow({ item, list, index, ids }: { item: NavItem; list: NavList; index: number; ids: string[] }) {
   const over = useDrag((s) => s.over);
@@ -174,11 +278,13 @@ function NavRow({ item, list, index, ids }: { item: NavItem; list: NavList; inde
     <SidebarMenuItem {...dropProps(list, index, ids)} className="relative">
       {before && <span className="pointer-events-none absolute inset-x-2 -top-px h-0.5 rounded-full bg-ring" />}
       <ContextRow items={() => navItemActions(item.id, list, ids)}>
-        <SidebarMenuButton size="sm" data-testid={`nav-${item.id}`} isActive={item.active} aria-current={item.active ? "page" : undefined} onClick={item.go} {...dragProps(item.id)} className={cn(rowClass, dragging && "opacity-40")}>
+        <SidebarMenuButton size="sm" data-testid={`nav-${item.id}`} isActive={item.active} aria-current={item.active ? "page" : undefined} onClick={item.go} {...dragProps(item.id)} className={cn(rowClass, item.keys && "font-medium data-[active=true]:font-medium", dragging && "opacity-40")}>
           {item.icon}
           <span>{item.label}</span>
         </SidebarMenuButton>
-        {item.badge && <RowBadge badge={item.badge} />}
+        {/* A shortcut wins over a count here: the rows below already show
+            who needs you, and the rail keeps the count. */}
+        {item.keys ? <RowKeys keys={item.keys} /> : item.badge ? <RowBadge badge={item.badge} /> : null}
       </ContextRow>
     </SidebarMenuItem>
   );
@@ -193,7 +299,7 @@ export function MoreItems({ more }: { more: NavItem[] }) {
         <MenuItem key={n.id} onClick={n.go} aria-current={n.active ? "page" : undefined} className={cn(n.active && "bg-accent/50 font-medium")}>
           <span className="flex size-4 items-center justify-center [&_svg]:size-4">{n.icon}</span>
           <span className="min-w-0 flex-1 truncate">{n.label}</span>
-          {n.badge && <span className={cn("text-xs tabular-nums", n.badge.loud ? "text-warning-foreground" : "text-muted-foreground")}>{n.badge.count}</span>}
+          {n.badge && <span className={cn("text-meta tabular-nums", n.badge.loud ? "text-warning-foreground" : "text-muted-foreground")}>{n.badge.count}</span>}
         </MenuItem>
       ))}
       {more.length > 0 && <MenuSeparator />}
@@ -208,25 +314,35 @@ export function MoreItems({ more }: { more: NavItem[] }) {
 // Nav is the top of the sidebar: the pinned places, then More, a menu of
 // the rest. More stays one row however many plugins there are; while you
 // are on one of its places it is highlighted and names it.
-export function Nav() {
+//
+// lead are the sidebar's own rows (New task without Labs, Search): they
+// follow Home when it comes first as New task, and otherwise lead. extra
+// goes at the foot of More's menu.
+export function Nav({ lead, extra }: { lead?: ReactNode; extra?: ReactNode } = {}) {
   const { pinned, more, ids } = useArrangedNav();
   const dragging = useDrag((s) => !!s.id);
   const over = useDrag((s) => s.over);
   const here = more.find((n) => n.active);
   const loud = more.find((n) => n.badge?.loud);
+  const afterHome = pinned[0]?.id === "home" && !!pinned[0].keys;
   return (
     <div>
       <SidebarMenu className="gap-px" {...dropProps("pinned", pinned.length, ids)}>
+        {!afterHome && lead}
         {pinned.map((item, i) => (
-          <NavRow key={item.id} item={item} list="pinned" index={i} ids={ids} />
+          <Fragment key={item.id}>
+            <NavRow item={item} list="pinned" index={i} ids={ids} />
+            {afterHome && i === 0 && lead}
+          </Fragment>
         ))}
-        {pinned.length === 0 && <li className="px-2 py-1 text-muted-foreground text-xs">Drag places here to pin them.</li>}
+        {pinned.length === 0 && <li className={cn("px-2 py-1 text-meta", ink.faint)}>Drag places here to pin them.</li>}
         <SidebarMenuItem {...dropProps("more", more.length, ids)} className="relative">
           <Menu>
             <MenuTrigger
               render={
                 <SidebarMenuButton
                   size="sm"
+                  data-testid="nav-more"
                   isActive={!!here}
                   className={cn(rowClass, "data-popup-open:bg-sidebar-accent", dragging && over?.list === "more" && "bg-sidebar-accent ring-1 ring-ring")}
                 />
@@ -237,10 +353,11 @@ export function Nav() {
             </MenuTrigger>
             <MenuPopup side="right" align="start" className="min-w-52">
               <MoreItems more={more} />
+              {extra}
             </MenuPopup>
           </Menu>
           {here ? (
-            <span className="pointer-events-none absolute top-1/2 right-2 max-w-24 -translate-y-1/2 truncate text-muted-foreground text-xs">{here.label}</span>
+            <span className={cn("pointer-events-none absolute top-1/2 right-2.5 max-w-28 -translate-y-1/2 truncate text-tag", ink.row)}>{here.label}</span>
           ) : loud?.badge ? (
             <RowBadge badge={loud.badge} />
           ) : null}
@@ -250,7 +367,7 @@ export function Nav() {
         <div
           {...dropProps("hidden", 0, ids)}
           className={cn(
-            "mt-1.5 flex h-8 items-center justify-center gap-1.5 rounded-md border border-dashed text-muted-foreground text-xs",
+            "mt-1.5 flex h-8 items-center justify-center gap-1.5 rounded-md border border-dashed text-meta text-muted-foreground",
             over?.list === "hidden" ? "border-ring bg-sidebar-accent text-foreground" : "border-sidebar-border",
           )}
         >
@@ -285,10 +402,10 @@ export function CustomizeSidebarSheet() {
         <SheetPanel className="flex flex-col gap-5">
           {lists.map(([list, title, items, hint]) => (
             <section key={list} {...dropProps(list, items.length, ids)}>
-              <h3 className="font-medium text-sm">{title}</h3>
-              <p className="mb-1.5 text-muted-foreground text-xs">{hint}</p>
+              <h3 className="text-row">{title}</h3>
+              <p className="mb-1.5 text-meta text-muted-foreground">{hint}</p>
               <ul className="flex min-h-9 flex-col gap-px rounded-lg border p-1">
-                {items.length === 0 && <li className="px-2 py-1.5 text-muted-foreground text-xs">Nothing here. Drag a place in.</li>}
+                {items.length === 0 && <li className="px-2 py-1.5 text-meta text-muted-foreground">Nothing here. Drag a place in.</li>}
                 {items.map((item, i) => (
                   <CustomizeRow key={item.id} item={item} list={list} index={i} count={items.length} ids={ids} />
                 ))}
@@ -319,7 +436,7 @@ function CustomizeRow({ item, list, index, count, ids }: { item: NavItem; list: 
     ] as [NavList, string, ReactNode][]
   ).filter(([l]) => l !== list);
   return (
-    <li {...dropProps(list, index, ids)} {...dragProps(item.id)} className="relative flex h-8 items-center gap-2 rounded-md px-1.5 text-sm hover:bg-accent/60">
+    <li {...dropProps(list, index, ids)} {...dragProps(item.id)} className="relative flex h-8 items-center gap-2 rounded-md px-1.5 text-body hover:bg-accent/60">
       {before && <span className="pointer-events-none absolute inset-x-1 -top-px h-0.5 rounded-full bg-ring" />}
       <GripVerticalIcon className="size-3.5 shrink-0 cursor-grab text-muted-foreground" />
       <span className="flex size-4 items-center justify-center text-muted-foreground [&_svg]:size-3.5">{item.icon}</span>

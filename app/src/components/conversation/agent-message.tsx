@@ -43,7 +43,7 @@ function initials(name: string) {
 export function Avatar({ from, color, className }: { from: MessageSender; color: string; className?: string }) {
   const Icon = from.kind === "lead" ? CrownIcon : from.kind === "session" ? SquareTerminalIcon : from.kind === "harness" ? CogIcon : BotIcon;
   return (
-    <span aria-hidden data-avatar={color} className={cn(`am-c-${color} am-avatar inline-flex size-5 shrink-0 items-center justify-center rounded-md font-semibold text-[0.5625rem]`, className)}>
+    <span aria-hidden data-avatar={color} className={cn(`am-c-${color} am-avatar inline-flex size-5 shrink-0 items-center justify-center rounded-md font-semibold text-tag`, className)}>
       {from.kind === "teammate" ? initials(from.name) : <Icon className="size-3" />}
     </span>
   );
@@ -91,7 +91,7 @@ export function KindChip({ chip, className }: { chip: Chip; className?: string }
     <span
       data-chip={chip.word}
       className={cn(
-        "inline-flex h-[1.125rem] shrink-0 items-center gap-1 rounded-[0.3125rem] border px-1.5 font-medium text-[0.6875rem] leading-none",
+        "inline-flex h-[1.125rem] shrink-0 items-center gap-1 rounded-[0.3125rem] border px-1.5 font-medium text-tag leading-none",
         chip.tone === "plain" && "border-border bg-muted/60 text-muted-foreground",
         chip.tone === "good" && "border-success/30 bg-success/8 text-success-foreground",
         chip.tone === "ask" && "border-warning/35 bg-warning/10 text-warning-foreground",
@@ -118,17 +118,17 @@ export function CardHead({ avatar, name, kind, chip, extra, took, tip, open }: {
       <span className="ml-0.5 min-w-0 shrink truncate font-medium" data-card-name>
         {name}
       </span>
-      {kind && <span className="hidden shrink-0 text-muted-foreground text-xs @[420px]:inline">{kind}</span>}
+      {kind && <span className="hidden shrink-0 text-muted-foreground text-meta @[420px]:inline">{kind}</span>}
       <KindChip chip={chip} className="ml-1" />
       {extra}
       {took && (
-        <span className="hidden shrink-0 items-center gap-1.5 text-muted-foreground text-xs tabular-nums @[520px]:inline-flex">
+        <span className="hidden shrink-0 items-center gap-1.5 text-muted-foreground text-meta tabular-nums @[520px]:inline-flex">
           <Dot />
           {took}
         </span>
       )}
       <Tip label={tip}>
-        <span data-to-agent className="ml-auto inline-flex shrink-0 items-center gap-1 pl-2 text-[0.75rem] text-muted-foreground">
+        <span data-to-agent className="ml-auto inline-flex shrink-0 items-center gap-1 pl-2 text-meta text-muted-foreground">
           <CornerDownLeftIcon className="size-3" aria-hidden />
           <span className="hidden @[360px]:inline">to {who}</span>
         </span>
@@ -208,7 +208,7 @@ export function AgentMessageCard({ it }: { it: MessageItem }) {
       role="group"
       aria-label={`${s.name}: ${chip.word.toLowerCase()}`}
       className={cn(
-        "cv-in flex w-[min(100%,40rem)] min-w-0 flex-col self-start overflow-hidden rounded-lg border bg-card text-[0.8125rem] shadow-xs/5 @container",
+        "cv-in flex w-[min(100%,40rem)] min-w-0 flex-col self-start overflow-hidden rounded-lg border bg-card text-desc shadow-xs/5 @container",
         (chip.tone === "ask" && asks) && "border-warning/50",
         chip.tone === "bad" && "border-destructive/35",
         chip.tone === "lead" && "am-c-orange am-border-tint",
@@ -222,14 +222,14 @@ export function AgentMessageCard({ it }: { it: MessageItem }) {
         extra={
           <>
             {asks && (
-              <span data-needs-you-mark className="inline-flex shrink-0 items-center gap-1 text-warning-foreground text-xs">
+              <span data-needs-you-mark className="inline-flex shrink-0 items-center gap-1 text-warning-foreground text-meta">
                 <span className="size-1.5 rounded-full bg-warning" aria-hidden />
                 needs you
               </span>
             )}
             {m.intent === "question" && m.answered && (
               <Tip label={`${who} answered it, or you wrote since`}>
-                <span data-answered className="inline-flex shrink-0 items-center gap-1 text-muted-foreground text-xs">
+                <span data-answered className="inline-flex shrink-0 items-center gap-1 text-muted-foreground text-meta">
                   <CheckIcon className="size-3" aria-hidden />
                   answered
                 </span>
@@ -237,7 +237,7 @@ export function AgentMessageCard({ it }: { it: MessageItem }) {
             )}
             {(m.repeat ?? 0) > 1 && (
               <Tip label={`Sent ${m.repeat} times`}>
-                <span className="shrink-0 rounded bg-muted px-1 text-[0.6875rem] text-muted-foreground tabular-nums">×{m.repeat}</span>
+                <span className="shrink-0 rounded bg-muted px-1 text-tag text-muted-foreground tabular-nums">×{m.repeat}</span>
               </Tip>
             )}
           </>
@@ -262,12 +262,12 @@ export function AgentMessageCard({ it }: { it: MessageItem }) {
           </>
         )}
         {open && (
-          <div data-am-full className={cn("am-report -mx-0.5 mt-1 text-[0.84rem]", big && "am-screen")}>
+          <div data-am-full className={cn("am-report -mx-0.5 mt-1 text-desc", big && "am-screen")}>
             <Markdown text={body} copy={false} />
           </div>
         )}
         {open && m.saved && (
-          <p className="mt-2 text-muted-foreground text-xs">
+          <p className="mt-2 text-muted-foreground text-meta">
             This is the start of it: the whole report was too long for the record, and Claude Code saved it to <code className="am-code">{m.saved}</code>.
           </p>
         )}
@@ -279,7 +279,7 @@ export function AgentMessageCard({ it }: { it: MessageItem }) {
                 {open ? (report ? "Fold report" : "Fold") : report ? "Read report" : "Read all"}
               </Button>
             )}
-            {long && !open && <span className="text-muted-foreground/70 text-xs tabular-nums">{lineCount(body)} lines</span>}
+            {long && !open && <span className="text-muted-foreground text-meta tabular-nums">{lineCount(body)} lines</span>}
             {open && big && (s.open && m.from.helper ? (
               <OpenButton open={s.open} tip={s.openTip} label="Open in tab" className="-ml-0.5" />
             ) : (
@@ -314,16 +314,16 @@ function ReportSheet({ it, name, color, onClose }: { it: MessageItem; name: stri
         <div className="flex flex-col gap-2 border-b px-6 pt-5 pb-4">
           <div className="flex items-center gap-2.5 pr-10">
             <Avatar from={m.from} color={color} />
-            <SheetTitle className="min-w-0 flex-1 truncate text-base">{m.title ?? name}</SheetTitle>
+            <SheetTitle className="min-w-0 flex-1 truncate text-heading">{m.title ?? name}</SheetTitle>
           </div>
-          <SheetDescription render={<div />} className="flex flex-wrap items-center gap-2 text-xs">
+          <SheetDescription render={<div />} className="flex flex-wrap items-center gap-2 text-meta">
             <KindChip chip={chipOf(m)} />
             <span>
               From {SENDER_WORD[m.from.kind].toLowerCase()} {name}, to the agent. You didn't type it.
             </span>
           </SheetDescription>
         </div>
-        <div data-am-sheet-body className="am-report min-h-0 flex-1 overflow-y-auto px-6 py-4 text-[0.875rem]">
+        <div data-am-sheet-body className="am-report min-h-0 flex-1 overflow-y-auto px-6 py-4 text-body">
           <Markdown text={m.body ?? ""} />
         </div>
       </SheetPopup>
@@ -354,7 +354,7 @@ export function PingLine({ it, inGroup }: { it: PingItem; inGroup?: boolean }) {
   const bad = m.status === "failed" || m.status === "stopped";
   const g = pingGlyph(m);
   return (
-    <div data-ping={m.status} className={cn("flex min-w-0 items-center gap-1.5 text-[0.78rem] text-muted-foreground", !inGroup && "cv-in -my-1")}>
+    <div data-ping={m.status} className={cn("flex min-w-0 items-center gap-1.5 text-meta text-muted-foreground", !inGroup && "cv-in -my-1")}>
       <g.Icon className={cn("size-3.5 shrink-0", g.className)} aria-hidden />
       <Tip label={m.from.kind === "harness" ? `Claude Code told ${who} this. You didn't type it.` : notYours(s.name, m.from, who)}>
         <span className={cn("min-w-0 truncate", bad && "text-destructive-foreground/90")}>{m.summary}</span>
@@ -367,7 +367,7 @@ export function PingLine({ it, inGroup }: { it: PingItem; inGroup?: boolean }) {
       )}
       {(m.repeat ?? 0) > 1 && (
         <Tip label={`Claude Code said this ${m.repeat} times`}>
-          <span data-ping-repeat className="shrink-0 rounded bg-muted px-1 text-[0.6875rem] tabular-nums">
+          <span data-ping-repeat className="shrink-0 rounded bg-muted px-1 text-tag tabular-nums">
             ×{m.repeat}
           </span>
         </Tip>
@@ -384,7 +384,7 @@ export function PingGroup({ items }: { items: PingItem[] }) {
   const names = items.map((p) => p.msg.summary?.replace(/\s+(finished|completed).*$/i, "")).filter(Boolean);
   return (
     <div data-ping-group={items.length} className="cv-in -my-1 flex min-w-0 flex-col gap-1.5">
-      <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="-ml-1 inline-flex min-w-0 items-center gap-1.5 self-start rounded-md px-1 py-0.5 text-[0.78rem] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+      <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="-ml-1 inline-flex min-w-0 items-center gap-1.5 self-start rounded-md px-1 py-0.5 text-meta text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
         <CheckIcon className="size-3.5 shrink-0 text-success" aria-hidden />
         <span className="shrink-0">{items.length} finished</span>
         {!open && (
@@ -412,7 +412,7 @@ export function PingGroup({ items }: { items: PingItem[] }) {
 // worked.
 export function MidTurnMark({ who }: { who: string }) {
   return (
-    <span data-mid-turn className="pe-1 text-muted-foreground text-xs">
+    <span data-mid-turn className="pe-1 text-muted-foreground text-meta">
       Sent while {who === "The agent" ? "the agent" : who} was working
     </span>
   );

@@ -32,8 +32,8 @@ export function TeamDone({ view, run, onShowPlan, onReviewUpdate }: { view: Team
           <div className="flex items-center gap-4">
             <OrgAvatar org={view.org} size={44} />
             <div className="min-w-0">
-              <h1 className="font-semibold text-2xl tracking-tight">You're set up for {name}</h1>
-              <p className="mt-0.5 text-muted-foreground text-sm">
+              <h1 className="text-title">You're set up for {name}</h1>
+              <p className="mt-0.5 text-muted-foreground text-subtitle">
                 {run.box} matches {name}'s team setup at <span className="font-mono">{run.commit}</span>
                 {view.source?.kind === "link" && (
                   <>
@@ -45,7 +45,7 @@ export function TeamDone({ view, run, onShowPlan, onReviewUpdate }: { view: Team
             </div>
           </div>
           {view.update && (
-            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-info/30 bg-info/6 px-3 py-2 text-sm">
+            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-info/30 bg-info/6 px-3 py-2 text-body">
               <span className="min-w-0 flex-1">
                 {name}'s setup changed: {view.update.changes.length} changes in {view.update.commits} commits by {view.update.author}
                 {view.update.sudo.length ? ", one asks for your password" : ""}.
@@ -61,10 +61,10 @@ export function TeamDone({ view, run, onShowPlan, onReviewUpdate }: { view: Team
         <MissingKeys run={run} />
         {first && firstLoc && (
           <section className="rounded-xl border bg-card p-4" aria-label="Your first task">
-            <p className="font-medium text-sm">Your first task, suggested by {name}</p>
-            <Textarea className="mt-2 text-sm" value={task} onChange={(e) => setTask(e.target.value)} aria-label="First task" />
+            <p className="text-section">Your first task, suggested by {name}</p>
+            <Textarea className="mt-2 text-body" value={task} onChange={(e) => setTask(e.target.value)} aria-label="First task" />
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-              <span className="text-muted-foreground text-xs">
+              <span className="text-meta text-muted-foreground">
                 on {first.id} · Claude Code · a new worktree on {run.box}
               </span>
               <Button data-testid="start-first-task" disabled={busy || !task.trim()} onClick={go}>
@@ -79,10 +79,10 @@ export function TeamDone({ view, run, onShowPlan, onReviewUpdate }: { view: Team
             return (
               <div key={r.id} className="rounded-xl border bg-card p-4">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium font-mono text-sm">{r.repo}</span>
+                  <span className="font-mono text-row">{r.repo}</span>
                   {p?.private && <LockIcon className="size-3 text-muted-foreground" />}
                 </div>
-                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
+                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-meta text-muted-foreground">
                   {p && <SourceTag source={p.source} />}
                   {p?.services.join(", ")}
                 </div>
@@ -98,7 +98,7 @@ export function TeamDone({ view, run, onShowPlan, onReviewUpdate }: { view: Team
             );
           })}
         </div>
-        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-muted-foreground text-xs">
+        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-meta text-muted-foreground">
           {sudo > 0 && (
             <span className="flex items-center gap-2">
               <SudoTag /> sudo asked for your password on {run.box} for {sudo} steps. Shipyard never had it, and nothing kept it.
@@ -120,14 +120,14 @@ function MissingKeys({ run }: { run: TeamStatus }) {
   if (!missing.length && !run.onepassword_skipped) return null;
   return (
     <section data-testid="team-missing-keys" className="mb-5 rounded-xl border border-warning/30 bg-warning/6 px-4 py-3">
-      <p className="flex items-center gap-2 font-medium text-sm">
+      <p className="flex items-center gap-2 text-section">
         <KeyRoundIcon className="size-4 text-warning-foreground" />
         {missing.length ? "Missing keys: add them in Project settings" : "1Password skipped: the keys you typed are used"}
       </p>
       {missing.length > 0 && (
         <ul className="mt-2 ml-6 space-y-1.5">
           {missing.map((m) => (
-            <li key={m.project} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+            <li key={m.project} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-meta">
               <span className="font-medium font-mono">{m.project}</span>
               <span className="min-w-0 font-mono text-muted-foreground">{m.keys.join(", ")}</span>
               {m.location && (
@@ -140,7 +140,7 @@ function MissingKeys({ run }: { run: TeamStatus }) {
         </ul>
       )}
       {run.onepassword_skipped && (
-        <div className="mt-2.5 ml-6 flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
+        <div className="mt-2.5 ml-6 flex flex-wrap items-center gap-2 text-meta text-muted-foreground">
           <UseOnePassword run={run} />
           <span className="min-w-0">
             reads the shared keys from the team's 1Password instead; op signs in once on <span className="whitespace-nowrap">{run.box}</span>

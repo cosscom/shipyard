@@ -30,7 +30,7 @@ export function LoginMenu({ ctx, url, onGo, onOther }: { ctx: BrowserContext; ur
       <MenuTrigger
         aria-label="Log in as…"
         data-testid="login-as"
-        className="inline-flex h-6.5 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground data-popup-open:bg-accent data-popup-open:text-foreground [&_svg]:size-3.5"
+        className="inline-flex h-6.5 shrink-0 items-center gap-1 rounded-md px-1.5 text-tag text-muted-foreground hover:bg-accent hover:text-foreground data-popup-open:bg-accent data-popup-open:text-foreground [&_svg]:size-3.5"
       >
         <UserRoundIcon />
         <span className="@max-[34rem]/bar:sr-only">Log in as…</span>
@@ -44,7 +44,7 @@ export function LoginMenu({ ctx, url, onGo, onOther }: { ctx: BrowserContext; ur
               <UserRoundIcon />
               <span className="flex min-w-0 flex-col">
                 <span className="truncate">{loginUserLabel(u)}</span>
-                {u.label && <span className="truncate font-mono text-[11px] text-muted-foreground">{u.email}</span>}
+                {u.label && <span className="truncate font-mono text-tag text-muted-foreground">{u.email}</span>}
               </span>
             </MenuItem>
           ))}
@@ -72,7 +72,7 @@ export function OtherLogin({ ctx, url, onGo, onDone }: { ctx: BrowserContext; ur
   const ok = plausibleEmail(email.trim());
   return (
     <form
-      className="flex shrink-0 items-center gap-2 border-b bg-accent/40 px-2 py-1.5 text-xs"
+      className="flex shrink-0 items-center gap-2 border-b bg-accent/40 px-2 py-1.5 text-meta"
       onSubmit={(e) => {
         e.preventDefault();
         if (!ok) return;

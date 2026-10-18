@@ -79,7 +79,7 @@ export function ReportCard({ it }: { it: Extract<TranscriptItem, { kind: "report
       role="group"
       aria-label={`Shipyard: ${name} ${word}`}
       className={cn(
-        "cv-in flex w-[min(100%,40rem)] min-w-0 flex-col self-start overflow-hidden rounded-lg border bg-card text-[0.8125rem] shadow-xs/5 @container",
+        "cv-in flex w-[min(100%,40rem)] min-w-0 flex-col self-start overflow-hidden rounded-lg border bg-card text-desc shadow-xs/5 @container",
         tone === "needs" && "border-warning/45",
         tone === "failed" && "border-destructive/35",
       )}
@@ -93,7 +93,7 @@ export function ReportCard({ it }: { it: Extract<TranscriptItem, { kind: "report
           changed && (
             <>
               <Dot />
-              <span className="shrink-0 text-xs tabular-nums" aria-label={`${r.added ?? 0} lines added, ${r.removed ?? 0} removed`}>
+              <span className="shrink-0 text-meta tabular-nums" aria-label={`${r.added ?? 0} lines added, ${r.removed ?? 0} removed`}>
                 <span className="text-success-foreground">+{r.added ?? 0}</span> <span className="text-destructive-foreground">−{r.removed ?? 0}</span>
               </span>
             </>

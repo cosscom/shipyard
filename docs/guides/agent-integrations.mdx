@@ -43,7 +43,12 @@ with the command that installs them.
   once a session's hooks have said a prompt started, its `Stop` hook alone
   ends the turn. Codex runs a single notify program, so when the config
   already sets one to something else, Shipyard leaves it and prints the line to
-  change yourself.
+  change yourself. Codex can run every session from one shared background
+  daemon, which runs hooks with the environment of the session that started
+  it, so every session's hooks would report as that one. Shipyard starts
+  Codex with `--no-daemon` when the installed Codex has the flag, and for a
+  Codex hook from another session's folder, or about a conversation another
+  session holds, goes by the folder and the conversation, not the name.
 - **Gemini CLI**: `SessionStart` / `BeforeAgent` / `Notification` /
   `AfterAgent` / `SessionEnd` hooks in `~/.gemini/settings.json`.
 - **OpenCode**: a small plugin, `~/.config/opencode/plugin/berth.js`, that

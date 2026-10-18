@@ -16,7 +16,7 @@ export default function DiagramView(props: ViewProps) {
   if (!g || !layout || !g.nodes.length)
     return (
       <div className="flex h-full min-h-0 flex-col gap-2">
-        {size === "full" && <p className="text-muted-foreground text-xs">Shipyard draws Mermaid flowcharts (graph or flowchart); this one is shown as written.</p>}
+        {size === "full" && <p className="text-muted-foreground text-meta">Shipyard draws Mermaid flowcharts (graph or flowchart); this one is shown as written.</p>}
         <SourceView {...props} />
       </div>
     );

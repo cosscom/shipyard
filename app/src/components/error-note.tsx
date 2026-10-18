@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 export function ErrorDetails({ text, className, title, message, detached }: { text?: string; className?: string; title?: string; message?: string; detached?: boolean }) {
   if (!text) return null;
   const cls = cn(
-    "inline-flex w-fit cursor-pointer items-center gap-0.5 rounded-sm text-muted-foreground text-xs underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring",
+    "inline-flex w-fit cursor-pointer items-center gap-0.5 rounded-sm text-muted-foreground text-meta underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring",
     className,
   );
   const label = (
@@ -80,7 +80,7 @@ function DetailsPopup({ text, title, message }: DetailsReq) {
       <div className="px-6 pb-2">
         <pre
           aria-label="Full output"
-          className="max-h-[50vh] select-text overflow-auto whitespace-pre-wrap break-words rounded-lg border bg-muted/60 px-3 py-2.5 font-mono text-[12px] text-foreground/90 leading-relaxed"
+          className="max-h-[50vh] select-text overflow-auto whitespace-pre-wrap break-words rounded-lg border bg-muted/60 px-3 py-2.5 font-mono text-mono text-foreground/90"
         >
           {text}
         </pre>

@@ -93,7 +93,7 @@ function AnswerList({ questions, answers, note }: { questions: Question[]; answe
         <span>Answered {questions.length} questions</span>
         {note}
       </div>
-      <dl className="ml-5.5 grid grid-cols-[minmax(0,max-content)_minmax(0,1fr)] gap-x-4 gap-y-1 text-[0.8125rem]">
+      <dl className="ml-5.5 grid grid-cols-[minmax(0,max-content)_minmax(0,1fr)] gap-x-4 gap-y-1 text-desc">
         {questions.map((q, i) => (
           <div key={q.question} className="contents">
             <dt className="truncate" title={q.question}>
@@ -116,7 +116,7 @@ function Sending({ it, answers, who }: { it: Item; answers: QuestionAnswer[]; wh
       questions={it.questions}
       answers={it.questions.map((q, i) => shownAnswer(q, answers[i]))}
       note={
-        <span className="flex items-center gap-1.5 text-xs">
+        <span className="flex items-center gap-1.5 text-meta">
           <Spinner className="size-3" />
           {who} is reading your answers
         </span>
@@ -150,12 +150,12 @@ function InTerminal({ it, who, reason }: { it: Item; who: string; reason?: strin
         <ol className="flex flex-col gap-2.5">
           {it.questions.map((q, i) => (
             <li key={q.question} className="flex gap-2.5">
-              <span className="mt-px font-mono text-muted-foreground text-xs tabular-nums">{i + 1}.</span>
+              <span className="mt-px font-mono text-muted-foreground text-mono tabular-nums">{i + 1}.</span>
               <div className="min-w-0">
-                <p data-selectable className="text-[0.875rem]">
+                <p data-selectable className="text-body">
                   {q.question}
                 </p>
-                <p className="text-muted-foreground text-xs">
+                <p className="text-muted-foreground text-meta">
                   {q.options.map((o) => o.label).join(" · ")}
                   {q.multi ? " — pick any" : ""}
                 </p>
@@ -164,7 +164,7 @@ function InTerminal({ it, who, reason }: { it: Item; who: string; reason?: strin
           ))}
         </ol>
       </div>
-      <div className="flex items-center gap-2 border-t px-4 py-3 text-muted-foreground text-sm">
+      <div className="flex items-center gap-2 border-t px-4 py-3 text-muted-foreground text-body">
         <SquareTerminalIcon className="size-3.5 shrink-0" />
         <span className="min-w-0">{reason ? `${reason}.` : `Answer in ${who}'s screen below.`}</span>
       </div>
@@ -233,7 +233,7 @@ function Form({ it, who, onSubmit }: { it: Item; who: string; onSubmit(answers: 
           {who} asks you {count(qs.length)}
         </span>
         {qs.length > 1 && (
-          <span className="shrink-0 text-muted-foreground text-xs tabular-nums" aria-live="polite">
+          <span className="shrink-0 text-muted-foreground text-meta tabular-nums" aria-live="polite">
             {review ? "Review" : `${step + 1} of ${qs.length}`}
           </span>
         )}
@@ -251,11 +251,11 @@ function Form({ it, who, onSubmit }: { it: Item; who: string; onSubmit(answers: 
                 aria-current={i === step ? "step" : undefined}
                 onClick={() => go(i)}
                 className={cn(
-                  "flex h-6.5 shrink-0 items-center gap-1.5 rounded-md border px-2 text-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-50",
+                  "flex h-6.5 shrink-0 items-center gap-1.5 rounded-md border px-2 text-meta outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-50",
                   i === step ? "border-foreground/25 bg-accent font-medium text-foreground" : "border-transparent text-muted-foreground enabled:hover:bg-accent/60 enabled:hover:text-foreground",
                 )}
               >
-                {s.ok ? <CheckIcon className="size-3 text-success" /> : i < qs.length ? <span className="font-mono text-[0.6562rem] tabular-nums opacity-70">{i + 1}</span> : <ListChecksIcon className="size-3 opacity-70" />}
+                {s.ok ? <CheckIcon className="size-3 text-success" /> : i < qs.length ? <span className="font-mono text-tag tabular-nums opacity-70">{i + 1}</span> : <ListChecksIcon className="size-3 opacity-70" />}
                 <span className="max-w-32 truncate">{s.label}</span>
               </button>
             );
@@ -276,7 +276,7 @@ function Form({ it, who, onSubmit }: { it: Item; who: string; onSubmit(answers: 
             Back
           </Button>
         )}
-        <span className={cn("min-w-0 flex-1 truncate text-xs", error ? "text-destructive-foreground" : "text-muted-foreground")} role={error ? "alert" : undefined}>
+        <span className={cn("min-w-0 flex-1 truncate text-meta", error ? "text-destructive-foreground" : "text-muted-foreground")} role={error ? "alert" : undefined}>
           {error ? error : busy ? `Answering in ${who}'s form…` : review ? "Check your answers, then submit" : `${who} waits for your answer`}
         </span>
         <Button size="sm" disabled={busy || (review ? !done.every(Boolean) : !done[step])} onClick={next}>
@@ -315,11 +315,11 @@ function Step({ q, d, disabled, onChange, onEnter }: { q: Question; d: Draft; di
   return (
     <fieldset className="flex flex-col gap-3" disabled={disabled}>
       <legend className="contents">
-        <span data-selectable className="block font-medium text-[0.9375rem] leading-snug">
+        <span data-selectable className="block text-heading">
           {q.question}
         </span>
       </legend>
-      <span className="-mt-1.5 text-muted-foreground text-xs">{q.multi ? "Pick any that apply" : "Pick one"}</span>
+      <span className="-mt-1.5 text-muted-foreground text-meta">{q.multi ? "Pick any that apply" : "Pick one"}</span>
       {q.multi ? (
         <div className="flex flex-col gap-1.5">
           {q.options.map((o) => (
@@ -362,8 +362,8 @@ function Step({ q, d, disabled, onChange, onEnter }: { q: Question; d: Draft; di
 function OptionText({ label, description }: { label: string; description?: string }) {
   return (
     <span className="flex min-w-0 flex-col gap-0.5">
-      <span className="font-medium text-sm leading-snug">{label}</span>
-      {description && <span className="text-[0.8125rem] text-muted-foreground leading-snug">{description}</span>}
+      <span className="text-row">{label}</span>
+      {description && <span className="text-desc text-muted-foreground">{description}</span>}
     </span>
   );
 }
@@ -371,14 +371,14 @@ function OptionText({ label, description }: { label: string; description?: strin
 function Review({ questions, answers, onEdit, disabled }: { questions: Question[]; answers: QuestionAnswer[]; onEdit(step: number): void; disabled: boolean }) {
   return (
     <div className="flex flex-col gap-2">
-      <span className="font-medium text-[0.9375rem]">Review your answers</span>
+      <span className="text-heading">Review your answers</span>
       <ul className="flex flex-col divide-y overflow-hidden rounded-lg border bg-background dark:bg-input/16">
         {questions.map((q, i) => (
           <li key={q.question}>
             <button type="button" disabled={disabled} onClick={() => onEdit(i)} className="group flex w-full items-start gap-3 px-3 py-2.5 text-left outline-none transition-colors focus-visible:bg-accent/60 enabled:hover:bg-accent/40">
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="truncate text-muted-foreground text-xs">{q.question}</span>
-                <span className="break-words font-medium text-sm">{shownAnswer(q, answers[i]) || "—"}</span>
+                <span className="truncate text-muted-foreground text-meta">{q.question}</span>
+                <span className="break-words text-row">{shownAnswer(q, answers[i]) || "—"}</span>
               </span>
               <PencilIcon className="mt-1 size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" aria-label="Change" />
             </button>

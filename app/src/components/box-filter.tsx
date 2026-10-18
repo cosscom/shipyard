@@ -45,7 +45,7 @@ export function BoxFilter({
         <ToggleGroupItem
           key={b}
           value={b}
-          className="group/box h-7 gap-1.5 px-2.5 font-normal text-muted-foreground text-xs sm:text-xs data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-xs dark:data-pressed:bg-input"
+          className="group/box h-7 gap-1.5 px-2.5 font-normal text-muted-foreground text-meta sm:text-meta data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-xs dark:data-pressed:bg-input"
         >
           {/* Filled when shown, hollow when hidden: the state reads without colour. */}
           <span className="size-1.5 shrink-0 rounded-full border border-current opacity-70 group-data-pressed/box:bg-current" aria-hidden />

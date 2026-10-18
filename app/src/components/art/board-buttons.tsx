@@ -67,7 +67,7 @@ export function BoardButton() {
         className="relative inline-flex h-6 shrink-0 items-center justify-center gap-1 rounded-md px-1 text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         <LayoutGridIcon className="size-3.5" />
-        <span className="text-[0.6875rem] tabular-nums">{list.length}</span>
+        <span className="text-tag tabular-nums">{list.length}</span>
         {fresh && <span className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-info ring-2 ring-background" />}
       </button>
     </Tip>

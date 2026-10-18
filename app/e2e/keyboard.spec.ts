@@ -259,12 +259,13 @@ test("the sidebar's edge resizes from the keyboard, and shows it has it", async 
   await app.open();
   const page = app.page;
   const handle = page.getByRole("separator", { name: "Resize the sidebar" });
-  // Reached with the keyboard: the sidebar's first stop, before Home.
+  // Reached with the keyboard: the sidebar's first stop, before its top
+  // row's buttons, New task, Search and Home.
   await page.getByTestId("nav-home").focus();
-  await pressTo(page, handle, "Shift+Tab", 5);
+  await pressTo(page, handle, "Shift+Tab", 8);
   expect(await shows(page)).toBe(true);
   await page.keyboard.press("ArrowRight");
-  await expect(handle).toHaveAttribute("aria-valuenow", "256");
+  await expect(handle).toHaveAttribute("aria-valuenow", "320");
 });
 
 test("⌘K reaches Settings and a theme is chosen with the keyboard", async ({ app }) => {

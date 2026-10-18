@@ -111,15 +111,15 @@ function Body({ target }: { target: Target }) {
               <span className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-background">
                 <PackageIcon className="size-4 text-muted-foreground" />
               </span>
-              <div className="min-w-0 flex-1 text-sm">
+              <div className="min-w-0 flex-1 text-body">
                 <p className="flex flex-wrap items-baseline gap-x-2">
                   <span className="font-medium">{plan.kit.name}</span>
-                  <span className="truncate font-mono text-muted-foreground text-xs">{plan.kit.ref}</span>
+                  <span className="truncate font-mono text-muted-foreground text-mono">{plan.kit.ref}</span>
                 </p>
-                {plan.sets_up.length > 0 && <p className="text-muted-foreground text-xs">{sentence(`Sets up ${list(plan.sets_up)}`)}</p>}
+                {plan.sets_up.length > 0 && <p className="text-muted-foreground text-meta">{sentence(`Sets up ${list(plan.sets_up)}`)}</p>}
               </div>
             </div>
-            <p data-testid="team-kit-scope" className="text-muted-foreground text-xs leading-relaxed">
+            <p data-testid="team-kit-scope" className="text-muted-foreground text-meta">
               {plan.applied
                 ? `${location} has this kit already, as it is now.`
                 : `New worktrees of ${location} get it${plan.worktrees ? `, and the ${plan.worktrees === 1 ? "one already there gets it" : `${plan.worktrees} already there get it`} the first time ${plan.worktrees === 1 ? "it is" : "each is"} opened` : ""}. Your checkout stays as it is.`}
@@ -127,8 +127,8 @@ function Body({ target }: { target: Target }) {
             </p>
             {plan.requires.length > 0 && (
               <section aria-label="What the kit needs" data-testid="team-kit-requires">
-                <h3 className="mb-1.5 font-medium text-xs">Needs on {box}</h3>
-                <ul className="space-y-1 text-xs">
+                <h3 className="mb-1.5 text-label">Needs on {box}</h3>
+                <ul className="space-y-1 text-meta">
                   {plan.requires.map((r) => (
                     <li key={r.tool} className="flex items-start gap-1.5">
                       {r.found === false ? <CircleAlertIcon className="mt-px size-3.5 shrink-0 text-warning-foreground" /> : r.found ? <CheckIcon className="mt-px size-3.5 shrink-0 text-success" /> : <span className="size-3.5 shrink-0" />}
@@ -139,17 +139,17 @@ function Body({ target }: { target: Target }) {
                     </li>
                   ))}
                 </ul>
-                {missing.length > 0 && <p className="mt-1.5 text-muted-foreground text-xs">The kit is used anyway; its setup may stop until {missing.length === 1 ? "it is" : "they are"} installed.</p>}
+                {missing.length > 0 && <p className="mt-1.5 text-muted-foreground text-meta">The kit is used anyway; its setup may stop until {missing.length === 1 ? "it is" : "they are"} installed.</p>}
               </section>
             )}
             {(plan.keys.length > 0 || plan.init) && (
               <div className="space-y-3 border-t pt-3">
                 {plan.keys.length > 0 && (
-                  <label className="flex items-start gap-2.5 text-sm">
+                  <label className="flex items-start gap-2.5 text-body">
                     <Checkbox className="mt-0.5" checked={keys} onCheckedChange={(v) => setKeys(!!v)} data-testid="team-kit-keys" />
                     <span>
                       Add {location}'s shared keys
-                      <span className="block text-muted-foreground text-xs">
+                      <span className="block text-muted-foreground text-meta">
                         <span className="font-mono">{list(plan.keys.map((k) => k.name))}</span>
                         {plan.keys.some((k) => k.onepassword) ? `, read with 1Password on ${box}` : ""}.
                         {plan.keys.some((k) => k.used_by.length) ? ` Used by ${list([...new Set(plan.keys.flatMap((k) => k.used_by))])}.` : ""}
@@ -158,11 +158,11 @@ function Body({ target }: { target: Target }) {
                   </label>
                 )}
                 {plan.init && (
-                  <label className="flex items-start gap-2.5 text-sm">
+                  <label className="flex items-start gap-2.5 text-body">
                     <Checkbox className="mt-0.5" checked={init} onCheckedChange={(v) => setInit(!!v)} data-testid="team-kit-init" />
                     <span>
                       Run {name}'s first-time setup in your checkout
-                      <span className="block text-muted-foreground text-xs">
+                      <span className="block text-muted-foreground text-meta">
                         {plan.init.detail ? `${plan.init.detail[0].toUpperCase()}${plan.init.detail.slice(1)}` : "Once"}, with <span className="font-mono">{plan.init.script}</span>, in a terminal you can watch.
                       </span>
                     </span>
@@ -172,7 +172,7 @@ function Body({ target }: { target: Target }) {
             )}
           </>
         )}
-        {error && <ErrorText className="text-destructive-foreground text-sm" text={error} />}
+        {error && <ErrorText className="text-destructive-foreground text-body" text={error} />}
       </DialogPanel>
       <DialogFooter>
         <DialogClose render={<Button variant="ghost" />}>Cancel</DialogClose>
@@ -197,8 +197,8 @@ export function KitChoices({ view, box }: { view: TeamView; box?: string }) {
   if (!rows.length) return null;
   return (
     <section aria-label="Everything, or just the kit" data-testid="team-kit-choices" className="mb-6 rounded-xl border bg-card/40 px-4 py-3">
-      <h2 className="font-medium text-sm">{rows.length === 1 ? `You have ${rows[0].loc} on ${box} already` : `You have ${list(rows.map((r) => r.loc))} on ${box} already`}</h2>
-      <p className="mt-0.5 text-muted-foreground text-xs leading-relaxed">Set up everything below, or take just a project's kit: its per-worktree setup, without the box steps, sudo or clone.</p>
+      <h2 className="text-section">{rows.length === 1 ? `You have ${rows[0].loc} on ${box} already` : `You have ${list(rows.map((r) => r.loc))} on ${box} already`}</h2>
+      <p className="mt-0.5 text-desc text-muted-foreground">Set up everything below, or take just a project's kit: its per-worktree setup, without the box steps, sudo or clone.</p>
       <div className="mt-2.5 space-y-1.5">
         {rows.map(({ p, loc }) => (
           <div key={p.id} data-testid={`kit-choice-${p.id}`} className="flex flex-wrap items-center gap-1.5">

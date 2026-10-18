@@ -70,10 +70,10 @@ export class ErrorBoundary extends Component<Props, State> {
                 Copy details
               </Button>
             </div>
-            <button type="button" className="text-muted-foreground text-xs hover:text-foreground" onClick={() => this.setState({ details: !details })}>
+            <button type="button" className="text-muted-foreground text-meta hover:text-foreground" onClick={() => this.setState({ details: !details })}>
               {details ? "Hide details" : "Show details"}
             </button>
-            {details && <pre className="max-h-64 w-full overflow-auto rounded-md bg-muted p-3 text-left text-xs leading-relaxed whitespace-pre-wrap select-text">{detail}</pre>}
+            {details && <pre className="max-h-64 w-full overflow-auto rounded-md bg-muted p-3 text-left font-mono text-mono whitespace-pre-wrap select-text">{detail}</pre>}
           </EmptyContent>
         </Empty>
       </div>

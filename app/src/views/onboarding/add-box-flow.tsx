@@ -123,7 +123,7 @@ export function AddBoxFlow({
     <UseThisMac status={local.status} compact={placement === "top"} autoFocus={placement === "bottom"} className={placement === "top" ? "mt-3" : undefined} onRunning={setBusy} onPaired={setPaired} />
   );
   const anyBox = (
-    <div aria-hidden className="my-6 flex items-center gap-3 text-muted-foreground text-xs">
+    <div aria-hidden className="my-6 flex items-center gap-3 text-muted-foreground text-meta">
       <span className="h-px flex-1 bg-border" />
       or, on any box
       <span className="h-px flex-1 bg-border" />
@@ -168,14 +168,14 @@ export function AddBoxFlow({
           )}
           <Step n={1} title="On the box, run">
             <InstallCommand />
-            <p className="mt-2 text-muted-foreground text-xs leading-relaxed">It installs berthd for your user (no root), starts it, and prints a pairing link.</p>
+            <p className="mt-2 text-muted-foreground text-meta">It installs berthd for your user (no root), starts it, and prints a pairing link.</p>
           </Step>
           <Step n={2} title="Paste what it printed" className="mt-5">
             <PasteLink network={network} retry={retry.link} autoFocus={placement === "bottom" && !useThisMac} onBusy={setBusy} onPaired={setPaired} onSignIn={() => setSigningIn("link")} />
           </Step>
 
           {network && (
-            <div className="mt-3 flex items-center gap-1.5 text-muted-foreground text-xs">
+            <div className="mt-3 flex items-center gap-1.5 text-muted-foreground text-meta">
               Reaching boxes through the <span className="text-foreground">{network}</span> tailnet
               <Tip label="Use this computer's own network">
                 <button type="button" aria-label="Use this computer's own network" className="rounded p-0.5 hover:bg-accent hover:text-foreground" onClick={() => setNetwork(undefined)}>
@@ -226,7 +226,7 @@ export function AddBoxFlow({
 
 function Trigger({ children }: { children: ReactNode }) {
   return (
-    <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded text-left text-body outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <ChevronRightIcon className="size-3.5 text-muted-foreground transition-transform group-data-panel-open:rotate-90" />
       {children}
     </CollapsibleTrigger>
@@ -236,8 +236,8 @@ function Trigger({ children }: { children: ReactNode }) {
 function Step({ n, title, className, children }: { n: number; title: string; className?: string; children: ReactNode }) {
   return (
     <section className={className}>
-      <h2 className="mb-2 flex items-center gap-2 text-sm">
-        <span aria-hidden className="flex size-5 items-center justify-center rounded-full border font-mono text-[10px] text-muted-foreground">
+      <h2 className="mb-2 flex items-center gap-2 text-row">
+        <span aria-hidden className="flex size-5 items-center justify-center rounded-full border font-mono text-tag text-muted-foreground">
           {n}
         </span>
         {title}

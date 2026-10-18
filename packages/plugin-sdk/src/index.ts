@@ -56,6 +56,11 @@ export interface SidebarItem {
   title: string;
   icon?: IconName;
   screen: string;
+  // A hook for the count on its row, shaped like HomeWidget's. A count shows
+  // in amber, like Home's agents waiting, and on More's row while the item
+  // is under More; urgent: false shows it quiet instead. 0 or undefined
+  // shows none. Called on every render, under the plugin's context.
+  useCount?: () => number | { n: number; urgent?: boolean } | undefined;
 }
 
 export interface WorktreePanelProps extends ScreenProps {

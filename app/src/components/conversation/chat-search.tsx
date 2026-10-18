@@ -216,9 +216,9 @@ export function ChatSearch({ api, entries, onReveal }: { api: ChatListApi; entri
         placeholder="Find in chat"
         aria-label="Find in chat"
         spellCheck={false}
-        className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+        className="h-full min-w-0 flex-1 bg-transparent text-body outline-none placeholder:text-muted-foreground"
       />
-      <span aria-live="polite" className={cn("shrink-0 px-1 text-xs tabular-nums", q && !hits.length ? "text-destructive-foreground" : "text-muted-foreground")}>
+      <span aria-live="polite" className={cn("shrink-0 px-1 text-meta tabular-nums", q && !hits.length ? "text-destructive-foreground" : "text-muted-foreground")}>
         {q ? (hits.length ? `${Math.min(at, hits.length - 1) + 1} of ${hits.length >= MAX_HITS ? `${MAX_HITS}+` : hits.length}` : "No matches") : ""}
       </span>
       <Tip label={<span className="flex items-center gap-1.5">Older match <Kbd>↵</Kbd></span>}>

@@ -83,10 +83,10 @@ function Body({ req }: { req: ConfirmRequest }) {
         <AlertDialogDescription>{req.description}</AlertDialogDescription>
       </AlertDialogHeader>
       {(req.detail || req.options?.length || error || req.input) && (
-        <div className="flex flex-col gap-3 px-6 pb-2 text-sm">
+        <div className="flex flex-col gap-3 px-6 pb-2 text-body">
           {req.input && (
             <label className="flex flex-col gap-1.5">
-              <span className="font-medium text-xs">{req.input.label}</span>
+              <span className="text-label">{req.input.label}</span>
               <Input
                 autoFocus
                 value={value}
@@ -96,17 +96,17 @@ function Body({ req }: { req: ConfirmRequest }) {
               />
             </label>
           )}
-          {req.detail && <div className="rounded-md bg-muted/60 px-3 py-2 font-mono text-xs leading-relaxed">{req.detail}</div>}
+          {req.detail && <div className="rounded-md bg-muted/60 px-3 py-2 font-mono text-mono">{req.detail}</div>}
           {req.options?.map((o) => (
             <label key={o.id} className="flex items-start gap-2.5">
               <Checkbox className="mt-0.5" checked={!!checked[o.id]} onCheckedChange={(v) => setChecked((c) => ({ ...c, [o.id]: !!v }))} />
               <span>
                 {o.label}
-                {o.hint && <span className="block text-muted-foreground text-xs">{o.hint}</span>}
+                {o.hint && <span className="block text-muted-foreground text-meta">{o.hint}</span>}
               </span>
             </label>
           ))}
-          {error && <ErrorText className="text-destructive-foreground text-xs" text={error} />}
+          {error && <ErrorText className="text-destructive-foreground text-meta" text={error} />}
         </div>
       )}
       <AlertDialogFooter>

@@ -31,9 +31,9 @@ export function ThisMacStep({ status, onStage, onDone, onRemote, onBack }: { sta
         onBack={running ? undefined : onBack}
       />
       <UseThisMac status={status} autoStart className="mt-6" onRunning={setRunning} onPaired={setPaired} />
-      <p className="mt-4 text-muted-foreground text-xs">
+      <p className="mt-4 text-muted-foreground text-meta">
         Rather run agents on a server?{" "}
-        <Button variant="link" size="xs" className="h-auto p-0 text-xs" disabled={running && !paired} onClick={onRemote}>
+        <Button variant="link" size="xs" className="h-auto p-0 text-meta" disabled={running && !paired} onClick={onRemote}>
           Connect a remote box
         </Button>
       </p>

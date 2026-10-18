@@ -79,7 +79,7 @@ export function ServiceStopped({ box, session }: { box: string; session: Session
   };
   return (
     <div className="pointer-events-none absolute top-2 right-3 z-10 flex justify-end">
-      <div role="status" className="pointer-events-auto flex items-center gap-2.5 rounded-lg border bg-popover/95 py-1 pr-1 pl-3 text-xs shadow-lg/5 backdrop-blur-sm">
+      <div role="status" className="pointer-events-auto flex items-center gap-2.5 rounded-lg border bg-popover/95 py-1 pr-1 pl-3 text-meta shadow-lg/5 backdrop-blur-sm">
         <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground/50" />
         <span>
           <span className="font-medium">{name}</span> <span className="text-muted-foreground">stopped</span>

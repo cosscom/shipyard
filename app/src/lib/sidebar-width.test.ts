@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { BIG_STEP, clampWidth, dragged, FOLD_AT, SIDEBAR_DEFAULT, SIDEBAR_MAX, SIDEBAR_MIN, sidebarMax, STEP, stepped, UNFOLD_AT } from "./sidebar-width.ts";
+import { BIG_STEP, clampTasks, clampWidth, draggedTasks, PROJECTS_COLUMN, steppedTasks, TASKS_DEFAULT, TASKS_FOLD_AT, TASKS_MAX, TASKS_MIN, tasksMax, defaultWidth, dragged, FOLD_AT, SIDEBAR_DEFAULT, SIDEBAR_NARROW_DEFAULT, SIDEBAR_MAX, SIDEBAR_MIN, sidebarMax, STEP, stepped, UNFOLD_AT } from "./sidebar-width.ts";
 
 test("a width is held between the narrowest and the widest", () => {
   assert.equal(clampWidth(300), 300);
@@ -42,4 +42,36 @@ test("arrow keys step it, Shift further, Home and End go to the ends", () => {
   assert.equal(stepped(300, "Home", false), SIDEBAR_MIN);
   assert.equal(stepped(300, "End", false, 900), 360);
   assert.equal(stepped(300, "a", false), undefined);
+});
+
+test("a narrow window starts the sidebar at 240px, a roomy one at the default", () => {
+  assert.equal(defaultWidth(900), SIDEBAR_NARROW_DEFAULT);
+  assert.equal(defaultWidth(1199), SIDEBAR_NARROW_DEFAULT);
+  assert.equal(defaultWidth(1200), SIDEBAR_DEFAULT);
+  assert.equal(defaultWidth(), SIDEBAR_DEFAULT);
+});
+
+test("the tasks column is held between its narrowest and widest, and both columns within 40% of the window", () => {
+  assert.equal(clampTasks(300), 300);
+  assert.equal(clampTasks(50), TASKS_MIN);
+  assert.equal(clampTasks(900), TASKS_MAX);
+  for (const v of [undefined, "300", NaN]) assert.equal(clampTasks(v), TASKS_DEFAULT);
+  assert.equal(tasksMax(1440), 576 - PROJECTS_COLUMN);
+  assert.equal(PROJECTS_COLUMN + tasksMax(1200), 480);
+  // A small window still keeps a readable column.
+  assert.equal(tasksMax(800), TASKS_MIN);
+});
+
+test("dragging the tasks column's edge in far enough folds it", () => {
+  assert.deepEqual(draggedTasks(TASKS_FOLD_AT - 1), { folded: true, width: TASKS_MIN });
+  assert.deepEqual(draggedTasks(TASKS_FOLD_AT + 10), { folded: false, width: TASKS_MIN });
+  assert.deepEqual(draggedTasks(320, 1440), { folded: false, width: 320 });
+});
+
+test("keys on the tasks column's edge step it", () => {
+  assert.equal(steppedTasks(272, "ArrowRight", false), 272 + STEP);
+  assert.equal(steppedTasks(272, "ArrowLeft", true), 272 - BIG_STEP);
+  assert.equal(steppedTasks(272, "Home", false), TASKS_MIN);
+  assert.equal(steppedTasks(272, "End", false, 1440), tasksMax(1440));
+  assert.equal(steppedTasks(272, "a", false), undefined);
 });

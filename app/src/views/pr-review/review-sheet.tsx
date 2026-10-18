@@ -112,12 +112,12 @@ export function PrReviewBody() {
             <GitPullRequestIcon className="size-4.5 text-muted-foreground" />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="mb-0.5 flex items-center gap-1.5 text-muted-foreground text-xs">
+            <div className="mb-0.5 flex items-center gap-1.5 text-meta text-muted-foreground">
               <GitHubMark className="size-3" />
               <span data-testid="pr-review-repo" className="font-mono">
                 {req.ref.repo} #{req.ref.pr}
               </span>
-              {plan?.draft && <span className="rounded-md border px-1.5 text-[10.5px]">draft</span>}
+              {plan?.draft && <span className="rounded-md border px-1.5 text-tag">draft</span>}
             </div>
             <SheetTitle data-testid="pr-review-title" className="text-balance">
               {plan?.title ?? (error ? "Couldn't read this PR" : "Reading the PR…")}
@@ -137,8 +137,8 @@ export function PrReviewBody() {
 
       <SheetPanel>
         <div className="space-y-5 pt-4">
-          {note && phase.kind === "review" && <p className="rounded-lg border border-info/30 bg-info/6 px-3 py-2 text-xs leading-relaxed">{note}</p>}
-          {error && <ErrorText className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2.5 text-destructive-foreground text-sm" text={error} />}
+          {note && phase.kind === "review" && <p className="rounded-lg border border-info/30 bg-info/6 px-3 py-2 text-desc">{note}</p>}
+          {error && <ErrorText className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2.5 text-destructive-foreground text-body" text={error} />}
           {!plan && !error && (
             <div className="space-y-3">
               <Skeleton className="h-24 rounded-lg" />
@@ -162,7 +162,7 @@ export function PrReviewBody() {
       </SheetPanel>
 
       <SheetFooter className="flex-row items-center justify-between gap-2 border-t">
-        <span className="min-w-0 truncate text-muted-foreground text-xs">
+        <span className="min-w-0 truncate text-meta text-muted-foreground">
           {phase.kind === "running" ? "You can close this; it carries on on the box." : plan?.verdict.allowed && picked ? `On ${picked.box}, at ${shortSha(plan.head!.sha)}` : ""}
         </span>
         <div className="flex shrink-0 gap-2">
@@ -205,7 +205,7 @@ function Invalid({ raw }: { raw: string }) {
       </SheetHeader>
       <SheetPanel>
         {raw && (
-          <p data-testid="pr-review-invalid" className="break-all rounded-md border bg-muted/40 px-3 py-2 font-mono text-[11.5px] text-muted-foreground">
+          <p data-testid="pr-review-invalid" className="break-all rounded-md border bg-muted/40 px-3 py-2 font-mono text-mono text-muted-foreground">
             {raw.length > 160 ? `${raw.slice(0, 160)}…` : raw}
           </p>
         )}
@@ -224,10 +224,10 @@ function Refused({ plan }: { plan: ReviewSheet }) {
   return (
     <div data-testid="pr-review-refused" data-code={plan.verdict.code} className="flex items-start gap-3 rounded-lg border bg-muted/40 px-3.5 py-3">
       <HandIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-      <div className="min-w-0 text-sm leading-relaxed">
-        <p className="font-medium">{rest.length ? `${head}.` : head}</p>
-        {rest.length > 0 && <p className="text-muted-foreground">{capital(rest.join(": "))}.</p>}
-        <p className="mt-1 text-muted-foreground text-xs">{REFUSED_WHY[plan.verdict.code ?? ""] ?? ""}</p>
+      <div className="min-w-0">
+        <p className="text-row">{rest.length ? `${head}.` : head}</p>
+        {rest.length > 0 && <p className="mt-0.5 text-desc text-muted-foreground">{capital(rest.join(": "))}.</p>}
+        <p className="mt-1 text-desc text-muted-foreground">{REFUSED_WHY[plan.verdict.code ?? ""] ?? ""}</p>
       </div>
     </div>
   );
@@ -248,7 +248,7 @@ function Section({ title, children, testId, aside }: { title: string; children: 
   return (
     <section data-testid={testId}>
       <div className="mb-2 flex items-baseline justify-between gap-3">
-        <h3 className="font-semibold text-sm">{title}</h3>
+        <h3 className="text-section">{title}</h3>
         {aside}
       </div>
       {children}
@@ -259,8 +259,8 @@ function Section({ title, children, testId, aside }: { title: string; children: 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <>
-      <dt className="pt-px text-muted-foreground text-xs">{label}</dt>
-      <dd className="min-w-0 text-[13px]">{children}</dd>
+      <dt className="pt-px text-label text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 text-desc">{children}</dd>
     </>
   );
 }
@@ -275,14 +275,14 @@ function Facts({ plan }: { plan: ReviewSheet }) {
         <Fact label="Author">
           <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <span className="font-medium">{plan.author.login}</span>
-            <span data-testid="pr-review-association" className={cn("inline-flex items-center gap-1 text-xs", trusted ? "text-success-foreground" : "text-muted-foreground")}>
+            <span data-testid="pr-review-association" className={cn("inline-flex items-center gap-1 text-meta", trusted ? "text-success-foreground" : "text-muted-foreground")}>
               {trusted && <CheckIcon className="size-3" />}
               {associationWords(plan.author.association, plan.org)}
             </span>
           </span>
         </Fact>
         <Fact label="Branch">
-          <span className="flex min-w-0 items-center gap-1.5 font-mono text-xs">
+          <span className="flex min-w-0 items-center gap-1.5 font-mono text-meta">
             <GitBranchIcon className="size-3 shrink-0 text-muted-foreground" />
             <span className="truncate">
               {plan.head.cross && plan.head.repo ? `${plan.head.repo.split("/")[0]}:` : ""}
@@ -293,7 +293,7 @@ function Facts({ plan }: { plan: ReviewSheet }) {
         </Fact>
         <Fact label="Head commit">
           <span className="flex min-w-0 items-center gap-1.5">
-            <span data-testid="pr-review-sha" data-sha={plan.head.sha} className="rounded bg-muted px-1.5 py-px font-mono font-medium text-xs">
+            <span data-testid="pr-review-sha" data-sha={plan.head.sha} className="rounded bg-muted px-1.5 py-px font-mono font-medium text-meta">
               {shortSha(plan.head.sha)}
             </span>
             <Tip label={copied ? "Copied" : "Copy the full commit"}>
@@ -307,14 +307,14 @@ function Facts({ plan }: { plan: ReviewSheet }) {
               </button>
             </Tip>
           </span>
-          <span className="mt-0.5 block break-all font-mono text-[10.5px] text-muted-foreground">{plan.head.sha}</span>
-          {plan.verdict.allowed && <span className="mt-0.5 block text-muted-foreground text-xs">The review stays at this commit; newer ones wait until you update.</span>}
-          {plan.hint && !plan.hint.matches && <span className="mt-0.5 block text-warning-foreground text-xs">The link was made at {plan.hint.sha.slice(0, 7)}; the PR has moved on since.</span>}
+          <span className="mt-0.5 block break-all font-mono text-tag text-muted-foreground">{plan.head.sha}</span>
+          {plan.verdict.allowed && <span className="mt-0.5 block text-meta text-muted-foreground">The review stays at this commit; newer ones wait until you update.</span>}
+          {plan.hint && !plan.hint.matches && <span className="mt-0.5 block text-meta text-warning-foreground">The link was made at {plan.hint.sha.slice(0, 7)}; the PR has moved on since.</span>}
         </Fact>
         {/* A refused PR's files are never read, so there is no count. */}
         {(plan.verdict.allowed || plan.files > 0) && (
           <Fact label="Changes">
-            <span className="text-xs">
+            <span className="text-meta">
               {plan.files} {plan.files === 1 ? "file" : "files"}
               {plan.state && plan.state !== "OPEN" ? ` · ${plan.state.toLowerCase()}` : ""}
             </span>
@@ -330,17 +330,17 @@ function Changes({ changes }: { changes: SetupChange[] }) {
     <section data-testid="pr-review-changes" className="rounded-lg border border-warning/30 bg-warning/5">
       <div className="flex items-start gap-2.5 border-warning/20 border-b px-3.5 py-2.5">
         <FileWarningIcon className="mt-0.5 size-4 shrink-0 text-warning-foreground" />
-        <div className="text-sm leading-relaxed">
-          <p className="font-medium">This PR changes files that affect setup</p>
-          <p className="text-muted-foreground text-xs">Setup still comes from your team's kit, not from the PR. Worth a look before you start.</p>
+        <div>
+          <p className="text-row">This PR changes files that affect setup</p>
+          <p className="mt-0.5 text-desc text-muted-foreground">Setup still comes from your team's kit, not from the PR. Worth a look before you start.</p>
         </div>
       </div>
       <ul className="divide-y divide-warning/15">
         {changes.map((c) => (
           <li key={c.kind} data-testid={`pr-review-change-${c.kind}`} className="px-3.5 py-2 pl-10">
-            <p className="text-[13px]">{c.title}</p>
-            {c.detail && <p className="text-muted-foreground text-xs">{c.detail}</p>}
-            <p className="mt-0.5 break-all font-mono text-[11px] text-muted-foreground">{c.files.join(", ")}</p>
+            <p className="text-row">{c.title}</p>
+            {c.detail && <p className="text-desc text-muted-foreground">{c.detail}</p>}
+            <p className="mt-0.5 break-all font-mono text-meta text-muted-foreground">{c.files.join(", ")}</p>
           </li>
         ))}
       </ul>
@@ -366,7 +366,7 @@ function OnYourBox({ plan, picked, onPick }: { plan: ReviewSheet; picked: Review
         testId="pr-review-runs"
         aside={
           several ? (
-            <span className="flex items-center gap-2 text-muted-foreground text-xs">
+            <span className="flex items-center gap-2 text-meta text-muted-foreground">
               On
               <SimpleSelect
                 size="sm"
@@ -381,7 +381,7 @@ function OnYourBox({ plan, picked, onPick }: { plan: ReviewSheet; picked: Review
               />
             </span>
           ) : (
-            <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
+            <span className="flex items-center gap-1.5 text-meta text-muted-foreground">
               <ServerIcon className="size-3" /> On {picked.box}
             </span>
           )
@@ -389,31 +389,31 @@ function OnYourBox({ plan, picked, onPick }: { plan: ReviewSheet; picked: Review
       >
         <div className="divide-y rounded-lg border">
           <div className="px-3.5 py-2.5">
-            <p className="text-[13px]">
-              Setup <span className="text-muted-foreground text-xs">· {FROM[s.from](picked)}</span>
+            <p className="text-row">
+              Setup <span className="font-normal text-meta text-muted-foreground">· {FROM[s.from](picked)}</span>
             </p>
-            {s.script && <pre className="mt-1.5 overflow-x-auto rounded-md bg-muted/50 px-2.5 py-1.5 font-mono text-[11.5px] text-foreground/85">$ {s.script}</pre>}
+            {s.script && <pre className="mt-1.5 overflow-x-auto rounded-md bg-muted/50 px-2.5 py-1.5 font-mono text-mono text-foreground/85">$ {s.script}</pre>}
           </div>
           {s.services.length > 0 && (
             <div className="px-3.5 py-2.5">
-              <p className="mb-1 text-[13px]">Services</p>
+              <p className="mb-1 text-row">Services</p>
               <ul className="space-y-1">
                 {s.services.map((sv) => (
-                  <li key={sv.name} className="flex min-w-0 items-baseline gap-2 text-xs">
+                  <li key={sv.name} className="flex min-w-0 items-baseline gap-2 text-meta">
                     <span className="shrink-0 font-medium">{sv.title ?? sv.name}</span>
-                    <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">{sv.run}</span>
+                    <span className="min-w-0 truncate font-mono text-meta text-muted-foreground">{sv.run}</span>
                   </li>
                 ))}
               </ul>
             </div>
           )}
           {opens && (
-            <div data-testid="pr-review-login" data-allowed={opens.allowed} className="flex items-start gap-2 px-3.5 py-2.5 text-xs leading-relaxed">
+            <div data-testid="pr-review-login" data-allowed={opens.allowed} className="flex items-start gap-2 px-3.5 py-2.5 text-desc">
               <LogInIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
               <span className={cn(!opens.allowed && "text-muted-foreground")}>{opens.text}</span>
             </div>
           )}
-          <p className="px-3.5 py-2 text-muted-foreground text-xs leading-relaxed">
+          <p className="px-3.5 py-2 text-desc text-muted-foreground">
             Nothing from this PR's own .berth/ runs, and git hooks are off while it's checked out.
             {s.matches_default === false ? ` This box's main checkout has a .berth/config.json other than ${s.default_branch ?? "the default branch"}'s; the one you trusted here is used.` : ""} Its
             dev server is reachable only through Shipyard's private URL
@@ -422,30 +422,30 @@ function OnYourBox({ plan, picked, onPick }: { plan: ReviewSheet; picked: Review
         </div>
       </Section>
       <Section title="Keys" testId="pr-review-keys">
-        <div className="divide-y rounded-lg border text-xs leading-relaxed">
+        <div className="divide-y rounded-lg border text-desc">
           <div className="flex items-start gap-2.5 px-3.5 py-2.5">
             <KeyRoundIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
             <div className="min-w-0">
-              <p className="text-[13px]">
+              <p className="text-row">
                 {picked.secrets.shared.length > 0
                   ? `The team's shared keys (${picked.secrets.shared.length}), as any worktree of ${plan.repo.split("/")[1]} gets them`
                   : "The team shares no keys for this project"}
               </p>
-              {picked.secrets.shared.length > 0 && <p className="break-words font-mono text-[11px] text-muted-foreground">{picked.secrets.shared.join("  ")}</p>}
+              {picked.secrets.shared.length > 0 && <p className="break-words font-mono text-meta text-muted-foreground">{picked.secrets.shared.join("  ")}</p>}
             </div>
           </div>
           {picked.secrets.withheld.length > 0 && (
             <div data-testid="pr-review-withheld" className="flex items-start gap-2.5 px-3.5 py-2.5">
               <UserRoundXIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
               <div className="min-w-0">
-                <p className="text-[13px]">Never your own keys</p>
-                <p className="break-words font-mono text-[11px] text-muted-foreground">{picked.secrets.withheld.join("  ")}</p>
+                <p className="text-row">Never your own keys</p>
+                <p className="break-words font-mono text-meta text-muted-foreground">{picked.secrets.withheld.join("  ")}</p>
               </div>
             </div>
           )}
         </div>
       </Section>
-      <p className="text-muted-foreground text-xs leading-relaxed">
+      <p className="text-desc text-muted-foreground">
         {picked.existing
           ? `${picked.box} already has this review (${picked.existing.worktree}, at ${shortSha(picked.existing.sha)}): Review ${picked.existing.sha === plan.head?.sha ? "opens it" : "moves it to this commit"}. `
           : ""}
@@ -524,14 +524,14 @@ function Progress({ plan, box, phase, update }: { plan: ReviewSheet; box: Review
           <li key={s.id} data-testid={`pr-review-step-${s.id}`} data-state={s.state} className={cn("flex items-start gap-2.5 px-3.5 py-2.5", s.state === "failed" && "bg-destructive/5")}>
             <StateIcon state={s.state} className="mt-px" />
             <div className="min-w-0">
-              <p className={cn("text-[13px]", s.state === "todo" && "text-muted-foreground")}>{s.title}</p>
-              {s.detail && <p className="truncate font-mono text-[11px] text-muted-foreground">{s.detail}</p>}
+              <p className={cn("text-row", s.state === "todo" && "text-muted-foreground")}>{s.title}</p>
+              {s.detail && <p className="truncate font-mono text-meta text-muted-foreground">{s.detail}</p>}
             </div>
           </li>
         ))}
       </ol>
-      {phase.error && <ErrorText className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2.5 text-destructive-foreground text-sm" text={phase.error} />}
-      {setupFailed && <p className="text-muted-foreground text-xs">Its setup failed; the notification has its output. The worktree is there to look at.</p>}
+      {phase.error && <ErrorText className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2.5 text-destructive-foreground text-body" text={phase.error} />}
+      {setupFailed && <p className="text-desc text-muted-foreground">Its setup failed; the notification has its output. The worktree is there to look at.</p>}
       {opened && !ready && !update && (
         <Button size="sm" variant="outline" onClick={() => finish(opened, false, openAt(plan, box))}>
           <LinkIcon /> Open it now

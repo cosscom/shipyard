@@ -300,7 +300,7 @@ export function Switchboard() {
             }}
             onKeyDown={onSearchKey}
             placeholder="Find a conversation or worktree…"
-            className="h-full min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground/72 sm:text-sm"
+            className="h-full min-w-0 flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-muted-foreground/72"
           />
         </div>
         <AreaStrip
@@ -335,7 +335,7 @@ export function Switchboard() {
             </div>
           </ScrollArea>
         </CommandPanel>
-        <CommandFooter className="relative text-[11px] text-muted-foreground">
+        <CommandFooter className="relative text-tag text-muted-foreground">
           {editing ? (
             <span className="flex items-center gap-1">
               <Kbd>↵</Kbd> to save the note
@@ -378,7 +378,7 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
   const id = useId();
   return (
     <div role="group" aria-labelledby={id} className="[&+&]:mt-2">
-      <div id={id} role="presentation" className="px-2 py-1.5 font-medium text-muted-foreground text-xs">
+      <div id={id} role="presentation" className="px-2 py-1.5 text-muted-foreground text-label">
         {label}
       </div>
       {children}
@@ -395,8 +395,8 @@ function Empty({ query, area }: { query: string; area: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-1 px-6 py-12 text-center">
       <Layers3Icon aria-hidden className="mb-2 size-5 text-muted-foreground/60" />
-      <p className="text-sm">{title}</p>
-      {detail && <p className="text-muted-foreground text-xs">{detail}</p>}
+      <p className="text-body">{title}</p>
+      {detail && <p className="text-muted-foreground text-meta">{detail}</p>}
     </div>
   );
 }
@@ -413,7 +413,7 @@ function AreaStrip({ areas, area, adding, onPick, onAdd, onAdded, onCancel }: { 
             tabIndex={-1}
             aria-selected={area === a}
             onClick={() => onPick(a)}
-            className={cn("h-6 shrink-0 rounded-md px-2 text-xs transition-colors", area === a ? "bg-foreground/8 font-medium text-foreground" : "text-muted-foreground hover:bg-foreground/4 hover:text-foreground")}
+            className={cn("h-6 shrink-0 rounded-md px-2 text-meta transition-colors", area === a ? "bg-foreground/8 font-medium text-foreground" : "text-muted-foreground hover:bg-foreground/4 hover:text-foreground")}
           >
             {a}
           </button>
@@ -429,7 +429,7 @@ function AreaStrip({ areas, area, adding, onPick, onAdd, onAdded, onCancel }: { 
         </Tip>
       )}
       {/* The strip's own key, where it applies, rather than in the footer. */}
-      <span aria-hidden className="ms-auto flex shrink-0 items-center gap-1 ps-2 text-[11px] text-muted-foreground">
+      <span aria-hidden className="ms-auto flex shrink-0 items-center gap-1 ps-2 text-tag text-muted-foreground">
         <Kbd>⇥</Kbd> next area
       </span>
     </div>
@@ -465,7 +465,7 @@ function NewArea({ onAdded, onCancel }: { onAdded(name: string): void; onCancel(
         }}
         onBlur={() => finish(true)}
         placeholder="New area"
-        className="h-6 w-28 rounded-md border bg-background px-2 text-xs outline-none placeholder:text-muted-foreground/72 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/24"
+        className="h-6 w-28 rounded-md border bg-background px-2 text-meta outline-none placeholder:text-muted-foreground/72 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/24"
       />
     </form>
   );
@@ -533,16 +533,16 @@ function Row({ listId, item, focus, note, showArea, areas, now, highlighted, edi
             aria-selected={highlighted}
             aria-label={`${item.title}, ${item.place}${item.state ? `, ${stateText(item.state)}` : ""}`}
             onClick={onOpen}
-            className="flex min-h-8 cursor-default select-none items-center gap-2.5 px-2 py-1.5 text-sm"
+            className="flex min-h-8 cursor-default select-none items-center gap-2.5 px-2 py-1.5 text-body"
           >
             <Lead item={item} />
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="truncate">{item.title}</span>
-                {waiting && <span className="shrink-0 font-medium text-warning-foreground text-xs dark:text-warning">Needs you</span>}
+                {waiting && <span className="shrink-0 text-warning-foreground text-label dark:text-warning">Needs you</span>}
               </div>
               {twoLine && (
-                <div className="mt-0.5 truncate text-muted-foreground text-xs">
+                <div className="mt-0.5 truncate text-muted-foreground text-meta">
                   {note ? (
                     <>
                       <span className="text-foreground/72">{note}</span>
@@ -554,9 +554,9 @@ function Row({ listId, item, focus, note, showArea, areas, now, highlighted, edi
                 </div>
               )}
             </div>
-            <div className="flex min-w-21 shrink-0 items-center justify-end gap-2 text-muted-foreground text-xs transition-opacity duration-100 group-hover/row:opacity-0 group-data-popup-open/row:opacity-0">
+            <div className="flex min-w-21 shrink-0 items-center justify-end gap-2 text-muted-foreground text-meta transition-opacity duration-100 group-hover/row:opacity-0 group-data-popup-open/row:opacity-0">
               {!twoLine && <span className="max-w-52 truncate">{item.place}</span>}
-              {focus && showArea && item.area !== "Unsorted" && <span className="rounded-sm bg-muted px-1.5 py-px text-[11px] group-data-highlighted/row:bg-background/60">{item.area}</span>}
+              {focus && showArea && item.area !== "Unsorted" && <span className="rounded-sm bg-muted px-1.5 py-px text-tag group-data-highlighted/row:bg-background/60">{item.area}</span>}
               {item.agent && <AgentIcon agent={item.agent} muted className="size-3" />}
               <span className="w-7 text-right tabular-nums">{time}</span>
             </div>
@@ -685,7 +685,7 @@ function NoteEditor({ item, note, onDone }: { item: BoardItem; note?: string; on
         }}
         onBlur={save}
         placeholder="Where did you leave off?"
-        className="h-7 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs outline-none placeholder:text-muted-foreground/72 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/24"
+        className="h-7 min-w-0 flex-1 rounded-md border bg-background px-2 text-meta outline-none placeholder:text-muted-foreground/72 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/24"
       />
     </form>
   );

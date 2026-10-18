@@ -141,7 +141,7 @@ function ForkDialog({ ctx, it, onClose }: { ctx: PromptContext; it: Extract<Tran
               }
             }}
           />
-          <p className="mt-2 text-muted-foreground text-xs">Leave it empty to open the fork without sending anything.</p>
+          <p className="mt-2 text-muted-foreground text-meta">Leave it empty to open the fork without sending anything.</p>
         </DialogPanel>
         <DialogFooter>
           <DialogClose render={<Button variant="ghost" />}>Cancel</DialogClose>
@@ -199,15 +199,15 @@ function RewindDialog({ ctx, it, onClose }: { ctx: PromptContext; it: Extract<Tr
             <label className="flex cursor-pointer items-start gap-2.5">
               <Radio value="conversation" className="mt-0.5" />
               <span className="flex flex-col">
-                <span className="font-medium text-sm">The conversation</span>
-                <span className="text-muted-foreground text-xs">Files stay as they are now.</span>
+                <span className="text-row">The conversation</span>
+                <span className="text-muted-foreground text-meta">Files stay as they are now.</span>
               </span>
             </label>
             <label className="flex cursor-pointer items-start gap-2.5">
               <Radio value="both" className="mt-0.5" />
               <span className="flex flex-col">
-                <span className="font-medium text-sm">The conversation and the code</span>
-                <span className="text-muted-foreground text-xs">Undo the edits {ctx.who} made since this message as well.</span>
+                <span className="text-row">The conversation and the code</span>
+                <span className="text-muted-foreground text-meta">Undo the edits {ctx.who} made since this message as well.</span>
               </span>
             </label>
           </RadioGroup>

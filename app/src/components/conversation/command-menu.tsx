@@ -193,7 +193,7 @@ function OptionList({ count, hi, onHover, onPick, label, children }: { count: nu
   }, [hi]);
   return (
     <div ref={list} role="listbox" aria-label={label} className="min-h-0 flex-1 overflow-y-auto p-1">
-      <div className="px-2 pt-1 pb-1.5 font-medium text-muted-foreground text-xs">{label}</div>
+      <div className="px-2 pt-1 pb-1.5 text-muted-foreground text-label">{label}</div>
       {Array.from({ length: count }, (_, i) => (
         <div
           key={i}
@@ -203,7 +203,7 @@ function OptionList({ count, hi, onHover, onPick, label, children }: { count: nu
           data-highlighted={i === hi ? "" : undefined}
           onMouseMove={() => i !== hi && onHover(i)}
           onClick={() => onPick(i)}
-          className="flex min-h-8 cursor-default select-none items-center gap-2.5 rounded-sm px-2 py-1 text-sm outline-none data-highlighted:bg-accent data-highlighted:text-accent-foreground"
+          className="flex min-h-8 cursor-default select-none items-center gap-2.5 rounded-sm px-2 py-1 text-body outline-none data-highlighted:bg-accent data-highlighted:text-accent-foreground"
         >
           {children(i)}
         </div>
@@ -218,12 +218,12 @@ function CommandRow({ c, active }: { c: AgentCommand; active: boolean }) {
   const alias = c.aliases?.length ? c.aliases.join(", ") : undefined;
   return (
     <>
-      <span className="flex min-w-0 shrink-0 items-baseline gap-1.5 font-mono text-[0.7812rem]">
+      <span className="flex min-w-0 shrink-0 items-baseline gap-1.5 font-mono text-mono">
         <span className="font-medium">{c.name}</span>
         {c.args && <span className="text-muted-foreground">{c.args}</span>}
       </span>
       {/* The highlighted one reads in full, with where it comes from. */}
-      <span className={cn("min-w-0 flex-1 text-muted-foreground text-xs", active ? "line-clamp-2" : "truncate")}>
+      <span className={cn("min-w-0 flex-1 text-muted-foreground text-meta", active ? "line-clamp-2" : "truncate")}>
         {c.description}
         {alias && <span className="text-muted-foreground/72"> · {alias}</span>}
         {active && c.source && <span className="text-muted-foreground/72"> · from {c.source}</span>}
@@ -240,7 +240,7 @@ function FileRow({ path }: { path: string }) {
   return (
     <>
       <FileIcon className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate font-mono text-[0.7812rem]">
+      <span className="min-w-0 flex-1 truncate font-mono text-mono">
         {cut >= 0 && <span className="text-muted-foreground">{path.slice(0, cut + 1)}</span>}
         <span className="font-medium">{path.slice(cut + 1)}</span>
       </span>
@@ -249,12 +249,12 @@ function FileRow({ path }: { path: string }) {
 }
 
 function MenuEmpty({ children }: { children: ReactNode }) {
-  return <div className="flex items-center gap-2 px-3 py-3 text-muted-foreground text-sm">{children}</div>;
+  return <div className="flex items-center gap-2 px-3 py-3 text-muted-foreground text-body">{children}</div>;
 }
 
 function MenuFooter({ kind }: { kind: "command" | "file" }) {
   return (
-    <div className="flex items-center gap-3 border-t px-3 py-1.5 text-muted-foreground text-xs">
+    <div className="flex items-center gap-3 border-t px-3 py-1.5 text-muted-foreground text-meta">
       <span className="flex items-center gap-1">
         <Kbd>↑</Kbd>
         <Kbd>↓</Kbd> to move
@@ -284,7 +284,7 @@ function PromptChip({ text, command, prefixes, who, side }: { text: string; comm
     words = prefixes?.["!"] ?? "Runs in the shell";
   } else if (t.startsWith("#") && t.length > 1) {
     words = prefixes?.["#"] ?? "Saves to memory";
-    icon = <span className="font-mono text-[0.625rem]">#</span>;
+    icon = <span className="font-mono text-tag">#</span>;
   } else if (command) {
     if (command.app) {
       icon = <HistoryIcon />;
@@ -300,7 +300,7 @@ function PromptChip({ text, command, prefixes, who, side }: { text: string; comm
     <div
       role="status"
       className={cn(
-        "pointer-events-none absolute z-20 flex h-5 min-w-0 max-w-[min(72%,32rem)] items-center gap-1 rounded-full border bg-background px-2 text-[0.6875rem] text-muted-foreground [&_svg]:size-3 [&_svg]:shrink-0",
+        "pointer-events-none absolute z-20 flex h-5 min-w-0 max-w-[min(72%,32rem)] items-center gap-1 rounded-full border bg-background px-2 text-tag text-muted-foreground [&_svg]:size-3 [&_svg]:shrink-0",
         // On the field's top edge, over its own padding and the gap above.
         side === "top" ? "top-0 right-3 -translate-y-1/2" : "right-2 bottom-2",
       )}

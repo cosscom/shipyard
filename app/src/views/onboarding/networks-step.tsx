@@ -27,23 +27,23 @@ export function NetworksStep({ onPick }: { onPick(network: string): void }) {
 
   return (
     <div className="space-y-5">
-      {error && <ErrorText className="text-destructive-foreground text-sm" text={error} />}
+      {error && <ErrorText className="text-destructive-foreground text-body" text={error} />}
       {networks === undefined && !error ? (
-        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+        <div className="flex items-center gap-2 text-muted-foreground text-body">
           <Spinner className="size-4" /> Loading…
         </div>
       ) : (
         networks &&
         networks.length > 0 && (
           <div>
-            <div className="mb-2 text-muted-foreground text-xs">Joined</div>
+            <div className="mb-2 text-muted-foreground text-meta">Joined</div>
             <ul className="divide-y divide-border/70 rounded-xl border">
               {networks.map((n) => (
                 <li key={n.name} className="flex items-center gap-3 px-3.5 py-2.5">
                   <NetworkIcon className="size-4 text-muted-foreground" />
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm">{n.name}</div>
-                    <div className="truncate text-[11px] text-muted-foreground">
+                    <div className="text-row">{n.name}</div>
+                    <div className="truncate text-tag text-muted-foreground">
                       {n.tailnet ?? n.state}
                       {n.ips?.[0] ? ` · ${n.ips[0]}` : ""}
                     </div>
@@ -98,10 +98,10 @@ function SignIn({ existing, onJoined }: { existing: string[]; onJoined(network: 
 
   return (
     <div className="border-t pt-5">
-      <div className="text-sm">Sign in to a tailnet</div>
-      <p className="mt-0.5 text-muted-foreground text-xs">Name it however you like; it's how Shipyard refers to that tailnet. A Tailscale sign-in page opens in your browser.</p>
+      <div className="text-row">Sign in to a tailnet</div>
+      <p className="mt-0.5 text-muted-foreground text-meta">Name it however you like; it's how Shipyard refers to that tailnet. A Tailscale sign-in page opens in your browser.</p>
       {state === "waiting" ? (
-        <div className="mt-3 flex items-center gap-3 text-sm">
+        <div className="mt-3 flex items-center gap-3 text-body">
           <Spinner className="size-4" />
           <span className="min-w-0 flex-1 text-muted-foreground">{url ? "Waiting for you to approve the sign-in in your browser…" : "Starting…"}</span>
           {url && (
@@ -136,8 +136,8 @@ function SignIn({ existing, onJoined }: { existing: string[]; onJoined(network: 
           </Tip>
         </form>
       )}
-      {duplicate && state !== "waiting" && <p className="mt-2 text-destructive-foreground text-xs">Shipyard already joined a tailnet called {name.trim()}. Browse it above, or pick another name.</p>}
-      {error && <p className={cn("mt-2 text-destructive-foreground text-xs")}>{error}</p>}
+      {duplicate && state !== "waiting" && <p className="mt-2 text-destructive-foreground text-meta">Shipyard already joined a tailnet called {name.trim()}. Browse it above, or pick another name.</p>}
+      {error && <p className={cn("mt-2 text-destructive-foreground text-meta")}>{error}</p>}
     </div>
   );
 }

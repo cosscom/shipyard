@@ -21,6 +21,77 @@ again.
   [First agent](/getting-started/first-agent) and
   [agent integrations](/guides/agent-integrations).
 
+- **A two-column sidebar, in Labs.** Turn it on in Settings › Labs and your
+  projects sit in one column, with the tasks of the one you pick in the
+  next. A project's row turns amber when something in it needs you and
+  blue while something works. The tasks column can be resized or folded
+  away, and opening a worktree shows its project.
+- **The sidebar is quieter.** Its text is one colour in a few strengths,
+  and colour means only two things: amber when an agent needs you, blue
+  while one works. A finished task gets a quiet check, an idle one no mark
+  at all, and times show only on tasks that are doing something.
+- **Boxes stay out of the way until they matter.** They no longer have rows
+  in the list: a project on a box that's away dims and says "offline", and
+  the line at the foot of the sidebar says which boxes are up. Its tooltip
+  has each box's load, which leaves the status bar. A box's actions are in
+  its projects' menus and in the foot's menu.
+- **Text is the same size for the same thing on every page.** Chats,
+  Settings, onboarding, Home, Review and the rest use one set of sizes, and
+  ⌘+ makes all of them bigger.
+- **A queued prompt that failed is amber in the status bar,** like anything
+  else that needs you, rather than red.
+
+## v0.3.25
+
+- **The sidebar is a size smaller.** Its rows are the size of Settings' list:
+  13px names with small icons, project names as quiet labels, and the same
+  height for tasks, the worktrees under them and your boxes.
+- **Boxes that are offline or slow sit at the foot of the sidebar,** just
+  above the boxes' line, so your projects stay at the top.
+- **A worktree's menu is shorter.** It is four groups: what to start in it;
+  where to open it and what to run; its name, colour and what to copy (path,
+  branch, URL and review links are under Copy); then stop, archive and
+  remove. Resuming a conversation is under New agent, and Compare and tabs
+  beside are under Open in.
+- **A chat that recovers from a read error no longer crashes the app.** A
+  pane that went from "Couldn't read the conversation" to its chat drew with
+  one hook more than before and showed "Shipyard hit an error".
+
+## v0.3.24
+
+- **Sidebar rows hover cleanly.** A row stays lit while the pointer is on its
+  + and ⋯, instead of the buttons sitting on a patch of their own, and folded
+  projects sit one under another without big gaps.
+- **The sidebar lists your tasks.** Each row names what its agent is working
+  on, with a dot, spinner or check for how it's going and how long it has
+  been that way. Worktrees an agent handed work to sit under it on a line, a
+  count beside it folds them. Home is called New task, notifications and
+  hiding the sidebar sit at its top, your boxes at its foot, and notices are
+  one quiet line each. The project menu moved into More.
+- **Settings is a full page now.** Its sections are grouped in the sidebar's
+  place (Esc goes back), each page is one calm column of settings, and Find a
+  setting (⌘F) jumps to any of them. Appearance picks Light, Dark or Match
+  system above the themes.
+- **A plugin's sidebar item can show a count.** `addSidebarItem` takes
+  `useCount`, shaped like a Home widget's: an amber count on the item's row,
+  and on More's while the item is under More. Sessions waiting in a plugin's
+  own place, such as a project kept off the Agent Dashboard, now have
+  somewhere in the menu to show. A `useCount` that throws shows no count
+  and leaves the sidebar alone. See
+  [Sidebar counts](/reference/plugin-sdk#sidebar-counts).
+- **Codex sessions get their own status again with Codex's shared daemon.**
+  Codex can run every session from one background daemon, which runs hooks
+  with the first session's environment: with two Codex sessions on a box,
+  the second one's prompts, tools and turn ends showed on the first (which
+  was even renamed after them), and the second only ever read off its
+  screen. Shipyard now starts Codex with `--no-daemon` when the installed
+  Codex knows the flag, and a Codex hook from another session's folder, or
+  about a conversation another session holds, goes to that session.
+- **Every page uses the same type sizes as Settings.** Review, Worktrees,
+  Automations, the Agent Dashboard, Kits, Project settings, Team setup, Home,
+  dialogs and sheets now share one set of sizes: a large page title with a
+  quiet subtitle, bold section titles, medium item names, 13px descriptions
+  and slightly larger metadata and code, so the app reads as one piece.
 - **A box with a full hostname is named by its first label.** A cloud VM
   whose hostname is `devbox.europe-north1-a.c.example.internal` called itself
   by all of it: the phone and notifications showed the whole name, and it
@@ -29,6 +100,13 @@ again.
   pairs) is now named by its hostname's first label, `devbox`, with `_`
   becoming `-`. Restart berthd on such a box to pick up the new name;
   existing laptop pairings keep theirs.
+- **Turn check: a check-in an agent scheduled for itself is Idle.** An
+  agent that ends its turn saying it will check again at a later time
+  ("tomorrow morning I'll check the numbers"), with nothing running now,
+  shows as **Idle**, even when the machine is kept awake for that check.
+  It used to show as **Working**. Work still running in the background, a
+  re-check or a watcher that reports back, stays **Working**.
+  [Sessions and agents](/concepts/sessions-and-agents#agent-state)
 
 ## v0.3.23
 - **Project settings opens for a project with a kit's flows.** A kit whose

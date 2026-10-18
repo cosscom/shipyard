@@ -1,4 +1,4 @@
-import { BookOpenIcon, ChevronDownIcon } from "lucide-react";
+import { AlarmClockOffIcon, BookOpenIcon, ChevronDownIcon } from "lucide-react";
 import { useId, useState } from "react";
 
 import { ErrorDetails } from "@/components/error-note";
@@ -11,6 +11,7 @@ import { installSkills, setRemind, type ShownNotice, snoozeSkillsNotice, useSkil
 import { actionLabel, noticeDetail, noticeText, SNOOZE_CHOICES } from "@/lib/skills-notice-model";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { ink } from "@/components/sidebar/ink";
 
 // The sidebar's quiet word that a box's Shipyard skills aren't installed or
 // are out of date (lib/skills-notice.ts), with two ways out: Install now,
@@ -27,7 +28,7 @@ const said = (n: ShownNotice, failed: boolean) => (failed ? `couldn't ${n.kind =
 
 // Notice is one box's: what is wrong, Install now and Snooze; or, after an
 // install that didn't go through, why, with Retry and Settings.
-function Notice({ n, onLeave, className }: { n: ShownNotice; onLeave?: () => void; className?: string }) {
+function Notice({ n, onLeave, className, line }: { n: ShownNotice; onLeave?: () => void; className?: string; line?: boolean }) {
   const id = useId();
   // While a retry runs the notice shows the try, not the last failure.
   const f = n.installing ? undefined : n.failure;
@@ -39,22 +40,26 @@ function Notice({ n, onLeave, className }: { n: ShownNotice; onLeave?: () => voi
       data-box={n.box}
       data-kind={n.kind}
       data-state={n.installing ? "installing" : f ? "failed" : "idle"}
-      className={cn("flex flex-col gap-2 px-2.5 py-row-pad", className)}
+      // In the open sidebar a notice is one quiet line, its buttons at the
+      // end; the rail's popover has room for it to wrap.
+      className={cn(line ? "flex flex-wrap items-center min-h-7 gap-x-1 gap-y-0.5 pr-[11px] pl-6" : "flex flex-col gap-2 px-2.5 py-row-pad", className)}
     >
-      <div className="flex flex-col gap-0.5 text-xs leading-snug">
-        <p id={`${id}-text`} className="text-pretty text-muted-foreground">
-          <BookOpenIcon aria-hidden className="-mt-0.5 mr-1.5 inline size-3.5" />
-          <span className="font-medium text-foreground">{n.box}</span>: {said(n, !!f)}
-        </p>
+      <div className={cn("flex flex-col gap-0.5 text-meta", line && "min-w-0 flex-1")}>
+        <Tip label={line ? `${n.box}: ${said(n, !!f)}` : undefined} side="top" align="start">
+          <p id={`${id}-text`} className={cn(line ? cn("truncate text-meta", ink.faint) : "text-pretty text-muted-foreground")}>
+            <BookOpenIcon aria-hidden className={cn("-mt-0.5 mr-1.5 inline size-3.5", line && ink.glyph)} />
+            <span className={cn("font-medium", line ? ink.row : "text-foreground/80")}>{n.box}</span>: {said(n, !!f)}
+          </p>
+        </Tip>
         {f && (
           <p data-testid="skills-notice-error" className="text-pretty text-destructive-foreground">
             {f.title}. {f.message} <ErrorDetails text={f.details} title={f.title} message={f.message} />
           </p>
         )}
       </div>
-      <div className="flex flex-wrap items-center gap-1">
+      <div className={cn("flex flex-wrap items-center gap-1", line && "shrink-0 gap-0")}>
         <Tip label={noticeDetail(n)} side="top" align="start" className="max-w-64">
-          <Button size="xs" variant="outline" disabled={n.installing} onClick={() => void installSkills(n)}>
+          <Button size="xs" variant={line ? "ghost" : "outline"} disabled={n.installing} onClick={() => void installSkills(n)} className={cn(line && cn("px-1.5 font-medium hover:text-foreground", ink.row))}>
             {n.installing && <Spinner aria-hidden className="size-3" />}
             {n.installing ? (n.kind === "outdated" ? "Updating…" : "Installing…") : f ? "Retry" : actionLabel(n)}
           </Button>
@@ -75,9 +80,9 @@ function Notice({ n, onLeave, className }: { n: ShownNotice; onLeave?: () => voi
           </Tip>
         )}
         <Menu>
-          <MenuTrigger render={<Button size="xs" variant="ghost" disabled={n.installing} aria-label={`Snooze the reminder for ${n.box}`} className="px-1.5 text-muted-foreground" />}>
-            Snooze
-            <ChevronDownIcon />
+          <MenuTrigger render={<Button size="xs" variant="ghost" disabled={n.installing} aria-label={`Snooze the reminder for ${n.box}`} className={cn("px-1.5", line ? ink.glyph : "text-muted-foreground")} />}>
+            {!line && "Snooze"}
+            {line ? <AlarmClockOffIcon /> : <ChevronDownIcon />}
           </MenuTrigger>
           <MenuPopup align="start" className="min-w-48">
             {SNOOZE_CHOICES.map((c) => (
@@ -98,17 +103,18 @@ function Notice({ n, onLeave, className }: { n: ShownNotice; onLeave?: () => voi
   );
 }
 
-// SkillsNotices is the card in the open sidebar.
+// SkillsNotices is the open sidebar's: one quiet line a box, at its foot
+// above the boxes, with the rest folded under "N more boxes".
 export function SkillsNotices() {
   const list = useSkillsNotices();
   const [open, setOpen] = useState(false);
   if (!list.length) return null;
   const [first, ...rest] = list;
   return (
-    <section aria-label="Shipyard's skills" data-testid="skills-notices" className="mx-2 mt-1 mb-2 flex max-h-[45%] shrink-0 flex-col overflow-hidden rounded-lg border bg-background shadow-xs">
-      <div className="min-h-0 divide-y overflow-y-auto">
-        <Notice key={first.box} n={first} />
-        {open && rest.map((n) => <Notice key={n.box} n={n} />)}
+    <section aria-label="Shipyard's skills" data-testid="skills-notices" className="flex max-h-[45%] shrink-0 flex-col overflow-hidden">
+      <div className="min-h-0 overflow-y-auto">
+        <Notice key={first.box} n={first} line />
+        {open && rest.map((n) => <Notice key={n.box} n={n} line />)}
       </div>
       {rest.length > 0 && (
         <button
@@ -116,7 +122,7 @@ export function SkillsNotices() {
           aria-expanded={open}
           data-testid="skills-notices-more"
           onClick={() => setOpen(!open)}
-          className="flex h-6 w-full shrink-0 items-center gap-1 rounded-b-lg border-t px-2.5 text-[11px] text-muted-foreground outline-none hover:bg-accent/50 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+          className={cn("ml-[42px] flex h-6 w-max shrink-0 items-center gap-1 rounded-md px-1 text-tag outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring", ink.faint)}
         >
           <ChevronDownIcon aria-hidden className={cn("size-3 transition-transform", open && "rotate-180")} />
           {open ? "Show fewer" : `${rest.length} more ${rest.length === 1 ? "box" : "boxes"}`}

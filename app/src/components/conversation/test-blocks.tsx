@@ -116,7 +116,7 @@ function FailureRow({ failure }: { failure: TestFailure }) {
           <button type="button" onClick={open} className="cv-test-file" aria-label={`Open ${path}${failure.line ? ` line ${failure.line}` : ""}`}>
             {failure.file}{failure.line ? `:${failure.line}` : ""}<ArrowUpRightIcon size={12} aria-hidden />
           </button>
-        ) : <span className="font-mono text-[11px] text-muted-foreground">{failure.file}{failure.line ? `:${failure.line}` : ""}</span>)}
+        ) : <span className="font-mono text-tag text-muted-foreground">{failure.file}{failure.line ? `:${failure.line}` : ""}</span>)}
       </div>
     </div>
   );

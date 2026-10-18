@@ -120,7 +120,7 @@ export function NotificationBell({ className, size = "sm" }: { className?: strin
         {unread > 0 && (
           <span
             className={cn(
-              "absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-1 font-semibold text-[9px] tabular-nums leading-none",
+              "absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-1 font-semibold text-tag tabular-nums leading-none",
               needs > 0 ? "bg-warning text-black" : "bg-foreground/80 text-background",
             )}
           >
@@ -403,7 +403,7 @@ export function NotificationCenter() {
         onKeyDown={onKeyDown}
       >
         <div ref={panel} tabIndex={-1} className="flex h-12 shrink-0 items-center gap-1 border-b pr-2 pl-4 outline-none">
-          <SheetTitle className="mr-1 font-semibold text-sm">Notifications</SheetTitle>
+          <SheetTitle className="mr-1 text-heading">Notifications</SheetTitle>
           {notes.length > 0 && (
             <Menu>
               <MenuTrigger
@@ -422,7 +422,7 @@ export function NotificationCenter() {
                         <MenuRadioItem value={f.id} closeOnClick>
                           <span className="flex items-center gap-4">
                             <span className="flex-1">{f.label}</span>
-                            <span className="text-muted-foreground text-xs tabular-nums">{count || ""}</span>
+                            <span className="text-muted-foreground text-meta tabular-nums">{count || ""}</span>
                           </span>
                         </MenuRadioItem>
                       </Fragment>
@@ -479,7 +479,7 @@ export function NotificationCenter() {
         </div>
 
         {quiet && (
-          <div className="flex shrink-0 items-center gap-2 border-b bg-muted/40 px-4 py-1.5 text-muted-foreground text-xs">
+          <div className="flex shrink-0 items-center gap-2 border-b bg-muted/40 px-4 py-1.5 text-muted-foreground text-meta">
             <BellOffIcon className="size-3.5 shrink-0" />
             <span className="min-w-0 flex-1">
               Do not disturb{hush.until ? ` until ${clock(hush.until.toISOString())}` : ""}
@@ -495,8 +495,8 @@ export function NotificationCenter() {
                 <EmptyMedia>
                   <Scene name="bottle" width={128} className="text-muted-foreground" />
                 </EmptyMedia>
-                <EmptyTitle className="text-base">You're all caught up</EmptyTitle>
-                <EmptyDescription className="text-sm">Agents that need you, failures and finished work land here.</EmptyDescription>
+                <EmptyTitle className="text-heading">You're all caught up</EmptyTitle>
+                <EmptyDescription className="text-body">Agents that need you, failures and finished work land here.</EmptyDescription>
               </EmptyHeader>
             </Empty>
           </div>
@@ -518,7 +518,7 @@ export function NotificationCenter() {
                 </Section>
               ) : (
                 filter === "all" && (
-                  <p className="flex h-8 items-center gap-2 px-2.5 text-muted-foreground text-xs">
+                  <p className="flex h-8 items-center gap-2 px-2.5 text-muted-foreground text-meta">
                     <CheckIcon className="size-3.5 shrink-0 text-success-foreground dark:text-success" />
                     Nothing needs you right now
                   </p>
@@ -532,7 +532,7 @@ export function NotificationCenter() {
                 </Section>
               ))}
               {items.length === 0 && live.length === 0 && (
-                <div className="flex flex-col items-center gap-2 px-4 py-8 text-center text-muted-foreground text-xs">
+                <div className="flex flex-col items-center gap-2 px-4 py-8 text-center text-muted-foreground text-meta">
                   {current.empty}
                   <Button size="xs" variant="ghost" onClick={() => setFilter("all")}>
                     Show all
@@ -544,7 +544,7 @@ export function NotificationCenter() {
         )}
 
         {error && (
-          <div className="flex h-8 shrink-0 items-center gap-2 border-t px-4 text-[11px] text-destructive-foreground dark:text-destructive">
+          <div className="flex h-8 shrink-0 items-center gap-2 border-t px-4 text-tag text-destructive-foreground dark:text-destructive">
             <span className="min-w-0 flex-1 truncate" title={error}>
               Not saved: the Shipyard agent did not take the history.
             </span>
@@ -558,7 +558,7 @@ export function NotificationCenter() {
 function Section({ title, count, amber, children }: { title: string; count?: number; amber?: boolean; children: React.ReactNode }) {
   return (
     <section className="not-first:mt-1.5">
-      <h3 className="flex h-7 items-center gap-1.5 px-2.5 font-medium text-[11px] text-muted-foreground">
+      <h3 className="flex h-7 items-center gap-1.5 px-2.5 font-medium text-tag text-muted-foreground">
         {amber && <span className="size-1.5 rounded-full bg-warning" />}
         {title}
         {count !== undefined && <span className="tabular-nums">{count}</span>}
@@ -619,7 +619,7 @@ function Row({
     </span>
   );
   const time = (
-    <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums group-focus-within/row:hidden group-hover/row:hidden">{short(n.time, now)}</span>
+    <span className="shrink-0 text-tag text-muted-foreground tabular-nums group-focus-within/row:hidden group-hover/row:hidden">{short(n.time, now)}</span>
   );
 
   return (
@@ -645,24 +645,24 @@ function Row({
       </Tip>
       {folded ? (
         <div className="flex h-5 min-w-0 flex-1 items-center gap-1.5">
-          <span className="min-w-0 shrink truncate text-muted-foreground text-xs">{n.title}</span>
-          {item.count > 1 && <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">×{item.count}</span>}
-          <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">{line}</span>
+          <span className="min-w-0 shrink truncate text-muted-foreground text-meta">{n.title}</span>
+          {item.count > 1 && <span className="shrink-0 text-tag text-muted-foreground tabular-nums">×{item.count}</span>}
+          <span className="min-w-0 flex-1 truncate text-tag text-muted-foreground">{line}</span>
           {time}
           {cluster}
         </div>
       ) : (
         <div className="min-w-0 flex-1">
           <div className="flex h-5 items-center gap-1.5">
-            <span className={cn("min-w-0 truncate text-[13px]", n.read ? "text-foreground/80" : "font-medium text-foreground")}>{n.title}</span>
-            {item.count > 1 && <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">×{item.count}</span>}
+            <span className={cn("min-w-0 truncate text-desc", n.read ? "text-foreground/80" : "font-medium text-foreground")}>{n.title}</span>
+            {item.count > 1 && <span className="shrink-0 text-tag text-muted-foreground tabular-nums">×{item.count}</span>}
             <span className="flex-1" />
             {time}
             {cluster}
           </div>
           {(line || label) && (
             <div className="flex h-4.5 items-center gap-2">
-              <span className="min-w-0 flex-1 truncate text-muted-foreground text-xs" title={line}>
+              <span className="min-w-0 flex-1 truncate text-muted-foreground text-meta" title={line}>
                 {line}
               </span>
               {label && (
@@ -672,7 +672,7 @@ function Row({
                     e.stopPropagation();
                     openNote(n.id);
                   }}
-                  className="hidden shrink-0 text-foreground/80 text-xs underline-offset-2 hover:text-foreground hover:underline group-focus-within/row:inline group-hover/row:inline"
+                  className="hidden shrink-0 text-foreground/80 text-meta underline-offset-2 hover:text-foreground hover:underline group-focus-within/row:inline group-hover/row:inline"
                 >
                   {label}
                 </button>
@@ -714,13 +714,13 @@ function LiveRow({ live, now, tabStop, onFocus }: { live: Live; now: number; tab
       </Tip>
       <div className="min-w-0 flex-1">
         <div className="flex h-5 items-center gap-1.5">
-          <span className="min-w-0 truncate font-medium text-[13px] text-foreground">{live.name} needs you</span>
+          <span className="min-w-0 truncate font-medium text-desc text-foreground">{live.name} needs you</span>
           <span className="flex-1" />
-          {since && <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">{short(since, now)}</span>}
+          {since && <span className="shrink-0 text-tag text-muted-foreground tabular-nums">{short(since, now)}</span>}
         </div>
         <div className="flex h-4.5 items-center gap-2">
-          <span className="min-w-0 flex-1 truncate text-muted-foreground text-xs">{live.place}</span>
-          <span className="hidden shrink-0 text-foreground/80 text-xs group-focus-within/row:inline group-hover/row:inline">Open session</span>
+          <span className="min-w-0 flex-1 truncate text-muted-foreground text-meta">{live.place}</span>
+          <span className="hidden shrink-0 text-foreground/80 text-meta group-focus-within/row:inline group-hover/row:inline">Open session</span>
         </div>
       </div>
     </li>

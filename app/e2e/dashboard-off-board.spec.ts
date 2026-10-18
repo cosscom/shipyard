@@ -23,6 +23,7 @@ test("a project kept off the Agent Dashboard leaves the board until shown again"
   await expect(agents.getByText("Kept off")).toBeVisible();
 
   // evals' agents (its main checkout and a worktree) are gone; shop's stay.
+  await app.leaveSettings();
   await page.getByTestId("nav-home").click();
   await expect(page.getByTestId("dashboard-off-board")).toHaveText("1 project kept off");
   await expect(working.getByText("Build the QA deck for the release")).toBeVisible();
@@ -34,6 +35,7 @@ test("a project kept off the Agent Dashboard leaves the board until shown again"
   await expect(agents).toBeVisible();
   await agents.getByRole("button", { name: "Show" }).click();
   await expect(agents.getByText("Every project shows on the dashboard.")).toBeVisible();
+  await app.leaveSettings();
   await page.getByTestId("nav-home").click();
   await expect(working.getByText("Tune the judge prompt")).toBeVisible();
   await expect(page.getByTestId("dashboard-off-board")).toHaveCount(0);
@@ -51,6 +53,7 @@ test("a project kept off leaves the sidebar's waiting count", async ({ app }) =>
   await agents.getByRole("combobox").click();
   await page.getByRole("option", { name: "shop" }).click();
   await expect(agents.getByText("Kept off, on devl, gpu")).toBeVisible();
+  await app.leaveSettings();
   await expect(home).not.toContainText("2");
   await page.getByTestId("nav-home").click();
   await expect(page.getByRole("region", { name: "Needs you" }).getByText("Nothing needs you.")).toBeVisible();

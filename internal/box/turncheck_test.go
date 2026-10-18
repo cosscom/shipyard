@@ -186,7 +186,7 @@ func TestTurnCheckMarksWorkStillGoingOnUnfinished(t *testing.T) {
 // title, the turn's last prompt and its reply.
 type turnFixture struct{ title, prompt, reply string }
 
-// Two real turns from a box, as turn check read them, with names changed.
+// Real turns from a box, as turn check read them, with names changed.
 var (
 	// Waits on someone else's reply and checks again in 24 hours: nothing
 	// runs and nothing is asked of you, so it is parked.
@@ -202,12 +202,26 @@ var (
 		title: "🚀 ACME-1903 deploying",
 		reply: "`./deploy.sh` is running for merge 956e39c. When it finishes I'll check that the new revision has 100% of traffic and run the prod verification.",
 	}
+	// A check-in it scheduled for itself tomorrow, with the box kept awake
+	// for it and a production job running on meanwhile: nothing runs for
+	// the agent now, so it is parked, not working.
+	scheduledTurn = turnFixture{
+		title:  "🚀 ACME-1921 night 1 clean, waiting night 2",
+		prompt: "everything done or are we waiting for something or something needs to be checked before done status?",
+		reply:  "**Still waiting:** I've paused the tag-sync job's scheduler, so tonight the new rule is the only thing setting the tag. Tomorrow at about 07:20 I'll check that the count held. If it did, I'll retire that job the same way and set ACME-1921 to Done. The box stays awake until 06:20 UTC to cover that check.",
+	}
+	// A re-check it started runs in the background now and reports back:
+	// working.
+	backgroundTurn = turnFixture{
+		title: "🚀 ACME-2002 watch window",
+		reply: "The 15-minute re-check is still running in the background. I'll finish when it reports back.",
+	}
 )
 
 // Every provider is asked with parked beside working, each with its own
 // definition, and gets the turn as it is.
 func TestTurnCheckAsksWhetherWorkIsParked(t *testing.T) {
-	for name, turn := range map[string]turnFixture{"parked": parkedTurn, "running": runningTurn} {
+	for name, turn := range map[string]turnFixture{"parked": parkedTurn, "running": runningTurn, "scheduled": scheduledTurn, "background": backgroundTurn} {
 		t.Run(name, func(t *testing.T) {
 			b, bus, sess, calls := checkedBox(t, true, turn.prompt, turn.reply, jevSays("done", 0.9))
 			if err := b.Sessions.SetTitle(context.Background(), sess.Name, turn.title); err != nil {
@@ -222,7 +236,7 @@ func TestTurnCheckAsksWhetherWorkIsParked(t *testing.T) {
 			status, _ := c.body["questions"].(map[string]any)["status"].(map[string]any)
 			criteria, _ := status["criteria"].(map[string]any)
 			instructions, _ := status["instructions"].(string)
-			if criteria["parked"] != jevCriteria["parked"] || criteria["working"] != jevCriteria["working"] || !strings.Contains(instructions, "parked means") {
+			if criteria["parked"] != jevCriteria["parked"] || criteria["working"] != jevCriteria["working"] || instructions != jevInstructions {
 				t.Fatalf("asked %v", status)
 			}
 
@@ -232,7 +246,7 @@ func TestTurnCheckAsksWhetherWorkIsParked(t *testing.T) {
 			for _, ch := range q["choices"].([]map[string]string) {
 				got[ch["value"]] = ch["description"]
 			}
-			if got["parked"] != jevCriteria["parked"] || got["working"] != jevCriteria["working"] || len(got) != len(jevCriteria) || !strings.Contains(q["instructions"].(string), "parked means") {
+			if got["parked"] != jevCriteria["parked"] || got["working"] != jevCriteria["working"] || len(got) != len(jevCriteria) || q["instructions"] != strings.Replace(jevInstructions, "Treat the state as", "Treat the input as", 1) {
 				t.Fatalf("decisions choices %v", got)
 			}
 			if input := ask["input"].(string); input != "Session objective: "+turn.title+"\n\nUser request: "+turn.prompt+"\n\nAgent response: "+turn.reply {
@@ -244,6 +258,24 @@ func TestTurnCheckAsksWhetherWorkIsParked(t *testing.T) {
 	// reply or a later time is parked.
 	if !strings.Contains(jevCriteria["working"], "running right now") || !strings.Contains(jevCriteria["parked"], "nothing is running") || !strings.Contains(jevCriteria["parked"], "nothing is needed from the user") {
 		t.Fatalf("criteria %v", jevCriteria)
+	}
+	// A check-in the agent scheduled for itself is parked, even with the
+	// machine kept awake for it; working is what runs now, a background
+	// task included, and never a check scheduled for later.
+	for _, want := range []string{"check-in the agent scheduled for itself", "timer or cron", "kept awake for it"} {
+		if !strings.Contains(jevCriteria["parked"], want) {
+			t.Fatalf("parked %q lacks %q", jevCriteria["parked"], want)
+		}
+	}
+	for _, want := range []string{"background task it started that is still running", "A check it scheduled for a later time is not running now."} {
+		if !strings.Contains(jevCriteria["working"], want) {
+			t.Fatalf("working %q lacks %q", jevCriteria["working"], want)
+		}
+	}
+	for _, want := range []string{"check-in the agent scheduled for itself at a set time with a timer, cron or loop", "A check scheduled for later is not running now: with nothing else running it is parked, not working, even if the machine is kept awake for it", "background task it started that is still running"} {
+		if !strings.Contains(jevInstructions, want) {
+			t.Fatalf("instructions lack %q", want)
+		}
 	}
 }
 
@@ -308,21 +340,44 @@ func TestTurnCheckMarksWorkWaitingOnAReplyParked(t *testing.T) {
 	}
 }
 
-// A deploy still running is working, not parked.
+// A deploy or a re-check still running is working, not parked.
 func TestTurnCheckMarksARunningDeployUnfinished(t *testing.T) {
-	b, bus, sess, calls := checkedBox(t, true, runningTurn.prompt, runningTurn.reply, jevSays("working", 0.9))
-	b.Sessions.SetTitle(context.Background(), sess.Name, runningTurn.title)
+	for name, turn := range map[string]turnFixture{"deploy": runningTurn, "background": backgroundTurn} {
+		t.Run(name, func(t *testing.T) {
+			b, bus, sess, calls := checkedBox(t, true, turn.prompt, turn.reply, jevSays("working", 0.9))
+			b.Sessions.SetTitle(context.Background(), sess.Name, turn.title)
+			endTurn(bus, sess)
+			waitCall(t, calls)
+			deadline := time.Now().Add(5 * time.Second)
+			for st, _ := b.Turns.State(sess.Name); !st.Unfinished; st, _ = b.Turns.State(sess.Name) {
+				if time.Now().After(deadline) {
+					t.Fatal("the verdict was not taken")
+				}
+				time.Sleep(20 * time.Millisecond)
+			}
+			if got := b.enrich(context.Background(), []Session{sess})[0]; got.AgentState != "finished" || !got.Unfinished || got.Parked {
+				t.Fatalf("the session reads %s, unfinished %v, parked %v", got.AgentState, got.Unfinished, got.Parked)
+			}
+		})
+	}
+}
+
+// A check-in the agent scheduled for itself, with nothing running now, is
+// parked: idle, not working.
+func TestTurnCheckMarksAScheduledCheckInParked(t *testing.T) {
+	b, bus, sess, calls := checkedBox(t, true, scheduledTurn.prompt, scheduledTurn.reply, jevSays("parked", 0.96))
+	b.Sessions.SetTitle(context.Background(), sess.Name, scheduledTurn.title)
 	endTurn(bus, sess)
 	waitCall(t, calls)
 	deadline := time.Now().Add(5 * time.Second)
-	for st, _ := b.Turns.State(sess.Name); !st.Unfinished; st, _ = b.Turns.State(sess.Name) {
+	for st, _ := b.Turns.State(sess.Name); !st.Parked; st, _ = b.Turns.State(sess.Name) {
 		if time.Now().After(deadline) {
 			t.Fatal("the verdict was not taken")
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	if got := b.enrich(context.Background(), []Session{sess})[0]; got.AgentState != "finished" || !got.Unfinished || got.Parked {
-		t.Fatalf("the session reads %s, unfinished %v, parked %v", got.AgentState, got.Unfinished, got.Parked)
+	if got := b.enrich(context.Background(), []Session{sess})[0]; got.AgentState != "finished" || !got.Parked || got.Unfinished {
+		t.Fatalf("the session reads %s, parked %v, unfinished %v", got.AgentState, got.Parked, got.Unfinished)
 	}
 }
 

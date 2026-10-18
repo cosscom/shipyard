@@ -29,11 +29,11 @@ export function ReviewButtonSection({ config, draft, setDraft, box }: { config: 
     >
       <div className="flex items-center gap-4 px-4 py-3.5">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-2 text-row">
             Add the button to new PRs
             {from === "team" ? (
               <Tip label="Turned on for every engineer by the team's team.json">
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-px text-[11px] text-muted-foreground">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-px text-tag text-muted-foreground">
                   <UsersRoundIcon className="size-3" />
                   Team
                 </span>
@@ -42,8 +42,8 @@ export function ReviewButtonSection({ config, draft, setDraft, box }: { config: 
               from && <SourceBadge source={from} box={box} />
             )}
           </div>
-          <p className="mt-0.5 text-muted-foreground text-xs">
-            Added once, below everything else, and never changes the rest of the description. Agents can set who it logs in as and which page it opens with <code className="rounded bg-muted px-1 py-px font-mono text-[11px]">berthd review-button --as EMAIL --path /x</code>.
+          <p className="mt-0.5 text-desc text-muted-foreground">
+            Added once, below everything else, and never changes the rest of the description. Agents can set who it logs in as and which page it opens with <code className="rounded bg-muted px-1 py-px font-mono text-tag">berthd review-button --as EMAIL --path /x</code>.
           </p>
         </div>
         {own !== undefined && st?.inherited_from ? (

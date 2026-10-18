@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 export function Section({ title, aside, children, className }: { title: string; aside?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
     <section aria-label={title} className={cn("flex min-w-0 flex-col gap-2", className)}>
-      <h3 className="flex items-center justify-between gap-2 font-medium text-muted-foreground text-xs">
+      <h3 className="flex items-center justify-between gap-2 text-muted-foreground text-label">
         {title}
         {aside}
       </h3>
@@ -41,7 +41,7 @@ export function Section({ title, aside, children, className }: { title: string; 
 function Labelled({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <label className={cn("flex min-w-0 flex-col gap-1", className)}>
-      <span className="text-muted-foreground text-xs">{label}</span>
+      <span className="text-muted-foreground text-meta">{label}</span>
       {children}
     </label>
   );
@@ -134,7 +134,7 @@ export function WorktreeOptions({
           )}
         </Labelled>
       ))}
-      <p className="flex items-start gap-1.5 text-muted-foreground text-xs leading-relaxed">
+      <p className="flex items-start gap-1.5 text-muted-foreground text-meta">
         <FileCode2Icon className="mt-0.5 size-3.5 shrink-0" />
         {scripts?.setup ? (
           <span className="flex min-w-0 flex-col gap-0.5">
@@ -202,8 +202,8 @@ export function AttemptsOptions({
       <div className="flex flex-col gap-1.5">
         {picks.map((p, i) => (
           <div key={i} className="flex min-w-0 items-center gap-2">
-            <span className="w-4 shrink-0 text-right text-muted-foreground text-xs tabular-nums">{i + 1}</span>
-            <span className="flex w-40 min-w-0 shrink-0 items-center gap-1.5 text-[0.8125rem]">
+            <span className="w-4 shrink-0 text-right text-muted-foreground text-meta tabular-nums">{i + 1}</span>
+            <span className="flex w-40 min-w-0 shrink-0 items-center gap-1.5 text-desc">
               <AgentIcon agent={p.agent} className="size-3.5" />
               <span className="truncate">{[name(p.agent), p.model && nice(p.model), p.effort && nice(p.effort)].filter(Boolean).join(" · ")}</span>
             </span>
@@ -224,7 +224,7 @@ export function AttemptsOptions({
           <SimpleSelect size="sm" className="min-w-0" value={v.judge} onChange={(judge) => set({ judge })} options={presets.map((p) => ({ value: p.id, label: p.name }))} />
         </Labelled>
       </div>
-      <div className="flex flex-wrap items-center gap-5 text-[0.8125rem]">
+      <div className="flex flex-wrap items-center gap-5 text-desc">
         <label className="flex cursor-pointer items-center gap-2">
           <Switch checked={v.auto} onCheckedChange={(auto) => set({ auto })} />
           Take the judge's pick
@@ -295,7 +295,7 @@ export function SendOptions({
         </Section>
       )}
       <Section title="Then">
-        <div className="flex flex-col gap-2 text-[0.8125rem]">
+        <div className="flex flex-col gap-2 text-desc">
           <label className={cn("flex cursor-pointer items-center gap-2", v.loop && "opacity-50")}>
             <Switch checked={v.wait && !v.loop} disabled={v.loop} onCheckedChange={(wait) => set({ wait })} />
             Wait for each turn to end, and show what they said
@@ -339,21 +339,21 @@ function TargetRow({ entry, expanded, onExpand, text, edited, missing, onEdit }:
       <button type="button" aria-expanded={expanded} onClick={onExpand} className="flex w-full min-w-0 items-center gap-2 px-3 py-1.5 text-left outline-none hover:bg-accent/50 focus-visible:bg-accent/50">
         <ChevronRightIcon className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-90")} />
         <AgentIcon agent={entry.session.agent} className="size-3.5" />
-        <span className="min-w-0 truncate text-[0.8125rem]">{title}</span>
-        <span className="min-w-0 shrink truncate text-muted-foreground text-xs">{detail.replace(new RegExp(` · ${entry.box}$`), "")}</span>
+        <span className="min-w-0 truncate text-desc">{title}</span>
+        <span className="min-w-0 shrink truncate text-muted-foreground text-meta">{detail.replace(new RegExp(` · ${entry.box}$`), "")}</span>
         <span className="ml-auto flex shrink-0 items-center gap-2">
           {missing.length > 0 && (
             <Tip label="Not known for this agent; left out of its prompt">
-              <span className="font-mono text-[0.6875rem] text-warning-foreground">no {missing.map((m) => `{{${m}}}`).join(" ")}</span>
+              <span className="font-mono text-tag text-warning-foreground">no {missing.map((m) => `{{${m}}}`).join(" ")}</span>
             </Tip>
           )}
-          {edited && <span className="text-[0.6875rem] text-info-foreground">edited</span>}
+          {edited && <span className="text-tag text-info-foreground">edited</span>}
           <StateGlyph state={entry.state} className="size-3" />
         </span>
       </button>
       {expanded && (
         <div className="flex flex-col gap-1 px-3 pb-2.5 pl-9">
-          <Textarea rows={4} className="text-[0.8125rem]" value={text} onChange={(e) => onEdit(e.target.value)} aria-label={`Prompt for ${short}`} />
+          <Textarea rows={4} className="text-desc" value={text} onChange={(e) => onEdit(e.target.value)} aria-label={`Prompt for ${short}`} />
           {edited && (
             <Button type="button" size="xs" variant="ghost" className="self-start text-muted-foreground" onClick={() => onEdit(undefined)}>
               Use the prompt above again

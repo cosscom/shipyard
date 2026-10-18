@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { SimpleSelect } from "@/components/simple-select";
 import { Input } from "@/components/ui/input";
-import { SYSTEM_THEME, useThemes } from "@/hooks/use-theme";
+import { SYSTEM_THEME, useActiveTheme, useThemes } from "@/hooks/use-theme";
 import type { Theme } from "@/lib/api";
 import { setPrefs, usePrefs } from "@/lib/prefs";
 import { useStore } from "@/lib/store";
@@ -12,7 +12,8 @@ import { berthThemes } from "@/themes/builtin";
 import { ChatBackgroundSettings, ChatWidthSettings } from "@/views/settings/chat-background-section";
 import { Segmented } from "@/views/settings/controls";
 import { HeaderPictureSettings } from "@/views/settings/header-picture-section";
-import { Code, SettingsGroup, SettingsPage, SettingsRow } from "@/views/settings/rows";
+import { SettingsGroup, SettingsPage, SettingsRow } from "@/views/settings/rows";
+import { Dots, Preview } from "@/views/settings/theme-preview";
 import { IS_LINUX } from "@/lib/platform";
 
 const BERTH = new Set(berthThemes.map((t) => t.id));
@@ -24,44 +25,97 @@ export function AppearanceSection() {
   const uiFontSize = usePrefs((p) => p.uiFontSize);
   const [query, setQuery] = useState("");
 
+  const [all, setAll] = useState(false);
+  const system = themeId === SYSTEM_THEME;
+  const active = useActiveTheme();
+  const selectedId = system ? active.id : themeId;
+
   // Shipyard's own, then every other theme (built-in ports, yours, plugins')
-  // by appearance; a search narrows them by name.
+  // by appearance, the best-known first; a search narrows them by name.
+  // Unsearched, each group shows a row of four, plus the chosen theme, until
+  // Show more.
   const q = query.trim().toLowerCase();
   const shown = q ? themes.filter((t) => t.name.toLowerCase().includes(q) || t.id.includes(q)) : themes;
   const groups = [
-    { title: "Shipyard", themes: shown.filter((t) => BERTH.has(t.id)) },
-    { title: "Dark", themes: shown.filter((t) => !BERTH.has(t.id) && t.appearance === "dark") },
-    { title: "Light", themes: shown.filter((t) => !BERTH.has(t.id) && t.appearance !== "dark") },
-  ].filter((g) => g.themes.length);
+    { title: "Shipyard", themes: byFirst(shown.filter((t) => BERTH.has(t.id)), SHIPYARD_FIRST) },
+    { title: "Light", themes: byFirst(shown.filter((t) => !BERTH.has(t.id) && t.appearance !== "dark"), LIGHT_FIRST) },
+    { title: "Dark", themes: byFirst(shown.filter((t) => !BERTH.has(t.id) && t.appearance === "dark"), DARK_FIRST) },
+  ]
+    .filter((g) => g.themes.length)
+    .map((g) => {
+      if (q || all || g.title === "Shipyard") return { ...g, hidden: [] as Theme[] };
+      const keep = g.themes.filter((t, i) => i < ROW || t.id === selectedId);
+      return { ...g, themes: keep, hidden: g.themes.filter((t) => !keep.includes(t)) };
+    });
+  const hidden = groups.flatMap((g) => g.hidden);
+  const picks = usePrefs((p) => p.systemThemes);
+  const mode = system ? "system" : active.appearance === "dark" ? "dark" : "light";
+  // Light or Dark keeps the theme when it already is one, else takes the one
+  // Match system would use for it.
+  const pickMode = (m: "light" | "dark" | "system") => {
+    const set = useStore.getState().setTheme;
+    if (m === "system") return set(SYSTEM_THEME);
+    if (!system && (active.appearance === "dark") === (m === "dark")) return;
+    const want = m === "dark" ? picks.dark : picks.light;
+    set(themes.some((t) => t.id === want) ? want : m === "dark" ? "berth-dark" : "berth-light");
+  };
 
   return (
-    <SettingsPage title="Appearance">
-      <section>
-        <div className="mb-2 flex items-end gap-3">
-          <div className="min-w-0 flex-1">
-            <h2 className="font-medium text-[13px] text-muted-foreground">Theme</h2>
-            <p className="mt-0.5 text-muted-foreground text-xs">
-              Add your own as JSON in <Code>~/.berth/themes/</Code>, or install a plugin that ships one.
-            </p>
-          </div>
-          <div className="relative w-48 shrink-0">
-            <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input size="sm" type="search" value={query} onChange={(e) => setQuery(e.currentTarget.value)} placeholder="Find a theme" aria-label="Find a theme" className="[&_input]:pl-7.5" />
-          </div>
-        </div>
-        {!q && <SystemCard selected={themeId === SYSTEM_THEME} themes={themes} />}
-        {groups.map((g) => (
-          <div key={g.title} className="mt-4">
-            <h3 className="mb-2 font-medium text-[11px] text-muted-foreground uppercase tracking-wide">{g.title}</h3>
-            <div className="grid grid-cols-3 gap-3 max-[1100px]:grid-cols-2 max-[700px]:grid-cols-1">
+    <SettingsPage title="Appearance" description="How Shipyard looks. A theme colours the terminal too.">
+      <SettingsGroup
+        title="Theme"
+        actions={
+          <span className="text-desc text-muted-foreground">
+            {themes.length} themes · add your own in <span className="font-mono text-mono">~/.berth/themes</span>
+          </span>
+        }
+      >
+        <SettingsRow label="Light or dark" description={system ? <SystemNote themes={themes} /> : "Pick a theme below, or follow the computer."}>
+          <Segmented
+            value={mode}
+            options={[
+              { value: "light", label: "Light" },
+              { value: "dark", label: "Dark" },
+              { value: "system", label: "Match system" },
+            ]}
+            onChange={pickMode}
+          />
+        </SettingsRow>
+        {system && <SystemPicks themes={themes} />}
+      </SettingsGroup>
+      <section className="-mt-[27px]">
+        {groups.map((g, i) => (
+          <div key={g.title} className="mt-5 first:mt-0">
+            <div className="mb-1 flex h-6 items-center gap-3">
+              <h3 className="flex-1 text-desc text-muted-foreground">{g.title}</h3>
+              {i === 0 && (
+                <div className="relative w-44 shrink-0">
+                  <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input size="sm" type="search" value={query} onChange={(e) => setQuery(e.currentTarget.value)} placeholder="Find a theme" aria-label="Find a theme" className="[&_input]:h-6 [&_input]:pl-7.5 [&_input]:text-meta" />
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-4 gap-x-3 gap-y-3.5 max-[1100px]:grid-cols-3 max-[800px]:grid-cols-2">
               {g.themes.map((t) => (
-                <ThemeCard key={t.id} theme={t} selected={t.id === themeId} onSelect={() => useStore.getState().setTheme(t.id)} />
+                <ThemeCard key={t.id} theme={t} selected={t.id === selectedId} following={system} onSelect={() => useStore.getState().setTheme(t.id)} />
               ))}
             </div>
           </div>
         ))}
-        {!groups.length && <p className="mt-4 text-muted-foreground text-xs">No theme is called “{query.trim()}”.</p>}
+        {!groups.length && <p className="text-muted-foreground text-meta">No theme is called “{query.trim()}”.</p>}
+        {(hidden.length > 0 || all) && !q && (
+          <button type="button" onClick={() => setAll((v) => !v)} className="mt-4 flex max-w-full items-baseline gap-2 text-left text-desc">
+            <span className="shrink-0 font-medium">{all ? "Show fewer" : `Show ${hidden.length} more`}</span>
+            {!all && <span className="truncate text-muted-foreground">{hidden.map((t) => t.name).join(", ")}</span>}
+          </button>
+        )}
       </section>
+
+      <HeaderPictureSettings />
+
+      <ChatWidthSettings />
+
+      <ChatBackgroundSettings />
 
       <SettingsGroup title="Interface">
         <SettingsRow label="Text size" description="Everything outside the terminal. ⌘+ and ⌘− step it from 11 to 20px.">
@@ -88,23 +142,45 @@ export function AppearanceSection() {
           />
         </SettingsRow>
       </SettingsGroup>
-
-      <ChatWidthSettings />
-
-      <ChatBackgroundSettings />
-
-      <HeaderPictureSettings />
     </SettingsPage>
   );
 }
 
-// SystemCard follows the computer's appearance: one theme by day, another
-// when macOS is dark (Shipyard Light and Shipyard Dark unless picked here). Its
-// preview is half of each.
-function SystemCard({ selected, themes }: { selected: boolean; themes: Theme[] }) {
+// The themes each group leads with, the rest after them in the list's order.
+const ROW = 4;
+const SHIPYARD_FIRST = ["berth-light", "berth-dark", "midnight", "paper"];
+const LIGHT_FIRST = ["github-light", "one-light", "catppuccin-latte", "solarized-light"];
+const DARK_FIRST = ["dracula", "tokyo-night", "catppuccin-mocha", "nord"];
+
+function byFirst(list: Theme[], first: string[]): Theme[] {
+  const rank = (t: Theme) => {
+    const i = first.indexOf(t.id);
+    return i < 0 ? first.length : i;
+  };
+  return [...list].sort((a, b) => rank(a) - rank(b));
+}
+
+// Match system follows the computer's appearance: one theme by day, another
+// when macOS is dark (Shipyard Light and Shipyard Dark unless picked here).
+function useSystemPair(themes: Theme[]) {
   const picks = usePrefs((p) => p.systemThemes);
   const light = themes.find((t) => t.id === picks.light) ?? themes.find((t) => t.id === "berth-light");
   const dark = themes.find((t) => t.id === picks.dark) ?? themes.find((t) => t.id === "berth-dark");
+  return { picks, light, dark };
+}
+
+function SystemNote({ themes }: { themes: Theme[] }) {
+  const { light, dark } = useSystemPair(themes);
+  return (
+    <>
+      {light?.name ?? "A light theme"} by day, {dark?.name ?? "a dark one"} when {IS_LINUX ? "your desktop" : "macOS"} is dark.
+    </>
+  );
+}
+
+// SystemPicks chooses the pair Match system switches between.
+function SystemPicks({ themes }: { themes: Theme[] }) {
+  const { picks, light, dark } = useSystemPair(themes);
   if (!light || !dark) return null;
   const pick = (side: "light" | "dark", id: string) => {
     setPrefs({ systemThemes: { ...picks, [side]: id } });
@@ -112,120 +188,37 @@ function SystemCard({ selected, themes }: { selected: boolean; themes: Theme[] }
   };
   const options = (appearance: "light" | "dark") => themes.filter((t) => (t.appearance === "dark") === (appearance === "dark")).map((t) => ({ value: t.id, label: t.name }));
   return (
-    <div className={cn("flex items-center overflow-hidden rounded-xl border transition-[box-shadow,border-color]", selected ? "border-ring ring-1 ring-ring" : "hover:border-foreground/25")}>
-      <button
-        type="button"
-        onClick={() => useStore.getState().setTheme(SYSTEM_THEME)}
-        aria-pressed={selected}
-        className="flex min-w-0 flex-1 items-center self-stretch text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-      >
-        <div className="relative h-14 w-28 shrink-0 border-r">
-          <Swatch theme={light} />
-          <div className="absolute inset-0 [clip-path:polygon(100%_0,100%_100%,0_100%)]">
-            <Swatch theme={dark} />
-          </div>
-        </div>
-        <span className="flex min-w-0 flex-1 items-center gap-2 px-3.5 text-[13px]">
-          <span className="min-w-0 flex-1">
-            <span className="block">Match system</span>
-            <span className="block truncate text-[11px] text-muted-foreground">{IS_LINUX ? "Follows your desktop" : "Follows macOS"}</span>
-          </span>
-          {selected && <CheckIcon className="size-3.5" />}
-        </span>
-      </button>
-      <div className="flex shrink-0 items-center gap-2 px-3 max-[800px]:hidden">
-        <SimpleSelect size="sm" className="w-40" aria-label="Theme by day" value={light.id} options={options("light")} onChange={(id) => id && pick("light", id)} />
-        <SimpleSelect size="sm" className="w-40" aria-label={IS_LINUX ? "Theme when your desktop is dark" : "Theme when macOS is dark"} value={dark.id} options={options("dark")} onChange={(id) => id && pick("dark", id)} />
-      </div>
-    </div>
+    <SettingsRow label="By day, and when it's dark" description={IS_LINUX ? "Follows your desktop." : "Follows macOS."}>
+      <SimpleSelect size="sm" className="w-40" aria-label="Theme by day" value={light.id} options={options("light")} onChange={(id) => id && pick("light", id)} />
+      <SimpleSelect size="sm" className="w-40" aria-label={IS_LINUX ? "Theme when your desktop is dark" : "Theme when macOS is dark"} value={dark.id} options={options("dark")} onChange={(id) => id && pick("dark", id)} />
+    </SettingsRow>
   );
 }
 
 // ThemeCard previews a theme with its own colors: a sidebar beside a
-// terminal, whatever theme the app itself is in.
-function ThemeCard({ theme, selected, onSelect }: { theme: Theme; selected: boolean; onSelect(): void }) {
+// terminal, whatever theme the app itself is in. Under Match system the
+// theme showing now is ringed more quietly, since it isn't picked itself.
+function ThemeCard({ theme, selected, following, onSelect }: { theme: Theme; selected: boolean; following?: boolean; onSelect(): void }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-pressed={selected}
-      data-testid="theme-option"
-      data-theme-id={theme.id}
-      className={cn("group overflow-hidden rounded-xl border text-left outline-none transition-[box-shadow,border-color] focus-visible:ring-2 focus-visible:ring-ring", selected ? "border-ring ring-1 ring-ring" : "hover:border-foreground/25")}
-    >
+    <button type="button" onClick={onSelect} aria-pressed={selected && !following} data-testid="theme-option" data-theme-id={theme.id} className="group flex flex-col gap-2 text-left outline-none">
       {/* A picture of the theme (its name says which): its sample text is in
           the theme's terminal colours, which the axe spec leaves out. */}
-      <div aria-hidden data-a11y-skip className="relative h-[88px]">
+      <div
+        aria-hidden
+        data-a11y-skip
+        className={cn(
+          "relative h-[76px] w-full overflow-hidden rounded-xl border transition-[box-shadow,border-color] group-focus-visible:ring-2 group-focus-visible:ring-ring",
+          selected ? "border-transparent ring-2 ring-offset-2 ring-offset-background" : "group-hover:border-foreground/25",
+          selected && (following ? "ring-foreground/30" : "ring-foreground"),
+        )}
+      >
         <Preview theme={theme} />
         <Dots theme={theme} />
       </div>
-      <div className="flex items-center gap-2 border-t bg-card px-3 py-2 text-[13px]">
-        <span className="min-w-0 flex-1 truncate">{theme.name}</span>
-        {selected && <CheckIcon className="size-3.5 shrink-0" />}
+      <div className="flex items-center gap-2 px-0.5 text-desc">
+        <span className={cn("min-w-0 flex-1 truncate", selected && "font-medium")}>{theme.name}</span>
+        {selected && (following ? <span className="shrink-0 text-muted-foreground text-meta">Now</span> : <CheckIcon className="size-3.5 shrink-0" />)}
       </div>
     </button>
-  );
-}
-
-// Preview draws a theme's sidebar beside its terminal, in its own colors.
-function Preview({ theme }: { theme: Theme }) {
-  const c = theme.colors;
-  const t = theme.terminal;
-  return (
-    <div className="flex h-full" style={{ background: c.background }}>
-      <div className="flex w-[38%] flex-col gap-1.5 border-r px-2.5 py-3" style={{ background: c.sidebar, borderColor: c.border }}>
-        <div className="h-1.5 w-4/5 rounded-full" style={{ background: c.sidebarForeground, opacity: 0.55 }} />
-        <div className="h-1.5 w-3/5 rounded-full" style={{ background: c.sidebarForeground, opacity: 0.3 }} />
-        <div className="flex items-center gap-1">
-          <span className="size-1.5 rounded-full" style={{ background: c.warning }} />
-          <div className="h-1.5 flex-1 rounded-full" style={{ background: c.accent }} />
-        </div>
-        <div className="h-1.5 w-2/3 rounded-full" style={{ background: c.sidebarForeground, opacity: 0.3 }} />
-      </div>
-      <div className="flex-1 px-2.5 py-2.5 font-mono text-[10px] leading-[1.5]" style={{ background: t.background, color: t.foreground }}>
-        <div>
-          <span style={{ color: t.green }}>●</span> tests pass
-        </div>
-        <div>
-          <span style={{ color: t.yellow }}>●</span> <span style={{ color: t.blue }}>~/work/shop</span>
-        </div>
-        <div>
-          <span style={{ color: t.magenta }}>❯</span> <span style={{ color: t.cyan }}>berth</span>
-          <span className="ml-0.5 inline-block h-2.5 w-1 align-middle" style={{ background: t.cursor }} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Swatch is a theme's colours without text, for a thumbnail too small to
-// read: sidebar, terminal, and an accent and a cursor.
-function Swatch({ theme }: { theme: Theme }) {
-  const c = theme.colors;
-  const t = theme.terminal;
-  return (
-    <div className="flex h-full">
-      <div className="flex w-2/5 flex-col gap-1 px-1.5 py-2" style={{ background: c.sidebar }}>
-        <div className="h-1 w-4/5 rounded-full" style={{ background: c.sidebarForeground, opacity: 0.5 }} />
-        <div className="h-1 w-3/5 rounded-full" style={{ background: c.accent }} />
-      </div>
-      <div className="flex-1 px-1.5 py-2" style={{ background: t.background }}>
-        <div className="h-1 w-3/4 rounded-full" style={{ background: t.green }} />
-        <div className="mt-1 h-1.5 w-1 rounded-[1px]" style={{ background: t.cursor }} />
-      </div>
-    </div>
-  );
-}
-
-// Dots are a theme's colours at a glance, in the corner of its preview: its
-// primary, then the terminal's red, yellow, green, blue and magenta.
-function Dots({ theme }: { theme: Theme }) {
-  const t = theme.terminal;
-  return (
-    <span className="absolute right-2 bottom-2 flex items-center gap-[3px] rounded-full border px-1.5 py-1" style={{ background: theme.colors.background, borderColor: theme.colors.border }} aria-hidden>
-      {[theme.colors.primary, t.red, t.yellow, t.green, t.blue, t.magenta].map((c, i) => (
-        <span key={i} className="size-2 rounded-full" style={{ background: c }} />
-      ))}
-    </span>
   );
 }

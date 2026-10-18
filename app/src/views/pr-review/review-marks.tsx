@@ -44,7 +44,7 @@ export function ReviewNotice({ box, loc, wt, onRemove }: { box: string; loc: Loc
   if (!r) return null;
   if (r.cleanup && !kept) {
     return (
-      <div data-testid="review-cleanup" className="ml-6 flex flex-wrap items-center gap-x-2 gap-y-0.5 pr-2 pb-1 text-[11px] text-muted-foreground">
+      <div data-testid="review-cleanup" className="ml-6 flex flex-wrap items-center gap-x-2 gap-y-0.5 pr-2 pb-1 text-tag text-muted-foreground">
         <span>{CLEANUP_WORDS[r.cleanup]}. Remove this review? It has uncommitted changes.</span>
         <span className="flex gap-1.5">
           <button type="button" className="font-medium text-foreground hover:underline" onClick={onRemove}>
@@ -68,7 +68,7 @@ export function ReviewNotice({ box, loc, wt, onRemove }: { box: string; loc: Loc
   const n = st?.new_commits ?? 0;
   if (!n && !st?.forced) return null;
   return (
-    <p data-testid="review-new-commits" className="ml-6 flex items-start gap-1.5 pr-2 pb-1 text-[11px] text-muted-foreground leading-snug">
+    <p data-testid="review-new-commits" className="ml-6 flex items-start gap-1.5 pr-2 pb-1 text-tag text-muted-foreground">
       <span className="mt-[5px] size-1.5 shrink-0 rounded-full bg-info" />
       <span className="min-w-0">
         {st?.forced && !n ? "The PR was rewritten since you opened it." : `${n} new ${n === 1 ? "commit" : "commits"} since you opened it.`}{" "}

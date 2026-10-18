@@ -640,3 +640,41 @@ func TestAWaitTheScreenSawFirstIsTheHooksOnceTheyReportIt(t *testing.T) {
 		t.Fatalf("the screen settled a wait the hooks reported: %+v", got)
 	}
 }
+
+// Codex's shared daemon runs every session's hooks with the BERTH_SESSION
+// of the session that started it (cosscom/shipyard#8): here cx1's. An event
+// from another session's directory goes by its directory, and a
+// conversation a session holds is that session's whatever name its events
+// carry. Claude's hooks are taken by name as before.
+func TestACodexDaemonsHooksReachTheirOwnSession(t *testing.T) {
+	tr, bus := ledger(t,
+		Session{Name: "cx1", Dir: "/w/one", Agent: "codex"},
+		Session{Name: "cx2", Dir: "/w/two", Agent: "codex"},
+		Session{Name: "cx3", Dir: "/w/one", Agent: "codex"},
+		Session{Name: "cl", Dir: "/w/cl", Agent: "claude"})
+	state := func(name string) SessionState { st, _ := tr.State(name); return st }
+	hook(bus, "agent.started", "cx1", "/w/one", "codex", "signal", "prompt", "agent_session_id", "t1")
+	// cx2's turn, named cx1 by the daemon, from cx2's directory.
+	hook(bus, "agent.started", "cx1", "/w/two", "codex", "signal", "prompt", "agent_session_id", "t2")
+	if st := state("cx2"); st.State != "running" || st.AgentSessionID != "t2" {
+		t.Fatalf("cx2 = %+v", st)
+	}
+	hook(bus, "agent.finished", "cx1", "/w/two", "codex", "agent_session_id", "t2")
+	if cx1, cx2 := state("cx1"), state("cx2"); cx1.State != "running" || cx1.AgentSessionID != "t1" || cx2.State != "finished" {
+		t.Fatalf("cx1 = %+v, cx2 = %+v", cx1, cx2)
+	}
+	// cx3 shares cx1's directory: once its own hooks named its conversation,
+	// the daemon's events for it are its own.
+	hook(bus, "agent.started", "cx3", "/w/one", "codex", "signal", "prompt", "agent_session_id", "t3")
+	hook(bus, "agent.finished", "cx1", "/w/one", "codex", "agent_session_id", "t3")
+	if cx1, cx3 := state("cx1"), state("cx3"); cx1.State != "running" || cx3.State != "finished" {
+		t.Fatalf("cx1 = %+v, cx3 = %+v", cx1, cx3)
+	}
+	if got := tr.SessionOf(map[string]any{"session": "cx1", "agent": "codex", "path": "/w/two"}); got != "cx2" {
+		t.Fatalf("SessionOf = %q", got)
+	}
+	hook(bus, "agent.started", "cl", "/w/elsewhere", "claude", "signal", "prompt")
+	if st := state("cl"); st.State != "running" {
+		t.Fatalf("claude by name: %+v", st)
+	}
+}

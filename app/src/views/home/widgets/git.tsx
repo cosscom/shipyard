@@ -117,13 +117,13 @@ export function GitWidget() {
   return (
     <div className="flex h-full flex-col gap-2 px-2 pb-1">
       <div className="flex items-baseline gap-2">
-        <span className="font-heading font-semibold text-2xl tabular-nums tracking-tight">{total}</span>
-        <span className="text-muted-foreground text-xs">commits · {DAYS} days</span>
+        <span className="font-heading text-title tabular-nums tracking-tight">{total}</span>
+        <span className="text-meta text-muted-foreground">commits · {DAYS} days</span>
         <DiffStat add={add} del={del} className="ml-auto" />
       </div>
       <Bars days={data.days} />
       {tall && data.byProject.length > 0 && (
-        <ul className="flex flex-col gap-1 text-xs">
+        <ul className="flex flex-col gap-1 text-meta">
           {data.byProject.slice(0, 4).map((p) => (
             <li key={p.name} className="flex items-center gap-2">
               <span className="min-w-0 flex-1 truncate">{p.name}</span>
@@ -132,7 +132,7 @@ export function GitWidget() {
           ))}
         </ul>
       )}
-      {data.failed.length > 0 && <p className="truncate text-[11px] text-muted-foreground">Couldn't read {data.failed.join(", ")}</p>}
+      {data.failed.length > 0 && <p className="truncate text-meta text-muted-foreground">Couldn't read {data.failed.join(", ")}</p>}
     </div>
   );
 }
@@ -158,7 +158,7 @@ function Bars({ days }: { days: Day[] }) {
           </Tip>
         ))}
       </div>
-      <div className="flex gap-[2px] text-[10px] text-muted-foreground" aria-hidden>
+      <div className="flex gap-[2px] text-tag text-muted-foreground" aria-hidden>
         {days.map((d) => (
           <span key={d.day} className="flex-1 text-center">
             {weekday(d.day)}

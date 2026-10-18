@@ -256,7 +256,7 @@ export function AddProjectBody({ startBox }: { startBox?: string }) {
                     pick(rows[Math.max(active, 0)], true);
                   }
                 }}
-                className="h-full min-w-0 flex-1 bg-transparent font-mono text-[13px] outline-none placeholder:font-sans placeholder:text-muted-foreground/72 placeholder:text-sm disabled:opacity-64"
+                className="h-full min-w-0 flex-1 bg-transparent font-mono text-desc outline-none placeholder:font-sans placeholder:text-muted-foreground/72 placeholder:text-body disabled:opacity-64"
               />
               <Button type="button" size="xs" variant="ghost" className="shrink-0 text-muted-foreground" disabled={busy} onClick={() => setBrowsing(true)}>
                 <FolderOpenIcon />
@@ -275,7 +275,7 @@ export function AddProjectBody({ startBox }: { startBox?: string }) {
                 <Rows rows={rows} active={active} onHover={setActive} onPick={pick} />
               )}
             </div>
-            {error && <ErrorText className="-mt-1 text-destructive-foreground text-sm" text={error} />}
+            {error && <ErrorText className="-mt-1 text-destructive-foreground text-body" text={error} />}
           </>
         )}
       </DialogPanel>
@@ -284,7 +284,7 @@ export function AddProjectBody({ startBox }: { startBox?: string }) {
         <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none]">
           {online && canSpread && others.length > 0 ? (
             <>
-              <span className="shrink-0 pe-0.5 text-muted-foreground text-xs">Also on</span>
+              <span className="shrink-0 pe-0.5 text-muted-foreground text-meta">Also on</span>
               {others.map((o) => (
                 <Chip
                   key={o.name}
@@ -305,7 +305,7 @@ export function AddProjectBody({ startBox }: { startBox?: string }) {
               )}
             </>
           ) : online ? (
-            <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
+            <span className="flex items-center gap-1.5 text-muted-foreground text-meta">
               <Kbd>↑↓</Kbd> pick <Kbd className="ms-1.5">⇥</Kbd> complete <Kbd className="ms-1.5">↵</Kbd> {activeRow && !rowPlan && activeRow.kind !== "new" ? "choose" : verb(shown)}
             </span>
           ) : null}
@@ -444,8 +444,8 @@ function PlanLine({ plan, pending, box, home, target, dest, setDest, busy, onEnt
     <div aria-live="polite" className={cn("flex h-15 items-center gap-3 rounded-lg px-1 transition-opacity", pending && plan && "opacity-56")}>
       <span className={cn("inline-flex size-8 shrink-0 items-center justify-center rounded-md border bg-muted/48 text-muted-foreground [&_svg]:size-4", ready && "text-foreground", tone)}>{icon}</span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className={cn("flex min-w-0 items-baseline gap-1.5 truncate text-sm", tone)}>{line}</p>
-        <div className="min-w-0 truncate text-muted-foreground text-xs">{detail}</div>
+        <p className={cn("flex min-w-0 items-baseline gap-1.5 truncate text-body", tone)}>{line}</p>
+        <div className="min-w-0 truncate text-muted-foreground text-meta">{detail}</div>
       </div>
       <span className="flex w-6 shrink-0 justify-end">{pending ? <Spinner className="size-3.5 text-muted-foreground" /> : ready && target ? <Kbd>↵</Kbd> : null}</span>
     </div>
@@ -453,7 +453,7 @@ function PlanLine({ plan, pending, box, home, target, dest, setDest, busy, onEnt
 }
 
 function Mono({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <span className={cn("min-w-0 truncate font-mono text-[12.5px]", className)}>{children}</span>;
+  return <span className={cn("min-w-0 truncate font-mono text-mono", className)}>{children}</span>;
 }
 
 // Inline is an editable piece of the plan's sentence: where a clone goes.
@@ -472,7 +472,7 @@ function Inline({ value, label, disabled, onChange, onEnter }: { value: string; 
           onEnter();
         }
       }}
-      className="h-5 min-w-0 rounded border border-transparent border-b-border border-dashed bg-transparent px-1 font-mono text-[12px] text-foreground/88 outline-none hover:border-border focus:border-ring focus:border-solid"
+      className="h-5 min-w-0 rounded border border-transparent border-b-border border-dashed bg-transparent px-1 font-mono text-mono text-foreground/88 outline-none hover:border-border focus:border-ring focus:border-solid"
     />
   );
 }
@@ -486,7 +486,7 @@ function Rows({ rows, active, onHover, onPick }: { rows: Row[]; active: number; 
         group = r.group;
         return (
           <div key={r.key}>
-            {head && <p className={cn("px-2.5 pt-1.5 pb-1 text-[11px] text-muted-foreground", i > 0 && "mt-1")}>{r.group}</p>}
+            {head && <p className={cn("px-2.5 pt-1.5 pb-1 text-tag text-muted-foreground", i > 0 && "mt-1")}>{r.group}</p>}
             <button
               type="button"
               role="option"
@@ -495,12 +495,12 @@ function Rows({ rows, active, onHover, onPick }: { rows: Row[]; active: number; 
               tabIndex={-1}
               onMouseMove={() => i !== active && onHover(i)}
               onClick={() => onPick(r)}
-              className={cn("flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm", i === active ? "bg-accent text-accent-foreground" : "hover:bg-accent/50")}
+              className={cn("flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-body", i === active ? "bg-accent text-accent-foreground" : "hover:bg-accent/50")}
             >
               <RowIcon kind={r.kind} />
               <span className={cn("min-w-0 truncate", r.kind === "folder" && "text-muted-foreground")}>{r.title}</span>
-              {r.detail && <span className="min-w-0 truncate font-mono text-muted-foreground text-xs">{r.detail}</span>}
-              {r.badge && <span className={cn("ms-auto shrink-0 rounded border px-1.5 text-[11px] text-muted-foreground", r.kind === "new" && "border-foreground/24 text-foreground")}>{r.badge}</span>}
+              {r.detail && <span className="min-w-0 truncate font-mono text-muted-foreground text-mono">{r.detail}</span>}
+              {r.badge && <span className={cn("ms-auto shrink-0 rounded border px-1.5 text-tag text-muted-foreground", r.kind === "new" && "border-foreground/24 text-foreground")}>{r.badge}</span>}
             </button>
           </div>
         );
@@ -527,7 +527,7 @@ function Quiet({ intent, plan, box, pending }: { intent: string; plan?: Plan; bo
   if (!pending && plan?.do === "blocked") text = `Browse ${box} to find the folder you mean.`;
   if (!pending && plan?.do === "look") text = `Nothing in ${plan.path} yet. Type a name after the slash to start a project there.`;
   if (!pending && intent === "empty") text = `No folders in ${box}'s home or ~/work yet. Type a name to start a project.`;
-  return <p className="flex h-full items-center justify-center px-8 text-balance text-center text-[13px] text-muted-foreground">{text}</p>;
+  return <p className="flex h-full items-center justify-center px-8 text-balance text-center text-desc text-muted-foreground">{text}</p>;
 }
 
 function Progress({ logs, busy }: { logs: Log[]; busy: boolean }) {
@@ -538,11 +538,11 @@ function Progress({ logs, busy }: { logs: Log[]; busy: boolean }) {
   }, [logs]);
   return (
     <div ref={ref} aria-live="polite" className="flex flex-col gap-2 p-2">
-      {logs.length === 0 && busy && <p className="font-mono text-[12px] text-muted-foreground">Starting…</p>}
+      {logs.length === 0 && busy && <p className="font-mono text-mono text-muted-foreground">Starting…</p>}
       {logs.map((l) => (
         <div key={l.box}>
-          {logs.length > 1 && <p className="pb-0.5 font-medium text-[11px] text-muted-foreground">{l.box}</p>}
-          <pre className="whitespace-pre-wrap font-mono text-[12px] text-muted-foreground leading-relaxed">{l.lines.join("\n")}</pre>
+          {logs.length > 1 && <p className="pb-0.5 font-medium text-tag text-muted-foreground">{l.box}</p>}
+          <pre className="whitespace-pre-wrap font-mono text-mono text-muted-foreground">{l.lines.join("\n")}</pre>
         </div>
       ))}
     </div>
@@ -555,8 +555,8 @@ function Moored({ box, others }: { box: string; others: boolean }) {
   return (
     <div className="flex h-[22.5rem] flex-col items-center justify-center gap-1 rounded-lg border border-dashed text-center">
       <Scene name="offline" width={136} className="mb-3" />
-      <p className="font-medium text-sm">{box ? `${box} is offline` : "No box is online"}</p>
-      <p className="max-w-xs text-balance text-muted-foreground text-xs">
+      <p className="text-row">{box ? `${box} is offline` : "No box is online"}</p>
+      <p className="max-w-xs text-balance text-muted-foreground text-meta">
         {others ? "Projects are added on a box that is online. Pick another above, or check on this one in Boxes." : "Projects are added on a box that is online. Check on your boxes in Settings."}
       </p>
       <Button
@@ -586,8 +586,8 @@ function NoBoxes({ onCancel }: { onCancel(): void }) {
         <div className="flex h-[22.5rem] flex-col items-center justify-center gap-1 rounded-lg border border-dashed px-8 text-center">
           {/* A quay with an empty hook: nothing loaded yet. */}
           <Scene name="dock" width={136} className="mb-3" />
-          <p className="font-medium text-sm">Add a box first</p>
-          <p className="max-w-xs text-balance text-muted-foreground text-xs">A box is any VPS or dev machine: projects and their agents run there. Add one, then add a project on it.</p>
+          <p className="text-row">Add a box first</p>
+          <p className="max-w-xs text-balance text-muted-foreground text-meta">A box is any VPS or dev machine: projects and their agents run there. Add one, then add a project on it.</p>
         </div>
       </DialogPanel>
       <DialogFooter className="h-14 items-center gap-2 px-5 py-0">
@@ -618,7 +618,7 @@ function Chip({ on, disabled, title, onClick, children }: { on: boolean; disable
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors disabled:cursor-default",
+        "inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md border px-2 text-meta transition-colors disabled:cursor-default",
         on ? "border-foreground/20 bg-accent text-foreground" : "border-border text-muted-foreground hover:bg-accent/50 hover:text-foreground",
         disabled && !on && "opacity-56",
       )}

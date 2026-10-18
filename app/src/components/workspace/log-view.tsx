@@ -50,14 +50,14 @@ export function LogView({ box, location, worktree, service, visible }: Props) {
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col bg-background">
-      {error && <ErrorText className="border-b px-3 py-1.5 text-destructive text-xs" text={error} />}
+      {error && <ErrorText className="border-b px-3 py-1.5 text-destructive text-meta" text={error} />}
       <pre
         ref={scroller}
         onScroll={(e) => {
           const el = e.currentTarget;
           pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
         }}
-        className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-all px-3 py-2 font-mono text-[12px] text-foreground/90 leading-[1.45] select-text"
+        className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-all px-3 py-2 font-mono text-mono text-foreground/90 select-text"
       >
         {text || <span className="text-muted-foreground">Nothing logged yet.</span>}
       </pre>

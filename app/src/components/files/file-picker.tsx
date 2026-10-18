@@ -192,10 +192,10 @@ function Picker() {
           aria-expanded
           spellCheck={false}
           autoComplete="off"
-          className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground/80"
+          className="min-w-0 flex-1 bg-transparent text-body outline-none placeholder:text-muted-foreground/80"
         />
         {searching && <Spinner className="size-3.5 text-muted-foreground" />}
-        {ref && <span className="shrink-0 rounded-md border bg-muted/60 px-1.5 py-px font-mono text-[11px] text-muted-foreground">{ref.box}</span>}
+        {ref && <span className="shrink-0 rounded-md border bg-muted/60 px-1.5 py-px font-mono text-tag text-muted-foreground">{ref.box}</span>}
       </div>
       <CommandPanel className={cn("flex min-h-0", preview && "flex-1")}>
         <div className={cn("flex min-h-0 min-w-0 flex-col", preview ? "w-[24rem] shrink-0 border-r" : "flex-1")}>
@@ -203,7 +203,7 @@ function Picker() {
         </div>
         {preview && <div className="min-w-0 flex-1">{current ? <Suspense fallback={<div className="flex h-full items-center justify-center"><Spinner className="size-4 text-muted-foreground" /></div>}><Preview ws={ws!} path={current.path} /></Suspense> : <div className="h-full" />}</div>}
       </CommandPanel>
-      <CommandFooter className="justify-start gap-4 text-[11px]">
+      <CommandFooter className="justify-start gap-4 text-tag">
         <span className="flex items-center gap-1">
           <Kbd>↵</Kbd> open
         </span>
@@ -232,10 +232,10 @@ function Results({ groups, at, setAt, choose, listRef, empty }: { groups: Group[
   let i = -1;
   return (
     <div ref={listRef} id="file-picker-list" role="listbox" aria-label="Files" className="h-full min-h-0 overflow-y-auto overscroll-contain p-2 [scrollbar-width:thin]">
-      {!groups.length && empty && <p className="px-2 py-8 text-center text-muted-foreground text-sm">{empty}</p>}
+      {!groups.length && empty && <p className="px-2 py-8 text-center text-muted-foreground text-body">{empty}</p>}
       {groups.map((g) => (
         <div key={g.id} role="group" aria-label={g.label} className="[[role=group]+&]:mt-2">
-          <div className="flex items-center gap-1.5 px-2 py-1.5 font-medium text-muted-foreground text-xs">
+          <div className="flex items-center gap-1.5 px-2 py-1.5 text-muted-foreground text-label">
             {g.id === "agent" && <AgentIcon agent={g.agent} className="size-3" />}
             {g.label}
           </div>
@@ -297,17 +297,17 @@ function Row({ e, index, active, onHover, onPick, grouped }: { e: Entry; index: 
       data-path={e.path}
       onMouseMove={onHover}
       onClick={(ev) => onPick(ev.metaKey || ev.ctrlKey ? "external" : ev.altKey ? "split" : "tab")}
-      className={cn("flex min-h-8 cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm", active && "bg-accent text-accent-foreground")}
+      className={cn("flex min-h-8 cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-body", active && "bg-accent text-accent-foreground")}
     >
       <FileGlyph path={e.path} className="size-4" />
       <span className="flex min-w-0 flex-1 items-baseline gap-2">
         <Marked text={name} hits={e.hits} offset={slash + 1} className="shrink-0 text-foreground" />
-        {dir && <Marked text={dir} hits={e.hits} offset={0} className="min-w-0 truncate text-muted-foreground text-xs" />}
+        {dir && <Marked text={dir} hits={e.hits} offset={0} className="min-w-0 truncate text-muted-foreground text-meta" />}
       </span>
       {t && !grouped && <AgentIcon agent={t.agent} className="size-3" />}
       {t && (
-        <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] tabular-nums">
-          {t.created && <span className="rounded bg-success/12 px-1 font-medium font-sans text-[10px] text-success-foreground">new</span>}
+        <span className="flex shrink-0 items-center gap-1.5 font-mono text-tag tabular-nums">
+          {t.created && <span className="rounded bg-success/12 px-1 font-medium font-sans text-tag text-success-foreground">new</span>}
           <span className="text-success-foreground">+{t.added}</span>
           {t.removed > 0 && <span className="text-destructive-foreground">−{t.removed}</span>}
         </span>

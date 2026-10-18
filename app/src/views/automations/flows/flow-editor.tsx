@@ -120,10 +120,10 @@ export function FlowEditor({
           onChange={(e) => setFlow({ ...flow, name: e.target.value })}
           placeholder="Name this flow"
           unstyled
-          className="min-w-0 flex-1 font-medium text-[15px]"
+          className="min-w-0 flex-1 text-heading"
           aria-label="Flow name"
         />
-        <label className="flex items-center gap-2 text-muted-foreground text-xs">
+        <label className="flex items-center gap-2 text-muted-foreground text-meta">
           <Switch checked={flow.enabled} disabled={readOnly} onCheckedChange={(enabled) => setFlow({ ...flow, enabled })} />
           {flow.enabled ? "On" : "Off"}
         </label>
@@ -147,14 +147,14 @@ export function FlowEditor({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-2xl px-6 pt-6 pb-24">
           {readOnly && (
-            <div className="mb-5 flex items-center gap-3 rounded-xl border bg-muted/40 px-4 py-3 text-sm">
+            <div className="mb-5 flex items-center gap-3 rounded-xl border bg-muted/40 px-4 py-3 text-body">
               <LockIcon className="size-4 shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1">
                 {target.source === "kit" ? (
                   <>From the project's kit. Change it in the kit, or override it on this box.</>
                 ) : (
                   <>
-                    Committed in the repository's <code className="font-mono text-xs">.berth/config.json</code>. Change it there, or override it on this box.
+                    Committed in the repository's <code className="font-mono text-mono">.berth/config.json</code>. Change it there, or override it on this box.
                   </>
                 )}
               </span>
@@ -165,11 +165,11 @@ export function FlowEditor({
               )}
             </div>
           )}
-          {runSteps && !target.readOnly && <p className="mb-5 rounded-xl border bg-muted/40 px-4 py-3 text-muted-foreground text-sm">This flow uses run steps (loop, gate, map…) that the editor shows but does not change. Edit it in its JSON: the box's config or the repository's .berth/config.json.</p>}
-          {error && <ErrorText className="mb-5 rounded-xl border border-destructive/30 bg-destructive/8 px-4 py-3 text-destructive-foreground text-sm" text={error} />}
+          {runSteps && !target.readOnly && <p className="mb-5 rounded-xl border bg-muted/40 px-4 py-3 text-muted-foreground text-body">This flow uses run steps (loop, gate, map…) that the editor shows but does not change. Edit it in its JSON: the box's config or the repository's .berth/config.json.</p>}
+          {error && <ErrorText className="mb-5 rounded-xl border border-destructive/30 bg-destructive/8 px-4 py-3 text-destructive-foreground text-body" text={error} />}
           {run && <RunBanner run={run} onClear={() => setRun(undefined)} />}
 
-          <p className="mb-4 text-muted-foreground text-sm">{summary(flow)}</p>
+          <p className="mb-4 text-muted-foreground text-body">{summary(flow)}</p>
 
           <TriggerCard flow={flow} setFlow={setFlow} readOnly={readOnly} source={target.source} where={where} setWhere={setWhere} scopes={scopes} />
 
@@ -207,8 +207,8 @@ export function FlowEditor({
 
           <section className="mt-10 flex items-center gap-4 rounded-xl border bg-card/40 px-4 py-3">
             <div className="min-w-0 flex-1">
-              <div className="text-sm">At most</div>
-              <div className="text-muted-foreground text-xs">Stops a flow that triggers itself, or a busy repo, from running away. Empty means {DEFAULT_MAX_RUNS_PER_HOUR}, the default.</div>
+              <div className="text-row">At most</div>
+              <div className="text-desc text-muted-foreground">Stops a flow that triggers itself, or a busy repo, from running away. Empty means {DEFAULT_MAX_RUNS_PER_HOUR}, the default.</div>
             </div>
             <Input
               type="number"
@@ -220,7 +220,7 @@ export function FlowEditor({
               size="sm"
               className="w-28 text-right tabular-nums"
             />
-            <span className="text-muted-foreground text-xs">runs an hour</span>
+            <span className="text-muted-foreground text-meta">runs an hour</span>
           </section>
         </div>
       </div>
@@ -269,15 +269,15 @@ function TriggerCard({
         <span className="inline-flex size-7 items-center justify-center rounded-lg bg-primary/12 text-primary">
           <ZapIcon className="size-4" />
         </span>
-        <h3 className="font-medium text-sm">{kind === "schedule" ? "When it runs" : kind === "github" ? "When this happens on GitHub" : "When this happens"}</h3>
+        <h3 className="text-section">{kind === "schedule" ? "When it runs" : kind === "github" ? "When this happens on GitHub" : "When this happens"}</h3>
       </header>
       <div className="grid grid-cols-2 gap-3 px-3.5 py-3">
         <div className="col-span-2">
-          <span className="mb-1 block font-medium text-muted-foreground text-xs">Runs for</span>
+          <span className="mb-1 block text-label text-muted-foreground">Runs for</span>
           <RunsFor value={where} options={scopes} disabled={readOnly} onChange={setWhere} />
-          <p className="mt-1.5 text-muted-foreground text-xs">{savedWhere(where.box, where.scope, readOnly ? (source === "kit" ? "kit" : "repo") : undefined)}</p>
+          <p className="mt-1.5 text-desc text-muted-foreground">{savedWhere(where.box, where.scope, readOnly ? (source === "kit" ? "kit" : "repo") : undefined)}</p>
           {where.scope === "box" && w.location && (
-            <p className="mt-1 flex items-center gap-1.5 text-muted-foreground text-xs">
+            <p className="mt-1 flex items-center gap-1.5 text-desc text-muted-foreground">
               Only events from {w.location}.
               {!readOnly && (
                 <button type="button" className="underline-offset-2 hover:underline" onClick={() => setW({ location: undefined })}>
@@ -288,7 +288,7 @@ function TriggerCard({
           )}
         </div>
         <div className="col-span-2 flex flex-col gap-2">
-          <span className="block font-medium text-muted-foreground text-xs">Starts</span>
+          <span className="block text-label text-muted-foreground">Starts</span>
           {!readOnly && (
             <PickOne<TriggerKind>
               label="What starts it"
@@ -324,27 +324,27 @@ function TriggerCard({
                 onChange={(poll) => setFlow({ ...flow, trigger: { ...flow.trigger, github: { on: flow.trigger.github?.on ?? "review_comment", poll } } })}
                 options={["1m", "2m", "5m", "15m"].map((p) => ({ value: p, label: `Check every ${p.replace("m", " min")}` }))}
               />
-              <p className="col-span-2 text-muted-foreground text-xs">
+              <p className="col-span-2 text-desc text-muted-foreground">
                 The box checks each worktree's pull request with <code className="font-mono">gh</code>. Only what's new after the flow is turned on starts it.
               </p>
               {(flow.trigger.github?.on ?? "review_comment") !== "check_failed" && (flow.trigger.github?.on ?? "review_comment") !== "pr_merged" && (
                 <label className="col-span-2 block">
-                  <span className="mb-1 block font-medium text-muted-foreground text-xs">From</span>
+                  <span className="mb-1 block text-label text-muted-foreground">From</span>
                   <Input
                     value={(w.author ?? []).join(", ")}
                     readOnly={readOnly}
                     onChange={(e) => setW({ author: e.target.value.split(/[\s,]+/).filter(Boolean) })}
                     placeholder="collaborators · or logins, or * for anyone"
-                    className="font-mono text-xs"
+                    className="font-mono text-mono"
                   />
-                  <span className="mt-1 block text-muted-foreground text-xs">Comments reach the agent's prompt, marked as someone else's words. Anyone can comment on a public repository, so only collaborators count unless you list people.</span>
+                  <span className="mt-1 block text-desc text-muted-foreground">Comments reach the agent's prompt, marked as someone else's words. Anyone can comment on a public repository, so only collaborators count unless you list people.</span>
                 </label>
               )}
             </div>
           )}
         </div>
         <div className={cn(kind !== "event" && "hidden")}>
-          <span className="mb-1 block font-medium text-muted-foreground text-xs">From agent</span>
+          <span className="mb-1 block text-label text-muted-foreground">From agent</span>
           <SimpleSelect
             value={w.agent ?? ""}
             disabled={readOnly}
@@ -353,8 +353,8 @@ function TriggerCard({
           />
         </div>
         <label className={cn("block", kind !== "event" && "col-span-2")}>
-          <span className="mb-1 block font-medium text-muted-foreground text-xs">On branch</span>
-          <Input value={w.branch ?? ""} readOnly={readOnly} onChange={(e) => setW({ branch: e.target.value })} placeholder="Any · fix/* for a prefix" className="font-mono text-xs" />
+          <span className="mb-1 block text-label text-muted-foreground">On branch</span>
+          <Input value={w.branch ?? ""} readOnly={readOnly} onChange={(e) => setW({ branch: e.target.value })} placeholder="Any · fix/* for a prefix" className="font-mono text-mono" />
         </label>
       </div>
     </article>
@@ -375,15 +375,15 @@ function ScheduleFields({ flow, setFlow, readOnly }: { flow: Flow; setFlow(f: Fl
         onChange={(v) => v !== "custom" && set({ schedule: v })}
         options={[...SCHEDULE_PRESETS, { value: "custom", label: "Custom…" }]}
       />
-      <Input value={expr} readOnly={readOnly} onChange={(e) => set({ schedule: e.target.value })} placeholder="0 2 * * *" className="font-mono text-xs" aria-label="Cron expression" />
-      <p className="col-span-2 flex items-center gap-1.5 text-muted-foreground text-xs">
+      <Input value={expr} readOnly={readOnly} onChange={(e) => set({ schedule: e.target.value })} placeholder="0 2 * * *" className="font-mono text-mono" aria-label="Cron expression" />
+      <p className="col-span-2 flex items-center gap-1.5 text-desc text-muted-foreground">
         <ClockIcon className="size-3.5" />
         {describeCron(expr)} · the box's local time
       </p>
-      <label className="col-span-2 flex items-center gap-2 text-sm">
+      <label className="col-span-2 flex items-center gap-2 text-body">
         <Switch checked={!!flow.trigger.each_worktree} disabled={readOnly} onCheckedChange={(v) => set({ each_worktree: v || undefined })} />
         <span>Run once for each worktree</span>
-        <span className="text-muted-foreground text-xs">{flow.trigger.each_worktree ? "every worktree matching the branch below" : "otherwise once, in the repo's main checkout"}</span>
+        <span className="text-muted-foreground text-meta">{flow.trigger.each_worktree ? "every worktree matching the branch below" : "otherwise once, in the repo's main checkout"}</span>
       </label>
     </div>
   );
@@ -400,7 +400,7 @@ function RunsFor({ value, options, disabled, onChange }: { value: { box: string;
         render={
           <button
             type="button"
-            className="flex h-9 w-full items-center gap-2 rounded-lg border border-input bg-background px-3 text-left text-sm shadow-xs/5 outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-80 sm:h-8 dark:bg-input/32"
+            className="flex h-9 w-full items-center gap-2 rounded-lg border border-input bg-background px-3 text-left text-body shadow-xs/5 outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-80 sm:h-8 dark:bg-input/32"
           />
         }
       >
@@ -444,7 +444,7 @@ function Connector({ branch, onAdd }: { branch: string; onAdd?(k: StepKind): voi
     <div className="group relative flex h-10 items-center justify-center">
       <span className={cn("absolute inset-y-0 left-1/2 w-px -translate-x-1/2", amber ? "bg-warning/50" : branch === "always" ? "border-l border-dashed border-muted-foreground/40 bg-transparent" : "bg-border")} />
       {branch !== "success" && (
-        <span className={cn("relative z-10 rounded-full border bg-background px-2 py-px text-[11px]", amber ? "border-warning/40 text-warning-foreground" : "text-muted-foreground")}>{amber ? "if it fails" : "always"}</span>
+        <span className={cn("relative z-10 rounded-full border bg-background px-2 py-px text-tag", amber ? "border-warning/40 text-warning-foreground" : "text-muted-foreground")}>{amber ? "if it fails" : "always"}</span>
       )}
       {onAdd && (
         <AddStep onPick={onAdd}>
@@ -475,7 +475,7 @@ function AddStep({ onPick, children }: { onPick(k: StepKind): void; children: Re
                 <m.Icon className={m.tone} />
                 <span className="flex flex-col">
                   <span>{m.label}</span>
-                  <span className="text-muted-foreground text-xs">{m.hint}</span>
+                  <span className="text-muted-foreground text-meta">{m.hint}</span>
                 </span>
               </MenuItem>
             );
@@ -527,7 +527,7 @@ function TestRun({ box, scope, flow, dirty, onRun }: { box: string; scope: Scope
           {choices.map(({ l, wt }) => (
             <MenuItem key={wt.path} onClick={() => void go(l, wt)}>
               <span className="flex-1 truncate">{wt.main ? l.name : wt.name}</span>
-              <span className="text-muted-foreground text-xs">{loc ? wt.branch : l.name}</span>
+              <span className="text-muted-foreground text-meta">{loc ? wt.branch : l.name}</span>
             </MenuItem>
           ))}
         </MenuGroup>
@@ -555,7 +555,7 @@ function RunBanner({ run, onClear }: { run: FlowRun; onClear(): void }) {
         ? `Test run succeeded: step ${caught + 1} failed and the steps after it handled that, as designed. Results are on each step below.`
         : `Test run ${run.status}: ${ran} of ${run.steps.length} steps ran. Results are on each step below.`;
   return (
-    <div className={cn("mb-5 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm", ok ? "border-success/30 bg-success/6" : "border-destructive/30 bg-destructive/6")}>
+    <div className={cn("mb-5 flex items-center gap-3 rounded-xl border px-4 py-3 text-body", ok ? "border-success/30 bg-success/6" : "border-destructive/30 bg-destructive/6")}>
       <FlaskConicalIcon className={cn("size-4 shrink-0", ok ? "text-success" : "text-destructive-foreground")} />
       <span className="min-w-0 flex-1">
         {summary}

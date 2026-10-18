@@ -74,9 +74,9 @@ function Tile({ box, selected, wide, onSelect }: { box: BoxStatus; selected: boo
             selected && online ? "bg-foreground" : online ? "border border-muted-foreground/48" : "border border-dashed border-muted-foreground/48",
           )}
         />
-        <span className="min-w-0 truncate font-medium text-sm">{box.name}</span>
+        <span className="min-w-0 truncate text-row">{box.name}</span>
       </span>
-      <span className="truncate ps-4 text-muted-foreground text-xs tabular-nums">{facts}</span>
+      <span className="truncate ps-4 text-muted-foreground text-meta tabular-nums">{facts}</span>
     </button>
   );
   return load ? <Tip label={load} wrapClassName={wide ? "flex min-w-0 flex-1 basis-0" : undefined}>{tile}</Tip> : tile;

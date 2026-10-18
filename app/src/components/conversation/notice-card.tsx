@@ -73,7 +73,7 @@ export function NoticeCard({ it, scope: given }: { it: Notice; scope?: ChatActio
 
   if (it.notice === "interrupted") {
     return (
-      <div data-notice="interrupted" className="cv-in flex items-center gap-2 text-muted-foreground text-[0.8125rem]">
+      <div data-notice="interrupted" className="cv-in flex items-center gap-2 text-muted-foreground text-desc">
         <span className="h-px w-4 bg-border" aria-hidden />
         <SquareIcon className="size-3 shrink-0 fill-current" aria-hidden />
         <span>Interrupted</span>
@@ -103,9 +103,9 @@ export function NoticeCard({ it, scope: given }: { it: Notice; scope?: ChatActio
     >
       <Icon className={cn("mt-0.5 size-4 shrink-0", error ? "text-destructive-foreground" : "text-warning-foreground")} aria-hidden />
       <div className="min-w-0 flex-1">
-        <div className="font-medium text-[0.8438rem] leading-snug">{TITLES[it.notice]?.(who) ?? "Something went wrong"}</div>
+        <div className="font-medium text-desc">{TITLES[it.notice]?.(who) ?? "Something went wrong"}</div>
         {text && text !== TITLES[it.notice]?.(who) && (
-          <p data-selectable className="mt-0.5 whitespace-pre-wrap break-words text-muted-foreground text-[0.8125rem] leading-snug">
+          <p data-selectable className="mt-0.5 whitespace-pre-wrap break-words text-muted-foreground text-desc">
             {text}
           </p>
         )}
@@ -160,11 +160,11 @@ function Resets({ at }: { at: number }) {
   const left = at - now;
   const when = new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   const day = new Date(at).toDateString() !== new Date(now).toDateString() ? `${new Date(at).toLocaleDateString([], { weekday: "short" })} ` : "";
-  if (left <= 0) return <p className="mt-1 text-[0.7812rem] text-muted-foreground">It has reset: try again.</p>;
+  if (left <= 0) return <p className="mt-1 text-meta text-muted-foreground">It has reset: try again.</p>;
   const h = Math.floor(left / 3_600_000);
   const m = Math.ceil((left % 3_600_000) / 60_000);
   return (
-    <p className="mt-1 text-[0.7812rem] text-foreground/80">
+    <p className="mt-1 text-meta text-foreground/80">
       Resets at {day}
       {when} · in {h ? `${h}h ` : ""}
       {m}m

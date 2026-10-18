@@ -1,17 +1,13 @@
 import { CircleArrowUpIcon, GitBranchIcon, RefreshCwIcon } from "lucide-react";
 import { useState } from "react";
 
-import { StatusDot } from "@/components/agent-glyph";
-import { BoxMeter } from "@/components/box-processes";
 import { QueueIndicator } from "@/components/queue/queue-indicator";
 import { Tip } from "@/components/tip";
 import { Spinner } from "@/components/ui/spinner";
 import { useUpdateAll } from "@/components/upgrade-box";
 import { useAgentCounts } from "@/hooks/use-agent-counts";
 import { isMock } from "@/hooks/use-berth-connection";
-import { viaRoute } from "@/lib/box-routes";
-import { useOutdatedBoxes } from "@/lib/outdated";
-import { AGENT_WORDS, BOX_WORDS, boxState } from "@/lib/state-model";
+import { AGENT_WORDS } from "@/lib/state-model";
 import { useStore } from "@/lib/store";
 import { restartToUpdate, useAgentRestart, useUpdater } from "@/lib/updater";
 import { cn } from "@/lib/utils";
@@ -23,10 +19,11 @@ import { homeBox, useWorkspaces } from "@/lib/workspaces";
 import { findWorktree } from "@/lib/worktree-names";
 
 // StatusBar is the strip along the bottom: what agents are doing on the
-// left, the boxes on the right. Every item goes somewhere when clicked.
+// left, updates and forwards on the right. Every item goes somewhere when
+// clicked. The boxes themselves are the sidebar's foot (BoxesFoot), whose
+// tip says how each is and how busy.
 export function StatusBar() {
   const status = useStore((s) => s.status);
-  const boxes = useStore((s) => s.boxes);
   const connection = useStore((s) => s.connection);
   // The agent restarting after an update (lib/updater.ts) is away a moment.
   const restarting = useAgentRestart((s) => s.restarting);
@@ -35,15 +32,10 @@ export function StatusBar() {
   const [syncing, setSyncing] = useState(false);
   const go = useStore((s) => s.setView);
 
-  const outdated = useOutdatedBoxes();
-  const online = status?.boxes.filter((b) => b.state === "online") ?? [];
-  const total = status?.boxes.length ?? 0;
-  // Online, over a slow link: still online, said quietly.
-  const slow = online.filter((b) => b.link?.slow).length;
   const forwards = status?.forwards.length ?? 0;
 
   return (
-    <footer className="@container flex h-6.5 shrink-0 items-center gap-3 overflow-hidden whitespace-nowrap border-t bg-sidebar px-3 text-[11px] text-muted-foreground">
+    <footer className="@container flex h-6.5 shrink-0 items-center gap-3 overflow-hidden whitespace-nowrap border-t bg-sidebar px-3 text-tag text-muted-foreground">
       {/* ?shots=1, used by site/scripts/capture.mjs, hides the badge. */}
       {__BERTH_DEMO__ ? (
         !new URLSearchParams(location.search).has("shots") && <Tip label="A demo: invented boxes and repositories, and nothing runs">
@@ -101,37 +93,11 @@ export function StatusBar() {
         ))}
       <UpdateItem />
       <OutdatedItem />
-      {online.map((b) => {
-        const mem = boxes[b.name]?.stats?.memory;
-        if (!mem?.total) return null;
-        // Each box's memory goes first when the bar runs short of room.
-        // Clicked, it lists the box's browsers and heavy sessions; its tip
-        // names the route Shipyard reaches the box by.
-        return <BoxMeter key={b.name} box={b.name} mem={mem} route={viaRoute(b)} className="@max-[900px]:hidden" />;
-      })}
       {forwards > 0 && (
         <Item tip="Ports forwarded to this computer" onClick={() => go({ kind: "settings", section: "developer" })}>
           {forwards} {forwards === 1 ? "forward" : "forwards"}
         </Item>
       )}
-      <Item
-        tip={status?.boxes.map((b) => {
-          const st = boxState(b, boxes[b.name], outdated.includes(b.name));
-          return (
-            <span key={b.name} className="flex items-center gap-1.5">
-              <StatusDot state={st} />
-              {b.name}: {BOX_WORDS[st].lower}
-              {b.state === "online" && viaRoute(b) && <span className="text-muted-foreground">· {viaRoute(b)}</span>}
-            </span>
-          );
-        })}
-        onClick={() => go({ kind: "settings", section: "boxes" })}
-      >
-        {/* Green when every box is up (fainter while one's link is slow), grey when some aren't: amber is only ever "needs you". */}
-        <StatusDot state={online.length === total && total > 0 ? (slow > 0 ? "slow" : "online") : "offline"} />
-        {online.length}/{total} {total === 1 ? "box" : "boxes"} online
-        {slow > 0 && <span data-testid="boxes-slow">· {slow === 1 && total > 1 ? `${online.find((b) => b.link?.slow)?.name} slow` : "slow"}</span>}
-      </Item>
       <Tip label="Refresh" align="end">
         <button
           type="button"

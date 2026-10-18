@@ -41,7 +41,7 @@ function go(s: Shower) {
 function Hint({ item, where, className }: { item: WhatsNewItem; where: boolean; className?: string }) {
   if (!item.keys) return null;
   return (
-    <span className={cn("flex items-center gap-1.5 text-muted-foreground text-xs", className)}>
+    <span className={cn("flex items-center gap-1.5 text-muted-foreground text-meta", className)}>
       <Kbd className="text-foreground/80">{item.keys}</Kbd>
       {where && item.where}
     </span>
@@ -52,8 +52,8 @@ function Hint({ item, where, className }: { item: WhatsNewItem; where: boolean; 
 function Also({ release, className }: { release: Release; className?: string }) {
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      <span className="font-medium text-muted-foreground text-xs">Also in this release</span>
-      <ul className="flex flex-col gap-1.5 text-muted-foreground text-xs leading-snug">
+      <span className="text-muted-foreground text-label">Also in this release</span>
+      <ul className="flex flex-col gap-1.5 text-muted-foreground text-meta">
         {release.also.map((a) => {
           const to = a.show && showerFor(a.show);
           return (
@@ -108,15 +108,15 @@ export function SpotlightCard({ open, release }: { open: boolean; release: Relea
         <TabsPrimitive.Root value={at} onValueChange={(v) => setAt(Number(v))} orientation="vertical" className="flex min-h-0">
           <div className="flex w-[248px] shrink-0 flex-col border-r bg-muted/40 max-sm:hidden">
             <DialogHeader className="gap-1 px-5 pt-5 pb-4">
-              <DialogTitle className="text-base">What's new</DialogTitle>
-              <DialogDescription className="font-mono text-xs">Shipyard {release.version}</DialogDescription>
+              <DialogTitle className="text-heading">What's new</DialogTitle>
+              <DialogDescription className="font-mono text-mono">Shipyard {release.version}</DialogDescription>
             </DialogHeader>
             <TabsPrimitive.List activateOnFocus aria-label="Highlights" className="flex flex-col gap-px px-2.5">
               {items.map((it, i) => (
                 <TabsPrimitive.Tab
                   key={it.id}
                   value={i}
-                  className="flex h-8 items-center gap-2.5 rounded-md px-2.5 text-left text-muted-foreground text-sm outline-none hover:bg-foreground/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-active:bg-foreground/9 data-active:font-medium data-active:text-foreground"
+                  className="flex h-8 items-center gap-2.5 rounded-md px-2.5 text-left text-muted-foreground text-body outline-none hover:bg-foreground/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-active:bg-foreground/9 data-active:font-medium data-active:text-foreground"
                 >
                   <span className="truncate">{it.title}</span>
                 </TabsPrimitive.Tab>
@@ -129,8 +129,8 @@ export function SpotlightCard({ open, release }: { open: boolean; release: Relea
               <XIcon />
             </DialogClose>
             <div className="hidden px-5 pt-5 max-sm:block">
-              <span className="font-medium text-sm">What's new</span>
-              <span className="ml-2 font-mono text-muted-foreground text-xs">Shipyard {release.version}</span>
+              <span className="text-row">What's new</span>
+              <span className="ml-2 font-mono text-muted-foreground text-mono">Shipyard {release.version}</span>
             </div>
             {items.map((it, i) => (
               <TabsPrimitive.Panel key={it.id} value={i} className="flex flex-col gap-5 px-8 pt-12 pb-2 outline-none max-sm:px-5 max-sm:pt-4" aria-label={it.title}>
@@ -138,8 +138,8 @@ export function SpotlightCard({ open, release }: { open: boolean; release: Relea
                   <WhatsNewArt art={it.art} />
                 </div>
                 <div className="flex min-h-[6.75rem] flex-col gap-1.5 max-sm:min-h-0">
-                  <h3 className="font-semibold text-base">{it.title}</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">{it.body}</p>
+                  <h3 className="text-heading">{it.title}</h3>
+                  <p className="text-muted-foreground text-body">{it.body}</p>
                 </div>
                 {/* Narrow, the list is hidden: the smaller things follow the last. */}
                 {i === items.length - 1 && <Also release={release} className="hidden max-sm:flex" />}
@@ -162,7 +162,7 @@ export function SpotlightCard({ open, release }: { open: boolean; release: Relea
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                <span className="mr-1 text-muted-foreground text-xs tabular-nums" aria-hidden>
+                <span className="mr-1 text-muted-foreground text-meta tabular-nums" aria-hidden>
                   {at + 1} / {items.length}
                 </span>
                 <Button size="icon-sm" variant="ghost" aria-label="Previous" className={cn(at === 0 && "invisible")} onClick={() => step(-1)}>

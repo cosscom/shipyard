@@ -102,7 +102,7 @@ function BoxHomeChip({ box }: { box: string }) {
   return (
     <Tip label={`Terminals in ${box}'s home folder${home ? `, ${home}` : ""}. They belong to no worktree.`} side="bottom">
       <span data-tauri-drag-region data-home-box={box} className="flex shrink-0 items-center pr-1.5 pl-2.5">
-        <span className="rounded bg-accent/70 px-1.5 py-px font-mono text-[10px] text-muted-foreground">{box} · ~</span>
+        <span className="rounded bg-accent/70 px-1.5 py-px font-mono text-tag text-muted-foreground">{box} · ~</span>
       </span>
     </Tip>
   );

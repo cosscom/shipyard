@@ -51,7 +51,7 @@ export function OutdatedNotice({ className }: { className?: string }) {
   const { outdated, busy, running, progress, updateAll } = useUpdateAll();
   if (!outdated.length && !busy) return null;
   return (
-    <div role="status" className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-info/32 bg-info/4 px-3 py-2 text-sm", className)}>
+    <div role="status" className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-info/32 bg-info/4 px-3 py-2 text-body", className)}>
       <CircleArrowUpIcon className="size-4 shrink-0 text-info" />
       <span className="min-w-0 flex-1">
         {busy ? (
@@ -86,7 +86,7 @@ export function BoxError({ box, error, what, className }: { box: string; error: 
     );
   }
   return (
-    <div className={cn("flex flex-col gap-1 text-muted-foreground text-xs", className)}>
+    <div className={cn("flex flex-col gap-1 text-muted-foreground text-meta", className)}>
       <span>
         <span className="font-medium text-foreground">{box}</span>: couldn't read {what}. {e.message}
       </span>
@@ -99,7 +99,7 @@ export function BoxError({ box, error, what, className }: { box: string; error: 
 // what's missing, and the one button that fixes it.
 export function NeedsUpdate({ box, children, className }: { box: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-info/32 bg-info/4 px-3 py-2 text-sm", className)}>
+    <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-info/32 bg-info/4 px-3 py-2 text-body", className)}>
       <span className="min-w-0 flex-1">{children}</span>
       <UpgradeBox box={box} size="xs" variant="outline" />
     </div>

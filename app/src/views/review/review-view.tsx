@@ -149,7 +149,7 @@ export function ReviewView() {
           }}
         />
       ) : !loaded ? (
-        <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground text-sm">
+        <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground text-body">
           <Spinner className="size-4" /> Reading each box's worktrees…
         </div>
       ) : entries.length === 0 ? (
@@ -170,7 +170,7 @@ export function ReviewView() {
                 <Row key={e.key} entry={e} active={e.key === selected?.key} onSelect={() => setSelectedKey(e.key)} onOpen={() => void focusSession(e.box, e.session)} />
               ))}
             </ul>
-            <footer className="flex shrink-0 items-center gap-2.5 overflow-hidden whitespace-nowrap border-t px-3 py-2 text-[11px] text-muted-foreground">
+            <footer className="flex shrink-0 items-center gap-2.5 overflow-hidden whitespace-nowrap border-t px-3 py-2 text-tag text-muted-foreground">
               {(
                 [
                   ["J K", "move"],
@@ -181,7 +181,7 @@ export function ReviewView() {
               ).map(([keys, label]) => (
                 <span key={label} className={cn("inline-flex items-center gap-1", label === "discard" && "max-xl:hidden")}>
                   {keys.split(" ").map((k) => (
-                    <Kbd key={k} className="h-4 min-w-4 px-1 text-[10px]">
+                    <Kbd key={k} className="h-4 min-w-4 px-1 text-tag">
                       {k}
                     </Kbd>
                   ))}
@@ -204,9 +204,9 @@ function Notices({ outdated, errors }: { outdated: string[]; errors: Record<stri
   const failing = Object.entries(errors);
   if (!outdated.length && !failing.length) return null;
   return (
-    <div className="flex shrink-0 flex-col gap-1 border-b bg-muted/30 px-6 py-2 text-xs">
+    <div className="flex shrink-0 flex-col gap-1 border-b bg-muted/30 px-6 py-2 text-meta">
       {outdated.map((box) => (
-        <NeedsUpdate key={box} box={box} className="py-1.5 text-xs">
+        <NeedsUpdate key={box} box={box} className="py-1.5 text-meta">
           <span className="font-medium">{box}</span> runs an older berthd without Review. Update it to include its agents' work here.
         </NeedsUpdate>
       ))}
@@ -241,15 +241,15 @@ function Row({ entry, active, onSelect, onOpen }: { entry: ReviewEntry; active: 
       >
         <span className="flex min-w-0 items-center gap-2">
           <AgentIcon agent={entry.agent} />
-          <span className="min-w-0 flex-1 truncate font-medium text-[13px]">{work ?? name}</span>
-          <span className={cn("shrink-0 text-[11px] tabular-nums", waiting ? "text-warning-foreground" : "text-muted-foreground")}>{waiting ? "needs you" : ago(entry.state_since)}</span>
+          <span className="min-w-0 flex-1 truncate text-row">{work ?? name}</span>
+          <span className={cn("shrink-0 text-meta tabular-nums", waiting ? "text-warning-foreground" : "text-muted-foreground")}>{waiting ? "needs you" : ago(entry.state_since)}</span>
         </span>
-        <span className="truncate pl-5.5 text-[11px] text-muted-foreground">
+        <span className="truncate pl-5.5 text-meta text-muted-foreground">
           {work && `${name} · `}
           {entry.box} · {entry.location}
           {entry.branch && <span> · {entry.branch}</span>}
         </span>
-        <span className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap pl-5.5 text-[11px] text-muted-foreground">
+        <span className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap pl-5.5 text-meta text-muted-foreground">
           <span>
             {files} file{files === 1 ? "" : "s"}
           </span>

@@ -262,15 +262,15 @@ export function BrowserSandboxCard({ box, worktree, full = false, className }: {
   const blocked = state === "blocked" || state === "still-blocked";
 
   return (
-    <div role="status" data-sandbox-card={state} className={cn("flex gap-3 rounded-lg border px-3.5 py-3 text-sm", tone[state], className)}>
+    <div role="status" data-sandbox-card={state} className={cn("flex gap-3 rounded-lg border px-3.5 py-3 text-body", tone[state], className)}>
       <Icon className={cn("mt-0.5 size-4 shrink-0", state === "fixed" ? "text-success" : state === "no-sandbox" ? "text-muted-foreground" : "text-warning")} />
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div className="flex flex-col gap-0.5">
           <p className="font-medium">{copy.title}</p>
-          <p className="text-muted-foreground text-xs leading-relaxed">{copy.body}</p>
+          <p className="text-muted-foreground text-meta">{copy.body}</p>
         </div>
         {state === "fixed" && (flow.verifying || flow.verifyError) && (
-          <p className="flex items-center gap-1.5 text-muted-foreground text-xs">
+          <p className="flex items-center gap-1.5 text-muted-foreground text-meta">
             {flow.verifying ? (
               <>
                 <Spinner className="size-3" /> Starting Chromium on {box} to make sure…
@@ -295,7 +295,7 @@ export function BrowserSandboxCard({ box, worktree, full = false, className }: {
             </Button>
           </div>
         )}
-        {blocked && <p className="text-muted-foreground text-xs">{TRADE_OFF}</p>}
+        {blocked && <p className="text-muted-foreground text-meta">{TRADE_OFF}</p>}
         {state === "fixing" && (
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" loading={busy === "check"} onClick={() => void run("check", () => checkAgain(box))}>
@@ -308,13 +308,13 @@ export function BrowserSandboxCard({ box, worktree, full = false, className }: {
                 Show the terminal
               </Button>
             )}
-            <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
+            <span className="flex items-center gap-1.5 text-muted-foreground text-meta">
               <Spinner className="size-3" /> Watching {box} for the change
             </span>
           </div>
         )}
         {state === "no-sandbox" && (
-          <label className="flex items-center gap-2 text-xs">
+          <label className="flex items-center gap-2 text-meta">
             <Switch
               checked={!!h?.no_sandbox}
               disabled={h?.no_sandbox_from === "env" || !!busy}
@@ -341,7 +341,7 @@ function FixCommand() {
   }, [copied]);
   return (
     <div className="flex items-start gap-2 rounded-md border bg-background/70 px-2.5 py-2">
-      <code className="min-w-0 flex-1 break-words font-mono text-[11px] leading-relaxed">{SANDBOX_FIX}</code>
+      <code className="min-w-0 flex-1 break-words font-mono text-tag">{SANDBOX_FIX}</code>
       <button
         type="button"
         aria-label="Copy the command"

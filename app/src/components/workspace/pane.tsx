@@ -118,7 +118,7 @@ export function Pane({ wsKey, tab, pane, visible, focused, split, mixed, compare
           // the pane's worktree, and the focus line is in that one's colour.
           <div
             onPointerDown={(e) => armDrag(e, { kind: "pane", key: wsKey, tab, pane: pane.id }, (c.kind === "terminal" && (session?.title?.trim() || c.title)) || paneLabel(c, agent), <PaneIcon content={c} agent={agent} className="size-3" />)}
-            className={cn("group/header flex h-7 shrink-0 items-center gap-1.5 border-b px-2 text-xs", focused ? "bg-accent/50 text-foreground shadow-[inset_0_2px_0_var(--ring)]" : "text-muted-foreground")}
+            className={cn("group/header flex h-7 shrink-0 items-center gap-1.5 border-b px-2 text-meta", focused ? "bg-accent/50 text-foreground shadow-[inset_0_2px_0_var(--ring)]" : "text-muted-foreground")}
             style={tone ? { boxShadow: focused ? `inset 0 2px 0 ${tone}` : `inset 0 1px 0 color-mix(in oklab, ${tone} 50%, transparent)` } : undefined}
           >
             {tone && <WtChip wsKey={owner} />}
@@ -175,15 +175,15 @@ export function Pane({ wsKey, tab, pane, visible, focused, split, mixed, compare
           {c.kind === "log" && <LogView box={c.box} location={c.location} worktree={c.worktree} service={c.service} visible={visible} />}
           {c.kind === "panel" && <PanelPane wsKey={owner} plugin={c.plugin} panel={c.panel} />}
           {c.kind === "starting" && (
-            <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground text-sm">
+            <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground text-body">
               <Spinner className="size-4" />
               Starting {c.label}…
             </div>
           )}
           {c.kind === "error" && (
-            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-sm">
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-body">
               <p className="font-medium">Couldn't start it</p>
-              <ErrorText className="max-w-md items-center text-muted-foreground text-xs" text={c.message} />
+              <ErrorText className="max-w-md items-center text-desc text-muted-foreground" text={c.message} />
               <Button size="sm" variant="outline" onClick={close}>
                 Close pane
               </Button>
@@ -210,10 +210,10 @@ function useGuestGone(wsKey: string, pane: Leaf): string | undefined {
 // GonePane stands in for a guest pane whose worktree was archived.
 function GonePane({ name, onClose }: { name: string; onClose(): void }) {
   return (
-    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-background p-6 text-center text-sm">
+    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-background p-6 text-center text-body">
       <ArchiveIcon className="size-5 text-muted-foreground" />
       <p className="font-medium">{name} was archived</p>
-      <p className="max-w-xs text-muted-foreground text-xs">Its agents stopped with it, so there is nothing left to show here.</p>
+      <p className="max-w-xs text-desc text-muted-foreground">Its agents stopped with it, so there is nothing left to show here.</p>
       <Button size="sm" variant="outline" onClick={onClose}>
         Close pane
       </Button>
@@ -397,7 +397,7 @@ function PaneTitle({ pane }: { pane: Leaf }) {
         {secondary && <span className="shrink-0 text-muted-foreground">{secondary}</span>}
         {state && <StateGlyph state={state} className="size-3" />}
         {near && session?.usage && (
-          <span data-testid="pane-memory" className="flex shrink-0 items-center gap-1 text-[11px] text-warning-foreground tabular-nums dark:text-warning">
+          <span data-testid="pane-memory" className="flex shrink-0 items-center gap-1 text-tag text-warning-foreground tabular-nums dark:text-warning">
             <GaugeIcon className="size-3" aria-hidden />
             {memory(session.usage.memory)} of {memory(session.usage.memory_high ?? 0)}
           </span>

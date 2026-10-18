@@ -42,15 +42,15 @@ class Catch extends Component<Omit<Props, "children"> & { children: ReactNode },
     if (this.props.inline) {
       return (
         <Tip label={error.message}>
-          <span className="text-destructive text-xs">{name} failed</span>
+          <span className="text-destructive text-meta">{name} failed</span>
         </Tip>
       );
     }
     return (
-      <div className="m-6 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
+      <div className="m-6 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-body">
         <p className="font-medium">{name} hit an error</p>
-        <pre className="mt-2 whitespace-pre-wrap text-muted-foreground text-xs">{error.message}</pre>
-        <button type="button" className="mt-3 text-xs underline" onClick={() => this.setState({ error: undefined })}>
+        <pre className="mt-2 whitespace-pre-wrap text-muted-foreground text-meta">{error.message}</pre>
+        <button type="button" className="mt-3 text-meta underline" onClick={() => this.setState({ error: undefined })}>
           Try again
         </button>
       </div>

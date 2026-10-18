@@ -117,7 +117,7 @@ export function WtChip({ wsKey, className }: { wsKey: string; className?: string
   if (narrow)
     return (
       <Tip label={tip} side="bottom" align="start">
-        <span aria-label={`Pane of ${label}`} className={cn("inline-flex max-w-20 shrink-0 items-center gap-1 font-medium text-[11px]", className)} style={{ color: tone }}>
+        <span aria-label={`Pane of ${label}`} className={cn("inline-flex max-w-20 shrink-0 items-center gap-1 font-medium text-tag", className)} style={{ color: tone }}>
           <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: tone }} />
           <span className="truncate">{label}</span>
         </span>
@@ -127,7 +127,7 @@ export function WtChip({ wsKey, className }: { wsKey: string; className?: string
     <Tip label={tip} side="bottom" align="start">
       <span
         aria-label={`Pane of ${label}`}
-        className={cn("inline-flex h-4.5 max-w-40 shrink-0 items-center gap-1 rounded-md px-1.5 font-medium text-[11px]", className)}
+        className={cn("inline-flex h-4.5 max-w-40 shrink-0 items-center gap-1 rounded-md px-1.5 font-medium text-tag", className)}
         style={{ background: `color-mix(in oklab, ${tone} 14%, transparent)`, color: tone }}
       >
         <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: tone }} />

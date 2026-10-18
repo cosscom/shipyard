@@ -304,6 +304,10 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
     void useStore.getState().refreshBox(box);
   };
 
+  // Every hook runs before the pane's early returns, or a pane that goes
+  // from an error to its chat would draw with a hook too many.
+  const [resuming, setResuming] = useState<string>();
+
   // The box is away: what it last said may be stale, so say only that.
   if (away && !mock) {
     return (
@@ -397,8 +401,7 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
   };
 
   // A structured chat's /resume is the app's picker: its agent has no
-  // screen to show its own.
-  const [resuming, setResuming] = useState<string>();
+  // screen to show its own (resuming, kept above the early returns).
   const reply = async (text: string) => {
     const resumeQuery = structured && canPickPast(box) ? resumeWords(text) : undefined;
     if (resumeQuery !== undefined) {
@@ -461,7 +464,7 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
         <QueuedBubble key={q.turn} q={q} who={who} onSendNow={() => sendNow(q)} onCancel={() => cancel(q)} />
       ))}
       {untaken && (
-        <div className="cv-in flex items-center gap-2 self-end text-muted-foreground text-xs">
+        <div className="cv-in flex items-center gap-2 self-end text-muted-foreground text-meta">
           <span>{who} hasn't taken this yet: its terminal may be asking something.</span>
           <Button size="xs" variant="outline" onClick={onShowTerminal}>
             <SquareTerminalIcon />
@@ -557,7 +560,7 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
       <ChatBackground />
       <div className="min-h-0 flex-1 overflow-y-auto pt-6 pr-6 pb-4 pl-6 @[900px]:pr-[max(24px,var(--berth-loops-w,0px))]">
         {!mock && feed === "loading" && !items.length ? (
-          <div className="flex h-full items-center justify-center text-sm">
+          <div className="flex h-full items-center justify-center text-body">
             <PixelLoader label="Reading the conversation…" />
           </div>
         ) : (
@@ -665,7 +668,7 @@ const ChatFoot = memo(function ChatFoot({
   return (
     <ChatControls box={box} session={session} agent={agent} state={state} stateSince={stateSince} dir={dir} who={who} visible={visible} ended={ended} onShowTerminal={terminal ? actions.showTerminal : undefined} onStartAgain={actions.again} onSend={actions.reply}>
       {ended ? (
-        <div className="flex items-center gap-3 rounded-lg border bg-muted/40 px-3 py-2 text-muted-foreground text-sm">
+        <div className="flex items-center gap-3 rounded-lg border bg-muted/40 px-3 py-2 text-muted-foreground text-body">
           <StateGlyph state="exited" />
           <span className="min-w-0 flex-1">{agent ? agentLabel(agent) : "This agent"} has ended, so it can't take a reply.</span>
           <Button size="sm" variant="outline" onClick={actions.again}>
@@ -726,7 +729,7 @@ function CommentsStrip({ count, who, onSend }: { count: number; who: string; onS
     }
   };
   return (
-    <div className="mb-2 flex items-center gap-2 rounded-lg border bg-muted/40 py-1.5 pr-1.5 pl-3 text-sm">
+    <div className="mb-2 flex items-center gap-2 rounded-lg border bg-muted/40 py-1.5 pr-1.5 pl-3 text-body">
       <MessageSquareTextIcon className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate">
         {count} comment{count === 1 ? "" : "s"} on the diff
@@ -899,7 +902,7 @@ function useStalled(active: boolean, ms: number, reset: string): boolean {
 
 function Reading() {
   return (
-    <div className="flex flex-1 items-center justify-center bg-background text-sm">
+    <div className="flex flex-1 items-center justify-center bg-background text-body">
       <PixelLoader label="Reading the conversation…" />
     </div>
   );
@@ -918,10 +921,10 @@ function FirstPrompt({ box, session, agent, name, branch, onSend, onFail }: { bo
       <div className={cn("relative flex min-h-full items-start justify-center px-6 pb-10", picture ? "pt-[clamp(120px,24vh,230px)]" : "pt-[18vh]")}>
         <div className="w-full max-w-[calc(var(--berth-chat-w)-120px)]">
           <header className={cn("mb-4 px-2", picture && "[text-shadow:0_0_6px_var(--background),0_0_14px_var(--background)]")}>
-            <h1 className="truncate font-semibold text-lg tracking-tight">{name}</h1>
-            <div className="mt-1 flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
-              {branch && <span className="min-w-0 truncate rounded bg-accent px-1.5 py-px font-mono text-[0.6875rem]">{branch}</span>}
-              <span className="shrink-0 rounded bg-accent px-1.5 py-px font-mono text-[0.6875rem]">{box}</span>
+            <h1 className="truncate text-heading tracking-tight">{name}</h1>
+            <div className="mt-1 flex min-w-0 items-center gap-1.5 text-muted-foreground text-meta">
+              {branch && <span className="min-w-0 truncate rounded bg-accent px-1.5 py-px font-mono text-tag">{branch}</span>}
+              <span className="shrink-0 rounded bg-accent px-1.5 py-px font-mono text-tag">{box}</span>
             </div>
           </header>
           <TaskComposer to={{ box, session, agent }} onSend={onSend} onFail={onFail} autoFocus />

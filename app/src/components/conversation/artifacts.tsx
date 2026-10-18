@@ -66,8 +66,8 @@ export function ArtifactsChip({ box, session, who, className }: { box: string; s
       </PopoverTrigger>
       <PopoverPopup data-testid="artifacts-popover" side="top" align="end" className="w-[min(24rem,calc(100vw-2rem))] [--viewport-inline-padding:--spacing(1.5)] *:data-[slot=popover-viewport]:py-1.5">
         <div className="flex items-baseline justify-between gap-2 px-2 pt-1 pb-1.5">
-          <span className="font-medium text-[0.8125rem]">Artifacts</span>
-          <span className="text-muted-foreground text-xs">Published by {who} on claude.ai</span>
+          <span className="font-medium text-desc">Artifacts</span>
+          <span className="text-muted-foreground text-meta">Published by {who} on claude.ai</span>
         </div>
         <ul className="flex max-h-[min(26rem,calc(var(--available-height)-4rem))] flex-col gap-px overflow-y-auto">
           {rows.map((a) => (
@@ -90,10 +90,10 @@ function ArtifactRow({ a, chat, onDone }: { a: Artifact; chat: string; onDone():
         <button type="button" data-main onClick={open} className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 py-1.5 text-left outline-none">
           <ArtifactGlyph />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[0.8125rem] leading-5">{a.title}</span>
-            <span className="block truncate text-muted-foreground text-xs leading-4">{a.description || host(a.url)}</span>
+            <span className="block truncate text-desc">{a.title}</span>
+            <span className="block truncate text-muted-foreground text-meta">{a.description || host(a.url)}</span>
           </span>
-          <span className="shrink-0 self-start pt-0.5 text-[0.7188rem] text-muted-foreground leading-4 tabular-nums transition-opacity group-hover/row:opacity-0 group-has-focus-visible/row:opacity-0">
+          <span className="shrink-0 self-start pt-0.5 text-meta text-muted-foreground tabular-nums transition-opacity group-hover/row:opacity-0 group-has-focus-visible/row:opacity-0">
             {a.updated ? `Updated ${when(a.at)}` : when(a.at)}
           </span>
         </button>
@@ -154,7 +154,7 @@ export function ArtifactCard({ it }: { it: Extract<TranscriptItem, { kind: "arti
   const status = it.error ? "Didn't publish" : publishing ? "Publishing" : it.updated ? "Updated" : "Published";
   const sub = it.error ? undefined : it.description;
   return (
-    <div className={cn("cv-in flex w-[min(100%,40rem)] min-w-0 items-center gap-2 self-start rounded-lg border bg-card py-1 pl-2.5 text-[0.8125rem] shadow-xs/5", it.url ? "pr-1" : "pr-3")}>
+    <div className={cn("cv-in flex w-[min(100%,40rem)] min-w-0 items-center gap-2 self-start rounded-lg border bg-card py-1 pl-2.5 text-desc shadow-xs/5", it.url ? "pr-1" : "pr-3")}>
       <AppWindowIcon className={cn("size-3.5 shrink-0", it.error ? "text-destructive-foreground" : "text-muted-foreground")} />
       <span className={cn("shrink-0", publishing ? "cv-shimmer" : it.error ? "text-destructive-foreground" : "text-muted-foreground")}>{status}</span>
       <span className="min-w-0 shrink truncate font-medium">{it.text}</span>

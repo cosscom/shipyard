@@ -18,8 +18,8 @@ export function WelcomeStep({ local, onThisMac, onRemote, onJoin }: { local?: bo
     <div>
       {/* The title starts where every step's does; the scene (dawn) is the
           page's, above the progress. */}
-      <h1 className="font-semibold text-2xl tracking-tight">Welcome to Shipyard</h1>
-      <p className="mt-2 text-muted-foreground leading-relaxed">
+      <h1 className="text-title">Welcome to Shipyard</h1>
+      <p className="mt-2 text-muted-foreground text-subtitle">
         Shipyard runs coding agents on your own machines, each in a worktree of its own, and shows you which need you, which are working and what they built.
       </p>
       <div className="mt-6 flex flex-col gap-2">
@@ -66,8 +66,8 @@ function Way({ icon, title, detail, action, primary }: { icon: ReactNode; title:
         {icon}
       </span>
       <div className="min-w-0 flex-1">
-        <h2 className="font-medium text-sm">{title}</h2>
-        <p className="mt-0.5 text-muted-foreground text-xs leading-relaxed">{detail}</p>
+        <h2 className="text-row">{title}</h2>
+        <p className="mt-0.5 text-muted-foreground text-meta">{detail}</p>
       </div>
       <div className="shrink-0">{action}</div>
     </section>

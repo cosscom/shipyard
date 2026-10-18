@@ -399,7 +399,7 @@ function Frames({ worktree, base, address, frames, paused, onGo, onReload, onNav
         set={set}
       />
       {plain && !__BERTH_DEMO__ && (
-        <p role="status" className="shrink-0 border-b bg-warning/8 px-3 py-1 text-warning-foreground text-xs">
+        <p role="status" className="shrink-0 border-b bg-warning/8 px-3 py-1 text-warning-foreground text-meta">
           Some frames aren't connected, so they don't sync or switch themes. Pages from Shipyard's proxy (*.localhost:1377) connect once the Shipyard agent is up to date: restart it from the status bar.
         </p>
       )}
@@ -452,7 +452,7 @@ function Frames({ worktree, base, address, frames, paused, onGo, onReload, onNav
 
 // ---- The bar -----------------------------------------------------------------
 
-const btn = "inline-flex h-6.5 shrink-0 items-center gap-1.5 rounded-md px-1.5 text-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 [&_svg]:size-3.5";
+const btn = "inline-flex h-6.5 shrink-0 items-center gap-1.5 rounded-md px-1.5 text-meta outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 [&_svg]:size-3.5";
 const quiet = "text-muted-foreground hover:bg-accent hover:text-foreground data-popup-open:bg-accent";
 const seg = "flex items-center gap-0.5 rounded-lg bg-muted/70 p-0.5";
 const segOn = "bg-background text-foreground shadow-xs/5";
@@ -565,7 +565,7 @@ function Address({ url, onGo }: { url: string; onGo(raw: string): void }) {
         autoCorrect="off"
         onChange={(e) => setInput(e.target.value)}
         onFocus={(e) => e.target.select()}
-        className="h-full min-w-0 flex-1 bg-transparent px-2 font-mono text-xs outline-none"
+        className="h-full min-w-0 flex-1 bg-transparent px-2 font-mono text-mono outline-none"
       />
     </form>
   );
@@ -617,7 +617,7 @@ function SizesMenu({ worktree }: { worktree: string }) {
             <MenuCheckboxItem key={p.id} checked={s.sizes.includes(p.id)} onCheckedChange={(on) => toggle(p.id, on)} closeOnClick={false}>
               <span className="flex w-full items-baseline gap-2">
                 <span className="w-7 font-medium font-mono">{p.label}</span>
-                <span className="text-muted-foreground text-xs tabular-nums">{p.w}px</span>
+                <span className="text-muted-foreground text-meta tabular-nums">{p.w}px</span>
               </span>
             </MenuCheckboxItem>
           ))}
@@ -629,7 +629,7 @@ function SizesMenu({ worktree }: { worktree: string }) {
             <MenuCheckboxItem key={p.id} checked={s.sizes.includes(p.id)} onCheckedChange={(on) => toggle(p.id, on)} closeOnClick={false}>
               <span className="flex w-full items-baseline gap-2">
                 <span>{p.label}</span>
-                <span className="text-muted-foreground text-xs tabular-nums">
+                <span className="text-muted-foreground text-meta tabular-nums">
                   {p.w} × {p.h}
                 </span>
               </span>
@@ -643,7 +643,7 @@ function SizesMenu({ worktree }: { worktree: string }) {
               <MenuGroupLabel>Custom</MenuGroupLabel>
               {s.custom.map((w) => (
                 <MenuCheckboxItem key={w} checked={s.sizes.includes(customId(w))} onCheckedChange={(on) => toggle(customId(w), on)} closeOnClick={false}>
-                  <span className="text-xs tabular-nums">{w}px</span>
+                  <span className="text-meta tabular-nums">{w}px</span>
                 </MenuCheckboxItem>
               ))}
             </MenuGroup>
@@ -665,7 +665,7 @@ function SizesMenu({ worktree }: { worktree: string }) {
             // The menu's typeahead would take the keys.
             onKeyDown={(e) => e.key !== "Escape" && e.stopPropagation()}
             placeholder="Width, e.g. 1440"
-            className="h-7 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs tabular-nums outline-none focus:border-ring"
+            className="h-7 min-w-0 flex-1 rounded-md border bg-background px-2 text-meta tabular-nums outline-none focus:border-ring"
           />
           <Button type="submit" size="xs" variant="outline" disabled={!width}>
             Add
@@ -677,7 +677,7 @@ function SizesMenu({ worktree }: { worktree: string }) {
           <MenuRadioGroup value={String(s.height)} onValueChange={(v) => setPreviewSettings(worktree, { height: Number(v) })}>
             {HEIGHTS.map((h) => (
               <MenuRadioItem key={h} value={String(h)} closeOnClick={false}>
-                <span className="text-xs tabular-nums">{h}px</span>
+                <span className="text-meta tabular-nums">{h}px</span>
               </MenuRadioItem>
             ))}
           </MenuRadioGroup>
@@ -803,7 +803,7 @@ function FrameTile({ frame: f, scale, src, host, strategy, root, allowed, status
   const shownUrl = url && url !== src ? url.replace(/^https?:\/\/[^/]+/, "") : "";
   return (
     <div ref={tile} data-testid="preview-frame" data-frame={f.id} data-status={status} data-theme={f.theme} className="flex shrink-0 flex-col" style={{ width: w }}>
-      <div className="group/label relative flex items-center gap-1.5 overflow-hidden text-xs" style={{ height: LABEL - 6, marginBottom: 6 }}>
+      <div className="group/label relative flex items-center gap-1.5 overflow-hidden text-meta" style={{ height: LABEL - 6, marginBottom: 6 }}>
         <Tip label={statusHelp(status, synced)} side="bottom" align="start">
           <span role="img" aria-label={statusHelp(status, synced)} className={cn("size-1.5 shrink-0 rounded-full", status === "live" ? (synced ? "bg-success" : "bg-muted-foreground/60") : status === "plain" ? "bg-warning" : "bg-muted-foreground/30")} />
         </Tip>
@@ -905,8 +905,8 @@ function CantFrame({ url, worktree }: { url: string; worktree: string }) {
     <div className="flex min-h-0 flex-1 items-center justify-center p-6">
       <div className="flex max-w-sm flex-col items-center gap-2 text-center">
         <GlobeIcon className="size-6 text-muted-foreground" />
-        <p className="font-medium text-sm">{host} can't be framed</p>
-        <p className="text-muted-foreground text-xs">Preview shows pages through Shipyard's proxy, a worktree's dev server or a box port. Most other sites refuse to be shown inside another page.</p>
+        <p className="text-row">{host} can't be framed</p>
+        <p className="text-muted-foreground text-meta">Preview shows pages through Shipyard's proxy, a worktree's dev server or a box port. Most other sites refuse to be shown inside another page.</p>
         <div className="mt-2 flex gap-2">
           <Button size="sm" onClick={() => openBrowserAt(url, { kind: "tab" }, worktree)}>
             <AppWindowIcon />
@@ -1062,7 +1062,7 @@ function ShotDialog({ shot, worktree, onClose }: { shot?: { blob: Blob; url: str
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="A note for the agent (optional)"
-              className="mt-3 h-8 w-full rounded-md border bg-background px-2 text-sm outline-none focus:border-ring"
+              className="mt-3 h-8 w-full rounded-md border bg-background px-2 text-body outline-none focus:border-ring"
             />
           )}
         </DialogPanel>

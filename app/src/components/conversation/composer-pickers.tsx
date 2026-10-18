@@ -136,7 +136,7 @@ export function AgentsPicker({
       <MenuPopup align="end" className="min-w-64">
         <MenuGroup>
           <MenuGroupLabel>{single ? "Agent" : "Agents"}</MenuGroupLabel>
-          {presets.length === 0 && <p className="px-2 py-1.5 text-muted-foreground text-xs">No agent CLI on this box. Settings → Agents shows how to add one.</p>}
+          {presets.length === 0 && <p className="px-2 py-1.5 text-muted-foreground text-meta">No agent CLI on this box. Settings → Agents shows how to add one.</p>}
           {presets.map((p) => {
             const c = none ? undefined : sel[p.id];
             const models = p.model_flag ? (p.models ?? []) : [];
@@ -159,7 +159,7 @@ export function AgentsPicker({
                   <Tick on={!!c} />
                   <AgentIcon agent={p.id} />
                   <span className="flex-1">{p.name}</span>
-                  {c && <span className="text-muted-foreground text-xs">{[...c.models.map((m) => (m ? nice(m) : "Default")), c.effort && nice(c.effort)].filter(Boolean).join(", ")}</span>}
+                  {c && <span className="text-muted-foreground text-meta">{[...c.models.map((m) => (m ? nice(m) : "Default")), c.effort && nice(c.effort)].filter(Boolean).join(", ")}</span>}
                 </MenuSubTrigger>
                 <MenuSubPopup className="min-w-44">
                   <MenuGroup>
@@ -193,7 +193,7 @@ export function AgentsPicker({
             <MenuCheckboxItem checked={!!none} onCheckedChange={(on) => onNone?.(on)}>
               <span className="flex flex-col">
                 No agent
-                <span className="text-muted-foreground text-xs">Just the worktree</span>
+                <span className="text-muted-foreground text-meta">Just the worktree</span>
               </span>
             </MenuCheckboxItem>
           )}
@@ -265,7 +265,7 @@ export function Pick({
               <MenuRadioItem key={o.value} value={o.value} disabled={o.disabled} closeOnClick>
                 <span className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
                   <span className="truncate">{o.label}</span>
-                  {o.detail && <span className="shrink-0 text-muted-foreground text-xs">{o.detail}</span>}
+                  {o.detail && <span className="shrink-0 text-muted-foreground text-meta">{o.detail}</span>}
                 </span>
               </MenuRadioItem>
             ))}
@@ -344,7 +344,7 @@ export function TargetsPicker({
             <span className="ps-5">{chosen.length === shown.length ? "Pick none" : `Pick all ${shown.length}`}</span>
           </MenuItem>
         )}
-        {byBox.length === 0 && <p className="px-2 py-3 text-center text-muted-foreground text-xs">{onlyFree ? "Every agent is busy. Untick the filter to queue behind them." : "No agents are running."}</p>}
+        {byBox.length === 0 && <p className="px-2 py-3 text-center text-muted-foreground text-meta">{onlyFree ? "Every agent is busy. Untick the filter to queue behind them." : "No agents are running."}</p>}
         {byBox.map(([box, entries]) => (
           <MenuGroup key={box}>
             <MenuSeparator />
@@ -361,7 +361,7 @@ export function TargetsPicker({
                   <span className="flex min-w-0 flex-1 items-center gap-2">
                     <AgentIcon agent={e.session.agent} className="size-3.5" />
                     <span className="min-w-0 truncate">{sessionName(e.session, { sessions: d?.sessions })}</span>
-                    <span className="min-w-0 shrink truncate text-muted-foreground text-xs">{[sessionAgent(e.session), sessionPlace(e.session, d?.locations)].filter(Boolean).join(" · ")}</span>
+                    <span className="min-w-0 shrink truncate text-muted-foreground text-meta">{[sessionAgent(e.session), sessionPlace(e.session, d?.locations)].filter(Boolean).join(" · ")}</span>
                     <StateGlyph state={e.state} className="ml-auto size-3" />
                   </span>
                 </MenuCheckboxItem>
@@ -392,12 +392,12 @@ export function SavedPrompts({ onPick }: { onPick(id: string, body: string): voi
       <MenuPopup align="end" className="max-h-80 w-72">
         <MenuGroup>
           <MenuGroupLabel>Saved prompts</MenuGroupLabel>
-          {list.length === 0 && <p className="px-2 py-2 text-muted-foreground text-xs">None yet. Save prompts you use often from ⌘K → Send a saved prompt.</p>}
+          {list.length === 0 && <p className="px-2 py-2 text-muted-foreground text-meta">None yet. Save prompts you use often from ⌘K → Send a saved prompt.</p>}
           {list.map((p) => (
             <MenuItem key={p.id} onClick={() => onPick(p.id, p.body)}>
               <span className="flex min-w-0 flex-col">
                 <span className="truncate">{p.title}</span>
-                <span className="truncate text-muted-foreground text-xs">{p.body.split("\n")[0]}</span>
+                <span className="truncate text-muted-foreground text-meta">{p.body.split("\n")[0]}</span>
               </span>
             </MenuItem>
           ))}

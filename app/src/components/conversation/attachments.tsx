@@ -378,8 +378,8 @@ export function AttachmentChips({ items, onRemove, onRetry, className }: { items
                   )}
                 </span>
                 <span className="flex min-w-0 flex-col leading-tight">
-                  <span className="truncate font-medium text-foreground text-xs">{it.name}</span>
-                  <span className={cn("flex items-center gap-1 truncate text-[0.6875rem] text-muted-foreground tabular-nums", it.state === "error" && "text-destructive-foreground")}>
+                  <span className="truncate text-foreground text-label">{it.name}</span>
+                  <span className={cn("flex items-center gap-1 truncate text-tag text-muted-foreground tabular-nums", it.state === "error" && "text-destructive-foreground")}>
                     {status(it)}
                     {it.state === "error" && onRetry && (
                       <>

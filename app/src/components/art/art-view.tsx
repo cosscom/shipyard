@@ -21,7 +21,7 @@ export function ArtView({ art, version, size, height, className }: { art: Art; v
   return (
     <div className={cn("art-scope relative min-h-0", className)} style={vars as React.CSSProperties} data-art-kind={art.kind} data-art-size={size}>
       {error ? (
-        <div className="flex items-center justify-center rounded-md border border-dashed p-3 text-muted-foreground text-xs" style={{ height: height ?? (size === "thumb" ? 120 : 160) }}>
+        <div className="flex items-center justify-center rounded-md border border-dashed p-3 text-muted-foreground text-meta" style={{ height: height ?? (size === "thumb" ? 120 : 160) }}>
           Couldn't read v{v?.n}: {error}
         </div>
       ) : body === undefined || !v ? (

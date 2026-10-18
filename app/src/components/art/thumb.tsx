@@ -18,7 +18,9 @@ export function Thumb({ h, width = 720, children }: { h: number; width?: number;
   const W = Math.max(width, w);
   const k = (w || 240) / W;
   return (
-    <div ref={ref} className="pointer-events-none relative w-full overflow-hidden" style={{ height: h }} aria-hidden>
+    // inert as well as hidden: a thumbnail's links and buttons are a picture
+    // of the artifact, not controls inside the card that opens it.
+    <div ref={ref} className="pointer-events-none relative w-full overflow-hidden" style={{ height: h }} aria-hidden inert>
       {w > 0 && (
         <div className="absolute top-0 left-0 origin-top-left" style={{ width: W, height: h / k, transform: `scale(${k})` }}>
           {children}

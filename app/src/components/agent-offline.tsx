@@ -95,19 +95,19 @@ function AgentOffline({ error }: { error?: string }) {
                 {busy ? <Spinner /> : <PlayIcon />}
                 {phase.kind === "starting" ? "Starting the Shipyard agent…" : phase.kind === "waiting" ? "Connecting…" : "Start the Shipyard agent"}
               </Button>
-              <label className="flex w-full items-start gap-2.5 text-left text-sm">
+              <label className="flex w-full items-start gap-2.5 text-left text-body">
                 <Checkbox className="mt-0.5" checked={atLogin} disabled={busy} onCheckedChange={(v) => setAtLogin(!!v)} />
                 <span>
                   Start at login
-                  <span className="block text-muted-foreground text-xs">{thisComputer("Also starts it whenever you log in to this Mac, and restarts it if it stops.")}</span>
+                  <span className="block text-muted-foreground text-meta">{thisComputer("Also starts it whenever you log in to this Mac, and restarts it if it stops.")}</span>
                 </span>
               </label>
               {phase.kind === "failed" && (
-                <p role="alert" className="w-full text-left text-destructive-foreground text-sm">
+                <p role="alert" className="w-full text-left text-destructive-foreground text-body">
                   {phase.message}
                 </p>
               )}
-              <details className="w-full text-left text-muted-foreground text-xs">
+              <details className="w-full text-left text-muted-foreground text-meta">
                 <summary className="cursor-default select-none hover:text-foreground">Start it from a terminal instead</summary>
                 <div className="mt-2">
                   <TerminalCommand />
@@ -120,7 +120,7 @@ function AgentOffline({ error }: { error?: string }) {
             Retry now
           </Button>
           {error && (
-            <details className="w-full text-left text-muted-foreground text-xs">
+            <details className="w-full text-left text-muted-foreground text-meta">
               <summary className="cursor-default select-none hover:text-foreground">Details</summary>
               <pre className="mt-2 rounded-md bg-muted p-2 font-mono whitespace-pre-wrap">{error}</pre>
               {binary && <p className="mt-2">Shipyard starts it with {binary.path}</p>}
@@ -136,7 +136,7 @@ function TerminalCommand() {
   const [copied, setCopied] = useState(false);
   return (
     <div className="flex w-full items-center gap-2 rounded-lg border bg-muted/50 py-1 pr-1 pl-3 text-left">
-      <code className="flex-1 font-mono text-foreground text-sm">{START}</code>
+      <code className="flex-1 font-mono text-foreground text-mono">{START}</code>
       <Button
         size="sm"
         variant="outline"

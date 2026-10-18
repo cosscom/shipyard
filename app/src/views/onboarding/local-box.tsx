@@ -80,10 +80,10 @@ export function UseThisMac({
           <LaptopIcon className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 id="this-mac-heading" className="text-sm">
+          <h2 id="this-mac-heading" className="text-row">
             {thisComputer("Use this Mac")}
           </h2>
-          <p className="mt-0.5 text-muted-foreground text-xs leading-relaxed" aria-live="polite">
+          <p className="mt-0.5 text-muted-foreground text-meta" aria-live="polite">
             {autoStart
               ? state === "running"
                 ? "Installing berthd and pairing with it. This takes a few seconds."
@@ -96,7 +96,7 @@ export function UseThisMac({
           </p>
         </div>
         {state === "done" ? (
-          <span className="flex h-7 shrink-0 items-center gap-1 text-sm text-success-foreground">
+          <span className="flex h-7 shrink-0 items-center gap-1 text-body text-success-foreground">
             <CheckIcon className="size-4" /> Paired
           </span>
         ) : (
@@ -106,14 +106,14 @@ export function UseThisMac({
         )}
       </div>
       {state === "ready" && !compact && (
-        <p className="mt-2 ps-11 text-muted-foreground text-xs leading-relaxed">
+        <p className="mt-2 ps-11 text-muted-foreground text-meta">
           {reuse ? "Uses the berthd already installed here. " : "Shipyard installs berthd for your user, no password needed. "}
           {thisComputer("It listens on this Mac only, so nothing opens to your network.")}
         </p>
       )}
       {state !== "ready" && <CommandLog className="mt-3" lines={lines} done={state === "done"} error={error} />}
       {state === "done" && paired && (
-        <p className="mt-2 text-muted-foreground text-xs">
+        <p className="mt-2 text-muted-foreground text-meta">
           This Mac is <span className="text-foreground">{paired}</span> in Shipyard.
         </p>
       )}

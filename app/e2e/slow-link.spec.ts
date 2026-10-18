@@ -26,23 +26,25 @@ test("a box on a slow link stays online, says slow quietly, and its chat still l
   await app.openWorktree(`${BOX}/fix`);
   // Requests go through: the chat reads its conversation as usual.
   await expect(app.chat.getByText("The retry loop never backs off; fixed it.")).toBeVisible();
-  // The sidebar's box header and the status bar say slow, not offline.
-  await expect(app.page.getByTestId("box-slow")).toHaveText("slow");
-  await expect(app.page.getByRole("group", { name: `${BOX}, online, slow link` })).toBeVisible();
-  await expect(app.page.getByText("1/1 box online")).toBeVisible();
-  await expect(app.page.getByTestId("boxes-slow")).toHaveText("· slow");
+  // The sidebar's foot says online and slow, not offline; the box is no
+  // row of its own in the list.
+  const foot = app.page.getByTestId("sidebar-boxes");
+  await expect(foot).toContainText(`${BOX} online`);
+  await expect(foot.getByTestId("boxes-slow")).toHaveText("· slow");
+  await expect(app.page.getByRole("group", { name: `${BOX}, online, slow link` })).toHaveCount(0);
+  // Its tip says so beside the box's name.
+  await foot.hover();
+  await expect(app.page.getByTestId("boxes-tip-line").filter({ hasText: BOX })).toContainText("slow");
   // Nothing says it is away. (The stand-in has no terminals, so the one
   // under the chat keeps trying; the chat's own would say so.)
   await expect(app.chat.getByText(`Reconnecting to ${BOX}…`)).toHaveCount(0);
   await expect(app.page.getByText("offline", { exact: true })).toHaveCount(0);
 
-  // Steady again (the agent says so with box.link): no word of it. The
-  // box's header, there only to say it, goes too.
+  // Steady again (the agent says so with box.link): no word of it.
   agent.online = { latency_ms: 80, link: { max_ms: 1900, path: relayed } };
   agent.event({ type: "box.link", data: { slow: false } });
   await expect(app.page.getByTestId("boxes-slow")).toHaveCount(0);
-  await expect(app.page.getByTestId("box-slow")).toHaveCount(0);
-  await expect(app.page.getByRole("group", { name: `${BOX}, online, slow link` })).toHaveCount(0);
+  await expect(foot).toContainText(`${BOX} online`);
 });
 
 test("Settings › Boxes shows the latency, why the link is slow, and that Tailscale relays it", async ({ app }) => {

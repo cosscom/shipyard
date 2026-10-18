@@ -80,10 +80,10 @@ export default function DemoGuide() {
     <section aria-labelledby="demo-guide-title" className="fixed bottom-[38px] left-3 z-40 w-[17rem] rounded-lg border bg-popover text-popover-foreground shadow-lg/5">
       <header className="flex items-start gap-2 px-3 pt-2.5">
         <div className="min-w-0 flex-1">
-          <h2 id="demo-guide-title" className="font-medium text-[13px]">
+          <h2 id="demo-guide-title" className="font-medium text-desc">
             {done ? "That's the tour" : "Try the demo"}
           </h2>
-          <p className="text-[11.5px] text-muted-foreground leading-snug">Invented boxes and repositories; nothing runs.</p>
+          <p className="text-meta text-muted-foreground">Invented boxes and repositories; nothing runs.</p>
         </div>
         <Tip label="Fold the guide">
           <Button size="icon-xs" variant="ghost" aria-label="Fold the guide" onClick={() => setFolded(true)} className="-mt-0.5 -mr-1.5 text-muted-foreground">
@@ -91,14 +91,14 @@ export default function DemoGuide() {
           </Button>
         </Tip>
       </header>
-      <ol className="mt-2 space-y-1 px-3 text-[12.5px]">
+      <ol className="mt-2 space-y-1 px-3 text-meta">
         <Step done={steps.open}>
-          Open <span className="font-mono text-[12px]">checkout-fix</span>
+          Open <span className="font-mono text-mono">checkout-fix</span>
         </Step>
         <Step done={steps.answer}>Answer the waiting agent</Step>
         <Step done={steps.palette}>
           Press{" "}
-          <Kbd className="h-4.5 min-w-4.5 text-[11px]">
+          <Kbd className="h-4.5 min-w-4.5 text-tag">
             {mac ? "⌘" : "Ctrl"} K
           </Kbd>{" "}
           for every command

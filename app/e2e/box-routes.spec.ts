@@ -51,9 +51,11 @@ test("an SSH host named like the box is offered, and turning it on adds it", asy
   await expect(gpu.getByTestId("box-routes-summary")).toContainText("SSH, 31 ms");
 });
 
-test("the status bar names the route each box is reached by", async ({ app }) => {
+test("the sidebar's foot names the route each box is reached by, and how busy it is", async ({ app }) => {
   const { page } = app;
   await app.open();
-  await page.getByText(/\d+\/\d+ boxes online/).hover();
-  await expect(page.getByText("· via SSH")).toBeVisible();
+  await page.getByTestId("sidebar-boxes").hover();
+  const devl = page.getByTestId("boxes-tip-line").filter({ hasText: "devl" });
+  await expect(devl).toContainText("via SSH");
+  await expect(devl).toContainText("% mem");
 });

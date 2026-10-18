@@ -19,7 +19,7 @@ const LINEAR_KEYS = "https://linear.app/settings/account/security";
 // Linear, by a personal API key the laptop keeps.
 export function IntegrationsSection() {
   return (
-    <SettingsPage title="Integrations" description="Services Shipyard reads from as you. Their keys stay on this computer: the app and your boxes never see them.">
+    <SettingsPage title="Integrations" description="Services Shipyard reads from as you. Their keys never leave this computer.">
       <LinearGroup />
     </SettingsPage>
   );
@@ -104,7 +104,7 @@ function LinearGroup() {
           </Button>
         </SettingsRow>
       )}
-      <ErrorText text={error} className="px-4 py-2.5 text-destructive-foreground text-xs" />
+      <ErrorText text={error} className="py-2.5 text-destructive-foreground text-meta" />
       {status && !status.connected && (
         <SettingsRow label="Where to make one" description="Linear → Settings → Security & access → Personal API keys. Read access is enough to list issues; add write access to comment from Shipyard.">
           <Button size="xs" variant="outline" onClick={() => void openUrl(LINEAR_KEYS)}>

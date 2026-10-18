@@ -85,7 +85,7 @@ export function DeveloperSection() {
   return (
     <SettingsPage
       title="Developer"
-      description="Tools for working on Shipyard itself. Resets only clear this window's own memory of tabs and preferences; your agent, ~/.berth and every box stay exactly as they are. Shift-click Settings in the sidebar to come straight here."
+      description="For working on Shipyard itself. Resets clear only this window's memory; your boxes stay as they are."
     >
       <SettingsGroup title="Reset">
         <SettingsRow label="Reset workspaces" description="Forget open tabs, splits and each worktree's layout. Sessions keep running on their boxes.">
@@ -178,7 +178,7 @@ export function DeveloperSection() {
         </SettingsRow>
         {ep && (
           <SettingsRow label="Token" description="Anyone with it can drive your boxes from this computer. berth ui-token prints it too.">
-            <button type="button" onClick={() => setReveal((r) => !r)} className="flex items-center gap-1.5 font-mono text-muted-foreground text-xs hover:text-foreground">
+            <button type="button" onClick={() => setReveal((r) => !r)} className="flex items-center gap-1.5 font-mono text-muted-foreground text-mono hover:text-foreground">
               {reveal ? ep.token : `${ep.token.slice(0, 4)}${"•".repeat(12)}`}
               {reveal ? <EyeOffIcon className="size-3.5" /> : <EyeIcon className="size-3.5" />}
             </button>
@@ -187,14 +187,14 @@ export function DeveloperSection() {
             </Button>
           </SettingsRow>
         )}
-        <Collapsible className="px-4 py-3">
-          <CollapsibleTrigger className="group flex w-full items-center gap-1.5 text-left text-sm">
+        <Collapsible className="py-3.5">
+          <CollapsibleTrigger className="group flex w-full items-center gap-1.5 text-left text-body">
             <ChevronRightIcon className="size-3.5 text-muted-foreground transition-transform group-data-panel-open:rotate-90" />
             Agent status
-            <span className="ml-auto text-muted-foreground text-xs">JSON</span>
+            <span className="ml-auto text-muted-foreground text-meta">JSON</span>
           </CollapsibleTrigger>
           <CollapsiblePanel>
-            <pre className="mt-2 max-h-72 overflow-auto rounded-lg bg-muted/50 p-3 font-mono text-[11px] leading-relaxed">{JSON.stringify(status, null, 2) ?? "No status yet."}</pre>
+            <pre className="mt-2 max-h-72 overflow-auto rounded-lg bg-muted/50 p-3 font-mono text-tag">{JSON.stringify(status, null, 2) ?? "No status yet."}</pre>
           </CollapsiblePanel>
         </Collapsible>
         <SettingsRow label="Diagnostics" description="Versions, connection, boxes, plugins and the last 50 events, as JSON for a bug report. The token is left out.">

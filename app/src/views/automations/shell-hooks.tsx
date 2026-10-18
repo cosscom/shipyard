@@ -51,7 +51,7 @@ export function ShellHooks() {
     <div className="flex h-full">
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center gap-2 px-6 pt-1 pb-3">
-          <p className="min-w-0 flex-1 text-muted-foreground text-sm">Shell commands that run when an event happens. Gates run before an action and can stop it.</p>
+          <p className="min-w-0 flex-1 text-muted-foreground text-body">Shell commands that run when an event happens. Gates run before an action and can stop it.</p>
           <MachineMenu machines={machines} onPick={(m) => add(m)}>
             <PlusIcon />
             New hook
@@ -60,7 +60,7 @@ export function ShellHooks() {
         </div>
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 pt-3 pb-10">
           <section>
-            <h2 className="mb-2 font-medium text-muted-foreground text-xs">Start from</h2>
+            <h2 className="mb-2 text-section">Start from</h2>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2">
               {STARTERS.map((s) => {
                 const Icon = starterIcons[s.id] ?? PlusIcon;
@@ -68,8 +68,8 @@ export function ShellHooks() {
                   <>
                     <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                     <span className="min-w-0">
-                      <span className="block font-medium text-sm">{s.title}</span>
-                      <span className="block text-muted-foreground text-xs">
+                      <span className="block text-row">{s.title}</span>
+                      <span className="block text-desc text-muted-foreground">
                         {s.description} {s.where === "laptop" ? "On this laptop." : "On a box."}
                       </span>
                     </span>
@@ -174,7 +174,7 @@ function DeleteHook({ target, hook, onClose, onConfirm }: { target?: { machine: 
           <AlertDialogTitle>Delete this hook?</AlertDialogTitle>
           <AlertDialogDescription>
             It stops running on {target && machineInProse(target.machine)} straight away.
-            {hook && <code className="mt-2 block truncate rounded-md bg-muted px-2 py-1 font-mono text-xs">{`${hook.on} → ${hook.run}`}</code>}
+            {hook && <code className="mt-2 block truncate rounded-md bg-muted px-2 py-1 font-mono text-mono">{`${hook.on} → ${hook.run}`}</code>}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

@@ -115,8 +115,8 @@ test("every Settings section opens", async ({ app }) => {
     const body = app.page.getByTestId(`settings-${id}`);
     await expect(body).toBeVisible();
     await expect(body).not.toBeEmpty();
-    // Its title goes to the view's strip: "Settings / <section>".
-    const heading = app.page.getByRole("heading", { level: 1, name: /^Settings \/ \S/ });
+    // Each section titles its own page.
+    const heading = body.getByRole("heading", { level: 1 });
     // A new one for each section, not the last one's still showing.
     for (const t of titles) await expect(heading).not.toHaveText(t);
     titles.add((await heading.textContent()) ?? "");

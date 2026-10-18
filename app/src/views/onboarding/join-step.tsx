@@ -158,7 +158,7 @@ export function JoinFlow({
             setText(e.target.value);
             setError(undefined);
           }}
-          className="h-full min-w-0 flex-1 truncate bg-transparent font-mono text-[13px] outline-none placeholder:font-sans placeholder:text-muted-foreground/72 placeholder:text-sm disabled:opacity-64"
+          className="h-full min-w-0 flex-1 truncate bg-transparent font-mono text-desc outline-none placeholder:font-sans placeholder:text-muted-foreground/72 placeholder:text-body disabled:opacity-64"
         />
         {phase === "paste" || phase === "checking" ? (
           <Button type="submit" size="xs" className="shrink-0" disabled={!text.trim()} loading={phase === "checking"}>
@@ -188,7 +188,7 @@ export function JoinFlow({
       </form>
 
       {/* One line under the field, whatever it says, so nothing below moves. */}
-      <div aria-live="polite" className="mt-2 min-h-5 text-xs leading-5">
+      <div aria-live="polite" className="mt-2 min-h-5 text-meta">
         {error ? (
           <span className="text-destructive-foreground">{error}</span>
         ) : info ? (
@@ -226,7 +226,7 @@ export function JoinFlow({
               {allSettled ? "Continue" : `Continue with ${boxList(done)}`} <ArrowRightIcon />
             </Button>
           )}
-          {phase === "joined" && !allSettled && rows.some((r) => r.status === "failed") && <span className="text-muted-foreground text-xs">For the others, make a new link on {info?.from ?? "your other computer"}.</span>}
+          {phase === "joined" && !allSettled && rows.some((r) => r.status === "failed") && <span className="text-muted-foreground text-meta">For the others, make a new link on {info?.from ?? "your other computer"}.</span>}
         </div>
       )}
     </div>
@@ -293,8 +293,8 @@ function BoxRow({
         )}
       </span>
       <div className="min-w-0 flex-1">
-        <div className="text-sm">{r.name}</div>
-        <div className={cn("truncate text-[11px]", tone)}>{detail}</div>
+        <div className="text-row">{r.name}</div>
+        <div className={cn("truncate text-tag", tone)}>{detail}</div>
       </div>
       {r.status === "needs-network" &&
         (signing ? (

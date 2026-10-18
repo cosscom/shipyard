@@ -73,7 +73,7 @@ export function WorktreeTable({
   };
   return (
     <div ref={listRef} className="@container">
-      <div className={cn("sticky top-0 z-20 grid h-8 items-center gap-3 border-b bg-background px-4 text-[11px] text-muted-foreground", COLS)}>
+      <div className={cn("sticky top-0 z-20 grid h-8 items-center gap-3 border-b bg-background px-4 text-label text-muted-foreground", COLS)}>
         <Tip
           label={
             <span className="flex items-center gap-1.5">
@@ -112,7 +112,7 @@ export function WorktreeTable({
                 onCheckedChange={(on) => onToggleGroup(g, !!on)}
                 aria-label={`Select every worktree in ${g.location} on ${g.box}`}
               />
-              <span className="col-[2/-1] flex items-center gap-2 font-medium text-xs">
+              <span className="col-[2/-1] flex items-center gap-2 text-label">
                 <ProjectLabel box={g.box} scope={`repo:${g.location}`} />
                 <span className="font-normal text-muted-foreground tabular-nums">{g.rows.length}</span>
               </span>
@@ -198,7 +198,7 @@ function WorktreeRow({
       }}
       className={cn(
         // scroll-mt: clear of the two sticky headers when ↑ scrolls a row in.
-        "group grid h-row scroll-mt-16 cursor-pointer items-center gap-3 border-b border-border/60 px-4 text-sm outline-none hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring/48 focus-visible:ring-inset",
+        "group grid h-row scroll-mt-16 cursor-pointer items-center gap-3 border-b border-border/60 px-4 text-body outline-none hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring/48 focus-visible:ring-inset",
         COLS,
         selected && "bg-primary/[0.06] hover:bg-primary/[0.09]",
         open && "bg-accent/60",
@@ -220,16 +220,16 @@ function WorktreeRow({
       <Tip className="max-w-sm" label={<NameTip row={r} />}>
         <div className="flex min-w-0 items-center gap-1.5">
           {r.main && <HouseIcon className="size-3.5 shrink-0 text-muted-foreground" aria-label="Main checkout" />}
-          <span className="max-w-full shrink-0 truncate font-medium">{name}</span>
-          {r.branch && r.branch !== name && <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">{r.branch}</span>}
+          <span className="max-w-full shrink-0 truncate text-row">{name}</span>
+          {r.branch && r.branch !== name && <span className="min-w-0 truncate font-mono text-meta text-muted-foreground">{r.branch}</span>}
           {r.paused && (
-            <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-warning/12 px-1.5 py-px text-[10px] text-warning-foreground">
+            <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-warning/12 px-1.5 py-px text-tag text-warning-foreground">
               <PauseIcon className="size-2.5" />
               Paused
             </span>
           )}
           {leaving && (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-1.5 py-px text-[10px] text-muted-foreground">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-1.5 py-px text-tag text-muted-foreground">
               <Spinner className="size-2.5" />
               {removalLabel(leaving)}
             </span>
@@ -238,7 +238,7 @@ function WorktreeRow({
       </Tip>
 
       <Tip className="max-w-sm" label={r.ahead || r.behind ? `${r.ahead} commit${s(r.ahead)} ahead of ${base}, ${r.behind} behind` : `Even with ${base}`}>
-        <div className="flex w-fit items-center gap-2 font-mono text-xs tabular-nums">
+        <div className="flex w-fit items-center gap-2 font-mono text-meta tabular-nums">
           <span className={cn("inline-flex items-center gap-0.5", r.ahead ? "text-foreground" : "text-muted-foreground")}>
             <ArrowUpIcon className="size-3" />
             {r.ahead}
@@ -251,7 +251,7 @@ function WorktreeRow({
       </Tip>
 
       <Tip className="max-w-sm" label={r.changed || r.untracked ? [r.changed && `${r.changed} modified`, r.untracked && `${r.untracked} untracked`].filter(Boolean).join(", ") : "No uncommitted changes"}>
-        <div className="flex w-fit items-center gap-2 text-xs tabular-nums">
+        <div className="flex w-fit items-center gap-2 text-meta tabular-nums">
           {r.changed === 0 && r.untracked === 0 ? (
             <span className="text-muted-foreground">Clean</span>
           ) : (
@@ -279,16 +279,16 @@ function WorktreeRow({
           >
             <div className="flex min-w-0 items-baseline gap-2">
               <span className="truncate">{c.subject}</span>
-              <span className="shrink-0 text-muted-foreground text-xs">{ago(c.time)}</span>
+              <span className="shrink-0 text-meta text-muted-foreground">{ago(c.time)}</span>
             </div>
           </Tip>
         ) : (
-          <span className="text-muted-foreground text-xs">{r.error ?? "No commits"}</span>
+          <span className="text-meta text-muted-foreground">{r.error ?? "No commits"}</span>
         )}
       </div>
 
       {mine.length === 0 && serving.length === 0 ? (
-        <span className="text-muted-foreground/50 text-xs">—</span>
+        <span className="text-meta text-muted-foreground/50">—</span>
       ) : (
         <Tip
           label={
@@ -312,9 +312,9 @@ function WorktreeRow({
                 {!r.paused && <StateGlyph state={sessionState(x, stats)} className="size-3" />}
               </span>
             ))}
-            {mine.length > 3 && <span className="text-muted-foreground text-xs">+{mine.length - 3}</span>}
+            {mine.length > 3 && <span className="text-meta text-muted-foreground">+{mine.length - 3}</span>}
             {serving.length > 0 && (
-              <span className="inline-flex items-center gap-1 text-muted-foreground text-xs">
+              <span className="inline-flex items-center gap-1 text-meta text-muted-foreground">
                 <span className={cn("size-1.5 rounded-full", r.paused ? "bg-muted-foreground/40" : "bg-success")} />
                 {serving.length}
               </span>
@@ -323,7 +323,7 @@ function WorktreeRow({
         </Tip>
       )}
 
-      <span className="text-right font-mono text-muted-foreground text-xs tabular-nums @max-5xl:hidden">{r.port ?? ""}</span>
+      <span className="text-right font-mono text-meta text-muted-foreground tabular-nums @max-5xl:hidden">{r.port ?? ""}</span>
 
       <ProgressMark p={progress} />
     </div>
@@ -370,7 +370,7 @@ function ProgressMark({ p }: { p?: RowProgress }) {
     ) : p.state === "failed" ? (
       <XIcon className="size-3.5 text-destructive-foreground" />
     ) : (
-      <span className="text-[10px] text-muted-foreground">—</span>
+      <span className="text-tag text-muted-foreground">—</span>
     );
   const label =
     p.state === "queued"

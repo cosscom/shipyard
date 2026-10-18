@@ -28,7 +28,7 @@ export function RepoWants({ wants }: { wants: RepoConfig }) {
   for (const [k, v] of Object.entries(wants.env ?? {})) rows.push([`env ${k}`, v]);
   if (!rows.length) return null;
   return (
-    <dl className="max-h-56 overflow-y-auto rounded-lg border bg-background/60 px-3 py-2 font-mono text-xs">
+    <dl className="max-h-56 overflow-y-auto rounded-lg border bg-background/60 px-3 py-2 font-mono text-mono">
       {rows.map(([k, v], i) => (
         <div key={i} className="flex gap-3 py-0.5">
           <dt className="w-36 shrink-0 truncate text-muted-foreground">{k}</dt>

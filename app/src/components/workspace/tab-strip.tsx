@@ -159,7 +159,7 @@ export function TabStrip() {
       )}
       <div data-tauri-drag-region className="min-w-4 flex-1" />
       {ws && (
-        <div data-tauri-drag-region className="flex shrink-0 items-center gap-2 pr-2 pl-3 text-muted-foreground text-xs">
+        <div data-tauri-drag-region className="flex shrink-0 items-center gap-2 pr-2 pl-3 text-muted-foreground text-meta">
           {leaving && (
             <Tip label={leaving.script ? "The repo's archive script is running on the box. This worktree closes when it finishes, or stays if it fails." : "Waiting for the box."} side="bottom">
               <span role="status" className="flex items-center gap-1.5 rounded-lg bg-accent/70 px-2 py-0.5 text-foreground">
@@ -184,7 +184,7 @@ export function TabStrip() {
                   {hereRef.location}
                   {hereRef.main ? "" : ` / ${hereTitle ?? hereRef.worktree}`}
                 </span>
-                <span className="rounded bg-accent/70 px-1 py-px font-mono text-[10px]">{hereRef.box}</span>
+                <span className="rounded bg-accent/70 px-1 py-px font-mono text-tag">{hereRef.box}</span>
               </span>
             </Tip>
           )}
@@ -296,7 +296,7 @@ export function TabButton({ tab, wsKey, tone, active, onActivate, onClose, onDra
         }
       }}
       className={cn(
-        "group relative flex h-full min-w-24 shrink-0 cursor-default items-center gap-1.5 border-r pr-1 pl-3 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-popup-open:bg-background/60",
+        "group relative flex h-full min-w-24 shrink-0 cursor-default items-center gap-1.5 border-r pr-1 pl-3 text-meta outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-popup-open:bg-background/60",
         tab.compare ? "max-w-72" : "max-w-56",
         active ? "bg-background text-foreground" : "text-muted-foreground hover:bg-background/40 hover:text-foreground",
         dragged && "opacity-50",
@@ -343,9 +343,9 @@ export function TabButton({ tab, wsKey, tone, active, onActivate, onClose, onDra
       {c.kind === "file" && <FileTabState ws={paneWorktree(wsKey, lead.l)} path={c.path} />}
       {browsers.length > 0 && <TabErrorBadge paneIds={browsers} />}
       {panes.length > 1 && !tab.compare && (owners.length > 1 ? (
-        <span className="max-w-24 shrink-0 truncate text-[10px] text-muted-foreground">+ {names.slice(1).join(", ")}</span>
+        <span className="max-w-24 shrink-0 truncate text-tag text-muted-foreground">+ {names.slice(1).join(", ")}</span>
       ) : (
-        <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">+{panes.length - 1}</span>
+        <span className="shrink-0 text-tag text-muted-foreground tabular-nums">+{panes.length - 1}</span>
       ))}
       {/* The pointer's way to close. A tab can't hold a button for screen
           readers and the keyboard (it is one control): they close it from
@@ -460,7 +460,7 @@ export function TitleInput({ initial, placeholder, onDone }: { initial: string; 
         if (e.key === "Escape") finish(undefined, true);
       }}
       onBlur={() => ready.current && finish(v.trim())}
-      className="h-6 w-48 min-w-0 rounded border border-ring bg-background px-1.5 text-foreground text-xs outline-none ring-2 ring-ring/24 placeholder:text-muted-foreground/72"
+      className="h-6 w-48 min-w-0 rounded border border-ring bg-background px-1.5 text-foreground text-meta outline-none ring-2 ring-ring/24 placeholder:text-muted-foreground/72"
     />
   );
 }

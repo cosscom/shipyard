@@ -61,17 +61,17 @@ export function AddWidgetDialog({ open, onOpenChange, defs, have, onAdd }: { ope
         <div className="flex h-full min-h-0 max-[720px]:flex-col">
           <div className="flex w-[340px] shrink-0 flex-col border-r max-[720px]:h-1/2 max-[720px]:w-full max-[720px]:border-r-0 max-[720px]:border-b">
             <div className="flex flex-col gap-0.5 px-4 pt-3.5 pb-2.5">
-              <DialogTitle className="font-semibold text-base">Add a widget</DialogTitle>
-              <DialogDescription className="text-muted-foreground text-xs">Pick one to see it with your data.</DialogDescription>
+              <DialogTitle className="text-heading">Add a widget</DialogTitle>
+              <DialogDescription className="text-muted-foreground text-meta">Pick one to see it with your data.</DialogDescription>
             </div>
-            <label className="mx-3 flex h-8 items-center gap-2 rounded-lg border bg-background px-2 text-sm focus-within:ring-2 focus-within:ring-ring">
+            <label className="mx-3 flex h-8 items-center gap-2 rounded-lg border bg-background px-2 text-body focus-within:ring-2 focus-within:ring-ring">
               <SearchIcon className="size-3.5 text-muted-foreground" />
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search widgets" aria-label="Search widgets" className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground" />
             </label>
             <div className="mt-2 min-h-0 flex-1 overflow-y-auto px-1.5 pb-2" role="listbox" aria-label="Widgets">
               {groups.map((g) => (
                 <div key={g.label} role="group" aria-label={g.plugin ? `From the ${g.label} plugin` : g.label} className="pb-1.5">
-                  <p className="flex items-center gap-1.5 px-2 pt-1.5 pb-1 text-[11px] text-muted-foreground">
+                  <p className="flex items-center gap-1.5 px-2 pt-1.5 pb-1 text-tag text-muted-foreground">
                     {g.plugin && <PlugIcon className="size-3" />}
                     {g.label}
                   </p>
@@ -80,7 +80,7 @@ export function AddWidgetDialog({ open, onOpenChange, defs, have, onAdd }: { ope
                   ))}
                 </div>
               ))}
-              {!groups.length && <p className="px-3 py-6 text-center text-muted-foreground text-sm">No widget matches “{q}”.</p>}
+              {!groups.length && <p className="px-3 py-6 text-center text-muted-foreground text-body">No widget matches “{q}”.</p>}
               {!q && <OffPlugins />}
             </div>
           </div>
@@ -91,11 +91,11 @@ export function AddWidgetDialog({ open, onOpenChange, defs, have, onAdd }: { ope
             <div className="flex flex-col gap-3 border-t bg-popover px-5 py-4">
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex min-w-48 flex-1 flex-col">
-                  <span className="flex items-center gap-1.5 font-medium text-sm">
+                  <span className="flex items-center gap-1.5 text-row">
                     {def.title}
-                    {def.plugin && <span className="rounded-sm border px-1 font-normal text-[11px] text-muted-foreground">{def.plugin.name} plugin</span>}
+                    {def.plugin && <span className="rounded-sm border px-1 font-normal text-tag text-muted-foreground">{def.plugin.name} plugin</span>}
                   </span>
-                  <span className="text-muted-foreground text-xs">{def.description}</span>
+                  <span className="text-muted-foreground text-meta">{def.description}</span>
                 </div>
                 {def.sizes.length > 1 && (
                   <div role="radiogroup" aria-label="Size" className="flex items-center rounded-lg border p-0.5">
@@ -106,7 +106,7 @@ export function AddWidgetDialog({ open, onOpenChange, defs, have, onAdd }: { ope
                         role="radio"
                         aria-checked={s === size}
                         onClick={() => setSize(s)}
-                        className={cn("h-6 rounded-md px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring", s === size ? "bg-foreground text-background" : "text-muted-foreground hover:bg-accent")}
+                        className={cn("h-6 rounded-md px-2 text-meta outline-none focus-visible:ring-2 focus-visible:ring-ring", s === size ? "bg-foreground text-background" : "text-muted-foreground hover:bg-accent")}
                       >
                         {SIZES[s].label}
                       </button>
@@ -118,7 +118,7 @@ export function AddWidgetDialog({ open, onOpenChange, defs, have, onAdd }: { ope
                   {on ? "On Home" : "Add to Home"}
                 </Button>
               </div>
-              <dl className="grid grid-cols-[64px_1fr] gap-x-3 gap-y-1 text-xs">
+              <dl className="grid grid-cols-[64px_1fr] gap-x-3 gap-y-1 text-meta">
                 <dt className="text-muted-foreground">Data</dt>
                 <dd>{def.source}</dd>
               </dl>
@@ -154,15 +154,15 @@ function Option({ w, selected, on, onSelect, onAdd }: { w: WidgetDef; selected: 
         <Icon className="size-3.5 text-muted-foreground" />
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="flex items-center gap-1.5 text-sm">
+        <span className="flex items-center gap-1.5 text-body">
           <span className="truncate font-medium">{w.title}</span>
           {on && (
-            <span className="ml-auto flex shrink-0 items-center gap-0.5 text-[11px] text-muted-foreground">
+            <span className="ml-auto flex shrink-0 items-center gap-0.5 text-tag text-muted-foreground">
               <CheckIcon className="size-3" /> On Home
             </span>
           )}
         </span>
-        <span className="line-clamp-2 text-muted-foreground text-xs">{w.description}</span>
+        <span className="line-clamp-2 text-muted-foreground text-meta">{w.description}</span>
       </span>
     </button>
   );
@@ -237,15 +237,15 @@ function OffPlugins() {
   };
   return (
     <div className="mt-1 border-t px-2 pt-2.5">
-      <p className="pb-1.5 text-[11px] text-muted-foreground">More with plugins that are off</p>
+      <p className="pb-1.5 text-tag text-muted-foreground">More with plugins that are off</p>
       {off.map((p) => (
         <div key={p.id} className="flex items-start gap-2.5 py-1.5">
           <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md border border-dashed">
             <PlugIcon className="size-3.5 text-muted-foreground" />
           </span>
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="text-sm">{p.homeWidgets!.join(", ")}</span>
-            <span className="text-muted-foreground text-xs">From {p.name}</span>
+            <span className="text-body">{p.homeWidgets!.join(", ")}</span>
+            <span className="text-muted-foreground text-meta">From {p.name}</span>
           </span>
           <Button size="xs" variant="outline" disabled={busy === p.id} onClick={() => void turnOn(p)}>
             Turn on

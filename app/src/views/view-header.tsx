@@ -28,10 +28,11 @@ export function ViewHeader(props: ViewHeaderProps) {
 
 function Strip({ title, description, actions, children }: ViewHeaderProps) {
   return (
-    <header data-tauri-drag-region className="flex min-h-12 shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b bg-sidebar/40 px-6 py-2">
+    <header data-tauri-drag-region className="flex min-h-12 shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b bg-sidebar/40 px-6 py-3">
+      {/* Titled as Settings' pages are: the page title, then its subtitle. */}
       <div data-tauri-drag-region className="flex min-w-0 flex-1 items-baseline gap-3">
-        <h1 className="shrink-0 font-medium text-sm">{title}</h1>
-        {description && <p className="hidden min-w-0 truncate text-muted-foreground text-xs md:block">{description}</p>}
+        <h1 className="shrink-0 text-page-title">{title}</h1>
+        {description && <p className="hidden min-w-0 truncate text-muted-foreground text-subtitle md:block">{description}</p>}
       </div>
       {children}
       {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}

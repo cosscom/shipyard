@@ -22,7 +22,7 @@ const DateTickerCompact = memo(function DateTickerCompact({
   return (
     <div className="overflow-hidden rounded-full bg-zinc-900 px-4 py-1 text-white shadow-lg dark:bg-zinc-100 dark:text-zinc-900">
       <div className="flex h-6 items-center justify-center">
-        <span className="whitespace-nowrap font-medium text-sm">{label}</span>
+        <span className="whitespace-nowrap text-row">{label}</span>
       </div>
     </div>
   );
@@ -104,7 +104,7 @@ const DateTickerInner = memo(function DateTickerInner({
                   className="flex h-6 shrink-0 items-center justify-center"
                   key={segment.key}
                 >
-                  <span className="whitespace-nowrap font-medium text-sm">
+                  <span className="whitespace-nowrap text-row">
                     {segment.month}
                   </span>
                 </div>
@@ -120,7 +120,7 @@ const DateTickerInner = memo(function DateTickerInner({
                   className="flex h-6 shrink-0 items-center justify-center"
                   key={label.key}
                 >
-                  <span className="whitespace-nowrap font-medium text-sm">
+                  <span className="whitespace-nowrap text-row">
                     {label.day}
                   </span>
                 </div>

@@ -127,16 +127,16 @@ export function Launcher({ worktree: ref }: { worktree: WorktreeRef }) {
             </div>
           )}
           <header className={cn("mb-4 px-2", band && "[text-shadow:0_0_6px_var(--background),0_0_14px_var(--background)]")}>
-            <h1 className="truncate font-semibold text-lg tracking-tight" title={name}>
+            <h1 className="truncate text-title" title={name}>
               {name}
             </h1>
-            <div className="mt-1 flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
+            <div className="mt-1 flex min-w-0 items-center gap-1.5 text-meta text-muted-foreground">
               {branch && (
                 <Tip label={middle(branch) !== branch ? branch : undefined}>
-                  <span className="shrink-0 rounded bg-accent px-1.5 py-px font-mono text-[11px]">{middle(branch)}</span>
+                  <span className="shrink-0 rounded bg-accent px-1.5 py-px font-mono text-tag">{middle(branch)}</span>
                 </Tip>
               )}
-              <span className="shrink-0 rounded bg-accent px-1.5 py-px font-mono text-[11px]">{ref.box}</span>
+              <span className="shrink-0 rounded bg-accent px-1.5 py-px font-mono text-tag">{ref.box}</span>
               <Tip
                 className="max-w-md"
                 label={
@@ -153,7 +153,7 @@ export function Launcher({ worktree: ref }: { worktree: WorktreeRef }) {
                     toastManager.add({ title: "Copied the path", description: ref.path, type: "success" });
                   }}
                   // Truncated from the left, so the end of the path stays visible.
-                  className="min-w-0 truncate text-left font-mono text-[11px] hover:text-foreground [direction:rtl]"
+                  className="min-w-0 truncate text-left font-mono text-meta hover:text-foreground [direction:rtl]"
                 >
                   <bdi>{ref.path}</bdi>
                 </button>
@@ -163,7 +163,7 @@ export function Launcher({ worktree: ref }: { worktree: WorktreeRef }) {
 
           {/* On its way out (archive or remove): nothing new starts here. */}
           {leaving ? (
-            <div role="status" aria-busy="true" className="flex items-start gap-3 rounded-lg border bg-muted/40 px-3.5 py-3 text-sm">
+            <div role="status" aria-busy="true" className="flex items-start gap-3 rounded-lg border bg-muted/40 px-3.5 py-3 text-body">
               <Spinner className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
               <div className="flex min-w-0 flex-col gap-0.5">
                 <span className="font-medium">{leaving.kind === "archive" ? "Archiving" : "Removing"} {name}…</span>
@@ -188,7 +188,7 @@ export function Launcher({ worktree: ref }: { worktree: WorktreeRef }) {
                   type="button"
                   data-row
                   onClick={r.run}
-                  className="flex h-9 items-center gap-3 rounded-md px-2 text-left text-sm outline-none hover:bg-accent focus-visible:bg-accent [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground"
+                  className="flex h-9 items-center gap-3 rounded-md px-2 text-left text-body outline-none hover:bg-accent focus-visible:bg-accent [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground"
                 >
                   <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground [&_svg]:size-4">{r.icon}</span>
                   <span className="min-w-0 flex-1 truncate">{r.label}</span>
@@ -204,7 +204,7 @@ export function Launcher({ worktree: ref }: { worktree: WorktreeRef }) {
 
           {closed.length > 0 && (
             <section className="mt-6">
-              <h2 className="mb-1 px-2 font-medium text-muted-foreground text-xs">Pick up where you left off</h2>
+              <h2 className="mb-1 px-2 text-label text-muted-foreground">Pick up where you left off</h2>
               {shown.map((s) => {
                 const state = sessionState(s, stats);
                 return (
@@ -213,7 +213,7 @@ export function Launcher({ worktree: ref }: { worktree: WorktreeRef }) {
                     data-row
                     tabIndex={0}
                     onKeyDown={(e) => e.key === "Enter" && openSession(ref.box, s)}
-                    className="flex h-10 items-center gap-3 rounded-md px-2 text-sm outline-none hover:bg-accent focus-visible:bg-accent"
+                    className="flex h-10 items-center gap-3 rounded-md px-2 text-body outline-none hover:bg-accent focus-visible:bg-accent"
                   >
                     <span className="flex size-4 shrink-0 items-center justify-center">
                       <AgentIcon agent={agentOf(s)} className="size-4" />
@@ -221,8 +221,8 @@ export function Launcher({ worktree: ref }: { worktree: WorktreeRef }) {
                     <Tip label={<span className="font-mono">{s.name}</span>}>
                       <span className="min-w-0 max-w-[60%] shrink truncate">{sessionName(s, { sessions })}</span>
                     </Tip>
-                    {s.title && <span className="shrink-0 text-muted-foreground text-xs">{agentLabel(agentOf(s)!)}</span>}
-                    <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-muted-foreground text-xs">
+                    {s.title && <span className="shrink-0 text-meta text-muted-foreground">{agentLabel(agentOf(s)!)}</span>}
+                    <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-meta text-muted-foreground">
                       <StateGlyph state={state} className="size-3" />
                       <span className="truncate">
                         {stateWords(state)} {ago(s.state_since ?? s.created)}
@@ -235,7 +235,7 @@ export function Launcher({ worktree: ref }: { worktree: WorktreeRef }) {
                 );
               })}
               {closed.length > 5 && (
-                <button type="button" onClick={() => setAll(!all)} className={cn("mt-1 px-2 text-muted-foreground text-xs hover:text-foreground")}>
+                <button type="button" onClick={() => setAll(!all)} className={cn("mt-1 px-2 text-muted-foreground text-meta hover:text-foreground")}>
                   {all ? "Show fewer" : `Show all ${closed.length}`}
                 </button>
               )}

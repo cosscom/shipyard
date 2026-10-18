@@ -41,14 +41,14 @@ export function TemplateField({
     });
   };
 
-  const cls = cn(mono && "font-mono text-xs");
+  const cls = cn(mono && "font-mono text-mono");
   return (
     <div>
       <span className="mb-1 flex items-center gap-2">
-        <span className="font-medium text-muted-foreground text-xs">{label}</span>
+        <span className="text-label text-muted-foreground">{label}</span>
         {!readOnly && variables.length > 0 && (
           <Menu>
-            <MenuTrigger render={<button type="button" className="ml-auto inline-flex items-center gap-1 rounded px-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground" />}>
+            <MenuTrigger render={<button type="button" className="ml-auto inline-flex items-center gap-1 rounded px-1 text-tag text-muted-foreground hover:bg-accent hover:text-foreground" />}>
               <BracesIcon className="size-3" />
               Insert
             </MenuTrigger>
@@ -61,7 +61,7 @@ export function TemplateField({
                     .map((v) => (
                       <MenuItem key={v.token} onClick={() => insert(v.token)}>
                         <span className="flex-1">{v.label}</span>
-                        <code className="font-mono text-[10px] text-muted-foreground">{v.token}</code>
+                        <code className="font-mono text-tag text-muted-foreground">{v.token}</code>
                       </MenuItem>
                     ))}
                 </MenuGroup>

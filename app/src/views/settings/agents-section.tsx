@@ -70,19 +70,19 @@ export function AgentsSection() {
       title="Agents"
       description={
         <>
-          The agent CLIs each box can start, and the skills that teach them to use Shipyard. A repository adds its own agents, or changes how one starts, in <Code>.berth/config.json</Code>.
+          The agents each box can start. A repo can add its own in <Code>.berth/config.json</Code>.
         </>
       }
     >
       {online.length === 0 ? (
-        <p className="rounded-xl border px-4 py-6 text-center text-muted-foreground text-sm">No box is online. Agents are listed once one connects.</p>
+        <p className="rounded-xl border px-4 py-6 text-center text-muted-foreground text-body">No box is online. Agents are listed once one connects.</p>
       ) : (
         <SettingsGroup title="Agent CLIs" description="Found on each box's PATH when berthd checks.">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-body">
               <thead>
-                <tr className="border-b text-[11px] text-muted-foreground">
-                  <th className="px-4 py-2 text-left font-normal">Agent</th>
+                <tr className="border-b text-tag text-muted-foreground">
+                  <th className="py-2 pr-4 text-left font-normal">Agent</th>
                   {online.map((b) => (
                     <th key={b.name} className="w-24 px-2 py-2 text-center font-normal">
                       {b.name}
@@ -93,12 +93,12 @@ export function AgentsSection() {
               <tbody>
                 {rows.map((a) => (
                   <tr key={a.id} className="border-b last:border-b-0">
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center gap-2">
+                    <td className="py-3 pr-4">
+                      <div className="flex items-center gap-2 text-row">
                         <AgentIcon agent={a.id} className="size-3.5" />
                         {a.name}
                       </div>
-                      <div className="mt-0.5 pl-5.5 font-mono text-[11px] text-muted-foreground">{!found.has(a.id) ? "not found on any box" : a.command ? a.command + (a.prompt_flag ? ` ${a.prompt_flag} …` : "") : "$SHELL -l"}</div>
+                      <div className="mt-0.5 pl-5.5 font-mono text-tag text-muted-foreground">{!found.has(a.id) ? "not found on any box" : a.command ? a.command + (a.prompt_flag ? ` ${a.prompt_flag} …` : "") : "$SHELL -l"}</div>
                     </td>
                     {online.map((b) => {
                       const has = data[b.name]?.info?.agents?.some((x) => x.id === a.id);
@@ -112,7 +112,7 @@ export function AgentsSection() {
                                 <MinusIcon className="size-4" />
                               </TooltipTrigger>
                               <TooltipPopup className="max-w-72">
-                                Not on {b.name}'s PATH.{INSTALL[a.id] && <span className="mt-1 block font-mono text-[11px]">{INSTALL[a.id]}</span>}
+                                Not on {b.name}'s PATH.{INSTALL[a.id] && <span className="mt-1 block font-mono text-tag">{INSTALL[a.id]}</span>}
                               </TooltipPopup>
                             </Tooltip>
                           )}
@@ -133,7 +133,7 @@ export function AgentsSection() {
         <section>
           <div className="mb-2 flex items-end gap-3">
             <div className="min-w-0 flex-1">
-              <h2 className="font-medium text-[13px] text-muted-foreground">Skills{online.length === 1 ? ` on ${shownSkills}` : ""}</h2>
+              <h2 className="text-section text-foreground">Skills{online.length === 1 ? ` on ${shownSkills}` : ""}</h2>
             </div>
             {online.length > 1 && <Segmented label="Box" value={shownSkills} options={online.map((b) => ({ value: b.name, label: b.name }))} onChange={setSkillsBox} />}
           </div>
@@ -144,7 +144,7 @@ export function AgentsSection() {
 
       <OffBoard />
 
-      {boxes.length > online.length && <p className="text-muted-foreground text-xs">Offline boxes are listed once they reconnect.</p>}
+      {boxes.length > online.length && <p className="text-muted-foreground text-meta">Offline boxes are listed once they reconnect.</p>}
     </SettingsPage>
   );
 }
@@ -168,7 +168,7 @@ function SkillsReminder({ box }: { box: string }) {
       ? `Snoozed until ${untilText(until, now)}, while its skills ${snooze.kind === "outdated" ? "are out of date" : "aren't installed"}.`
       : `The sidebar says so when ${box}'s skills aren't installed or are out of date, with Install now and Snooze.`;
   return (
-    <div data-testid="skills-reminder" className="mt-3 overflow-hidden rounded-xl border bg-card/40">
+    <div data-testid="skills-reminder" className="mt-2 border-border/60 border-b">
       <SettingsRow label={`Remind me about ${box}'s skills`} description={description}>
         {snoozed && (
           <Button size="sm" variant="outline" onClick={() => void endSnooze(box)}>
@@ -196,7 +196,7 @@ function OffBoard() {
   };
   if (!projects.length) return null;
   return (
-    <SettingsGroup title="Agent Dashboard" description="Projects kept off the Agent Dashboard and its counts in the sidebar and status bar. Their agents still show in the sidebar, on Home and in notifications.">
+    <SettingsGroup title="Agent Dashboard" description="Projects kept off the dashboard and its counts. Their agents still show everywhere else.">
       {off.map((p) => (
         <SettingsRow key={p.id} label={p.name} description={p.members.length > 1 ? `Kept off, on ${p.members.map((m) => m.box.name).join(", ")}` : "Kept off"}>
           <Button size="sm" variant="outline" onClick={() => set(p, false)}>
@@ -263,7 +263,7 @@ function TurnCheck({ boxes }: { boxes: string[] }) {
   return (
     <SettingsGroup
       title="Turn check"
-      description="When an agent's turn ends, ask a decision model you choose whether it stopped to ask you something (Needs you), with its work still running, such as a build or a deploy (Working), or parked until someone replies or a later time, with nothing running (Idle). When on, the box sends the turn's last prompt and reply, and the session's title, to the provider you pick, capped and with anything that looks like a secret taken out."
+      description="When a turn ends, a model you pick says whether the agent needs you, is still working, or is idle. The box sends it the turn's last prompt and reply and the session's title, capped, with anything like a secret taken out."
     >
       {boxes.map((b) => {
         const st = cfg[b];
@@ -318,12 +318,12 @@ function TurnCheckBox({ box, st, busy, save }: { box: string; st: TurnCheckStatu
         )}
         <Switch checked={st.enabled} disabled={busy || (!st.enabled && !turnCheckReady(st))} onCheckedChange={(v) => void save({ ...config, enabled: v })} aria-label={`Check finished turns on ${box}`} />
       </SettingsRow>
-      <div className="flex flex-col gap-2 px-4 pb-3">
+      <div className="flex flex-col gap-2 pb-3.5">
         {/* No provider or model is chosen for you: your transcripts, your choice. */}
         <PickOne<TurnCheckProvider | ""> label={`Who checks turns on ${box}`} value={p ?? ""} options={(Object.keys(turnCheckProviders) as TurnCheckProvider[]).map((v) => ({ value: v, label: turnCheckProviders[v].label }))} onChange={choose} />
         {p === "laya" && (
           <div className="flex gap-2">
-            <Input size="sm" value={server} onChange={(e) => setServer(e.target.value)} placeholder={layaPlaceholder} className="font-mono text-xs" aria-label={`Laya server on ${box}`} />
+            <Input size="sm" value={server} onChange={(e) => setServer(e.target.value)} placeholder={layaPlaceholder} className="font-mono text-mono" aria-label={`Laya server on ${box}`} />
             <Button size="sm" variant="outline" disabled={busy || server.trim() === (st.url ?? "")} onClick={() => void save({ ...config, enabled: st.enabled && !!server.trim(), url: server.trim() || undefined })}>
               Save
             </Button>
@@ -331,14 +331,14 @@ function TurnCheckBox({ box, st, busy, save }: { box: string; st: TurnCheckStatu
         )}
         {p && (
           <div className="flex gap-2">
-            <Input size="sm" value={model} onChange={(e) => setModel(e.target.value)} placeholder={p === "laya" ? "Model (optional): english, multilingual or typed-decisions" : "Model"} className="font-mono text-xs [&_input::placeholder]:font-sans" aria-label={`Model that checks turns on ${box}`} />
+            <Input size="sm" value={model} onChange={(e) => setModel(e.target.value)} placeholder={p === "laya" ? "Model (optional): english, multilingual or typed-decisions" : "Model"} className="font-mono text-mono [&_input::placeholder]:font-sans" aria-label={`Model that checks turns on ${box}`} />
             <Button size="sm" variant="outline" disabled={busy || model.trim() === (st.model ?? "")} onClick={() => void save({ ...config, enabled: st.enabled && (p === "laya" || !!model.trim()), model: model.trim() || undefined })}>
               Save
             </Button>
           </div>
         )}
         {p === "laya" && (
-          <p className="text-muted-foreground text-xs">
+          <p className="text-muted-foreground text-meta">
             Run{" "}
             <button type="button" onClick={() => void openUrl("https://huggingface.co/convaiinnovations/laya")} className="underline underline-offset-2 hover:text-foreground">
               Laya
@@ -356,20 +356,20 @@ function TurnCheckBox({ box, st, busy, save }: { box: string; st: TurnCheckStatu
                 </Button>
               </div>
             )}
-            <p className="text-muted-foreground text-xs">
+            <p className="text-muted-foreground text-meta">
               <button type="button" onClick={() => info.keyLink && void openUrl(info.keyLink)} className="underline underline-offset-2 hover:text-foreground">
                 {info.keyHelp}
               </button>
               . It stays on {box}, readable by you alone, and goes only to {info.keyName}.
             </p>
             <Collapsible>
-              <CollapsibleTrigger className="group flex items-center gap-1.5 text-muted-foreground text-xs hover:text-foreground">
+              <CollapsibleTrigger className="group flex items-center gap-1.5 text-muted-foreground text-meta hover:text-foreground">
                 <ChevronRightIcon className="size-3.5 transition-transform group-data-panel-open:rotate-90" />
                 Use a secret reference instead
               </CollapsibleTrigger>
               <CollapsiblePanel>
                 <div className="mt-2 flex gap-2">
-                  <Input size="sm" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="op://vault/item/field or env://NAME" className="font-mono text-xs" aria-label={`Key reference on ${box}`} />
+                  <Input size="sm" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="op://vault/item/field or env://NAME" className="font-mono text-mono" aria-label={`Key reference on ${box}`} />
                   <Button size="sm" variant="outline" disabled={busy || ref.trim() === (st.key ?? "")} onClick={() => void save({ ...config, key: ref.trim() || undefined })}>
                     Save
                   </Button>

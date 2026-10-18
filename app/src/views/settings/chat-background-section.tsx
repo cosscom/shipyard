@@ -33,6 +33,7 @@ import { type ChatWidth, setChatBackground, setHeaderPicture, setPrefs, usePrefs
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { Segmented } from "@/views/settings/controls";
+import { ChatMiniature } from "@/views/settings/chat-miniature";
 import { SettingsGroup, SettingsRow, useSettingsRow } from "@/views/settings/rows";
 
 // Settings › Appearance › Chat background: what is behind conversations.
@@ -108,8 +109,8 @@ export function ChatBackgroundSettings() {
     >
       <div className="mb-2 flex items-end gap-3">
         <div className="min-w-0 flex-1">
-          <h2 className="font-medium text-[13px] text-muted-foreground">Chat background</h2>
-          <p className="mt-0.5 text-muted-foreground text-xs">Behind conversations, in zen too, in your theme's colours and quiet enough to read over.</p>
+          <h2 className="text-section text-foreground">Chat background</h2>
+          <p className="mt-0.5 text-desc text-muted-foreground">Behind conversations, in your theme's colours. Quiet enough to read over.</p>
         </div>
         {bg.source !== "none" && (
           <Button size="xs" variant="ghost" onClick={() => setChatBackground({ ...DEFAULT_CHAT_BACKGROUND })}>
@@ -166,7 +167,7 @@ export function ChatBackgroundSettings() {
 export function TileRow({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div role="group" aria-label={title} className="flex items-start gap-3">
-      <div className="w-[68px] shrink-0 pt-4 text-muted-foreground text-xs">{title}</div>
+      <div className="w-[68px] shrink-0 pt-4 text-muted-foreground text-meta">{title}</div>
       <div className="flex min-w-0 flex-1 flex-wrap gap-2">{children}</div>
     </div>
   );
@@ -197,7 +198,7 @@ export function Tile({ label, selected, onClick, children, extra }: { label: str
 
 export function TileWords({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
-    <span className="flex flex-col items-center gap-1 text-[11px] text-muted-foreground [&_svg]:size-4">
+    <span className="flex flex-col items-center gap-1 text-tag text-muted-foreground [&_svg]:size-4">
       {icon}
       {children}
     </span>
@@ -299,19 +300,7 @@ function Preview({ bg }: { bg: ChatBackground }) {
   return (
     <div ref={wrap} className="relative isolate h-[250px] overflow-hidden bg-background" aria-label="Preview" role="img">
       {on && <PreviewLayer wrap={wrap} canvas={canvas} bg={bg} />}
-      <div className="absolute inset-y-0 left-1/2 flex w-[62%] -translate-x-1/2 flex-col gap-2.5 px-4 pt-4 pb-3 text-[11px] leading-relaxed">
-        <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden">
-          <div className="self-end rounded-2xl bg-muted px-2.5 py-1 text-foreground">Make the search page fast again</div>
-          <div className="flex items-center gap-1.5 self-start rounded-lg bg-muted/40 px-2 py-1 text-muted-foreground">
-            <span className="text-foreground/80">Edited</span> <span className="font-mono">lib/search.ts</span> <span className="font-mono text-success">+12</span>
-            <span className="font-mono text-destructive">-4</span>
-          </div>
-          <p className="text-foreground">The slow part was an unindexed join, so I added a trigram index:</p>
-          <pre className="rounded-lg bg-muted px-2 py-1.5 font-mono text-[10px] text-foreground">create index on products using gin (name gin_trgm_ops);</pre>
-          <p className="text-muted-foreground">p95 went from 840 ms to 95 ms.</p>
-        </div>
-        <div className="shrink-0 rounded-lg border border-input bg-background px-2.5 py-1.5 text-muted-foreground dark:bg-input/32">Reply, or ask for something else</div>
-      </div>
+      <ChatMiniature />
     </div>
   );
 }
@@ -379,7 +368,7 @@ function Advanced({ bg }: { bg: ChatBackground }) {
   const [open, setOpen] = useState(bg.original || bg.fit !== "cover" || bg.position !== "center");
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="mt-3">
-      <CollapsibleTrigger className="flex items-center gap-1 rounded-md px-1 py-0.5 font-medium text-[13px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+      <CollapsibleTrigger className="flex items-center gap-1 rounded-md px-1 py-0.5 font-medium text-desc text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
         <ChevronRightIcon className={cn("size-3.5 transition-transform", open && "rotate-90")} />
         Advanced
       </CollapsibleTrigger>
@@ -422,7 +411,7 @@ function Amount({ value, onChange, min = 0, max, step = 0.05, format = (v) => `$
   return (
     <div className="flex w-56 items-center gap-3">
       <Slider value={value} min={min} max={max} step={step} onValueChange={(v) => onChange(Array.isArray(v) ? v[0] : v)} aria-labelledby={row?.labelledBy} className="flex-1" />
-      <span className="w-11 text-right text-muted-foreground text-xs tabular-nums">{format(value)}</span>
+      <span className="w-11 text-right text-muted-foreground text-meta tabular-nums">{format(value)}</span>
     </div>
   );
 }
@@ -476,7 +465,7 @@ function Generate({ onClose }: { onClose(): void }) {
     <div className="mt-3 rounded-lg border bg-background p-3">
       <div className="mb-2 flex items-center gap-2">
         <SparklesIcon className="size-3.5 text-muted-foreground" />
-        <span className="flex-1 font-medium text-sm">Generate a background</span>
+        <span className="flex-1 text-row">Generate a background</span>
         <Tip label="Close">
           <Button size="icon-xs" variant="ghost" aria-label="Close" onClick={onClose}>
             <XIcon />
@@ -484,7 +473,7 @@ function Generate({ onClose }: { onClose(): void }) {
         </Tip>
       </div>
       {gens === "loading" ? (
-        <div className="flex items-center gap-2 py-2 text-muted-foreground text-xs">
+        <div className="flex items-center gap-2 py-2 text-muted-foreground text-meta">
           <Spinner className="size-3.5" /> Looking for an image generator on this computer…
         </div>
       ) : gens instanceof Error || !gen || !ready ? (
@@ -523,10 +512,10 @@ function Generate({ onClose }: { onClose(): void }) {
               </Button>
             ))}
           </div>
-          <div className="mt-3 text-muted-foreground text-xs">
+          <div className="mt-3 text-muted-foreground text-meta">
             Generate runs this on this computer, with your Codex account. Codex works read-only in an empty folder; only your prompt is sent.
           </div>
-          <pre className="mt-1.5 max-h-28 overflow-auto whitespace-pre-wrap rounded-lg [overflow-wrap:anywhere] bg-muted px-2.5 py-2 font-mono text-[11px] text-foreground/85 leading-relaxed">{shown}</pre>
+          <pre className="mt-1.5 max-h-28 overflow-auto whitespace-pre-wrap rounded-lg [overflow-wrap:anywhere] bg-muted px-2.5 py-2 font-mono text-tag text-foreground/85">{shown}</pre>
           {error && (
             <Alert variant="error" className="mt-2">
               <TriangleAlertIcon />
@@ -539,7 +528,7 @@ function Generate({ onClose }: { onClose(): void }) {
               <SparklesIcon />
               Generate
             </Button>
-            {busy ? <span className="text-muted-foreground text-xs tabular-nums">{gen.name} is drawing it, {Math.max(0, Math.round((now - busy) / 1000))} s; it usually takes 30 to 60 s.</span> : <span className="text-muted-foreground text-xs">It's kept on this computer, with the pictures above.</span>}
+            {busy ? <span className="text-muted-foreground text-meta tabular-nums">{gen.name} is drawing it, {Math.max(0, Math.round((now - busy) / 1000))} s; it usually takes 30 to 60 s.</span> : <span className="text-muted-foreground text-meta">It's kept on this computer, with the pictures above.</span>}
           </div>
         </>
       )}

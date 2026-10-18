@@ -128,6 +128,8 @@ jobs:
       - run: pnpm typecheck:plugins
       # Tooltips are the app's own, never the HTML title attribute.
       - run: pnpm check:titles
+      # Text is sized by the type scale in index.css (scripts/check-type.mjs).
+      - run: pnpm check:type
       # The release CSP must let the app load its own built-in plugins.
       - run: pnpm check:csp
       # Every built-in theme's text, states and terminal meet their contrast

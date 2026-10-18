@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 export function ErrorBadge({ n, testId, className }: { n: number; testId?: string; className?: string }) {
   return (
-    <span data-testid={testId} className={cn("inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-1 font-medium text-[9.5px] text-white tabular-nums leading-none", className)}>
+    <span data-testid={testId} className={cn("inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-1 font-medium text-tag text-white tabular-nums leading-none", className)}>
       {badgeText(n)}
     </span>
   );

@@ -21,7 +21,7 @@ export function BoxRoutes({ box, open, onOpenChange }: { box: BoxStatus; open: b
   if (box.local || routes.length === 0) return null;
   const summary = routes.length > 1 ? routeSummary(box) : "";
   return (
-    <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground" data-testid="box-routes">
+    <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-tag text-muted-foreground" data-testid="box-routes">
       <button type="button" className="flex shrink-0 items-center gap-0.5 hover:text-foreground" onClick={() => onOpenChange(!open)} aria-expanded={open} data-testid="box-routes-toggle">
         {open ? <ChevronDownIcon className="size-3" /> : <ChevronRightIcon className="size-3" />}
         Routes
@@ -85,7 +85,7 @@ export function BoxRouteList({ box }: { box: BoxStatus }) {
               placeholder="An SSH host (alex@devl) or an address (192.168.1.20:7444)"
               aria-label="SSH host or address"
               data-testid="box-route-add-input"
-              className="font-mono text-xs"
+              className="font-mono text-mono"
             />
             <Button size="xs" type="submit" loading={busy} disabled={!value.trim()} data-testid="box-route-add">
               Add
@@ -96,7 +96,7 @@ export function BoxRouteList({ box }: { box: BoxStatus }) {
           </form>
         ) : (
           <div className="flex items-center gap-3">
-            <p className="flex-1 text-[11px] text-muted-foreground">
+            <p className="flex-1 text-tag text-muted-foreground">
               New requests take the fastest route that works. Every route checks the box's pinned key; SSH uses your own ssh and keys.
             </p>
             <Button size="xs" variant="ghost" onClick={() => setAdding(true)} data-testid="box-route-new">
@@ -121,7 +121,7 @@ function RouteRow({ box, route: r }: { box: BoxStatus; route: BoxRoute }) {
     );
   };
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 text-xs" data-testid={`box-route-${r.id}`}>
+    <div className="flex items-center gap-2 px-3 py-1.5 text-meta" data-testid={`box-route-${r.id}`}>
       <span
         className={cn(
           "size-1.5 shrink-0 rounded-full",
@@ -129,9 +129,9 @@ function RouteRow({ box, route: r }: { box: BoxStatus; route: BoxRoute }) {
         )}
       />
       <span className="shrink-0">{r.label}</span>
-      {r.detail && <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">{r.detail}</span>}
+      {r.detail && <span className="min-w-0 truncate font-mono text-tag text-muted-foreground">{r.detail}</span>}
       <span className="flex-1" />
-      {r.active && <span className="shrink-0 rounded border px-1 text-[10px] text-muted-foreground">in use</span>}
+      {r.active && <span className="shrink-0 rounded border px-1 text-tag text-muted-foreground">in use</span>}
       {r.error && r.state !== "up" ? (
         <Tip label={r.error}>
           <span className="shrink-0 text-muted-foreground tabular-nums">{words}</span>

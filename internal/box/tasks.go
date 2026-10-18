@@ -133,7 +133,7 @@ var modelWord = regexp.MustCompile(`^[A-Za-z0-9._:/-]+$`)
 // model and an effort; empty means the CLI's default. A value that is not a
 // plain name, or one the agent has no flag for, is refused.
 func AgentCommandWith(p AgentPreset, prompt, model, effort string) (string, error) {
-	cmd := p.Command
+	cmd := codexCommand(p)
 	if model != "" {
 		if !modelWord.MatchString(model) || strings.HasPrefix(model, "-") {
 			return "", badRequest("%q is not a model name", model)

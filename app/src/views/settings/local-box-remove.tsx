@@ -47,11 +47,11 @@ export function RemoveLocalBoxDialog({ box, open, onOpenChange }: { box: string;
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="px-6">
-          <label className="flex items-start gap-2.5 text-sm">
+          <label className="flex items-start gap-2.5 text-body">
             <Checkbox className="mt-0.5" checked={removeData} disabled={running} onCheckedChange={(v) => setRemoveData(v === true)} />
             <span>
               Also delete its data
-              <span className="mt-0.5 block text-muted-foreground text-xs leading-relaxed">{thisComputer("The box's keys, its list of projects and its session records. Keep them to set this Mac up again as the same box.")}</span>
+              <span className="mt-0.5 block text-muted-foreground text-meta">{thisComputer("The box's keys, its list of projects and its session records. Keep them to set this Mac up again as the same box.")}</span>
             </span>
           </label>
           {lines && <CommandLog className="mt-3" lines={lines} error={error} />}

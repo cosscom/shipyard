@@ -290,7 +290,7 @@ export function BrowserPane({ id: paneId, url, visible, onNavigate, worktree, on
               // Tooltips here open upward: below the bar is the page, which in
               // the app is a native view that would cover them.
               <Tip label={<span className="break-all font-mono">{url}</span>} className="max-w-md">
-                <span className="@max-[26rem]/bar:hidden ml-1 shrink-0 rounded bg-accent px-1.5 py-px font-medium text-[10px] text-muted-foreground">{berthUrlLabel(where)}</span>
+                <span className="@max-[26rem]/bar:hidden ml-1 shrink-0 rounded bg-accent px-1.5 py-px font-medium text-tag text-muted-foreground">{berthUrlLabel(where)}</span>
               </Tip>
             )}
             <input
@@ -312,7 +312,7 @@ export function BrowserPane({ id: paneId, url, visible, onNavigate, worktree, on
                 if (selecting.current) e.preventDefault();
                 selecting.current = false;
               }}
-              className="h-full min-w-0 flex-1 bg-transparent px-2 font-mono text-xs outline-none"
+              className="h-full min-w-0 flex-1 bg-transparent px-2 font-mono text-mono outline-none"
             />
           </div>
           <LoginMenu ctx={ctx} url={url} onGo={go} onOther={() => setOtherLogin(true)} />
@@ -332,7 +332,7 @@ export function BrowserPane({ id: paneId, url, visible, onNavigate, worktree, on
               <button
                 type="button"
                 onClick={() => setSandboxOpen(true)}
-                className="ml-1 inline-flex h-6.5 shrink-0 items-center gap-1.5 rounded-md border border-warning/40 bg-warning/8 px-2 text-[11px] text-warning-foreground hover:bg-warning/16"
+                className="ml-1 inline-flex h-6.5 shrink-0 items-center gap-1.5 rounded-md border border-warning/40 bg-warning/8 px-2 text-tag text-warning-foreground hover:bg-warning/16"
               >
                 <ShieldAlertIcon className="size-3" />
                 Agent's browser blocked
@@ -344,7 +344,7 @@ export function BrowserPane({ id: paneId, url, visible, onNavigate, worktree, on
               <button
                 type="button"
                 onClick={() => setWatching(true)}
-                className="ml-1 inline-flex h-6.5 shrink-0 items-center gap-1.5 rounded-md border px-2 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="ml-1 inline-flex h-6.5 shrink-0 items-center gap-1.5 rounded-md border px-2 text-tag text-muted-foreground hover:bg-accent hover:text-foreground"
               >
                 <LiveDot />
                 <span className="@max-[30rem]/bar:sr-only">Agent's view · live</span>
@@ -358,10 +358,10 @@ export function BrowserPane({ id: paneId, url, visible, onNavigate, worktree, on
       {mode === "native" && loop && loop.url !== loopDismissed && !agentView && !sandboxView && (
         <ReloadLoopNotice loop={loop} onOpen={() => void openUrl(loop.url)} onDismiss={() => setLoopDismissed(loop.url)} />
       )}
-      {failure && mode === "iframe" && <p className="shrink-0 border-b bg-muted/40 px-3 py-1 text-muted-foreground text-xs">The built-in browser could not open ({failure}); showing the page in a frame instead.</p>}
+      {failure && mode === "iframe" && <p className="shrink-0 border-b bg-muted/40 px-3 py-1 text-muted-foreground text-meta">The built-in browser could not open ({failure}); showing the page in a frame instead.</p>}
       {agentView && ctx.ref && tabsBox && showTabStrip(agentLive?.tabs) && watchedTab !== undefined && <AgentTabs tabs={agentLive!.tabs!} watched={watchedTab} onPick={pickTab} />}
       {agentView && tabMoved && (
-        <div role="status" className="flex shrink-0 items-center gap-2 border-b bg-muted/40 px-3 py-1 text-muted-foreground text-xs">
+        <div role="status" className="flex shrink-0 items-center gap-2 border-b bg-muted/40 px-3 py-1 text-muted-foreground text-meta">
           <span className="min-w-0 flex-1 truncate">{tabMoved}</span>
           <button type="button" aria-label="Dismiss" className="rounded p-0.5 hover:bg-accent hover:text-foreground" onClick={() => setTabMoved(undefined)}>
             <XIcon className="size-3" />
@@ -653,7 +653,7 @@ function isLocal(url: string): boolean {
 // which is a native view that would cover anything drawn over it.
 function ReloadLoopNotice({ loop, onOpen, onDismiss }: { loop: { url: string; count: number }; onOpen(): void; onDismiss(): void }) {
   return (
-    <div role="status" className="flex shrink-0 items-start gap-2 border-b bg-warning/8 px-3 py-2 text-xs">
+    <div role="status" className="flex shrink-0 items-start gap-2 border-b bg-warning/8 px-3 py-2 text-meta">
       <RotateCwIcon className="mt-0.5 size-3.5 shrink-0 text-warning-foreground" />
       <div className="min-w-0 flex-1">
         <p className="font-medium text-foreground">This page keeps reloading itself</p>
@@ -703,8 +703,8 @@ function FramedPage({ id, url, devtools, onReload, onLoading }: { id: string; ur
       <div className="flex min-h-0 flex-1 items-center justify-center p-6">
         <div className="flex max-w-sm flex-col items-center gap-2 text-center">
           <GlobeIcon className="size-6 text-muted-foreground" />
-          <p className="font-medium text-sm">{state === "blocked" ? `${host} can't be shown inside Shipyard` : `${host} isn't loading`}</p>
-          <p className="text-muted-foreground text-xs">
+          <p className="text-row">{state === "blocked" ? `${host} can't be shown inside Shipyard` : `${host} isn't loading`}</p>
+          <p className="text-muted-foreground text-meta">
             {state === "blocked" ? "Most sites refuse to be embedded in other apps. Open it in your browser instead." : "It has not answered in 15 seconds. It may still be starting, or it may refuse to be embedded."}
           </p>
           <div className="mt-2 flex gap-2">
@@ -745,8 +745,8 @@ export function Suggestions({ ctx, onPick }: { ctx: BrowserContext; onPick(url: 
   const Row = ({ url, title, note }: { url: string; title: string; note?: string }) => (
     <button key={url} type="button" onClick={() => onPick(url)} className="group flex w-full items-center gap-3 rounded-md px-3 py-2 text-left hover:bg-accent">
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm">{title}</span>
-        {note && <span className="block truncate font-mono text-muted-foreground text-xs">{note}</span>}
+        <span className="block truncate text-body">{title}</span>
+        {note && <span className="block truncate font-mono text-muted-foreground text-mono">{note}</span>}
       </span>
       <ArrowUpRightIcon className="size-4 shrink-0 text-muted-foreground opacity-50 group-hover:opacity-100" />
     </button>
@@ -756,7 +756,7 @@ export function Suggestions({ ctx, onPick }: { ctx: BrowserContext; onPick(url: 
       <div className="flex w-full max-w-md flex-col gap-6">
         {list.length > 0 && (
           <section>
-            <p className="mb-1 px-3 font-medium text-muted-foreground text-xs">Running in this worktree</p>
+            <p className="mb-1 px-3 text-muted-foreground text-label">Running in this worktree</p>
             {list.map((s) => (
               <Row key={s.port} url={s.url} title={`${s.port}${s.process ? ` · ${s.process}` : ""}`} note={s.url} />
             ))}
@@ -764,14 +764,14 @@ export function Suggestions({ ctx, onPick }: { ctx: BrowserContext; onPick(url: 
         )}
         {recent.length > 0 && (
           <section>
-            <p className="mb-1 px-3 font-medium text-muted-foreground text-xs">Recent</p>
+            <p className="mb-1 px-3 text-muted-foreground text-label">Recent</p>
             {recent.map((u) => (
               <Row key={u} url={u} title={u.replace(/^https?:\/\//, "").replace(/\/$/, "")} />
             ))}
           </section>
         )}
         {list.length === 0 && recent.length === 0 && (
-          <p className="px-3 text-center text-muted-foreground text-xs">Type a port to open this worktree's dev server on {ctx.ref?.box ?? "its box"}, or any URL.</p>
+          <p className="px-3 text-center text-muted-foreground text-meta">Type a port to open this worktree's dev server on {ctx.ref?.box ?? "its box"}, or any URL.</p>
         )}
       </div>
     </div>
@@ -911,8 +911,8 @@ function AgentBar({
   const label = size ? sizeLabel(size.w, size.h, size.scale) : fallbackSize;
   const zoom = size && size.zoom > 0 && size.zoom < 0.995 ? `${Math.round(size.zoom * 100)}%` : undefined;
   return (
-    <div className="flex h-9 shrink-0 items-center gap-2 border-b bg-emerald-500/[0.06] px-2 text-xs">
-      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-emerald-500/15 px-2 py-1 font-medium text-[11px] text-emerald-800 dark:text-emerald-300">
+    <div className="flex h-9 shrink-0 items-center gap-2 border-b bg-emerald-500/[0.06] px-2 text-meta">
+      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-emerald-500/15 px-2 py-1 font-medium text-tag text-emerald-800 dark:text-emerald-300">
         <BotIcon className="size-3" />
         Agent's view · live
         <LiveDot />
@@ -930,7 +930,7 @@ function AgentBar({
           }
           className="max-w-xs"
         >
-          <span data-testid="agent-size" className="inline-flex shrink-0 items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[11px] text-emerald-800 tabular-nums dark:text-emerald-200">
+          <span data-testid="agent-size" className="inline-flex shrink-0 items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 font-mono text-tag text-emerald-800 tabular-nums dark:text-emerald-200">
             {label}
             {zoom && <span className="font-sans text-emerald-800 dark:text-emerald-200">· {zoom}</span>}
           </span>
@@ -987,8 +987,8 @@ function AgentTabs({ tabs, watched, onPick }: { tabs: AgentBrowserTab[]; watched
             label={
               <span className="flex flex-col gap-0.5">
                 {t.title && <span>{t.title}</span>}
-                {t.url && <span className="break-all font-mono text-[11px] opacity-80">{t.url}</span>}
-                <span className="font-mono text-[11px] tabular-nums opacity-80">
+                {t.url && <span className="break-all font-mono text-tag opacity-80">{t.url}</span>}
+                <span className="font-mono text-tag tabular-nums opacity-80">
                   {t.size}
                   {active.has(t.name) && <span className="font-sans"> · in use</span>}
                 </span>
@@ -1000,7 +1000,7 @@ function AgentTabs({ tabs, watched, onPick }: { tabs: AgentBrowserTab[]; watched
             <ToggleGroupItem
               value={`tab:${t.name}`}
               data-active={active.has(t.name) || undefined}
-              className="h-6! min-w-0! shrink-0 gap-1.5 px-2! font-normal text-muted-foreground text-xs sm:text-xs data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-xs dark:data-pressed:bg-input"
+              className="h-6! min-w-0! shrink-0 gap-1.5 px-2! font-normal text-muted-foreground text-meta data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-xs dark:data-pressed:bg-input"
             >
               <span className={cn("size-1.5 shrink-0 rounded-full transition-colors", active.has(t.name) ? "bg-emerald-500" : "bg-muted-foreground/25")} aria-hidden />
               {tabLabel(t.name)}
@@ -1016,8 +1016,8 @@ function AgentTabs({ tabs, watched, onPick }: { tabs: AgentBrowserTab[]; watched
 // agent's browser can't start.
 function SandboxBar({ box, fixed, onBack }: { box: string; fixed: boolean; onBack(): void }) {
   return (
-    <div className={cn("flex h-9 shrink-0 items-center gap-2 border-b px-2 text-xs", fixed ? "bg-success/[0.06]" : "bg-warning/[0.06]")}>
-      <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 font-medium text-[11px]", fixed ? "bg-success/15 text-success-foreground" : "bg-warning/15 text-warning-foreground")}>
+    <div className={cn("flex h-9 shrink-0 items-center gap-2 border-b px-2 text-meta", fixed ? "bg-success/[0.06]" : "bg-warning/[0.06]")}>
+      <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 font-medium text-tag", fixed ? "bg-success/15 text-success-foreground" : "bg-warning/15 text-warning-foreground")}>
         <BotIcon className="size-3" />
         {fixed ? "Agent's browser" : "Agent's browser · blocked"}
       </span>
@@ -1096,7 +1096,7 @@ function AgentView({ ctx, visible, tab, onUrl, onSize }: { ctx: BrowserContext; 
           style={fit && fit.w > 0 ? { width: fit.w, height: fit.h } : undefined}
         />
       ) : error ? (
-        <p className="max-w-xs text-center text-muted-foreground text-xs">{error}</p>
+        <p className="max-w-xs text-center text-muted-foreground text-meta">{error}</p>
       ) : (
         <Spinner className="size-4" />
       )}
@@ -1125,7 +1125,7 @@ function PickSender({ pick, ctx, onDone }: { pick: Pick; ctx: BrowserContext; on
   };
   return (
     <form
-      className="flex shrink-0 items-center gap-2 border-b bg-accent/40 px-2 py-1.5 text-xs"
+      className="flex shrink-0 items-center gap-2 border-b bg-accent/40 px-2 py-1.5 text-meta"
       onSubmit={(e) => {
         e.preventDefault();
         void submit();

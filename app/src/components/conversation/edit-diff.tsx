@@ -221,7 +221,7 @@ function DiffBox({ build, size, fallback, comments, wide }: { build(mod: DiffsMo
         <button
           type="button"
           onClick={() => setAll(!all)}
-          className="flex w-full items-center justify-center gap-1 border-t bg-muted/30 py-1 font-sans text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+          className="flex w-full items-center justify-center gap-1 border-t bg-muted/30 py-1 font-sans text-muted-foreground text-meta outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
         >
           {all ? "Show less" : `Show all ${(fileDiff && mod ? mod.lines(fileDiff) : size).toLocaleString()} lines`}
         </button>
@@ -237,9 +237,9 @@ export function EditChange({ d, header = true }: { d: ToolDetail; header?: boole
   const wide = width >= SPLIT_MIN;
   const build = useMemo(() => (mod: DiffsModule) => changeOf(mod, d), [d]);
   return (
-    <div ref={ref} data-selectable className="font-mono text-[0.75rem] leading-5 [font-variant-ligatures:none]">
+    <div ref={ref} data-selectable className="font-mono text-mono leading-5 [font-variant-ligatures:none]">
       {header && d.file && (
-        <div className="flex h-8 items-center gap-2 border-b bg-muted/30 pr-1 pl-3 font-sans text-muted-foreground text-xs">
+        <div className="flex h-8 items-center gap-2 border-b bg-muted/30 pr-1 pl-3 font-sans text-muted-foreground text-meta">
           <span className="min-w-0 flex-1 truncate">
             {d.old != null || d.hunks?.length ? "Updated" : "Created"} <span className="font-mono">{d.file}</span>
           </span>
@@ -341,7 +341,7 @@ export function EditPanel({ file, tool, estimate, loadDiff, loadTool, comments }
       aria-busy={!shown}
     >
       {(exact || wide) && (
-        <div className="flex items-center gap-1 border-b bg-muted/30 px-1.5 py-1 text-xs">
+        <div className="flex items-center gap-1 border-b bg-muted/30 px-1.5 py-1 text-meta">
           {exact && (
             <div role="tablist" aria-label="Show" className="flex gap-1">
               {(
@@ -372,14 +372,14 @@ export function EditPanel({ file, tool, estimate, loadDiff, loadTool, comments }
         <>
           {diff.state === "loading" && <Placeholder rows={estimate} />}
           {diff.state === "error" && <Failed what="Couldn't read the diff" message={diff.message} retry={readDiff} />}
-          {diff.state === "ready" && !diff.value.diff.trim() && <p className="px-3 py-3 text-muted-foreground text-sm">No changes left in this file: they were committed or undone since.</p>}
+          {diff.state === "ready" && !diff.value.diff.trim() && <p className="px-3 py-3 text-muted-foreground text-body">No changes left in this file: they were committed or undone since.</p>}
           {diff.state === "ready" && diff.value.diff.trim() && buildFile && (
             <>
-              <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-1 text-muted-foreground text-xs">
+              <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-1 text-muted-foreground text-meta">
                 <span className="min-w-0 flex-1 truncate">{diff.value.untracked ? "A new file" : "Uncommitted changes in this file"}{comments && " · hover a line to comment"}</span>
                 {diff.value.truncated && <span className="shrink-0 text-warning">first 64 KB</span>}
               </div>
-              <div className="font-mono text-[0.75rem] leading-5 [font-variant-ligatures:none]" data-selectable>
+              <div className="font-mono text-mono leading-5 [font-variant-ligatures:none]" data-selectable>
                 <DiffBox
                   build={buildFile}
                   size={fileSize}
@@ -406,7 +406,7 @@ function Placeholder({ rows }: { rows: number }) {
 
 function Failed({ what, message, retry }: { what: string; message: string; retry(): void }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-3 text-sm">
+    <div className="flex items-center gap-2 px-3 py-3 text-body">
       <span className="min-w-0 flex-1 text-destructive-foreground">
         {what}: {message}
       </span>

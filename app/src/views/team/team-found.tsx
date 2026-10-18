@@ -43,7 +43,7 @@ export function FoundClones({
   const [pulling, setPulling] = useState<string>();
   const chosen = clones.find((c) => c.path === use);
   return (
-    <div data-testid={`found-${id}`} className="space-y-2 rounded-lg border border-dashed bg-muted/30 px-3 py-2 text-xs">
+    <div data-testid={`found-${id}`} className="space-y-2 rounded-lg border border-dashed bg-muted/30 px-3 py-2 text-meta">
       {clones.slice(0, 3).map((c, i) => (
         <div key={c.path} className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <FolderGitIcon className="size-3.5 shrink-0 text-muted-foreground" />

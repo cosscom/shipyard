@@ -72,33 +72,25 @@ export function PluginsSection() {
       title="Plugins"
       description={
         <>
-          Plugins live in <Code>~/.berth/plugins/&lt;id&gt;/</Code> beside a <Code>berth-plugin.json</Code>. They aren't sandboxed: a plugin runs with the app's access to every box, and its hooks run on this computer. Each stays off until you allow it, and Shipyard asks again whenever its code changes.
+          Plugins aren't sandboxed, so each stays off until you allow it.
         </>
       }
     >
-      <SettingsGroup title="Built in" description="Ship with Shipyard and use the same plugin API as yours. A plugin of yours with the same id replaces one.">
-        {builtins === undefined ? (
-          <div className="px-4 py-6 text-center text-muted-foreground text-sm">Loading…</div>
-        ) : builtins.length === 0 ? (
-          <div className="px-4 py-6 text-center text-muted-foreground text-sm">This build has no built-in plugins.</div>
-        ) : (
-          builtins.map((p) => (
-            <BuiltinRow key={p.id} plugin={p} status={loaded.find((l) => l.id === p.id && l.builtin)} replaced={installed?.some((u) => u.id === p.id) ?? false} onChanged={() => void reload()} />
-          ))
-        )}
-      </SettingsGroup>
       <SettingsGroup
         title="Installed"
         actions={
-          <Button size="xs" variant="outline" className="gap-1.5" loading={reloading} onClick={() => void reload()}>
-            <RefreshCwIcon className="mr-0.5" /> Reload
-          </Button>
+          <span className="flex items-center gap-3">
+            <span className="font-mono text-muted-foreground text-mono">~/.berth/plugins</span>
+            <Button size="xs" variant="ghost" className="gap-1.5" loading={reloading} onClick={() => void reload()}>
+              <RefreshCwIcon className="mr-0.5" /> Reload
+            </Button>
+          </span>
         }
       >
         {installed === undefined ? (
-          <div className="px-4 py-6 text-center text-muted-foreground text-sm">Loading…</div>
+          <div className="py-6 text-center text-muted-foreground text-body">Loading…</div>
         ) : installed.length === 0 ? (
-          <div className="px-4 py-6 text-center text-muted-foreground text-sm">
+          <div className="py-6 text-center text-muted-foreground text-body">
             No plugins yet. Install one from Browse, or{" "}
             <button type="button" onClick={() => void openDocs("/guides/plugins")} className="underline underline-offset-2 hover:text-foreground">
               write one
@@ -109,40 +101,49 @@ export function PluginsSection() {
           installed.map((p) => <PluginRow key={p.id} plugin={p} status={loaded.find((l) => l.id === p.id)} onChanged={() => void reload()} />)
         )}
       </SettingsGroup>
+      <SettingsGroup title="Built in" actions={<span className="text-desc text-muted-foreground">Same plugin API as yours; one of yours with the same id replaces it</span>}>
+        {builtins === undefined ? (
+          <div className="py-6 text-center text-muted-foreground text-body">Loading…</div>
+        ) : builtins.length === 0 ? (
+          <div className="py-6 text-center text-muted-foreground text-body">This build has no built-in plugins.</div>
+        ) : (
+          builtins.map((p) => (
+            <BuiltinRow key={p.id} plugin={p} status={loaded.find((l) => l.id === p.id && l.builtin)} replaced={installed?.some((u) => u.id === p.id) ?? false} onChanged={() => void reload()} />
+          ))
+        )}
+      </SettingsGroup>
       <SettingsGroup
         title="Browse"
         description={
           market.list ? (
             <>
-              Plugins that aren't built in, listed at <Code>{market.list.host}</Code>. Installing one puts it under Installed, off until you allow it.
+              Plugins listed at <Code>{market.list.host}</Code>. Installing one puts it under Installed, off until you allow it.
             </>
           ) : (
-            "Plugins that aren't built in. Installing one puts it under Installed, off until you allow it."
+            "Installing one puts it under Installed, off until you allow it."
           )
         }
         actions={
           !market.old && (
-            <Tip label="Read the listing again">
-              <Button size="icon-xs" variant="ghost" aria-label="Read the listing again" disabled={market.reading} onClick={() => void browse(true)}>
-                <RefreshCwIcon className={cn(market.reading && "animate-spin")} />
-              </Button>
-            </Tip>
+            <Button size="xs" variant="ghost" className="gap-1.5 text-muted-foreground" disabled={market.reading} onClick={() => void browse(true)}>
+              <RefreshCwIcon className={cn(market.reading && "animate-spin")} /> Read the listing again
+            </Button>
           )
         }
       >
         {market.old ? (
-          <p className="px-4 py-3 text-muted-foreground text-sm">The Shipyard agent on this computer is older than this app, so it can't read the listing yet.</p>
+          <p className="py-3.5 text-muted-foreground text-body">The Shipyard agent on this computer is older than this app, so it can't read the listing yet.</p>
         ) : market.error ? (
-          <div className="flex items-center gap-4 px-4 py-3" data-testid="market-error">
-            <ErrorText className="min-w-0 flex-1 text-destructive-foreground text-sm" text={market.error} />
+          <div className="flex items-center gap-4 py-3.5" data-testid="market-error">
+            <ErrorText className="min-w-0 flex-1 text-destructive-foreground text-body" text={market.error} />
             <Button size="xs" variant="outline" className="min-w-24" loading={market.reading} onClick={() => void browse(true)}>
               Try again
             </Button>
           </div>
         ) : !market.list ? (
-          <div className="px-4 py-6 text-center text-muted-foreground text-sm">Loading…</div>
+          <div className="px-4 py-6 text-center text-muted-foreground text-body">Loading…</div>
         ) : market.list.plugins.length === 0 ? (
-          <div className="px-4 py-6 text-center text-muted-foreground text-sm">Nothing is listed yet.</div>
+          <div className="px-4 py-6 text-center text-muted-foreground text-body">Nothing is listed yet.</div>
         ) : (
           market.list.plugins.map((p) => <MarketRow key={p.id} plugin={p} was={installed?.find((u) => u.id === p.id)} onChanged={() => void reload()} onStale={() => void browse(true)} />)
         )}
@@ -182,15 +183,15 @@ function MarketRow({ plugin: p, was, onChanged, onStale }: { plugin: MarketPlugi
   };
 
   return (
-    <div className="flex items-center gap-4 px-4 py-3" data-testid="market-plugin" data-plugin={p.id}>
+    <div className="flex items-center gap-4 py-3.5" data-testid="market-plugin" data-plugin={p.id}>
       <span className="size-2 shrink-0" />
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2 text-sm">
+        <div className="flex items-baseline gap-2 text-row">
           <span>{p.name}</span>
-          <span className="text-muted-foreground text-xs">{p.version}</span>
+          <span className="text-muted-foreground text-meta">{p.version}</span>
         </div>
-        {p.description && <div className="mt-0.5 text-muted-foreground text-xs">{p.description}</div>}
-        <div className="mt-0.5 font-mono text-[11px] text-muted-foreground/80">
+        {p.description && <div className="mt-0.5 text-desc text-muted-foreground">{p.description}</div>}
+        <div className="mt-0.5 font-mono text-tag text-muted-foreground">
           {p.id}
           {p.author && ` · by ${p.author}`}
           {` · ${bytes(p.size)}`}
@@ -204,9 +205,9 @@ function MarketRow({ plugin: p, was, onChanged, onStale }: { plugin: MarketPlugi
             </>
           )}
         </div>
-        {note && <div className="mt-1 text-muted-foreground text-xs">{note}</div>}
+        {note && <div className="mt-1 text-muted-foreground text-meta">{note}</div>}
         {p.error && (
-          <div className="mt-1 text-xs">
+          <div className="mt-1 text-meta">
             <span className="text-destructive-foreground">It can't be installed:</span> <span className="text-muted-foreground">{p.error}.</span>
           </div>
         )}
@@ -298,27 +299,27 @@ function PluginRow({ plugin: p, status, onChanged }: { plugin: PluginInfo; statu
   };
 
   return (
-    <div className="flex items-center gap-4 px-4 py-3" data-testid="plugin-row" data-plugin={p.id}>
-      <StatusDot state={state} />
+    <div className="flex items-center gap-4 py-4" data-testid="plugin-row" data-plugin={p.id}>
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2 text-sm">
+        <div className="flex items-baseline gap-2 text-row">
+          <StatusDot state={state} />
           <span>{p.name}</span>
-          <span className="text-muted-foreground text-xs">{p.version}</span>
+          <span className="text-muted-foreground text-meta">{p.version}</span>
         </div>
-        {p.description && <div className="mt-0.5 text-muted-foreground text-xs">{p.description}</div>}
+        {p.description && <div className="mt-0.5 text-desc text-muted-foreground">{p.description}</div>}
         <Contributions plugin={p.id} />
-        <div className="mt-0.5 font-mono text-[11px] text-muted-foreground/80">
+        <div className="mt-0.5 font-mono text-tag text-muted-foreground">
           {p.id}
           {hooks > 0 && ` · ${hooks} hook${hooks === 1 ? "" : "s"}`}
           {p.source === "marketplace" && " · from the listing"}
         </div>
         {helper && (
-          <div className="mt-1 text-muted-foreground text-xs" data-testid="plugin-helper">
+          <div className="mt-1 text-muted-foreground text-meta" data-testid="plugin-helper">
             It can also install and run a program, <Code>{helper.name}</Code>, on the boxes you turn it on for.
           </div>
         )}
         {review && (
-          <div className="mt-1 text-xs">
+          <div className="mt-1 text-meta">
             <span className="text-warning-foreground">Changed since you allowed it, so it's off.</span>{" "}
             <button type="button" onClick={() => void askToAllow(p).then((ok) => ok && onChanged())} className="underline underline-offset-2 hover:text-foreground">
               Review it
@@ -326,7 +327,7 @@ function PluginRow({ plugin: p, status, onChanged }: { plugin: PluginInfo; statu
           </div>
         )}
         {held && (
-          <div className="mt-1 text-muted-foreground text-xs" data-testid="plugin-helper-held">
+          <div className="mt-1 text-muted-foreground text-meta" data-testid="plugin-helper-held">
             {held}{" "}
             <button type="button" onClick={() => setTurningOff(true)} className="underline underline-offset-2 hover:text-foreground">
               Stop it
@@ -334,7 +335,7 @@ function PluginRow({ plugin: p, status, onChanged }: { plugin: PluginInfo; statu
           </div>
         )}
         {error && enabled && status?.state !== "review" && (
-          <div className="mt-1 text-xs">
+          <div className="mt-1 text-meta">
             <span className="text-destructive-foreground">{error}</span> <span className="text-muted-foreground">Fix it in ~/.berth/plugins/{p.id}, then Reload.</span>
           </div>
         )}
@@ -399,19 +400,18 @@ function BuiltinRow({ plugin: p, status, replaced, onChanged }: { plugin: Plugin
   const off = usePrefs((s) => !builtinOn(p, s));
   const state = replaced || off ? "off" : status?.error ? "failed" : (status?.state ?? "loading");
   return (
-    <div className="flex items-center gap-4 px-4 py-3">
-      <StatusDot state={state} />
+    <div className="flex items-center gap-4 py-4">
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-baseline gap-2 text-row">
+          <StatusDot state={state} />
           <span>{p.name}</span>
-          <Badge variant="outline" size="sm">Built-in</Badge>
-          <span className="text-muted-foreground text-xs">{p.version}</span>
+          <span className="font-normal text-muted-foreground text-meta">{p.version}</span>
         </div>
-        {p.description && <div className="mt-0.5 text-muted-foreground text-xs">{p.description}</div>}
+        {p.description && <div className="mt-0.5 text-desc text-muted-foreground">{p.description}</div>}
         <Contributions plugin={p.id} />
-        {p.defaultEnabled === false && off && !replaced && <div className="mt-0.5 text-muted-foreground text-xs">Off until you turn it on.</div>}
-        {replaced && <div className="mt-0.5 text-muted-foreground text-xs">Replaced by your plugin with the same id.</div>}
-        {status?.error && !off && <div className="mt-1 text-destructive-foreground text-xs">{status.error}</div>}
+        {p.defaultEnabled === false && off && !replaced && <div className="mt-0.5 text-muted-foreground text-meta">Off until you turn it on.</div>}
+        {replaced && <div className="mt-0.5 text-muted-foreground text-meta">Replaced by your plugin with the same id.</div>}
+        {status?.error && !off && <div className="mt-1 text-destructive-foreground text-meta">{status.error}</div>}
       </div>
       <Switch
         checked={!off}
@@ -426,12 +426,13 @@ function BuiltinRow({ plugin: p, status, replaced, onChanged }: { plugin: Plugin
   );
 }
 
-// StatusDot marks only what needs attention: the switch already says on.
+// StatusDot marks only what needs attention, before the name: the switch
+// already says on.
 function StatusDot({ state }: { state: string }) {
-  if (state === "active" || state === "off") return <span className="size-2 shrink-0" />;
+  if (state === "active" || state === "off") return null;
   return (
     <Tip label={state}>
-      <span role="img" aria-label={state} className={cn("size-2 shrink-0 rounded-full", state === "failed" ? "bg-destructive" : "bg-warning")} />
+      <span role="img" aria-label={state} className={cn("size-1.5 shrink-0 self-center rounded-full", state === "failed" ? "bg-destructive" : "bg-warning")} />
     </Tip>
   );
 }
@@ -450,13 +451,5 @@ function Contributions({ plugin }: { plugin: string }) {
     ...(mine(r.themes).length ? [`${mine(r.themes).length} theme${mine(r.themes).length === 1 ? "" : "s"}`] : []),
   ];
   if (!parts.length) return null;
-  return (
-    <div className="mt-1.5 flex flex-wrap gap-1">
-      {parts.map((p) => (
-        <Badge key={p} variant="secondary" size="sm">
-          {p}
-        </Badge>
-      ))}
-    </div>
-  );
+  return <div className="mt-0.5 text-muted-foreground text-meta">{parts.join(" · ")}</div>;
 }

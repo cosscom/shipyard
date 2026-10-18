@@ -191,7 +191,7 @@ export function SelectionActions({ api, chat, who }: { api: ChatListApi; chat: s
             done(true);
           }
         }}
-        className="h-full w-[min(15rem,40vw)] min-w-0 bg-transparent text-[0.8125rem] outline-none placeholder:text-muted-foreground"
+        className="h-full w-[min(15rem,40vw)] min-w-0 bg-transparent text-desc outline-none placeholder:text-muted-foreground"
       />
       {question.trim() ? (
         <Tip label={`Send to ${who}, with the words quoted`}>

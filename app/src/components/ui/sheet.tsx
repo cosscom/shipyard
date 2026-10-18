@@ -177,7 +177,7 @@ export function SheetTitle({
   return (
     <SheetPrimitive.Title
       className={cn(
-        "font-heading font-semibold text-xl leading-none",
+        "font-heading font-semibold text-title",
         className,
       )}
       data-slot="sheet-title"

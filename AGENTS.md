@@ -17,7 +17,7 @@ Run these before you call something done:
 go vet ./... && go test -race ./...          # -race: CI runs it, and it has caught real races
 (cd app/src-tauri && cargo check)
 cd app && CI=true pnpm install --frozen-lockfile
-pnpm typecheck:plugins && pnpm check:titles && pnpm check:csp && pnpm check:themes && pnpm test && pnpm build
+pnpm typecheck:plugins && pnpm check:titles && pnpm check:type && pnpm check:csp && pnpm check:themes && pnpm test && pnpm build
 npx tsc -p e2e
 (cd docs-site && pnpm build)                 # when docs/ changed
 ```
@@ -31,6 +31,7 @@ Browser tests: run the specs you touched, not the whole suite (`E2E_PORT=14xx np
 - **No symlinked `node_modules`** (pnpm breaks without a TTY). Install per worktree.
 - **New unit test files** go in `app/src/lib/` as `*.test.ts`; `pnpm test` finds them there (`src/lib/**/*.test.ts`). Don't list them in `package.json`.
 - **No `title=` attributes** in the app (`check:titles`); use `<Tip>`.
+- **Text sizes come from the type scale** (`text-body`, `text-desc`, `text-meta`, `text-tag`, … in `index.css`), never `text-sm` or `text-[11px]` (`check:type`). coss ui's own parts in `components/ui` keep theirs.
 - **MDX:** a bare `<word>` in prose is parsed as a tag and breaks the docs build. Wrap it in backticks.
 - **Changelog:** every user-visible change gets a bullet under `## Unreleased` in `docs/changelog.mdx`, in plain words.
 - **Fixtures are synthetic** ("acme"). Nothing company-specific (no Cal.com repos, keys or names) goes in this public repo.

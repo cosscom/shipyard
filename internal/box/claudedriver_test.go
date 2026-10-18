@@ -42,6 +42,20 @@ func conversationsDir(t *testing.T) string {
 				time.Sleep(50 * time.Millisecond)
 			}
 		}
+		// A host closes its socket before its log, so its last write can land
+		// as the folder is being removed ("directory not empty"). Remove it
+		// until it stays removed; t.TempDir's own cleanup then finds nothing.
+		for {
+			err := os.RemoveAll(dir)
+			if err == nil {
+				return
+			}
+			if time.Now().After(deadline) {
+				t.Errorf("removing %s: %v", dir, err)
+				return
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
 	})
 	return dir
 }

@@ -463,7 +463,7 @@ export function TerminalView({ box, session, agent, command, wsKey, tab, pane, v
       {stoppedService && state !== "ended" && state !== "offline" && <ServiceStopped box={box} session={stoppedService} />}
       {state === "ended" && <SessionEnded box={box} session={session} agent={agent} command={command} wsKey={wsKey} tab={tab} pane={pane} onClose={onClose} />}
       {state === "open" && stalled && (
-        <div data-testid="terminal-stalled" className="pointer-events-none absolute top-2 right-3 flex items-center gap-2 rounded-md border bg-popover/90 px-2 py-1 text-muted-foreground text-xs shadow-sm">
+        <div data-testid="terminal-stalled" className="pointer-events-none absolute top-2 right-3 flex items-center gap-2 rounded-md border bg-popover/90 px-2 py-1 text-muted-foreground text-meta shadow-sm">
           <Spinner className="size-3" />
           {`Waiting for ${box} to answer… what you type may not arrive`}
         </div>
@@ -471,7 +471,7 @@ export function TerminalView({ box, session, agent, command, wsKey, tab, pane, v
       {linkHint && (
         <div
           data-testid="terminal-link-hint"
-          className="pointer-events-none absolute z-20 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-popover-foreground text-xs shadow-md/5"
+          className="pointer-events-none absolute z-20 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-popover-foreground text-meta shadow-md/5"
           style={{
             ...(linkHint.up ? { bottom: `calc(100% - ${linkHint.y - 8}px)` } : { top: linkHint.y + 18 }),
             ...(linkHint.left ? { right: `calc(100% - ${linkHint.x}px)` } : { left: linkHint.x + 8 }),
@@ -481,7 +481,7 @@ export function TerminalView({ box, session, agent, command, wsKey, tab, pane, v
         </div>
       )}
       {(state === "connecting" || state === "reconnecting") && (
-        <div className="pointer-events-none absolute top-2 right-3 flex items-center gap-2 rounded-md border bg-popover/90 px-2 py-1 text-muted-foreground text-xs shadow-sm">
+        <div className="pointer-events-none absolute top-2 right-3 flex items-center gap-2 rounded-md border bg-popover/90 px-2 py-1 text-muted-foreground text-meta shadow-sm">
           <Spinner className="size-3" />
           {state === "reconnecting" ? `Reconnecting to ${box}…` : "Attaching…"}
         </div>

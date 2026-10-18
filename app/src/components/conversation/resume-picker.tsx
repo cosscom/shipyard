@@ -65,7 +65,7 @@ export function ResumePicker({ box, session, who, query: initial, onClose }: { b
           <CommandInput placeholder={`Resume one of ${who}'s conversations…`} />
           <CommandPanel>
             {!list && !error ? (
-              <div className="flex items-center gap-2 px-3 py-3 text-muted-foreground text-sm">
+              <div className="flex items-center gap-2 px-3 py-3 text-muted-foreground text-body">
                 <Spinner className="size-3.5" /> Reading {who}'s conversations…
               </div>
             ) : (
@@ -80,8 +80,8 @@ export function ResumePicker({ box, session, who, query: initial, onClose }: { b
                       <CommandItem key={item.value} value={item} disabled={!!item.past.session} className="gap-2" onClick={() => void pick(item.past)}>
                         <AgentIcon agent={list?.agent} className="size-3.5 shrink-0" />
                         <span className="min-w-0 truncate">{item.label}</span>
-                        {item.past.current && <span className="shrink-0 rounded bg-accent px-1 py-px text-[10px] text-muted-foreground">this chat</span>}
-                        <span className="ml-auto min-w-0 shrink-0 truncate text-muted-foreground text-xs tabular-nums">{item.past.session ? `running in ${item.past.session}` : item.past.updated ? ago(item.past.updated) : ""}</span>
+                        {item.past.current && <span className="shrink-0 rounded bg-accent px-1 py-px text-tag text-muted-foreground">this chat</span>}
+                        <span className="ml-auto min-w-0 shrink-0 truncate text-muted-foreground text-meta tabular-nums">{item.past.session ? `running in ${item.past.session}` : item.past.updated ? ago(item.past.updated) : ""}</span>
                       </CommandItem>
                     )}
                   </CommandCollection>
@@ -89,7 +89,7 @@ export function ResumePicker({ box, session, who, query: initial, onClose }: { b
               )}
             </CommandList>
           </CommandPanel>
-          <CommandFooter className="text-[11px] text-muted-foreground">
+          <CommandFooter className="text-tag text-muted-foreground">
             <span className="flex items-center gap-1">
               <Kbd>↵</Kbd> carry it on here
             </span>

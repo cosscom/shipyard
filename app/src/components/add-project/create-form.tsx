@@ -51,7 +51,7 @@ export function CreateForm({ box, onAdded, onCancel }: { box: string; onAdded(lo
             <Input className="font-mono" value={parent} spellCheck={false} onChange={(e) => setParent(e.target.value)} />
           </Labelled>
         </div>
-        <p className="truncate text-[13px] text-muted-foreground">
+        <p className="truncate text-desc text-muted-foreground">
           Creates{" "}
           <span className="font-mono">
             <span className="text-foreground/80">{dir}/</span>
@@ -59,8 +59,8 @@ export function CreateForm({ box, onAdded, onCancel }: { box: string; onAdded(lo
           </span>{" "}
           with git and an empty first commit.
         </p>
-        {taken && <p className="text-sm text-warning-foreground">{box} already has a project called {clean}.</p>}
-        {error && <ErrorText className="text-destructive text-sm" text={error} />}
+        {taken && <p className="text-body text-warning-foreground">{box} already has a project called {clean}.</p>}
+        {error && <ErrorText className="text-destructive text-body" text={error} />}
       </DialogPanel>
       <DialogFooter className="items-center px-5 py-3">
         <Button type="button" variant="ghost" onClick={onCancel}>

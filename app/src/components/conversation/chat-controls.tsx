@@ -162,7 +162,7 @@ export function ChatControls({ box, session, agent, state, stateSince, dir, who,
               <Button size="xs" variant="outline" loading={stopping} onClick={() => void stop()} aria-label={`Stop ${who}`} className="gap-1.5">
                 <SquareIcon className="size-2.5! fill-current" />
                 Stop
-                <Kbd className="-mr-0.5 h-4 min-w-0 px-1 text-[0.625rem]">Esc</Kbd>
+                <Kbd className="-mr-0.5 h-4 min-w-0 px-1 text-tag">Esc</Kbd>
               </Button>
             </Tip>
           )}
@@ -214,10 +214,10 @@ function useDockedNotices({ box, session, dir, state, ended, items, screenLimit,
 
 function Retrying({ r }: { r: NonNullable<ChatSignals["retrying"]> }) {
   return (
-    <div role="status" className="mb-2 flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/[0.06] px-3 py-1.5 text-[0.8125rem] dark:bg-warning/[0.08]">
+    <div role="status" className="mb-2 flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/[0.06] px-3 py-1.5 text-desc dark:bg-warning/[0.08]">
       <Spinner className="size-3.5 text-warning-foreground" />
       <span className="min-w-0 flex-1 truncate">{r.message}</span>
-      <span className="shrink-0 text-muted-foreground text-xs tabular-nums">{r.attempt ? `Retrying · ${r.attempt}${r.max ? ` of ${r.max}` : ""}` : "Retrying"}</span>
+      <span className="shrink-0 text-muted-foreground text-meta tabular-nums">{r.attempt ? `Retrying · ${r.attempt}${r.max ? ` of ${r.max}` : ""}` : "Retrying"}</span>
     </div>
   );
 }
@@ -225,7 +225,7 @@ function Retrying({ r }: { r: NonNullable<ChatSignals["retrying"]> }) {
 // --- Chips ---
 
 const chip =
-  "inline-flex h-6 max-w-full items-center gap-1.5 rounded-md px-1.5 text-muted-foreground text-xs outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent data-popup-open:text-foreground disabled:pointer-events-none disabled:opacity-60";
+  "inline-flex h-6 max-w-full items-center gap-1.5 rounded-md px-1.5 text-muted-foreground text-meta outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent data-popup-open:text-foreground disabled:pointer-events-none disabled:opacity-60";
 
 const MODE_ICON: Record<string, typeof HandIcon> = { default: HandIcon, acceptEdits: FilePenLineIcon, plan: ClipboardListIcon, auto: SparklesIcon, bypassPermissions: ShieldAlertIcon };
 
@@ -249,7 +249,7 @@ function ModeChip({ box, session, agent, sig, screenMode, onSwitched, waiting, s
         <MenuPopup align="start" side="top" className="w-64">
           <MenuGroup>
             <MenuGroupLabel>Codex asks before running commands</MenuGroupLabel>
-            <MenuItem disabled className="text-muted-foreground text-xs">
+            <MenuItem disabled className="text-muted-foreground text-meta">
               Now: {label} ({mode})
             </MenuItem>
           </MenuGroup>
@@ -308,7 +308,7 @@ function ModeChip({ box, session, agent, sig, screenMode, onSwitched, waiting, s
                       <I className="size-3.5" />
                       {m.label}
                     </span>
-                    <span className={cn("text-xs", danger ? "text-destructive-foreground/80" : "text-muted-foreground")}>{m.hint}</span>
+                    <span className={cn("text-meta", danger ? "text-destructive-foreground/80" : "text-muted-foreground")}>{m.hint}</span>
                   </span>
                 </MenuRadioItem>
               );
@@ -392,7 +392,7 @@ function ModelChip({ box, session, agent, sig, screenEffort, busy, items }: { bo
           </>
         )}
         <MenuSeparator />
-        <MenuItem disabled className="flex-col items-start gap-0.5 text-muted-foreground text-xs">
+        <MenuItem disabled className="flex-col items-start gap-0.5 text-muted-foreground text-meta">
           <span>Now: {model}</span>
           {agent === "claude" && <span>Claude Code also makes a switch its default for new sessions.</span>}
         </MenuItem>
@@ -449,17 +449,17 @@ function ContextChip({ box, session, sig, busy }: { box: string; session: string
         {pct}%{high ? " · compact" : ""}
       </PopoverTrigger>
       <PopoverPopup side="top" align="start" className="w-72">
-        <div className="flex flex-col gap-2 text-sm">
+        <div className="flex flex-col gap-2 text-body">
           <div className="flex items-baseline justify-between gap-2">
             <span className="font-medium">{pct}% of context used</span>
-            <span className="text-muted-foreground text-xs tabular-nums">
+            <span className="text-muted-foreground text-meta tabular-nums">
               {kTokens(c.tokens)} of {kTokens(win)}
             </span>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
             <div className={cn("h-full rounded-full", full ? "bg-destructive" : high ? "bg-warning" : "bg-foreground/60")} style={{ width: `${pct}%` }} />
           </div>
-          <p className="text-muted-foreground text-xs">
+          <p className="text-muted-foreground text-meta">
             {high
               ? "It is filling up: the agent compacts on its own when it runs out, mid-task. Compacting now, between tasks, keeps what matters."
               : "What the agent holds of this conversation, as of its last answer. /compact summarises it to free room."}
@@ -514,7 +514,7 @@ function BackgroundChip({ box, session, jobs, who }: { box: string; session: str
       </PopoverTrigger>
       <PopoverPopup side="top" align="start" className="w-[min(30rem,calc(100vw-2rem))]">
         <div className="flex flex-col gap-1">
-          <div className="mb-1 text-muted-foreground text-xs">Left running in the background by {who}</div>
+          <div className="mb-1 text-muted-foreground text-meta">Left running in the background by {who}</div>
           {[...list].reverse().map((j) => (
             <JobRow key={j.tool} box={box} session={session} job={j} now={now} />
           ))}
@@ -554,23 +554,23 @@ function JobRow({ box, session, job, now }: { box: string; session: string; job:
       <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="flex w-full min-w-0 items-center gap-2 rounded-md px-1.5 py-1.5 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">
         <Icon className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[0.8125rem]">{job.label || job.command}</span>
-          {job.label && <span className="block truncate font-mono text-[0.7188rem] text-muted-foreground">{job.command}</span>}
+          <span className="block truncate text-desc">{job.label || job.command}</span>
+          {job.label && <span className="block truncate font-mono text-mono text-muted-foreground">{job.command}</span>}
         </span>
         <State job={job} />
-        <span className="w-12 shrink-0 text-right text-muted-foreground text-xs tabular-nums">{took}</span>
+        <span className="w-12 shrink-0 text-right text-muted-foreground text-meta tabular-nums">{took}</span>
         <ChevronDownIcon className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
       {open && (
         <div className="mx-1.5 mb-1.5">
           {error ? (
-            <p className="px-1 py-2 text-destructive-foreground text-xs">{error}</p>
+            <p className="px-1 py-2 text-destructive-foreground text-meta">{error}</p>
           ) : !detail ? (
-            <div className="flex items-center gap-2 px-1 py-2 text-muted-foreground text-xs">
+            <div className="flex items-center gap-2 px-1 py-2 text-muted-foreground text-meta">
               <Spinner className="size-3" /> Reading its output…
             </div>
           ) : (
-            <pre ref={pre} data-selectable className="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/40 px-2.5 py-2 font-mono text-[0.7188rem] leading-relaxed">
+            <pre ref={pre} data-selectable className="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/40 px-2.5 py-2 font-mono text-mono">
               {detail.truncated && <span className="text-muted-foreground">…{"\n"}</span>}
               {detail.output?.trim() || "(nothing printed yet)"}
             </pre>
@@ -585,18 +585,18 @@ function State({ job }: { job: ChatJob }) {
   switch (job.state) {
     case "running":
     case "starting":
-      return <span className="shrink-0 rounded-full bg-success/12 px-1.5 py-px text-[0.6875rem] text-success-foreground">Running</span>;
+      return <span className="shrink-0 rounded-full bg-success/12 px-1.5 py-px text-tag text-success-foreground">Running</span>;
     case "done":
       return (
-        <span className="flex shrink-0 items-center gap-1 text-[0.6875rem] text-muted-foreground">
+        <span className="flex shrink-0 items-center gap-1 text-tag text-muted-foreground">
           <CheckIcon className="size-3 text-success" />
           Done
         </span>
       );
     case "failed":
-      return <span className="shrink-0 text-[0.6875rem] text-destructive-foreground">Failed</span>;
+      return <span className="shrink-0 text-tag text-destructive-foreground">Failed</span>;
     default:
-      return <span className="shrink-0 text-[0.6875rem] text-muted-foreground">Stopped</span>;
+      return <span className="shrink-0 text-tag text-muted-foreground">Stopped</span>;
   }
 }
 

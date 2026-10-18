@@ -69,6 +69,51 @@
     --spacing-row-pad: var(--row-pad);
     --spacing-row-gap: var(--row-gap);
     --spacing-side-row: var(--side-row);
+    /* The type scale, Settings' and every page's: text-page-title, text-title,
+       text-heading, text-subtitle, text-body, text-section, text-row,
+       text-desc, text-label, text-meta, text-tag, text-mono. It is the only
+       way the app sizes text (scripts/check-type.mjs); coss ui's own parts
+       in components/ui keep theirs. In rem, so ⌘+ (the root's size) scales it.
+       Colour stays with the caller (text-muted-foreground for the quiet ones);
+       a font-* class beside one still wins over its weight. lib/utils.ts
+       tells cn() these are sizes, so they merge with colours. */
+    --text-page-title: 1.75rem;
+    --text-page-title--line-height: 2.125rem;
+    --text-page-title--letter-spacing: -0.02em;
+    --text-page-title--font-weight: 600;
+    /* A dialog's, sheet's or empty state's title: a step under the page's. */
+    --text-title: 1.25rem;
+    --text-title--line-height: 1.625rem;
+    --text-title--letter-spacing: -0.015em;
+    --text-title--font-weight: 600;
+    /* A card's, panel's or popover's own heading. */
+    --text-heading: 1rem;
+    --text-heading--line-height: 1.375rem;
+    --text-heading--letter-spacing: -0.01em;
+    --text-heading--font-weight: 600;
+    --text-subtitle: 0.875rem;
+    --text-subtitle--line-height: 1.25rem;
+    /* Running text: a chat's messages, a paragraph, a field's value. */
+    --text-body: 0.875rem;
+    --text-body--line-height: 1.25rem;
+    --text-section: 0.8125rem;
+    --text-section--line-height: 1rem;
+    --text-section--font-weight: 600;
+    --text-row: 0.875rem;
+    --text-row--line-height: 1.125rem;
+    --text-row--font-weight: 500;
+    --text-desc: 0.8125rem;
+    --text-desc--line-height: 1.1875rem;
+    --text-label: 0.75rem;
+    --text-label--line-height: 1rem;
+    --text-label--font-weight: 500;
+    --text-meta: 0.75rem;
+    --text-meta--line-height: 1rem;
+    /* The smallest: a row's time, a count, a badge, a chip, a key. */
+    --text-tag: 0.6875rem;
+    --text-tag--line-height: 0.875rem;
+    --text-mono: 0.78125rem;
+    --text-mono--line-height: 1.125rem;
   @keyframes skeleton {
   to {
     background-position: -200% 0;
@@ -284,6 +329,12 @@
    set on the sidebar itself: not inherited, so a frame of the drag
    restyles the sidebar alone, not every element under it. */
 @property --sidebar-live {
+  syntax: "*";
+  inherits: false;
+}
+
+/* The two-column sidebar's tasks column, the same way. */
+@property --tasks-live {
   syntax: "*";
   inherits: false;
 }

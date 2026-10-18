@@ -18,8 +18,8 @@ export function TeamSuggestCards() {
             <GitHubMark className="size-4" />
           </span>
           <div className="min-w-0 flex-1">
-            <h2 className="truncate font-medium text-sm">{orgName(s)} has a team setup</h2>
-            <p className="text-pretty text-muted-foreground text-xs leading-relaxed">
+            <h2 className="truncate text-row">{orgName(s)} has a team setup</h2>
+            <p className="text-pretty text-desc text-muted-foreground">
               For {projectsLine(s)}, in <span className="font-mono">{s.repo}</span>. Nothing runs until you review it.
             </p>
           </div>

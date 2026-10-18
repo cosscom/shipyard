@@ -80,7 +80,7 @@ function Explorer({ block }: { block: TableBlock }) {
             <thead><tr>{block.data.head.map((h, i) => <th key={`${h}-${i}`} scope="col" aria-sort={sort?.index === i ? sort.descending ? "descending" : "ascending" : undefined} className={plan.numeric[i] ? "text-right" : "text-left"}><button type="button" onClick={() => setSort((was) => ({ index: i, descending: was?.index === i ? !was.descending : false }))}>{h}{sort?.index === i && (sort.descending ? <ArrowDownIcon size={12} aria-hidden /> : <ArrowUpIcon size={12} aria-hidden />)}</button></th>)}</tr></thead>
             <tbody>{rows.map((row, ri) => <tr key={`${row.join("|")}-${ri}`} data-status={plan.status >= 0 ? verdict(row[plan.status] ?? "") : undefined}>{row.map((cell, ci) => <td key={ci} className={plan.numeric[ci] ? "text-right tabular-nums" : undefined}>{cell}</td>)}</tr>)}</tbody>
           </table>
-          {only && !rows.length && <p className="p-3 text-center text-xs text-muted-foreground">No failed rows.</p>}
+          {only && !rows.length && <p className="p-3 text-center text-meta text-muted-foreground">No failed rows.</p>}
         </div>
       )}
       {mode === "chart" && chartBody && (

@@ -67,7 +67,7 @@ export function SyncButton({
                 <MenuRadioItem key={m.value} value={m.value} closeOnClick>
                   <span className="flex flex-col">
                     <span>{m.label}</span>
-                    <span className="text-muted-foreground text-xs">{m.hint}</span>
+                    <span className="text-muted-foreground text-meta">{m.hint}</span>
                   </span>
                 </MenuRadioItem>
               ))}

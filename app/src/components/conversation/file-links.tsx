@@ -177,9 +177,9 @@ function Card({ worktree, at, onOpen }: { worktree: WorktreeRef; at: FileRef; on
 
   return (
     <>
-      <div className="flex h-8 shrink-0 items-center gap-2 border-b bg-muted/30 pr-1 pl-3 text-xs">
+      <div className="flex h-8 shrink-0 items-center gap-2 border-b bg-muted/30 pr-1 pl-3 text-meta">
         <FileGlyph path={at.path} className="size-3" />
-        <span className="min-w-0 flex-1 truncate font-mono text-[0.6875rem] text-muted-foreground">
+        <span className="min-w-0 flex-1 truncate font-mono text-tag text-muted-foreground">
           {dir && <span>{dir}/</span>}
           <span className="text-foreground">{fileName(at.path)}</span>
           {said && <span className="font-sans"> · {said}</span>}
@@ -194,8 +194,8 @@ function Card({ worktree, at, onOpen }: { worktree: WorktreeRef; at: FileRef; on
           <Spinner className="size-4" />
         </div>
       )}
-      {read.state === "error" && <p className="px-3 py-3 text-muted-foreground text-xs">Couldn't read it: {read.message}</p>}
-      {read.state === "ready" && read.file.content === undefined && <p className="px-3 py-3 text-muted-foreground text-xs">{read.file.reason ?? (read.file.image ? "A picture: open it to see it." : "Not a text file.")}</p>}
+      {read.state === "error" && <p className="px-3 py-3 text-muted-foreground text-meta">Couldn't read it: {read.message}</p>}
+      {read.state === "ready" && read.file.content === undefined && <p className="px-3 py-3 text-muted-foreground text-meta">{read.file.reason ?? (read.file.image ? "A picture: open it to see it." : "Not a text file.")}</p>}
       {read.state === "ready" && read.file.content !== undefined && <Lines path={at.path} text={read.file.content} lines={lines} span={span} />}
     </>
   );
@@ -217,7 +217,7 @@ function Lines({ path, text, lines, span }: { path: string; text: string; lines:
   if (!mod || huge) return <PlainLines text={text} span={span} />;
   const style = { "--berth-diff-bg": "var(--popover)" } as CSSProperties;
   return (
-    <div ref={box} data-selectable className="overflow-auto overscroll-contain font-mono text-[0.75rem] leading-5 [font-variant-ligatures:none]" style={{ maxHeight: ROWS * ROW }} data-testid="file-card-lines">
+    <div ref={box} data-selectable className="overflow-auto overscroll-contain font-mono text-mono leading-5 [font-variant-ligatures:none]" style={{ maxHeight: ROWS * ROW }} data-testid="file-card-lines">
       {/* As tall as the file before it draws, so it opens scrolled to the line. */}
       <div style={{ minHeight: lines * ROW }}>
         <mod.FileLines name={path} text={text} from={span?.from} to={span?.to} dark={dark} style={style} />
@@ -231,7 +231,7 @@ function Lines({ path, text, lines, span }: { path: string; text: string; lines:
 function PlainLines({ text, span }: { text: string; span?: { from: number; to: number } }) {
   const { start, lines } = useMemo(() => excerpt(text, span, BEFORE, ROWS), [text, span]);
   return (
-    <div data-selectable className="overflow-auto overscroll-contain py-0 font-mono text-[0.75rem] leading-5 [font-variant-ligatures:none]" style={{ maxHeight: ROWS * ROW }} data-testid="file-card-lines">
+    <div data-selectable className="overflow-auto overscroll-contain py-0 font-mono text-mono leading-5 [font-variant-ligatures:none]" style={{ maxHeight: ROWS * ROW }} data-testid="file-card-lines">
       <table className="w-full border-collapse">
         <tbody>
           {lines.map((l, i) => {

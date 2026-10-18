@@ -33,7 +33,7 @@ export function FileRow({ file, active, onSelect, comments }: { file: FileChange
         <button
           type="button"
           onClick={onSelect}
-          className={cn("flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs hover:bg-accent/60", active && "bg-accent text-foreground")}
+          className={cn("flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-meta hover:bg-accent/60", active && "bg-accent text-foreground")}
         >
           <span className={cn("w-3 shrink-0 text-center font-mono font-semibold", toneClass[tone])}>{file.code === "??" ? "U" : file.code.trim()[0]}</span>
           <span className="min-w-0 flex-1 truncate">
@@ -41,7 +41,7 @@ export function FileRow({ file, active, onSelect, comments }: { file: FileChange
             {dir && <span className="ml-1.5 text-muted-foreground">{dir}</span>}
           </span>
           {!!comments && (
-            <span className="inline-flex shrink-0 items-center gap-0.5 text-[11px] text-primary tabular-nums" aria-label={`${comments} comment${comments === 1 ? "" : "s"}`}>
+            <span className="inline-flex shrink-0 items-center gap-0.5 text-tag text-primary tabular-nums" aria-label={`${comments} comment${comments === 1 ? "" : "s"}`}>
               <MessageSquareTextIcon className="size-3" />
               {comments}
             </span>
@@ -49,7 +49,7 @@ export function FileRow({ file, active, onSelect, comments }: { file: FileChange
           {file.binary ? (
             <span className="text-muted-foreground">bin</span>
           ) : (
-            <span className="shrink-0 font-mono text-[11px] tabular-nums">
+            <span className="shrink-0 font-mono text-tag tabular-nums">
               <span className="text-success-foreground">+{file.added ?? 0}</span> <span className="text-destructive-foreground">−{file.removed ?? 0}</span>
             </span>
           )}
@@ -82,7 +82,7 @@ export function DiffView({ file, run, base, comments }: { file: FileChange; run:
 
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex h-9 shrink-0 items-center gap-2 border-b px-3 text-xs">
+      <div className="flex h-9 shrink-0 items-center gap-2 border-b px-3 text-meta">
         <span className="min-w-0 truncate font-mono">{file.from ? `${file.from} → ${file.path}` : file.path}</span>
         <Badge variant="outline" size="sm" className="shrink-0">
           {describeCode(file.code).label}
@@ -101,7 +101,7 @@ export function DiffView({ file, run, base, comments }: { file: FileChange; run:
           ]}
         />
       </div>
-      <div className="min-h-0 flex-1 overflow-auto font-mono text-[12px] leading-5 [font-variant-ligatures:none]">
+      <div className="min-h-0 flex-1 overflow-auto font-mono text-mono leading-5 [font-variant-ligatures:none]">
         {diff.state === "loading" && (
           <Centered>
             <Spinner className="size-4" />
@@ -109,9 +109,9 @@ export function DiffView({ file, run, base, comments }: { file: FileChange; run:
         )}
         {diff.state === "error" && <Centered>{diff.message}</Centered>}
         {diff.state === "ready" && diff.value.lines.length === 0 && <Centered>Nothing to show for this file.</Centered>}
-        {diff.state === "ready" && diff.value.truncated && <p className="border-b bg-warning/8 px-3 py-1 font-sans text-warning text-xs">Only the end of this diff is shown: it is longer than 64 KB.</p>}
+        {diff.state === "ready" && diff.value.truncated && <p className="border-b bg-warning/8 px-3 py-1 font-sans text-warning text-meta">Only the end of this diff is shown: it is longer than 64 KB.</p>}
         {diff.state === "ready" && comments && mode === "split" && diff.value.lines.length > 0 && (
-          <p className="border-b bg-muted/40 px-3 py-1 font-sans text-muted-foreground text-xs">Switch to Unified to comment on a line.</p>
+          <p className="border-b bg-muted/40 px-3 py-1 font-sans text-muted-foreground text-meta">Switch to Unified to comment on a line.</p>
         )}
         {diff.state === "ready" && (mode === "unified" ? <DiffLines lines={diff.value.lines} comments={comments} /> : <Split lines={diff.value.lines} />)}
       </div>
@@ -120,7 +120,7 @@ export function DiffView({ file, run, base, comments }: { file: FileChange; run:
 }
 
 function Centered({ children }: { children: React.ReactNode }) {
-  return <div className="flex h-full min-h-32 items-center justify-center gap-2 p-6 font-sans text-muted-foreground text-sm">{children}</div>;
+  return <div className="flex h-full min-h-32 items-center justify-center gap-2 p-6 font-sans text-muted-foreground text-body">{children}</div>;
 }
 
 const lineBg = { add: "bg-success/10", del: "bg-destructive/10", ctx: "", hunk: "bg-info/8 text-info", meta: "text-muted-foreground italic" } as const;
@@ -193,7 +193,7 @@ export function DiffLines({ lines, comments }: { lines: DiffLine[]; comments?: L
 
 export function CommentNote({ c, onRemove }: { c: LineComment; onRemove(): void }) {
   return (
-    <div className="sticky left-0 flex w-full max-w-[min(100%,560px)] items-start gap-2 border-primary/60 border-l-2 bg-muted/50 py-1.5 pr-2 pl-3 font-sans text-[12.5px] leading-snug">
+    <div className="sticky left-0 flex w-full max-w-[min(100%,560px)] items-start gap-2 border-primary/60 border-l-2 bg-muted/50 py-1.5 pr-2 pl-3 font-sans text-meta">
       <p className={cn("min-w-0 flex-1 whitespace-pre-wrap break-words", c.sent && "text-muted-foreground")}>{c.text}</p>
       {c.sent ? (
         <Badge variant="outline" size="sm" className="shrink-0">
@@ -237,7 +237,7 @@ export function CommentComposer({ line, onSave, onCancel }: { line: number; onSa
         }}
       />
       <div className="flex items-center gap-1.5">
-        <span className="text-muted-foreground text-xs">Line {line} · ⌘↵ to add</span>
+        <span className="text-muted-foreground text-meta">Line {line} · ⌘↵ to add</span>
         <Button size="xs" variant="ghost" className="ml-auto" onClick={onCancel}>
           Cancel
         </Button>

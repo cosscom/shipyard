@@ -144,14 +144,14 @@ export function ZenSwitcher({ className }: { className?: string }) {
           <MenuItem key={n.id} onClick={n.go} aria-current={n.active ? "page" : undefined} className={cn(n.active && "bg-accent/50 font-medium")}>
             <span className="flex size-4 items-center justify-center [&_svg]:size-4">{n.icon}</span>
             <span className="min-w-0 flex-1 truncate">{n.label}</span>
-            {n.badge && <span className={cn("text-xs tabular-nums", n.badge.loud ? "text-warning-foreground" : "text-muted-foreground")}>{n.badge.count}</span>}
+            {n.badge && <span className={cn("text-meta tabular-nums", n.badge.loud ? "text-warning-foreground" : "text-muted-foreground")}>{n.badge.count}</span>}
           </MenuItem>
         ))}
         <MenuSub>
           <MenuSubTrigger>
             <EllipsisIcon />
             <span className="min-w-0 flex-1 truncate">More</span>
-            {more.find((n) => n.active) && <span className="text-muted-foreground text-xs">{more.find((n) => n.active)!.label}</span>}
+            {more.find((n) => n.active) && <span className="text-muted-foreground text-meta">{more.find((n) => n.active)!.label}</span>}
           </MenuSubTrigger>
           <MenuSubPopup className="min-w-52">
             <MoreItems more={more} />
@@ -165,9 +165,9 @@ export function ZenSwitcher({ className }: { className?: string }) {
               <StateGlyph state={e.state} />
               <span className="min-w-0 flex-1 truncate">
                 {title}
-                {place && <span className="ml-1.5 text-muted-foreground text-xs">{place}</span>}
+                {place && <span className="ml-1.5 text-muted-foreground text-meta">{place}</span>}
               </span>
-              <span className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs">
+              <span className="flex shrink-0 items-center gap-1 text-muted-foreground text-meta">
                 <AgentIcon agent={agentOf(e.session)} className="size-3" />
                 {ago(e.session.state_since ?? e.session.created)}
               </span>
@@ -183,7 +183,7 @@ export function ZenSwitcher({ className }: { className?: string }) {
               <MenuItem key={`${w.ref.box}:${w.ref.path}`} disabled={!!leaving} onClick={() => selectWorktree(w.ref)}>
                 <GitBranchIcon />
                 <span className="min-w-0 flex-1 truncate">{placeLabel(w.ref)}</span>
-                <span className="text-muted-foreground text-xs">{leaving ? removalLabel(leaving) : w.ref.box}</span>
+                <span className="text-muted-foreground text-meta">{leaving ? removalLabel(leaving) : w.ref.box}</span>
               </MenuItem>
             );
           })}
@@ -254,7 +254,7 @@ function AllWorktrees() {
                         <MenuItem key={wt.path} disabled={!!leaving} onClick={() => selectWorktree(refOf(box, loc, wt))}>
                           {wt.main ? <HouseIcon /> : <GitBranchIcon />}
                           <span className="min-w-0 flex-1 truncate">{wt.main ? "main" : worktreeLabel(wt)}</span>
-                          {leaving && <span className="text-muted-foreground text-xs">{removalLabel(leaving)}</span>}
+                          {leaving && <span className="text-muted-foreground text-meta">{removalLabel(leaving)}</span>}
                         </MenuItem>
                       );
                     })}
@@ -276,7 +276,7 @@ function ZenPlace({ wsKey, name }: { wsKey?: string; name: string }) {
   const { label } = useLabel(wsKey);
   if (!tone || !label) return null;
   return (
-    <span className="flex shrink-0 items-center gap-1 text-xs" style={{ color: tone }}>
+    <span className="flex shrink-0 items-center gap-1 text-meta" style={{ color: tone }}>
       <WtDot wsKey={wsKey} className="size-1.5" />
       {label !== name && label}
     </span>
@@ -298,7 +298,7 @@ function useFocusedSession() {
 // has no tabs to double-click.
 function ZenRename({ box, s }: { box: string; s: { name: string; title?: string } }) {
   return (
-    <div className="flex h-8 w-72 min-w-0 items-center text-sm">
+    <div className="flex h-8 w-72 min-w-0 items-center text-body">
       <TitleInput
         initial={s.title ?? ""}
         placeholder="Name this session"
@@ -323,7 +323,7 @@ function WorktreeMenu() {
   // On its way out: nothing to do with it but wait.
   if (leaving)
     return (
-      <span aria-busy="true" className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-muted-foreground text-xs">
+      <span aria-busy="true" className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-muted-foreground text-meta">
         <Spinner className="size-3" />
         {removalLabel(leaving)}
       </span>

@@ -252,7 +252,7 @@ function TurnOnDialog({ berth, copy, box, update, onClose }: { berth: BerthPlugi
             This {update ? "replaces" : "installs"} <code>{copy.program}</code>, a program this plugin carries, on {name} and keeps it running there. {copy.does(name)}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error && <p className="mx-6 whitespace-pre-wrap rounded-md bg-destructive/8 p-2 font-mono text-destructive-foreground text-xs">{error}</p>}
+        {error && <p className="mx-6 whitespace-pre-wrap rounded-md bg-destructive/8 p-2 font-mono text-destructive-foreground text-mono">{error}</p>}
         <AlertDialogFooter>
           <AlertDialogClose render={<Button variant="ghost" />}>Cancel</AlertDialogClose>
           <Button loading={busy} onClick={() => void go()}>
@@ -366,7 +366,7 @@ function HelperPanel({ berth, box, copy, onAbout, testId = "helper" }: HelperBox
           testId={testId}
           icon={<TriangleAlert className={mark} />}
           title={`${copy.program} couldn't start on ${box}`}
-          body={<span className="whitespace-pre-wrap font-mono text-xs">{s.error ?? "The box didn't say why."}</span>}
+          body={<span className="whitespace-pre-wrap font-mono text-mono">{s.error ?? "The box didn't say why."}</span>}
           actions={
             <>
               <Button size="sm" onClick={() => void turnOn(berth, box).catch((err) => berth.notify(`Couldn't turn ${copy.name} on on ${box}`, said(err)))}>
@@ -446,7 +446,7 @@ function HelperRow({ berth, box, copy, online = true, active = true, testId = "h
     <li className="px-4 py-3" data-testid={`${testId}-box`} data-box={box} data-state={online ? (state ?? "reading") : "offline"}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <Server className="size-4 shrink-0 text-muted-foreground" />
-        <span className="font-medium text-sm">{box}</span>
+        <span className="text-row">{box}</span>
         {badge ? (
           <Badge variant={badge.variant} size="sm" className="gap-1">
             {(state === "installing" || state === "starting") && <Spinner className="size-3" />}
@@ -460,7 +460,7 @@ function HelperRow({ berth, box, copy, online = true, active = true, testId = "h
           <Skeleton className="h-4 w-14" />
         )}
         {s?.version && state !== "none" && (
-          <span className="font-mono text-muted-foreground text-xs">
+          <span className="font-mono text-muted-foreground text-mono">
             {copy.program} {s.version}
             {s.platform && ` · ${s.platform}`}
           </span>
@@ -493,7 +493,7 @@ function HelperRow({ berth, box, copy, online = true, active = true, testId = "h
           )}
         </span>
       </div>
-      <div className="mt-1 pl-7 text-muted-foreground text-xs">
+      <div className="mt-1 pl-7 text-muted-foreground text-meta">
         {!online ? (
           "Its helper can't be reached until the box is back."
         ) : view.old ? (

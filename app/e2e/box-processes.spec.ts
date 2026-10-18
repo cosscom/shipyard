@@ -1,18 +1,19 @@
 import { expect, mockOnly, test } from "./fixtures";
 
-// A box's browsers, from its memory meter in the status bar: who started
-// each, what it costs, and Stop for those Shipyard or its sessions started.
+// A box's browsers, in Settings › Boxes (the sidebar's foot opens it): who
+// started each, what it costs, and Stop for those Shipyard or its sessions
+// started.
 // The mock's devl runs a session's Playwright tests at 486% CPU, berth's own
 // agent browser, one left by an ended session, an agent-browser session and
 // the box user's own Chrome (src/lib/mock-processes.ts).
 
 test.beforeEach(() => mockOnly("a box's processes are mock fixtures, and Stop would stop them"));
 
-test("the box meter lists the box's browsers and Stop stops one", async ({ app }) => {
+test("the sidebar's foot leads to the box's browsers, and Stop stops one", async ({ app }) => {
   const { page } = app;
   await app.open();
-  await page.getByTestId("box-meter-devl").click();
-  const panel = page.getByTestId("box-processes");
+  await page.getByTestId("sidebar-boxes").click();
+  const panel = page.getByTestId("settings-boxes").locator("[data-testid=box-processes-card][data-box=devl]");
   await expect(panel).toBeVisible();
   const playwright = panel.getByTestId("box-browser").filter({ hasText: "Playwright tests in shop/https-linear-app-acme" });
   await expect(playwright).toContainText("486%");

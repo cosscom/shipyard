@@ -107,7 +107,7 @@ function FileHead({ f }: { f: FileDiffMetadata }) {
   const removed = f.hunks.reduce((n, h) => n + h.deletionLines, 0);
   const what = f.type === "new" ? "New" : f.type === "deleted" ? "Deleted" : f.prevName ? "Renamed" : undefined;
   return (
-    <div className="flex h-8 items-center gap-2 border-b bg-muted/30 px-3 font-sans text-muted-foreground text-xs">
+    <div className="flex h-8 items-center gap-2 border-b bg-muted/30 px-3 font-sans text-muted-foreground text-meta">
       <span className="min-w-0 flex-1 truncate">
         {what && `${what} `}
         {f.prevName && (

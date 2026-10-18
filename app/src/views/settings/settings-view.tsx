@@ -1,11 +1,13 @@
-import { BellIcon, BotIcon, CableIcon, FlaskConicalIcon, InfoIcon, KeyboardIcon, LaptopIcon, PaletteIcon, PuzzleIcon, ServerIcon, SlidersHorizontalIcon, SmartphoneIcon, SquareTerminalIcon, WrenchIcon } from "lucide-react";
-import type { ComponentType } from "react";
+import { ArrowLeftIcon, BellIcon, BotIcon, CableIcon, FlaskConicalIcon, InfoIcon, KeyboardIcon, LaptopIcon, PaletteIcon, PuzzleIcon, ServerIcon, SlidersHorizontalIcon, SmartphoneIcon, SquareTerminalIcon, WrenchIcon } from "lucide-react";
+import { type ComponentType, useEffect } from "react";
 
-import { Tip } from "@/components/tip";
+import { ink, inkScale } from "@/components/sidebar/ink";
+import { SIDEBAR_DEFAULT, SIDEBAR_MAX, SIDEBAR_MIN } from "@/lib/sidebar-width";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { AboutSection } from "@/views/settings/about-section";
 import { AgentsSection } from "@/views/settings/agents-section";
+import { useAppVersion } from "@/views/settings/app-version";
 import { AppearanceSection } from "@/views/settings/appearance-section";
 import { BoxesSection } from "@/views/settings/boxes-section";
 import { ComputersSection } from "@/views/settings/computers-section";
@@ -18,9 +20,8 @@ import { PhoneSection } from "@/views/settings/phone-section";
 import { PluginsSection } from "@/views/settings/plugins-section";
 import { ShortcutsSection } from "@/views/settings/shortcuts-section";
 import { TerminalSection } from "@/views/settings/terminal-section";
-import { ViewHeaderHost } from "@/views/view-header";
 
-import { openSettings, type SettingsSectionId } from "@/views/settings/open";
+import { closeSettings, openSettings, type SettingsSectionId } from "@/views/settings/open";
 
 export { openSettings, type SettingsSectionId };
 
@@ -41,46 +42,112 @@ const SECTIONS: { id: SettingsSectionId; title: string; icon: ComponentType<{ cl
   { id: "developer", title: "Developer", icon: WrenchIcon, Component: DeveloperSection },
 ];
 
-// Below 1200px of window the section list shrinks to its icons, so the
-// settings themselves keep their width.
+// The nav groups the sections by what they're about; the quieter ones
+// (Labs, Developer, About) sit at the bottom.
+const GROUPS: { title?: string; ids: SettingsSectionId[] }[] = [
+  { title: "Shipyard", ids: ["general", "appearance", "notifications", "shortcuts"] },
+  { title: "Agents", ids: ["agents", "terminal", "integrations", "plugins"] },
+  { title: "Machines", ids: ["boxes", "computers", "phone"] },
+];
+const BOTTOM: SettingsSectionId[] = ["labs", "developer", "about"];
+// Longer names where the nav has room for them.
+const NAV_TITLES: Partial<Record<SettingsSectionId, string>> = { agents: "Agents and models" };
+
+const back = closeSettings;
+
+// Settings is a page of its own: while it's open its nav takes the
+// sidebar's place (App.tsx hides the sidebar and the status bar), as wide
+// as the sidebar and drawn like it, with Back to app at the top and the
+// sections in groups beneath.
 export function SettingsView() {
   const view = useStore((s) => s.view);
   const id = (view.kind === "settings" && SECTIONS.some((s) => s.id === view.section) ? view.section : "general") as SettingsSectionId;
   const current = SECTIONS.find((s) => s.id === id)!;
 
+  // Esc goes back to the app, unless something in the page has it (a field,
+  // a menu or a dialog).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t?.closest("input, textarea, select, [contenteditable=true], [role=dialog], [role=menu], [role=listbox]")) return;
+      if (document.querySelector("[role=dialog], [role=alertdialog]")) return;
+      back();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
-    <div className="flex h-full flex-col">
-      <ViewHeaderHost fallback={{ title: "Settings" }}>
-        <div className="flex min-h-0 flex-1">
-          <nav aria-label="Settings sections" className="flex w-48 shrink-0 flex-col gap-px border-r px-2 pt-4 max-[1200px]:w-12 max-[1200px]:px-1.5">
-            {SECTIONS.map((s) => (
-              <div key={s.id}>
-                {s.id === "about" && <div className="mx-2.5 my-2 border-t max-[1200px]:mx-1" />}
-                {/* The tooltip is for the narrow window, where only icons show. */}
-                <Tip label={s.title} side="right" className="min-[1201px]:hidden">
-                  <button
-                    type="button"
-                    onClick={() => openSettings(s.id)}
-                    data-testid={`settings-nav-${s.id}`}
-                    aria-current={s.id === id ? "page" : undefined}
-                    aria-label={s.title}
-                    className={cn(
-                      "flex h-7.5 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] transition-colors max-[1200px]:justify-center max-[1200px]:px-0",
-                      s.id === id ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-                    )}
-                  >
-                    <s.icon className="size-3.5 shrink-0" />
-                    <span className="max-[1200px]:hidden">{s.title}</span>
-                  </button>
-                </Tip>
-              </div>
+    <div className="flex h-full min-h-0">
+      <nav
+        aria-label="Settings sections"
+        style={{ width: `clamp(${SIDEBAR_MIN}px, var(--sidebar-w, ${SIDEBAR_DEFAULT}px), max(${SIDEBAR_DEFAULT}px, min(${SIDEBAR_MAX}px, 40vw)))` }}
+        className={cn("flex shrink-0 flex-col border-sidebar-border border-r bg-sidebar text-sidebar-foreground", inkScale)}
+      >
+        {/* Room for the macOS traffic lights; the strip drags the window. */}
+        <div data-tauri-drag-region className="h-10 shrink-0" />
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-2">
+          <button type="button" onClick={back} className={cn(ROW, ink.quiet)}>
+            <ArrowLeftIcon />
+            <span className="flex-1">Back to app</span>
+            <kbd className={cn("font-sans text-tag", ink.faint)}>esc</kbd>
+          </button>
+          {GROUPS.map((g) => (
+            <div key={g.title} className="flex flex-col gap-px">
+              <div className={cn("px-1 pt-4 pb-1 text-tag font-medium", ink.faint)}>{g.title}</div>
+              {g.ids.map((sid) => (
+                <NavItem key={sid} id={sid} current={id} />
+              ))}
+            </div>
+          ))}
+          <div className="min-h-4 flex-1" />
+          <div className="flex flex-col gap-px">
+            {BOTTOM.map((sid) => (
+              <NavItem key={sid} id={sid} current={id} />
             ))}
-          </nav>
-          <div data-testid={`settings-${id}`} className="min-w-0 flex-1 overflow-y-auto">
-            <current.Component key={id} />
           </div>
         </div>
-      </ViewHeaderHost>
+      </nav>
+      <div data-testid={`settings-${id}`} className="min-w-0 flex-1 overflow-y-auto bg-background">
+        <current.Component key={id} />
+      </div>
     </div>
   );
+}
+
+// A nav row, drawn as the sidebar's places are (components/sidebar/nav.tsx).
+// In the sidebar's one ink (components/sidebar/ink.ts).
+const ROW = cn("flex h-side-row w-full items-center gap-2 rounded-lg px-2 text-left text-desc outline-hidden ring-sidebar-ring transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:text-(color:--ink-glyph)", ink.row);
+
+function NavItem({ id, current }: { id: SettingsSectionId; current: SettingsSectionId }) {
+  const s = SECTIONS.find((x) => x.id === id)!;
+  const title = NAV_TITLES[id] ?? s.title;
+  const active = id === current;
+  return (
+    <button
+      type="button"
+      onClick={() => openSettings(s.id)}
+      data-testid={`settings-nav-${s.id}`}
+      aria-current={active ? "page" : undefined}
+      aria-label={s.title}
+      className={cn(ROW, active && "bg-sidebar-accent text-foreground [&>svg]:text-(color:--ink-row)")}
+    >
+      <s.icon />
+      <span className="min-w-0 flex-1 truncate">{title}</span>
+      <NavNote id={id} />
+    </button>
+  );
+}
+
+// NavNote is the quiet fact beside a few sections: how many boxes are
+// online, the app's version.
+function NavNote({ id }: { id: SettingsSectionId }) {
+  const status = useStore((s) => s.status);
+  const version = useAppVersion();
+  let note: string | undefined;
+  if (id === "boxes" && status?.boxes.length) note = `${status.boxes.filter((b) => b.state === "online").length} of ${status.boxes.length} online`;
+  if (id === "about" && version && version !== "…") note = version === "dev" || version === "unknown" ? version : `v${version}`;
+  if (!note) return null;
+  return <span className={cn("shrink-0 text-tag tabular-nums", ink.faint)}>{note}</span>;
 }

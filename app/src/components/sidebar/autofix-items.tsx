@@ -35,7 +35,7 @@ export function AutoFixItems({ box, path }: { box: string; path: string }) {
   }, [box, path]);
   if (!a)
     return (
-      <div className="flex items-center gap-2 px-2 py-1.5 text-muted-foreground text-xs">
+      <div className="flex items-center gap-2 px-2 py-1.5 text-muted-foreground text-meta">
         <Spinner className="size-3" /> Loading…
       </div>
     );
@@ -58,7 +58,7 @@ export function AutoFixItems({ box, path }: { box: string; path: string }) {
       <MenuCheckboxItem checked={a.review} onCheckedChange={(review) => void set({ review })}>
         Address review comments
       </MenuCheckboxItem>
-      <div className="max-w-60 px-2 py-1.5 text-[11px] text-muted-foreground">Sends the worktree's agent the failing CI tail or the new comments, then pushes. 3 runs a day each.</div>
+      <div className="max-w-60 px-2 py-1.5 text-meta text-muted-foreground">Sends the worktree's agent the failing CI tail or the new comments, then pushes. 3 runs a day each.</div>
     </>
   );
 }

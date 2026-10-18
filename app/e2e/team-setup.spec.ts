@@ -35,7 +35,8 @@ test("first run: Joining a team? opens the team setup in the whole window", asyn
 test("Add a box offers to set the box up for a team", async ({ app }) => {
   const { page } = app;
   await app.open({ params: { team: "acme" } });
-  await page.getByLabel("Projects options").click();
+  // The sidebar's More menu has its ways to add a project or a box.
+  await page.getByTestId("nav-more").click();
   await page.getByRole("menuitem", { name: /Add a box/ }).click();
   await page.getByTestId("addbox-team").click();
   await expect(page.getByRole("heading", { name: "Which GitHub org?" })).toBeVisible();
@@ -342,7 +343,7 @@ test("a repo set up from a clone you have runs in place, and its worktree waits 
   await expect(page.getByTestId("adopted-website")).toHaveCount(0);
   // Its worktree is in the sidebar (past shop's busier ones), set up the
   // first time it's opened.
-  await page.getByRole("button", { name: /^\d+ more worktrees?$/ }).first().click();
+  await page.getByRole("button", { name: /^Show \d+ older$/ }).first().click();
   await expect(page.getByTestId("setup-on-open").first()).toHaveText("set up on first open");
 });
 

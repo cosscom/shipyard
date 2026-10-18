@@ -54,7 +54,7 @@ export function ProjectPicker({
     onChange(next);
   };
 
-  if (!online.length) return <p className="rounded-lg border border-dashed px-3 py-4 text-center text-muted-foreground text-xs">No box is online. Kits apply to projects on online boxes.</p>;
+  if (!online.length) return <p className="rounded-lg border border-dashed px-3 py-4 text-center text-meta text-muted-foreground">No box is online. Kits apply to projects on online boxes.</p>;
 
   return (
     <div className="space-y-3">
@@ -62,12 +62,12 @@ export function ProjectPicker({
         const locs = (data[b.name]?.locations ?? []).filter((l) => l.repo);
         return (
           <div key={b.name} className="overflow-hidden rounded-lg border bg-card">
-            <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-1.5 text-muted-foreground text-xs">
+            <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-1.5 text-meta text-muted-foreground">
               <ServerIcon className="size-3" />
               <span className="font-medium text-foreground/90">{b.name}</span>
               <span className="ml-auto">{locs.length === 1 ? "1 project" : `${locs.length} projects`}</span>
             </div>
-            {locs.length === 0 && <p className="px-3 py-2.5 text-muted-foreground text-xs">No git projects on {b.name} yet.</p>}
+            {locs.length === 0 && <p className="px-3 py-2.5 text-meta text-muted-foreground">No git projects on {b.name} yet.</p>}
             {locs.map((l) => {
               const key = targetKey({ box: b.name, location: l.name });
               const here = installed.find((i) => i.box === b.name && i.location === l.name);
@@ -77,12 +77,12 @@ export function ProjectPicker({
                 <label key={key} className={cn("flex min-w-0 cursor-pointer items-start gap-2.5 border-b px-3 py-2 last:border-b-0 hover:bg-accent/40", disabled && "cursor-default hover:bg-transparent")}>
                   <Checkbox className="mt-0.5" checked={selected.has(key)} disabled={disabled} onCheckedChange={(v) => toggle(key, !!v)} />
                   <div className="min-w-0 flex-1">
-                    <div className="flex min-w-0 items-center gap-2 text-sm">
+                    <div className="flex min-w-0 items-center gap-2 text-body">
                       <FolderGitIcon className="size-3.5 shrink-0 text-muted-foreground" />
                       <span className="truncate">{l.name}</span>
-                      {l.slug && <span className={cn("truncate font-mono text-[11px]", matches ? "text-success-foreground" : "text-muted-foreground")}>{l.slug}</span>}
+                      {l.slug && <span className={cn("truncate font-mono text-meta", matches ? "text-success-foreground" : "text-muted-foreground")}>{l.slug}</span>}
                       {here && (
-                        <span className="ml-auto shrink-0 rounded-md border px-1.5 text-[11px] text-muted-foreground">
+                        <span className="ml-auto shrink-0 rounded-md border px-1.5 text-tag text-muted-foreground">
                           {here.kit.id === kitId ? (here.outdated ? "Has an older version" : "Has this kit") : `Has ${here.kit.name || here.kit.id}`}
                         </span>
                       )}
@@ -102,21 +102,21 @@ export function ProjectPicker({
 function ResultLine({ result }: { result: TargetResult }) {
   if (result.state === "applying") {
     return (
-      <p className="mt-1 flex items-center gap-1.5 text-muted-foreground text-xs">
+      <p className="mt-1 flex items-center gap-1.5 text-meta text-muted-foreground">
         <Spinner className="size-3" /> Applying…
       </p>
     );
   }
   if (result.state === "failed") {
     return (
-      <p className="mt-1 flex items-start gap-1.5 text-destructive-foreground text-xs">
+      <p className="mt-1 flex items-start gap-1.5 text-destructive-foreground text-meta">
         <XIcon className="mt-0.5 size-3 shrink-0" />
         {result.error}
       </p>
     );
   }
   return (
-    <div className="mt-1 space-y-0.5 text-xs">
+    <div className="mt-1 space-y-0.5 text-meta">
       <p className="flex items-center gap-1.5 text-success-foreground">
         <CheckIcon className="size-3" /> Applied
       </p>

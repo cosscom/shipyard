@@ -7,13 +7,13 @@ export default function NotesView({ body, size, height }: ViewProps) {
   if (size === "thumb")
     return (
       <Thumb h={height ?? 120} width={520}>
-        <div className="p-2 text-[0.8125rem]">
+        <div className="p-2 text-desc">
           <Markdown text={body} copy={false} />
         </div>
       </Thumb>
     );
   return (
-    <div className="mx-auto w-full max-w-[46rem] text-[0.875rem]" data-art-notes>
+    <div className="mx-auto w-full max-w-[46rem] text-body" data-art-notes>
       <Markdown text={body} copy={false} />
     </div>
   );

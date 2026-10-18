@@ -179,7 +179,7 @@ func nativeResume(p AgentPreset, agent string, vars map[string]string, dir, prom
 		}
 		return p.Command + " --resume " + shellQuote(sid) + " --fork-session " + shellQuote(prompt), "forked Claude session " + sid[:8]
 	case "codex":
-		return p.Command + " resume " + shellQuote(sid) + " " + shellQuote(prompt), "resumed Codex session " + sid[:8]
+		return codexCommand(p) + " resume " + shellQuote(sid) + " " + shellQuote(prompt), "resumed Codex session " + sid[:8]
 	}
 	return "", ""
 }

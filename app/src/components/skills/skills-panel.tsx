@@ -90,7 +90,7 @@ export function SkillsPanel({ box, location, className, hideTitle }: { box: stri
             {location ? "Skills in this project" : `Skills on ${box}`}
           </CardFrameTitle>
         )}
-        <CardFrameDescription className="text-xs">
+        <CardFrameDescription className="text-meta">
           {location ? "Only agents working in this repository learn them." : "Every agent the box's user runs learns them."} They teach Claude Code and Codex to use Shipyard.
         </CardFrameDescription>
         <CardFrameAction>
@@ -102,7 +102,7 @@ export function SkillsPanel({ box, location, className, hideTitle }: { box: stri
       </CardFrameHeader>
 
       <div className="border-t">
-        <div className="grid grid-cols-[minmax(0,1fr)_7.5rem_7.5rem] items-center border-b px-4 py-1.5 text-[11px] text-muted-foreground">
+        <div className="grid grid-cols-[minmax(0,1fr)_7.5rem_7.5rem] items-center border-b px-4 py-1.5 text-tag text-muted-foreground">
           <span>Skill</span>
           {(["claude", "codex"] as const).map((a) => (
             <span key={a} className="flex items-center gap-1.5">
@@ -111,9 +111,9 @@ export function SkillsPanel({ box, location, className, hideTitle }: { box: stri
             </span>
           ))}
         </div>
-        {error && <ErrorText className="px-4 py-6 text-center text-destructive-foreground text-xs" text={error} />}
+        {error && <ErrorText className="px-4 py-6 text-center text-destructive-foreground text-meta" text={error} />}
         {!report && !error && (
-          <div className="flex items-center justify-center gap-2 px-4 py-6 text-muted-foreground text-xs">
+          <div className="flex items-center justify-center gap-2 px-4 py-6 text-muted-foreground text-meta">
             <Spinner className="size-3" /> Checking {box}…
           </div>
         )}
@@ -121,10 +121,10 @@ export function SkillsPanel({ box, location, className, hideTitle }: { box: stri
           <div key={s.name} className="grid grid-cols-[minmax(0,1fr)_7.5rem_7.5rem] items-center gap-y-1 border-b px-4 py-2.5 last:border-b-0">
             <div className="min-w-0 pr-3">
               <div className="flex items-baseline gap-2">
-                <span className="font-medium font-mono text-[12.5px]">{s.name}</span>
-                <span className="font-mono text-[10px] text-muted-foreground">{s.version.slice(0, 7)}</span>
+                <span className="font-medium font-mono text-mono">{s.name}</span>
+                <span className="font-mono text-tag text-muted-foreground">{s.version.slice(0, 7)}</span>
               </div>
-              <p className="line-clamp-2 text-muted-foreground text-xs leading-snug" title={s.description}>
+              <p className="line-clamp-2 text-muted-foreground text-meta" title={s.description}>
                 {skillSummary(s)}
               </p>
             </div>
@@ -147,11 +147,11 @@ export function SkillsPanel({ box, location, className, hideTitle }: { box: stri
       </div>
 
       <CardFrameFooter className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-2.5">
-        <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground" title={dirs ? `${dirs.claude}\n${dirs.codex}` : undefined}>
+        <span className="min-w-0 truncate font-mono text-tag text-muted-foreground" title={dirs ? `${dirs.claude}\n${dirs.codex}` : undefined}>
           {dirs ? `${shortDir(dirs.claude)} · ${shortDir(dirs.codex)}` : " "}
         </span>
         {target === "project" && (
-          <label className="flex cursor-pointer items-center gap-2 text-muted-foreground text-xs">
+          <label className="flex cursor-pointer items-center gap-2 text-muted-foreground text-meta">
             <Switch checked={commit} onCheckedChange={setCommit} />
             Commit with the repository
           </label>
@@ -176,7 +176,7 @@ function StateCell({ state, committed, busy, disabled, onInstall, onRemove }: { 
   if (state === "installed") {
     return (
       <span className="group/cell flex h-6 items-center gap-1">
-        <span className="inline-flex items-center gap-1 text-success-foreground text-xs">
+        <span className="inline-flex items-center gap-1 text-success-foreground text-meta">
           <CheckIcon className="size-3.5" />
           {committed ? "Committed" : "Installed"}
         </span>
