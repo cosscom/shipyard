@@ -1,7 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 
 import { openBrowser } from "./a11y-scenes";
-import { type App, agentWorktree, expect, mockOnly, test } from "./fixtures";
+import { type App, agentWorktree, expect, live, mockOnly, test } from "./fixtures";
 
 // The core flows with the keyboard alone: Tab and Shift-Tab, arrows, Enter,
 // Esc and the documented shortcuts (lib/shortcuts.json). After every step
@@ -305,7 +305,8 @@ test("⌘K lists what the menus and shortcuts do", async ({ app }) => {
     ["sidebar", "Show or hide the sidebar"],
     ["review", "Review"],
     ["preview", "New Preview tab"],
-    ["rename", "Rename this worktree…"],
+    // Not for a main checkout, which a real fleet's first agent may be in.
+    ...(live ? [] : [["rename", "Rename this worktree…"]]),
     ["settings: terminal", "Settings: Terminal"],
     ["do not disturb", "Turn on Do not disturb"],
   ]) {

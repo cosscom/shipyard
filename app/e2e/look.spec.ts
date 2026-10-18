@@ -49,6 +49,8 @@ test("the chat background and width apply to conversations", async ({ app }) => 
   await expect.poll(() => app.stored("berth.prefs")).toMatchObject({ chatWidth: "wide", chatBackground: { source: "builtin", builtin: "dots" } });
   expect(await rootVar(app.page, "--berth-chat-w")).toBe("860px");
 
+  // Settings has the window; the worktrees are in the sidebar once it closes.
+  await app.leaveSettings();
   await app.openWorktree(await agentWorktree(app, "devl/checkout-fix"));
   await expect(app.chat).toBeVisible();
   // Drawn behind the conversation…

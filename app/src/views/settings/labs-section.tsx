@@ -7,9 +7,6 @@ import { SettingsGroup, SettingsPage, SettingsRow } from "@/views/settings/rows"
 export function LabsSection() {
   const labs = usePrefs((p) => p.labs);
   const agentView = usePrefs((p) => p.agentView);
-
-  const columns = usePrefs((p) => p.sidebarLayout === "columns");
-
   return (
     <SettingsPage title="Labs" description="Newer ideas to try. They may change or go away.">
       <SettingsGroup>
@@ -28,9 +25,6 @@ export function LabsSection() {
             />
           </SettingsRow>
         )}
-        <SettingsRow label="Two-column sidebar" description="Your projects in one column, and the tasks of the one you pick in the next.">
-          <Switch aria-label="Two-column sidebar" data-testid="labs-sidebar-columns" checked={columns} onCheckedChange={(on) => setPrefs({ sidebarLayout: on ? "columns" : "list" })} />
-        </SettingsRow>
       </SettingsGroup>
     </SettingsPage>
   );
