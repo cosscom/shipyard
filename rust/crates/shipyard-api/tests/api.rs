@@ -150,6 +150,51 @@ async fn follower_reconnects_and_calls_on_connect_each_time() {
     assert_eq!(requests.lock().unwrap().len(), 2);
 }
 
+#[tokio::test]
+async fn follower_ignores_false_stop_updates() {
+    let reply = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\ndata: {\"type\":\"box.online\",\"time\":\"2026-01-01T00:00:00Z\"}\n\n";
+    let (address, requests) =
+        mock_server(vec![vec![reply.to_owned()], vec![reply.to_owned()]]).await;
+    let client = Client::new(&address, "a-secret").unwrap();
+    let (stop_tx, stop_rx) = watch::channel(false);
+    let events = Arc::new(Mutex::new(0));
+    let count = events.clone();
+    timeout(
+        Duration::from_secs(3),
+        client.follow_events(
+            stop_rx,
+            || {},
+            move |_| {
+                let mut seen = count.lock().unwrap();
+                *seen += 1;
+                if *seen == 1 {
+                    stop_tx.send(false).unwrap();
+                } else {
+                    stop_tx.send(true).unwrap();
+                }
+            },
+        ),
+    )
+    .await
+    .unwrap();
+    assert_eq!(*events.lock().unwrap(), 2);
+    assert_eq!(requests.lock().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn follower_stops_when_owner_drops_stop_sender() {
+    let (address, _) = mock_server(Vec::new()).await;
+    let client = Client::new(&address, "a-secret").unwrap();
+    let (stop_tx, stop_rx) = watch::channel(false);
+    drop(stop_tx);
+    timeout(
+        Duration::from_secs(1),
+        client.follow_events(stop_rx, || {}, |_| {}),
+    )
+    .await
+    .unwrap();
+}
+
 #[test]
 fn endpoint_rejects_credentials_and_query_token() {
     assert!(matches!(
@@ -158,6 +203,10 @@ fn endpoint_rejects_credentials_and_query_token() {
     ));
     assert!(matches!(
         Client::new("http://localhost:1378?token=secret", "secret"),
+        Err(ApiError::InvalidEndpoint)
+    ));
+    assert!(matches!(
+        Client::new("https://example.com:1378", "secret"),
         Err(ApiError::InvalidEndpoint)
     ));
     assert!(matches!(

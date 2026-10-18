@@ -76,7 +76,7 @@ impl Client {
     pub fn new(endpoint: &str, token: &str) -> Result<Self, ApiError> {
         let base = Url::parse(endpoint).map_err(|_| ApiError::InvalidEndpoint)?;
         if !matches!(base.scheme(), "http" | "https")
-            || base.host_str().is_none()
+            || !matches!(base.host_str(), Some("127.0.0.1" | "localhost"))
             || !base.username().is_empty()
             || base.password().is_some()
             || base.query().is_some()
@@ -141,8 +141,9 @@ impl Client {
         })
     }
 
-    /// Follow the feed until `stop` becomes true. `on_connect` runs on every
-    /// connection so the caller can refresh state missed during a disconnect.
+    /// Follow the feed until `stop` becomes true or its sender closes.
+    /// `on_connect` runs on every connection so the caller can refresh state
+    /// missed during a disconnect.
     pub async fn follow_events<C, E>(
         &self,
         mut stop: watch::Receiver<bool>,
@@ -156,7 +157,7 @@ impl Client {
         while !*stop.borrow() {
             let connected = tokio::select! {
                 result = self.events() => result,
-                _ = stop.changed() => break,
+                _ = wait_for_stop(&mut stop) => break,
             };
             if let Ok(mut stream) = connected {
                 attempt = 0;
@@ -164,7 +165,7 @@ impl Client {
                 loop {
                     let next = tokio::select! {
                         result = stream.next_event() => result,
-                        _ = stop.changed() => return,
+                        _ = wait_for_stop(&mut stop) => return,
                     };
                     match next {
                         Ok(Some(event)) => on_event(event),
@@ -175,8 +176,19 @@ impl Client {
             attempt = attempt.saturating_add(1);
             tokio::select! {
                 _ = time::sleep(reconnect_delay(attempt)) => {},
-                _ = stop.changed() => break,
+                _ = wait_for_stop(&mut stop) => break,
             }
+        }
+    }
+}
+
+async fn wait_for_stop(stop: &mut watch::Receiver<bool>) {
+    loop {
+        if *stop.borrow_and_update() {
+            return;
+        }
+        if stop.changed().await.is_err() {
+            return;
         }
     }
 }
