@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use shipyard_api::{ApiError, Client, ThemeAppearance};
 use std::sync::{Arc, Mutex};
 use tokio::{
@@ -17,7 +18,23 @@ async fn mock_server(responses: Vec<Vec<String>>) -> (String, Arc<Mutex<Vec<Stri
             let (mut socket, _) = listener.accept().await.unwrap();
             let mut raw = Vec::new();
             let mut bytes = [0; 1024];
-            while !raw.ends_with(b"\r\n\r\n") {
+            let header_end = loop {
+                if let Some(end) = raw.windows(4).position(|window| window == b"\r\n\r\n") {
+                    break end + 4;
+                }
+                let count = socket.read(&mut bytes).await.unwrap();
+                if count == 0 {
+                    break raw.len();
+                }
+                raw.extend_from_slice(&bytes[..count]);
+            };
+            let headers = String::from_utf8_lossy(&raw[..header_end]).to_ascii_lowercase();
+            let body_len = headers
+                .lines()
+                .find_map(|line| line.strip_prefix("content-length:"))
+                .and_then(|length| length.trim().parse::<usize>().ok())
+                .unwrap_or(0);
+            while raw.len() < header_end + body_len {
                 let count = socket.read(&mut bytes).await.unwrap();
                 if count == 0 {
                     break;
@@ -41,6 +58,129 @@ fn json_response(status: &str, body: &str) -> String {
         "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
         body.len()
     )
+}
+
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
+struct SettingsDocument {
+    default_box: String,
+}
+
+#[tokio::test]
+async fn app_documents_preserve_missing_null_and_echo_typed_puts() {
+    let body = r#"{"default_box":"acme"}"#;
+    let (address, requests) = mock_server(vec![
+        vec![json_response("200 OK", "null")],
+        vec![json_response("200 OK", body)],
+        vec![json_response("200 OK", body)],
+    ])
+    .await;
+    let client = Client::new(&address, "a-secret").unwrap();
+    assert_eq!(
+        client
+            .app_document::<SettingsDocument>("projects")
+            .await
+            .unwrap(),
+        None
+    );
+    let document = SettingsDocument {
+        default_box: "acme".to_owned(),
+    };
+    assert_eq!(
+        client
+            .put_app_document("projects", &document)
+            .await
+            .unwrap(),
+        document
+    );
+    assert_eq!(
+        client
+            .app_document::<SettingsDocument>("projects")
+            .await
+            .unwrap(),
+        Some(document)
+    );
+    let requests = requests.lock().unwrap();
+    assert_eq!(requests.len(), 3);
+    assert!(requests[0].starts_with("get /v1/app/projects http/1.1\r\n"));
+    assert!(requests[1].starts_with("put /v1/app/projects http/1.1\r\n"));
+    assert!(requests[1].contains("content-type: application/json\r\n"));
+    assert!(requests[1].ends_with(body));
+    assert!(requests
+        .iter()
+        .all(|request| request.contains("authorization: bearer a-secret\r\n")));
+    assert!(requests.iter().all(|request| !request.contains("?token=")));
+}
+
+#[tokio::test]
+async fn app_document_put_can_store_json_null() {
+    let (address, requests) = mock_server(vec![vec![json_response("200 OK", "null")]]).await;
+    let client = Client::new(&address, "a-secret").unwrap();
+    let empty: Option<SettingsDocument> = None;
+    assert_eq!(
+        client
+            .put_app_document("skills-notice", &empty)
+            .await
+            .unwrap(),
+        None
+    );
+    let requests = requests.lock().unwrap();
+    assert!(requests[0].starts_with("put /v1/app/skills-notice http/1.1\r\n"));
+    assert!(requests[0].ends_with("\r\n\r\nnull"));
+}
+
+#[tokio::test]
+async fn app_document_rejects_invalid_keys_and_oversize_bodies_before_network() {
+    let client = Client::new("http://127.0.0.1:9", "a-secret").unwrap();
+    let document = SettingsDocument {
+        default_box: "acme".to_owned(),
+    };
+    for key in [
+        "",
+        "-first",
+        "Bad_Key",
+        "../escape",
+        "skills%2fnotice",
+        "é",
+        &"a".repeat(49),
+    ] {
+        assert!(matches!(
+            client.app_document::<SettingsDocument>(key).await,
+            Err(ApiError::InvalidDocumentKey)
+        ));
+        assert!(matches!(
+            client.put_app_document(key, &document).await,
+            Err(ApiError::InvalidDocumentKey)
+        ));
+    }
+    let large = "x".repeat(1 << 20);
+    assert!(matches!(
+        client.put_app_document("projects", &large).await,
+        Err(ApiError::DocumentTooLarge)
+    ));
+}
+
+#[tokio::test]
+async fn app_document_put_preserves_agent_error_response() {
+    let body = r#"{"error":"the body must be JSON, at most 1 MB"}"#;
+    let (address, requests) = mock_server(vec![vec![json_response("400 Bad Request", body)]]).await;
+    let client = Client::new(&address, "a-secret").unwrap();
+    let error = client
+        .put_app_document("projects", &Some(1))
+        .await
+        .unwrap_err();
+    match error {
+        ApiError::Http {
+            status,
+            code,
+            message,
+        } => {
+            assert_eq!(status.as_u16(), 400);
+            assert_eq!(code, None);
+            assert_eq!(message, "the body must be JSON, at most 1 MB");
+        }
+        other => panic!("unexpected error: {other}"),
+    }
+    assert!(requests.lock().unwrap()[0].contains("authorization: bearer a-secret\r\n"));
 }
 
 #[tokio::test]

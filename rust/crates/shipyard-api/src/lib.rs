@@ -7,18 +7,22 @@ mod model;
 
 pub use model::*;
 
-use reqwest::{header, StatusCode, Url};
-use serde::{de::DeserializeOwned, Deserialize};
+use reqwest::{header, Method, StatusCode, Url};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{error::Error as StdError, fmt, time::Duration};
 use tokio::{sync::watch, time};
 
 const READ_TIMEOUT: Duration = Duration::from_secs(30);
 const STREAM_SILENCE: Duration = Duration::from_secs(45);
+const MAX_APP_DOCUMENT_BYTES: usize = 1 << 20;
 
 #[derive(Debug)]
 pub enum ApiError {
     InvalidEndpoint,
     InvalidToken,
+    InvalidDocumentKey,
+    DocumentTooLarge,
+    Encode,
     Transport(reqwest::Error),
     Decode(serde_json::Error),
     Http {
@@ -34,6 +38,9 @@ impl fmt::Display for ApiError {
         match self {
             Self::InvalidEndpoint => write!(f, "invalid agent endpoint"),
             Self::InvalidToken => write!(f, "invalid agent token"),
+            Self::InvalidDocumentKey => write!(f, "invalid app document key"),
+            Self::DocumentTooLarge => write!(f, "app document exceeds 1 MB"),
+            Self::Encode => write!(f, "could not encode app document"),
             Self::Transport(error) => write!(f, "agent transport error: {error}"),
             Self::Decode(error) => write!(f, "invalid agent JSON: {error}"),
             Self::Http {
@@ -103,9 +110,30 @@ impl Client {
 
     fn request(&self, path: &str) -> reqwest::RequestBuilder {
         let url = self.base.join(path).expect("fixed API path is valid");
+        self.authorized(Method::GET, url)
+    }
+
+    fn authorized(&self, method: Method, url: Url) -> reqwest::RequestBuilder {
         self.http
-            .get(url)
+            .request(method, url)
             .header(header::AUTHORIZATION, self.authorization.clone())
+    }
+
+    fn app_document_url(&self, key: &str) -> Result<Url, ApiError> {
+        let mut chars = key.bytes();
+        let valid_first = matches!(chars.next(), Some(b'a'..=b'z' | b'0'..=b'9'));
+        if !valid_first
+            || key.len() > 48
+            || !chars.all(|byte| matches!(byte, b'a'..=b'z' | b'0'..=b'9' | b'-'))
+        {
+            return Err(ApiError::InvalidDocumentKey);
+        }
+        let mut url = self.base.join("v1/app/").expect("fixed API path is valid");
+        url.path_segments_mut()
+            .expect("HTTP URL supports path segments")
+            .pop_if_empty()
+            .push(key);
+        Ok(url)
     }
 
     /// Read the current status with the same 30 second read limit as the app.
@@ -123,6 +151,44 @@ impl Client {
         self.get_json("v1/templates").await
     }
 
+    /// Read an app settings document. A missing document, or one containing
+    /// JSON `null`, returns `None`, matching the agent's wire response.
+    pub async fn app_document<T: DeserializeOwned>(
+        &self,
+        key: &str,
+    ) -> Result<Option<T>, ApiError> {
+        let url = self.app_document_url(key)?;
+        let response = self
+            .authorized(Method::GET, url)
+            .timeout(READ_TIMEOUT)
+            .send()
+            .await
+            .map_err(ApiError::Transport)?;
+        read_json(response).await
+    }
+
+    /// Store a JSON document and decode the agent's echoed response. `None`
+    /// serializes as JSON `null`; writes have no client timeout, as in the app.
+    pub async fn put_app_document<T: Serialize + DeserializeOwned>(
+        &self,
+        key: &str,
+        document: &T,
+    ) -> Result<T, ApiError> {
+        let url = self.app_document_url(key)?;
+        let body = serde_json::to_vec(document).map_err(|_| ApiError::Encode)?;
+        if body.len() > MAX_APP_DOCUMENT_BYTES {
+            return Err(ApiError::DocumentTooLarge);
+        }
+        let response = self
+            .authorized(Method::PUT, url)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(body)
+            .send()
+            .await
+            .map_err(ApiError::Transport)?;
+        read_json(response).await
+    }
+
     async fn get_json<T: DeserializeOwned>(&self, path: &str) -> Result<T, ApiError> {
         let response = self
             .request(path)
@@ -130,9 +196,7 @@ impl Client {
             .send()
             .await
             .map_err(ApiError::Transport)?;
-        let response = check_response(response).await?;
-        let body = response.bytes().await.map_err(ApiError::Transport)?;
-        serde_json::from_slice(&body).map_err(ApiError::Decode)
+        read_json(response).await
     }
 
     /// Open the authenticated SSE feed. Each call creates a fresh connection.
@@ -194,6 +258,12 @@ impl Client {
             }
         }
     }
+}
+
+async fn read_json<T: DeserializeOwned>(response: reqwest::Response) -> Result<T, ApiError> {
+    let response = check_response(response).await?;
+    let body = response.bytes().await.map_err(ApiError::Transport)?;
+    serde_json::from_slice(&body).map_err(ApiError::Decode)
 }
 
 async fn wait_for_stop(stop: &mut watch::Receiver<bool>) {
