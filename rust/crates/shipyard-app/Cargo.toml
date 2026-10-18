@@ -6,3 +6,8 @@ publish = false
 
 [dependencies]
 gpui = { version = "=0.2.2", features = ["runtime_shaders"] }
+shipyard-api = { path = "../shipyard-api" }
+tokio = { version = "1", features = ["rt", "sync", "time"] }
+
+[dev-dependencies]
+reqwest = { version = "0.12", default-features = false }

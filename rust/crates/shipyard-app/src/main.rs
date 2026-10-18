@@ -1,7 +1,13 @@
+mod connection;
+
+use connection::{
+    ConnectionIssue, ConnectionState, LaunchMode, ParsedArgs, choose_mode, parse_args,
+};
 use gpui::{
     App, Application, Bounds, Context, IntoElement, Render, Window, WindowBounds, WindowOptions,
     div, prelude::*, px, rgb, size,
 };
+use tokio::sync::oneshot;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Page {
@@ -74,6 +80,7 @@ impl Appearance {
                 muted_foreground: 0x91939c,
                 border: 0x2c2d33,
                 accent: 0x2a2b31,
+                destructive: 0xf0564a,
             },
             Self::Light => Colors {
                 background: 0xffffff,
@@ -84,6 +91,7 @@ impl Appearance {
                 muted_foreground: 0x686a73,
                 border: 0xe6e6ea,
                 accent: 0xececef,
+                destructive: 0xd93a2e,
             },
         }
     }
@@ -99,18 +107,133 @@ struct Colors {
     muted_foreground: u32,
     border: u32,
     accent: u32,
+    destructive: u32,
 }
 
 struct Shell {
     page: Page,
     appearance: Appearance,
+    mode: LaunchMode,
+    connection: ConnectionState,
 }
 
 impl Shell {
-    fn new(appearance: Appearance) -> Self {
-        Self {
+    fn new(appearance: Appearance, mode: LaunchMode, cx: &mut Context<Self>) -> Self {
+        let mut shell = Self {
             page: Page::Home,
             appearance,
+            mode,
+            connection: ConnectionState::Idle,
+        };
+        if matches!(shell.mode, LaunchMode::Fixture) {
+            shell.connection = ConnectionState::Fixture;
+        } else {
+            shell.refresh_status(cx);
+        }
+        shell
+    }
+
+    fn refresh_status(&mut self, cx: &mut Context<Self>) {
+        let LaunchMode::Live(client) = &self.mode else {
+            return;
+        };
+        if matches!(self.connection, ConnectionState::Loading) {
+            return;
+        }
+        self.connection = ConnectionState::Loading;
+        cx.notify();
+        let client = client.clone();
+        let (sender, receiver) = oneshot::channel();
+        std::thread::spawn(move || {
+            let result = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(|_| ConnectionIssue::Runtime)
+                .and_then(|runtime| runtime.block_on(client.status()).map_err(Into::into));
+            let _ = sender.send(result);
+        });
+        cx.spawn(
+            async move |this: gpui::WeakEntity<Shell>, cx: &mut gpui::AsyncApp| {
+                if let Ok(result) = receiver.await {
+                    let _ = this.update(cx, |shell, cx| {
+                        shell.connection = match result {
+                            Ok(status) => status.into(),
+                            Err(issue) => ConnectionState::Error(issue),
+                        };
+                        cx.notify();
+                    });
+                }
+            },
+        )
+        .detach();
+    }
+
+    fn connection_label(&self) -> String {
+        match &self.connection {
+            ConnectionState::Fixture => "Fixture mode · No box connected".to_owned(),
+            ConnectionState::Idle | ConnectionState::Loading => {
+                "Connecting to laptop agent…".to_owned()
+            }
+            ConnectionState::Connected(boxes) => match boxes.len() {
+                0 => "Connected · No boxes".to_owned(),
+                1 => "Connected · 1 box".to_owned(),
+                count => format!("Connected · {count} boxes"),
+            },
+            ConnectionState::Error(_) => "Connection error · Select Refresh to retry".to_owned(),
+        }
+    }
+
+    fn connection_panel(&self, colors: &Colors) -> gpui::Div {
+        let panel = div().flex().flex_col().items_center().gap_3();
+        match &self.connection {
+            ConnectionState::Fixture => panel.child(
+                div()
+                    .text_sm()
+                    .text_color(rgb(colors.muted_foreground))
+                    .child("Fixture mode is offline."),
+            ),
+            ConnectionState::Idle | ConnectionState::Loading => panel.child(
+                div()
+                    .text_sm()
+                    .text_color(rgb(colors.muted_foreground))
+                    .child("Reading box status…"),
+            ),
+            ConnectionState::Connected(boxes) => {
+                if boxes.is_empty() {
+                    panel.child(
+                        div()
+                            .text_sm()
+                            .text_color(rgb(colors.muted_foreground))
+                            .child("Connected to the laptop agent. No boxes are configured."),
+                    )
+                } else {
+                    panel.children(boxes.iter().map(|box_status| {
+                        div()
+                            .w(px(360.))
+                            .p_3()
+                            .flex()
+                            .justify_between()
+                            .rounded_md()
+                            .bg(rgb(colors.muted))
+                            .text_sm()
+                            .child(box_status.name.clone())
+                            .child(box_status.state.clone())
+                    }))
+                }
+            }
+            ConnectionState::Error(issue) => panel
+                .child(
+                    div()
+                        .text_lg()
+                        .text_color(rgb(colors.destructive))
+                        .child(issue.title()),
+                )
+                .child(
+                    div()
+                        .text_sm()
+                        .text_color(rgb(colors.muted_foreground))
+                        .child(issue.message()),
+                ),
         }
     }
 
@@ -193,9 +316,22 @@ impl Render for Shell {
                     .bg(rgb(colors.muted))
                     .text_xs()
                     .text_color(rgb(colors.muted_foreground))
-                    .child("Fixture mode · No box connected"),
+                    .child(self.connection_label()),
             );
 
+        let refresh = div()
+            .id("refresh-status")
+            .px_3()
+            .h(px(32.))
+            .flex()
+            .items_center()
+            .rounded_md()
+            .text_xs()
+            .text_color(rgb(colors.sidebar_foreground))
+            .hover(|button| button.bg(rgb(colors.accent)))
+            .cursor_pointer()
+            .on_click(cx.listener(|this, _, _, cx| this.refresh_status(cx)))
+            .child("Refresh");
         let appearance = div()
             .id("appearance")
             .px_3()
@@ -212,6 +348,14 @@ impl Render for Shell {
                 cx.notify();
             }))
             .child(self.appearance.label());
+        let controls = div()
+            .flex()
+            .items_center()
+            .gap_2()
+            .when(matches!(self.mode, LaunchMode::Live(_)), |controls| {
+                controls.child(refresh)
+            })
+            .child(appearance);
 
         let main = div()
             .flex_1()
@@ -232,7 +376,7 @@ impl Render for Shell {
                     .border_b_1()
                     .border_color(rgb(colors.border))
                     .child(self.page.label())
-                    .child(appearance),
+                    .child(controls),
             )
             .child(
                 div()
@@ -253,6 +397,11 @@ impl Render for Shell {
                             .text_sm()
                             .text_color(rgb(colors.muted_foreground))
                             .child(self.page.description()),
+                    )
+                    .when(
+                        matches!(self.page, Page::Home | Page::Worktrees)
+                            || matches!(self.connection, ConnectionState::Error(_)),
+                        |content| content.child(self.connection_panel(&colors)),
                     ),
             )
             .child(
@@ -266,7 +415,7 @@ impl Render for Shell {
                     .border_color(rgb(colors.border))
                     .text_xs()
                     .text_color(rgb(colors.muted_foreground))
-                    .child("Shipyard · Fixture"),
+                    .child(self.connection_label()),
             );
 
         div()
@@ -279,23 +428,35 @@ impl Render for Shell {
 }
 
 fn main() {
-    let mut appearance = Appearance::Dark;
-    for arg in std::env::args().skip(1) {
-        match arg.as_str() {
-            "--fixture" => {}
-            "--light" => appearance = Appearance::Light,
-            "--help" | "-h" => {
-                println!(
-                    "Shipyard GPUI shell\n\nUsage: shipyard-app [--fixture] [--light]\n\nThe shell uses synthetic fixture data and makes no connection to a box."
-                );
-                return;
-            }
-            _ => {
-                eprintln!("Unknown argument: {arg}");
-                std::process::exit(2);
-            }
+    let options = match parse_args(std::env::args().skip(1)) {
+        Ok(ParsedArgs::Help) => {
+            println!(
+                "Shipyard GPUI shell\n\nUsage: shipyard-app [--fixture] [--light]\n       shipyard-app --endpoint http://127.0.0.1:PORT [--light]\n\nLive mode requires SHIPYARD_API_TOKEN in the environment. Fixture mode is offline."
+            );
+            return;
         }
-    }
+        Ok(ParsedArgs::Launch(options)) => options,
+        Err(message) => {
+            eprintln!("{message}");
+            std::process::exit(2);
+        }
+    };
+    let appearance = if options.appearance_light {
+        Appearance::Light
+    } else {
+        Appearance::Dark
+    };
+    let token = options
+        .endpoint
+        .as_ref()
+        .and_then(|_| std::env::var("SHIPYARD_API_TOKEN").ok());
+    let mode = match choose_mode(&options, token.as_deref()) {
+        Ok(mode) => mode,
+        Err(message) => {
+            eprintln!("{message}");
+            std::process::exit(2);
+        }
+    };
 
     Application::new().run(move |cx: &mut App| {
         let bounds = Bounds::centered(None, size(px(1100.), px(720.)), cx);
@@ -312,7 +473,7 @@ fn main() {
             },
             |window, cx| {
                 window.set_window_title("Shipyard");
-                cx.new(|_| Shell::new(appearance))
+                cx.new(|cx| Shell::new(appearance, mode, cx))
             },
         )
         .expect("open Shipyard window");

@@ -4888,6 +4888,9 @@ name = "shipyard-app"
 version = "0.1.0"
 dependencies = [
  "gpui",
+ "reqwest",
+ "shipyard-api",
+ "tokio",
 ]
 
 [[package]]
