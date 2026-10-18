@@ -12,7 +12,7 @@ use std::os::fd::AsRawFd;
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 
@@ -215,10 +215,11 @@ fn key_of_metadata(meta: &Metadata) -> FileKey {
 }
 
 /// A small file cache shared across threads. The callback's successful value
-/// is cloned for callers until the file's stat key changes. Callback errors
-/// are never cached. A stat error runs the callback without caching its result.
+/// is shared with callers until the file's stat key changes. Callers must not
+/// mutate it. Callback errors are never cached. A stat error runs the callback
+/// without caching its result.
 pub struct Cache<T> {
-    state: Mutex<Option<(FileKey, T)>>,
+    state: Mutex<Option<(FileKey, Arc<T>)>>,
 }
 
 impl<T> Default for Cache<T> {
@@ -229,8 +230,8 @@ impl<T> Default for Cache<T> {
     }
 }
 
-impl<T: Clone> Cache<T> {
-    pub fn load<E, F>(&self, path: impl AsRef<Path>, read: F) -> Result<T, E>
+impl<T> Cache<T> {
+    pub fn load<E, F>(&self, path: impl AsRef<Path>, read: F) -> Result<Arc<T>, E>
     where
         F: FnOnce() -> Result<T, E>,
     {
@@ -238,7 +239,7 @@ impl<T: Clone> Cache<T> {
         // is re-read on the next load instead of being cached under its key.
         let key = match file_key(path.as_ref()) {
             Ok(key) => key,
-            Err(_) => return read(),
+            Err(_) => return read().map(Arc::new),
         };
         let mut state = self
             .state
@@ -251,7 +252,8 @@ impl<T: Clone> Cache<T> {
         }
         match read() {
             Ok(value) => {
-                *state = Some((key, value.clone()));
+                let value = Arc::new(value);
+                *state = Some((key, Arc::clone(&value)));
                 Ok(value)
             }
             Err(err) => {

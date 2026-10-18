@@ -224,7 +224,7 @@ fn lock_blocks_a_second_process_until_release() {
     );
 }
 
-fn load_text(cache: &Cache<String>, path: &Path, reads: &AtomicUsize) -> io::Result<String> {
+fn load_text(cache: &Cache<String>, path: &Path, reads: &AtomicUsize) -> io::Result<Arc<String>> {
     cache.load(path, || {
         reads.fetch_add(1, Ordering::Relaxed);
         match fs::read(path) {
@@ -241,18 +241,18 @@ fn cache_reloads_missing_created_replaced_and_removed_files() {
     let path = temp.join("routes.json");
     let cache = Cache::default();
     let reads = AtomicUsize::new(0);
-    assert_eq!(load_text(&cache, &path, &reads).unwrap(), "none");
-    assert_eq!(load_text(&cache, &path, &reads).unwrap(), "none");
+    assert_eq!(load_text(&cache, &path, &reads).unwrap().as_str(), "none");
+    assert_eq!(load_text(&cache, &path, &reads).unwrap().as_str(), "none");
     assert_eq!(reads.load(Ordering::Relaxed), 1);
     write(&path, b"aaaa").unwrap();
-    assert_eq!(load_text(&cache, &path, &reads).unwrap(), "aaaa");
-    assert_eq!(load_text(&cache, &path, &reads).unwrap(), "aaaa");
+    assert_eq!(load_text(&cache, &path, &reads).unwrap().as_str(), "aaaa");
+    assert_eq!(load_text(&cache, &path, &reads).unwrap().as_str(), "aaaa");
     assert_eq!(reads.load(Ordering::Relaxed), 2);
     write(&path, b"bbbb").unwrap();
-    assert_eq!(load_text(&cache, &path, &reads).unwrap(), "bbbb");
+    assert_eq!(load_text(&cache, &path, &reads).unwrap().as_str(), "bbbb");
     assert_eq!(reads.load(Ordering::Relaxed), 3);
     fs::remove_file(&path).unwrap();
-    assert_eq!(load_text(&cache, &path, &reads).unwrap(), "none");
+    assert_eq!(load_text(&cache, &path, &reads).unwrap().as_str(), "none");
     assert_eq!(reads.load(Ordering::Relaxed), 4);
 }
 
@@ -263,7 +263,7 @@ fn cache_detects_in_place_edit_with_same_size_and_mtime() {
     write(&path, b"aaaa").unwrap();
     let cache = Cache::default();
     let reads = AtomicUsize::new(0);
-    assert_eq!(load_text(&cache, &path, &reads).unwrap(), "aaaa");
+    assert_eq!(load_text(&cache, &path, &reads).unwrap().as_str(), "aaaa");
     let original = fs::metadata(&path).unwrap();
     thread::sleep(Duration::from_millis(20));
     fs::write(&path, b"bbbb").unwrap();
@@ -276,7 +276,7 @@ fn cache_detects_in_place_edit_with_same_size_and_mtime() {
     let updated = fs::metadata(&path).unwrap();
     assert_eq!(original.len(), updated.len());
     assert_eq!(original.modified().unwrap(), updated.modified().unwrap());
-    assert_eq!(load_text(&cache, &path, &reads).unwrap(), "bbbb");
+    assert_eq!(load_text(&cache, &path, &reads).unwrap().as_str(), "bbbb");
     assert_eq!(reads.load(Ordering::Relaxed), 2);
 }
 
@@ -291,7 +291,7 @@ fn cache_keeps_no_read_errors_or_stat_errors() {
             Err(io::Error::other("unreadable"))
         })
         .is_err());
-    assert_eq!(cache.load(&path, || Ok::<_, io::Error>(7)).unwrap(), 7);
+    assert_eq!(*cache.load(&path, || Ok::<_, io::Error>(7)).unwrap(), 7);
 
     // A self referential symlink makes stat fail with ELOOP. Reads must run
     // every time instead of consulting or updating the cached entry.
@@ -300,7 +300,7 @@ fn cache_keeps_no_read_errors_or_stat_errors() {
     let attempts = AtomicUsize::new(0);
     for _ in 0..2 {
         assert_eq!(
-            cache
+            *cache
                 .load(&loop_path, || {
                     attempts.fetch_add(1, Ordering::Relaxed);
                     Ok::<_, io::Error>(9)
@@ -325,9 +325,41 @@ fn cache_shares_one_successful_read_between_threads() {
             let reads = &reads;
             let path = &path;
             scope.spawn(move || {
-                assert_eq!(load_text(&cache, path, reads).unwrap(), "ready");
+                assert_eq!(load_text(&cache, path, reads).unwrap().as_str(), "ready");
             });
         }
     });
     assert_eq!(reads.load(Ordering::Relaxed), 1);
+}
+
+#[test]
+fn cache_shares_the_same_nonclone_value_until_replacement() {
+    struct NonClone(Vec<u8>);
+
+    let temp = TempDir::new();
+    let path = temp.join("routes.json");
+    write(&path, b"first").unwrap();
+    let cache = Cache::<NonClone>::default();
+    let reads = AtomicUsize::new(0);
+    let load = || {
+        cache
+            .load(&path, || {
+                reads.fetch_add(1, Ordering::Relaxed);
+                fs::read(&path).map(NonClone)
+            })
+            .unwrap()
+    };
+
+    let first = load();
+    let again = load();
+    assert!(Arc::ptr_eq(&first, &again));
+    assert_eq!(first.0, b"first");
+    assert_eq!(reads.load(Ordering::Relaxed), 1);
+
+    write(&path, b"second").unwrap();
+    let next = load();
+    assert!(!Arc::ptr_eq(&first, &next));
+    assert_eq!(next.0, b"second");
+    assert_eq!(first.0, b"first");
+    assert_eq!(reads.load(Ordering::Relaxed), 2);
 }
