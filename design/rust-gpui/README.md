@@ -54,8 +54,8 @@ Each row is a separately verifiable unit. `open` means no replacement has passed
 
 | Unit | Current owner | Replacement gate | State |
 | --- | --- | --- | --- |
-| API client and shared wire types | `app/src/lib/api.ts`, `packages/plugin-sdk/src/types.ts`, `docs/reference/app-api.mdx` | Rust client tests against old agent, including auth, errors, SSE, WebSocket, escaping, reconnect | open |
-| Native shell and layout | `app/src/App.tsx`, workspace and sidebar components | GPUI window, themes, keyboard, pane layout and restore exercised on real builds | open |
+| API client and shared wire types | `app/src/lib/api.ts`, `packages/plugin-sdk/src/types.ts`, `docs/reference/app-api.mdx` | Rust client tests against old agent, including auth, errors, SSE, WebSocket, escaping, reconnect | partial: status, SSE, themes, templates, app documents |
+| Native shell and layout | `app/src/App.tsx`, workspace and sidebar components | GPUI window, themes, keyboard, pane layout and restore exercised on real builds | partial: fixture window and explicit live status read |
 | Browser and plugin host | `app/src-tauri/src/browser.rs`, `app/src/plugins`, `plugins`, plugin SDK | All current plugin contribution types and browser pane behaviors work on every platform | open |
 | Terminal and conversations | `app/src/components/workspace`, `app/src/components/conversation` | Same PTY stream, resizing, pace, transcript rendering, send and ask flows | open |
 | Files, artifacts and review | `app/src/components/files`, `app/src/components/art`, `app/src/views/pr-review` | Current editing, SQL, artifact and PR review flows pass | open |
@@ -63,7 +63,7 @@ Each row is a separately verifiable unit. `open` means no replacement has passed
 | Laptop agent and proxy | `internal/agent`, `internal/proxy`, `internal/network` | Same loopback API, port behavior, reconnect and box proxy semantics pass | open |
 | Box API and host lifecycle | `internal/box`, `internal/boxcmd` | Worktrees, sessions, services, runs, browser, artifacts and hooks pass contract tests | open |
 | Wire and trust | `internal/wire`, `internal/pairing`, `internal/identity`, `internal/trust` | Old/new pairing, pinning, revocation, local privilege and tunnels pass | open |
-| Persistence and recovery | `internal/statefile`, `internal/box/runs` | Existing state read/write and crash recovery pass with mixed versions | open |
+| Persistence and recovery | `internal/statefile`, `internal/box/runs` | Existing state read/write and crash recovery pass with mixed versions | partial: statefile crate |
 | CLI and helpers | `cmd`, `internal/database`, `internal/leadline`, `internal/integrations` | Command and helper behavior, exit status and outputs match fixtures | open |
 | Distribution and web | `install.sh`, `site`, `docs-site`, release scripts | Install, update, links, docs and site build and serve correctly | open |
 
@@ -77,3 +77,9 @@ Each row is a separately verifiable unit. `open` means no replacement has passed
 6. Switch packaging only after every matrix row has evidence, run all required checks and a real install/update exercise, then remove legacy runtime code in a separate reviewed unit.
 
 The decision trail for this run is `design/rust-gpui/decisions.tsv`. Each entry points at a source, check, diff or commit that a reviewer can inspect.
+
+## Current evidence
+
+The Rust workspace includes `shipyard-api`, `shipyard-statefile`, and `shipyard-app`. `cargo check --workspace --locked`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, and `cargo test --workspace --locked` pass on macOS. The client has fourteen tests, statefile has eleven, and the GPUI app has four. The GPUI fixture opened as a native window; sidebar navigation and theme switching were exercised in dark and light modes. An explicit loopback endpoint plus `SHIPYARD_API_TOKEN` lets it read box status; a synthetic agent response and a disconnect were exercised in a native window. Status refresh is manual. On this macOS build, accessibility inspection exposed only the window and title, so navigation accessibility remains open.
+
+The old app builds after removing a stale Labs control. Its 548 unit tests and twelve focused browser tests passed, as did the docs build, Go vet, and the Tauri cargo check. The full `go test -race ./...` suite now passes. Its first run failed on `TestAttachPassesShiftEnter` before any Go production code changed: macOS `od` prints two spaces between hex bytes and the test matched one. The test now normalizes whitespace; the isolated test and the full suite pass.
