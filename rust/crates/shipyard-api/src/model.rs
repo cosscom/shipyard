@@ -120,3 +120,99 @@ pub struct Event {
     pub error: Option<String>,
     pub data: Option<Map<String, Value>>,
 }
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct TaskTemplate {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    #[serde(rename = "box")]
+    pub box_name: Option<String>,
+    pub location: Option<String>,
+    pub agent: Option<String>,
+    pub command: Option<String>,
+    pub prompt: Option<String>,
+    pub branch: Option<String>,
+    pub base: Option<String>,
+    pub variables: Option<Vec<TemplateVariable>>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct TemplateVariable {
+    pub id: String,
+    pub label: Option<String>,
+    pub multiline: Option<bool>,
+    pub default: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct Theme {
+    pub id: String,
+    pub name: String,
+    pub appearance: ThemeAppearance,
+    pub colors: ThemeColors,
+    pub terminal: TerminalColors,
+    pub syntax: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ThemeAppearance {
+    Dark,
+    Light,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ThemeColors {
+    pub background: String,
+    pub foreground: String,
+    pub sidebar: String,
+    pub sidebar_foreground: String,
+    pub muted: String,
+    pub muted_foreground: String,
+    pub border: String,
+    pub accent: String,
+    pub accent_foreground: String,
+    pub primary: String,
+    pub primary_foreground: String,
+    pub card: String,
+    pub popover: String,
+    pub ring: String,
+    pub success: String,
+    pub warning: String,
+    pub destructive: String,
+    pub info: Option<String>,
+    pub success_foreground: Option<String>,
+    pub warning_foreground: Option<String>,
+    pub destructive_foreground: Option<String>,
+    pub info_foreground: Option<String>,
+    pub link: Option<String>,
+    pub selection: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TerminalColors {
+    pub background: String,
+    pub foreground: String,
+    pub cursor: String,
+    pub selection_background: String,
+    pub selection_foreground: Option<String>,
+    pub black: String,
+    pub red: String,
+    pub green: String,
+    pub yellow: String,
+    pub blue: String,
+    pub magenta: String,
+    pub cyan: String,
+    pub white: String,
+    pub bright_black: String,
+    pub bright_red: String,
+    pub bright_green: String,
+    pub bright_yellow: String,
+    pub bright_blue: String,
+    pub bright_magenta: String,
+    pub bright_cyan: String,
+    pub bright_white: String,
+}

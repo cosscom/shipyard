@@ -1,4 +1,4 @@
-use shipyard_api::{ApiError, Client};
+use shipyard_api::{ApiError, Client, ThemeAppearance};
 use std::sync::{Arc, Mutex};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -34,6 +34,13 @@ async fn mock_server(responses: Vec<Vec<String>>) -> (String, Arc<Mutex<Vec<Stri
         }
     });
     (address, requests)
+}
+
+fn json_response(status: &str, body: &str) -> String {
+    format!(
+        "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    )
 }
 
 #[tokio::test]
@@ -94,6 +101,85 @@ async fn coded_http_error_keeps_status_and_code() {
         }
         other => panic!("unexpected error: {other}"),
     }
+}
+
+#[tokio::test]
+async fn themes_read_authenticated_typed_colors() {
+    let body = r##"[{
+      "id":"acme-night","name":"Acme Night","appearance":"dark","syntax":"dracula",
+      "colors":{
+        "background":"#111","foreground":"#eee","sidebar":"#222","sidebarForeground":"#ddd",
+        "muted":"#333","mutedForeground":"#ccc","border":"#444","accent":"#555",
+        "accentForeground":"#bbb","primary":"#666","primaryForeground":"#aaa",
+        "card":"#777","popover":"#888","ring":"#999","success":"#090",
+        "warning":"#990","destructive":"#900","link":"#00f"
+      },
+      "terminal":{
+        "background":"#111","foreground":"#eee","cursor":"#fff","selectionBackground":"#555",
+        "black":"#000","red":"#f00","green":"#0f0","yellow":"#ff0","blue":"#00f",
+        "magenta":"#f0f","cyan":"#0ff","white":"#fff","brightBlack":"#555",
+        "brightRed":"#f55","brightGreen":"#5f5","brightYellow":"#ff5","brightBlue":"#55f",
+        "brightMagenta":"#f5f","brightCyan":"#5ff","brightWhite":"#fff"
+      }
+    }]"##;
+    let (address, requests) = mock_server(vec![vec![json_response("200 OK", body)]]).await;
+    let themes = Client::new(&address, "a-secret")
+        .unwrap()
+        .themes()
+        .await
+        .unwrap();
+    assert_eq!(themes.len(), 1);
+    assert_eq!(themes[0].id, "acme-night");
+    assert_eq!(themes[0].appearance, ThemeAppearance::Dark);
+    assert_eq!(themes[0].colors.sidebar_foreground, "#ddd");
+    assert_eq!(themes[0].colors.link.as_deref(), Some("#00f"));
+    assert_eq!(themes[0].terminal.bright_cyan, "#5ff");
+    assert_eq!(themes[0].terminal.selection_foreground, None);
+    let requests = requests.lock().unwrap();
+    assert!(requests[0].starts_with("get /v1/themes http/1.1\r\n"));
+    assert!(requests[0].contains("authorization: bearer a-secret\r\n"));
+    assert!(!requests[0].contains("?token="));
+}
+
+#[tokio::test]
+async fn templates_read_authenticated_optional_fields() {
+    let body = r#"[{"id":"acme-review","name":"Review","box":"acme","prompt":"Review {{scope}}","variables":[{"id":"scope","label":"Scope","multiline":true,"default":"all"}]},{"id":"acme-simple","name":"Simple"}]"#;
+    let (address, requests) = mock_server(vec![vec![json_response("200 OK", body)]]).await;
+    let templates = Client::new(&address, "a-secret")
+        .unwrap()
+        .templates()
+        .await
+        .unwrap();
+    assert_eq!(templates.len(), 2);
+    assert_eq!(templates[0].box_name.as_deref(), Some("acme"));
+    assert_eq!(
+        templates[0].variables.as_ref().unwrap()[0].multiline,
+        Some(true)
+    );
+    assert_eq!(templates[1].description, None);
+    assert_eq!(templates[1].variables, None);
+    let requests = requests.lock().unwrap();
+    assert!(requests[0].starts_with("get /v1/templates http/1.1\r\n"));
+    assert!(requests[0].contains("authorization: bearer a-secret\r\n"));
+}
+
+#[tokio::test]
+async fn list_endpoints_preserve_http_errors_and_reject_invalid_json() {
+    let error_body = r#"{"error":"missing or wrong token","code":"unauthorized"}"#;
+    let (address, _) = mock_server(vec![
+        vec![json_response("401 Unauthorized", error_body)],
+        vec![json_response("200 OK", r#"[{"id":"acme"}]"#)],
+    ])
+    .await;
+    let client = Client::new(&address, "a-secret").unwrap();
+    match client.themes().await.unwrap_err() {
+        ApiError::Http { status, code, .. } => {
+            assert_eq!(status.as_u16(), 401);
+            assert_eq!(code.as_deref(), Some("unauthorized"));
+        }
+        other => panic!("unexpected error: {other}"),
+    }
+    assert!(matches!(client.templates().await, Err(ApiError::Decode(_))));
 }
 
 #[tokio::test]

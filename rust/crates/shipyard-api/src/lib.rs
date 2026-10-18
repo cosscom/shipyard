@@ -8,7 +8,7 @@ mod model;
 pub use model::*;
 
 use reqwest::{header, StatusCode, Url};
-use serde::Deserialize;
+use serde::{de::DeserializeOwned, Deserialize};
 use std::{error::Error as StdError, fmt, time::Duration};
 use tokio::{sync::watch, time};
 
@@ -110,8 +110,22 @@ impl Client {
 
     /// Read the current status with the same 30 second read limit as the app.
     pub async fn status(&self) -> Result<Status, ApiError> {
+        self.get_json("v1/status").await
+    }
+
+    /// Read user and enabled-plugin themes from the laptop agent.
+    pub async fn themes(&self) -> Result<Vec<Theme>, ApiError> {
+        self.get_json("v1/themes").await
+    }
+
+    /// Read task templates from the laptop agent.
+    pub async fn templates(&self) -> Result<Vec<TaskTemplate>, ApiError> {
+        self.get_json("v1/templates").await
+    }
+
+    async fn get_json<T: DeserializeOwned>(&self, path: &str) -> Result<T, ApiError> {
         let response = self
-            .request("v1/status")
+            .request(path)
             .timeout(READ_TIMEOUT)
             .send()
             .await
