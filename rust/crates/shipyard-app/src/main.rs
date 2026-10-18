@@ -154,15 +154,14 @@ impl Shell {
         });
         cx.spawn(
             async move |this: gpui::WeakEntity<Shell>, cx: &mut gpui::AsyncApp| {
-                if let Ok(result) = receiver.await {
-                    let _ = this.update(cx, |shell, cx| {
-                        shell.connection = match result {
-                            Ok(status) => status.into(),
-                            Err(issue) => ConnectionState::Error(issue),
-                        };
-                        cx.notify();
-                    });
-                }
+                let result = receiver.await.unwrap_or(Err(ConnectionIssue::Runtime));
+                let _ = this.update(cx, |shell, cx| {
+                    shell.connection = match result {
+                        Ok(status) => status.into(),
+                        Err(issue) => ConnectionState::Error(issue),
+                    };
+                    cx.notify();
+                });
             },
         )
         .detach();
