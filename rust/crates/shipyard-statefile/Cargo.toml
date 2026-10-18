@@ -1,0 +1,8 @@
+[package]
+name = "shipyard-statefile"
+version = "0.1.0"
+edition = "2021"
+description = "Private atomic state files and cache for Shipyard"
+
+[dependencies]
+libc = "0.2"
