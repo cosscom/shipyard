@@ -1,0 +1,6 @@
+ts	phase	decision	why	evidence	result
+2026-10-18T00:00:00Z	frame	Defined full parity as command, protocol, UI, plugin, platform and distribution behavior	A build alone cannot prove a 1:1 rewrite	design/rust-gpui/README.md	open
+2026-10-18T00:00:01Z	architecture	Kept the loopback app API as the first migration boundary	The desktop app already consumes it without owning live sessions	docs/reference/app-api.mdx	open
+2026-10-18T00:00:02Z	architecture	Required a compatibility host for browser panes and React plugins	GPUI has no built-in browser pane and current plugins are React modules	app/src/plugins/host.ts	open
+2026-10-18T20:14:04Z	audit	Superseded the first three rows with placeholder timestamps; their decisions were made at this time	The placeholder times did not reflect the real event time	design/rust-gpui/decisions.tsv	corrected by this row
+2026-10-18T20:14:06Z	frame	Defined full parity as command, protocol, UI, plugin, platform and distribution behavior	A build alone cannot prove a 1:1 rewrite	design/rust-gpui/README.md	open
