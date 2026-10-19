@@ -554,14 +554,7 @@ func (h *runHost) collect(ctx context.Context, x *runs.StepCtx) runs.Result {
 	c.Verify.Rounds, _ = strconv.Atoi(x.Vars["loop.rounds"])
 	c.Verify.Tail = tailRunes(x.Vars["steps.check.feedback"], 600)
 	if c.Path != "" {
-		base := x.Vars["params.base"]
-		if base == "" {
-			if loc, err := b.Locations.Get(ctx, c.Location); err == nil {
-				base = loc.DefaultBranch
-			}
-		}
-		d := diffSummary(ctx, c.Path, base)
-		c.Diff.Files, c.Diff.Added, c.Diff.Removed, c.Diff.Commits, c.Summary = d.files, d.added, d.removed, d.commits, d.subjects
+		diffSummary(ctx, c.Path, b.attemptBase(ctx, x.Vars["params.base"], c.Location)).apply(c)
 	}
 	if b.Turns != nil && name != "" {
 		c.Turns = len(b.Turns.List(name, 50))
@@ -599,45 +592,107 @@ func (h *runHost) turnUsage(session, turn string) *runs.Usage {
 	return SessionUsage(st.Agent, st.AgentSessionID, dir, tr.Started.Add(-time.Second))
 }
 
+// Refresh reads an attempts run's worktrees again, for a rerun of its
+// judge: each attempt's diff against the base, commits and version now.
+func (h *runHost) Refresh(ctx context.Context, run runs.Summary, vars map[string]string, cands []runs.Candidate) []runs.Candidate {
+	out := append([]runs.Candidate(nil), cands...)
+	for i := range out {
+		c := &out[i]
+		if c.Path == "" {
+			continue
+		}
+		if _, err := os.Stat(c.Path); err != nil {
+			continue
+		}
+		d := diffSummary(ctx, c.Path, h.b.attemptBase(ctx, vars["params.base"], c.Location))
+		d.apply(c)
+	}
+	return out
+}
+
+// attemptBase is what an attempt's worktree is compared against: the
+// run's base, else origin's default branch, else the local one, as Review
+// counts a worktree's commits.
+func (b *Box) attemptBase(ctx context.Context, explicit, location string) string {
+	if explicit != "" {
+		return explicit
+	}
+	loc, err := b.Locations.Get(ctx, location)
+	if err != nil {
+		return ""
+	}
+	def := loc.DefaultBranch
+	if def == "" {
+		def = defaultBranch(ctx, loc.Path)
+	}
+	if def != "" && branchExists(ctx, loc.Path, "refs/remotes/origin/"+def) {
+		return "origin/" + def
+	}
+	return def
+}
+
 type diffStat struct {
 	files, added, removed, commits int
 	subjects                       string
+	// head is the worktree's HEAD, dirty whether anything is not committed,
+	// and list each file changed against the base, committed or not.
+	head  string
+	dirty bool
+	list  []ReviewFile
+}
+
+func (d diffStat) apply(c *runs.Candidate) {
+	c.Diff.Files, c.Diff.Added, c.Diff.Removed, c.Diff.Commits, c.Summary = d.files, d.added, d.removed, d.commits, d.subjects
+	c.Head, c.Dirty = d.head, d.dirty
 }
 
 // diffSummary is a worktree's change against the merge base with base,
 // committed or not, and its last commit subjects.
 func diffSummary(ctx context.Context, dir, base string) diffStat {
-	var d diffStat
+	d := diffStat{list: []ReviewFile{}}
 	mb := ""
 	if base != "" {
 		if out, err := git(ctx, "-C", dir, "merge-base", "HEAD", base); err == nil {
 			mb = strings.TrimSpace(string(out))
 		}
 	}
-	args := []string{"-C", dir, "diff", "--numstat"}
-	if mb != "" {
-		args = append(args, mb)
-	} else {
-		args = append(args, "HEAD")
+	if out, err := git(ctx, "-C", dir, "rev-parse", "HEAD"); err == nil {
+		d.head = strings.TrimSpace(string(out))
 	}
-	if out, err := git(ctx, args...); err == nil {
+	if out, err := git(ctx, "-C", dir, "status", "--porcelain=v1"); err == nil {
+		d.dirty = strings.TrimSpace(string(out)) != ""
+	}
+	ref := "HEAD"
+	if mb != "" {
+		ref = mb
+	}
+	// The working tree against the base: what is committed since, and
+	// what is not committed yet, one line per file.
+	if out, err := git(ctx, "-C", dir, "diff", "--numstat", ref, "--"); err == nil {
 		for _, l := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-			f := strings.Fields(l)
-			if len(f) < 3 {
+			f := strings.SplitN(l, "\t", 3)
+			if len(f) != 3 {
 				continue
 			}
-			a, _ := strconv.Atoi(f[0])
-			r, _ := strconv.Atoi(f[1])
+			rf := ReviewFile{Path: f[2], Code: "M"}
+			if f[0] == "-" {
+				rf.Binary = true
+			} else {
+				rf.Added, _ = strconv.Atoi(f[0])
+				rf.Removed, _ = strconv.Atoi(f[1])
+			}
+			d.list = append(d.list, rf)
 			d.files++
-			d.added += a
-			d.removed += r
+			d.added += rf.Added
+			d.removed += rf.Removed
 		}
 	}
 	if out, err := git(ctx, "-C", dir, "ls-files", "--others", "--exclude-standard"); err == nil {
 		for _, f := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 			if f != "" {
+				n, bin := countLines(filepath.Join(dir, f))
+				d.list = append(d.list, ReviewFile{Path: f, Code: "??", Added: n, Binary: bin})
 				d.files++
-				n, _ := countLines(filepath.Join(dir, f))
 				d.added += n
 			}
 		}

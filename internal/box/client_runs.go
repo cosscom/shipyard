@@ -55,6 +55,13 @@ func (c *Client) CancelRun(ctx context.Context, id string) error {
 	return c.call(ctx, http.MethodPost, "/v1/runs/"+url.PathEscape(id)+"/cancel", nil, nil)
 }
 
+// RejudgeRun asks an attempts run's judge again, about the attempts as
+// they are now; the run stays at its pick.
+func (c *Client) RejudgeRun(ctx context.Context, id string) (runs.Evaluation, error) {
+	var out runs.Evaluation
+	return out, c.call(ctx, http.MethodPost, "/v1/runs/"+url.PathEscape(id)+"/judge", nil, &out)
+}
+
 // DecideGate approves or rejects a run's gate; step "" is the open one.
 func (c *Client) DecideGate(ctx context.Context, id, step string, d GateDecision) error {
 	if step == "" {

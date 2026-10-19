@@ -424,6 +424,8 @@ func (e *Engine) launchLocked(id string) error {
 		x.j.close()
 		return nil
 	}
+	// Before anyone can ask for another rerun of the judge.
+	x.endStaleEvaluations()
 	ctx, cancel := context.WithCancel(e.base)
 	x.ctx, x.cancel = ctx, cancel
 	e.active[id] = x

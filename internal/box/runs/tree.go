@@ -69,6 +69,8 @@ func groupKind(seg string) string {
 		return "then"
 	case 'e':
 		return "else"
+	case 'v':
+		return "evaluation"
 	}
 	return seg
 }

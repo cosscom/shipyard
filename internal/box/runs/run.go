@@ -159,13 +159,74 @@ type Candidate struct {
 		Commits int `json:"commits"`
 	} `json:"diff"`
 	Summary string `json:"summary,omitempty"`
-	Turns   int    `json:"turns,omitempty"`
-	Tokens  *Usage `json:"tokens,omitempty"`
-	Judge   struct {
+	// Head and Dirty are the worktree's version when Diff was counted: its
+	// HEAD commit, and whether it had changes not committed yet.
+	Head   string `json:"head,omitempty"`
+	Dirty  bool   `json:"dirty,omitempty"`
+	Turns  int    `json:"turns,omitempty"`
+	Tokens *Usage `json:"tokens,omitempty"`
+	Judge  struct {
 		Rank   int    `json:"rank,omitempty"`
 		Reason string `json:"reason,omitempty"`
 	} `json:"judge"`
 	Picked bool `json:"picked,omitempty"`
+}
+
+// Evaluation is one time an attempts run's attempts were judged.
+type Evaluation struct {
+	N int `json:"n"`
+	// Path is where its steps are in the run's step tree.
+	Path string `json:"path,omitempty"`
+	// Status is running, succeeded (it has a winner) or failed: the judge
+	// gave no valid verdict, or no attempt could win.
+	Status string `json:"status"`
+	// By is agent (a judge agent) or check (the checks alone).
+	By    string `json:"by"`
+	Agent string `json:"agent,omitempty"`
+	// Rerun is set when someone asked for it after the run's own judge.
+	Rerun   bool      `json:"rerun,omitempty"`
+	Started time.Time `json:"started"`
+	Ended   time.Time `json:"ended,omitzero"`
+	// Source is where Winner came from: "judge", the agent's verdict, or
+	// "checks", the passing attempt with the smallest diff (by check, or
+	// standing in for a judge whose reply was not valid).
+	Source string `json:"source,omitempty"`
+	// Winner is a candidate index; Ranking is candidate indexes, best
+	// first; Reasons is the judge's line for each candidate index.
+	Winner  *int           `json:"winner,omitempty"`
+	Ranking []int          `json:"ranking,omitempty"`
+	Reasons map[int]string `json:"reasons,omitempty"`
+	// Output is the line Review shows; Error is what went wrong.
+	Output string `json:"output,omitempty"`
+	Error  string `json:"error,omitempty"`
+	// Versions are the worktrees as the judge saw them.
+	Versions []Version `json:"versions,omitempty"`
+	Usage    *Usage    `json:"usage,omitempty"`
+}
+
+// Fallback reports whether the winner is the checks' pick standing in for
+// a judge whose reply was not valid.
+func (ev Evaluation) Fallback() bool { return ev.By == "agent" && ev.Source == "checks" }
+
+// Version is one attempt's worktree as a judge saw it.
+type Version struct {
+	Index   int    `json:"index"`
+	Head    string `json:"head,omitempty"`
+	Dirty   bool   `json:"dirty,omitempty"`
+	Files   int    `json:"files"`
+	Added   int    `json:"added"`
+	Removed int    `json:"removed"`
+	Commits int    `json:"commits"`
+	Passed  bool   `json:"passed"`
+}
+
+func versionsOf(cands []Candidate) []Version {
+	out := make([]Version, 0, len(cands))
+	for _, c := range cands {
+		out = append(out, Version{Index: c.Index, Head: c.Head, Dirty: c.Dirty, Files: c.Diff.Files, Added: c.Diff.Added,
+			Removed: c.Diff.Removed, Commits: c.Diff.Commits, Passed: c.Verify.Passed})
+	}
+	return out
 }
 
 // Gate is a gate a run waits at.
@@ -225,6 +286,9 @@ type Run struct {
 	Gate     *Gate             `json:"gate,omitempty"`
 	// Candidates are an attempts run's attempts.
 	Candidates []Candidate `json:"candidates,omitempty"`
+	// Evaluations are each time the judge ranked the attempts, oldest
+	// first: the judge step's, then each rerun's. The last is current.
+	Evaluations []Evaluation `json:"evaluations,omitempty"`
 	// Coalesced counts trigger items merged into this run while queued.
 	Coalesced int `json:"coalesced,omitempty"`
 }

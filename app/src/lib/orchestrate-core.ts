@@ -1,4 +1,4 @@
-import type { AgentPreset, ExecResult, Run, RunRequest, RunStep, RunSummary, SendResult, Session, TaskResult, TurnWait, WaitResult } from "@berth/plugin";
+import type { AgentPreset, ExecResult, Run, RunEvaluation, RunRequest, RunStep, RunSummary, SendResult, Session, TaskResult, TurnWait, WaitResult } from "@berth/plugin";
 
 // The orchestration logic, free of the app's store so plugins, tests and the
 // app share it. It mirrors `berth loop` and friends (internal/boxcmd): the
@@ -349,7 +349,18 @@ export const runsApi = (call: BoxCaller) => ({
     await call(box, "POST", `runs/${enc(id)}/gates/${enc(d.step || "current")}/decide`, { approve: d.approve, note: d.note, pick: d.pick });
   },
   compare: (box: string, id: string) => call<RunCompare>(box, "GET", `review?run=${enc(id)}`),
+  // Judge an attempts run's attempts again, as they are now; it answers at
+  // once with the evaluation started, and the run stays at its pick.
+  rejudge: (box: string, id: string) => call<RunEvaluation>(box, "POST", `runs/${enc(id)}/judge`),
 });
+
+export interface CompareFile {
+  path: string;
+  code?: string;
+  added?: number;
+  removed?: number;
+  binary?: boolean;
+}
 
 export interface RunCompare {
   run: RunSummary;
@@ -358,7 +369,15 @@ export interface RunCompare {
   // The pull request step: opened, skipped (a host without them, or
   // finished without one) or failed, with what it said.
   pr?: Run["steps"][number];
-  candidates: (NonNullable<Run["candidates"]>[number] & { review?: { files?: { path: string; added?: number; removed?: number; status?: string }[]; commits?: { sha: string; subject: string }[] } })[];
+  evaluations?: RunEvaluation[];
+  // The judge can be asked again (the run waits at its pick).
+  can_rejudge?: boolean;
+  candidates: (NonNullable<Run["candidates"]>[number] & {
+    review?: { files?: CompareFile[]; commits?: { sha: string; subject: string }[] };
+    // The worktree now: every file changed against the base, committed or
+    // not, and its version. diff is counted from the same.
+    now?: { files: CompareFile[]; head?: string; dirty?: boolean; base?: string; commits: number };
+  })[];
 }
 
 export const terminal = (s: string) => s === "succeeded" || s === "failed" || s === "cancelled" || s === "interrupted";

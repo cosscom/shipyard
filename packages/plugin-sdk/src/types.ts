@@ -759,10 +759,52 @@ export interface RunCandidate {
   verify: { passed: boolean; rounds?: number; exit_code: number; tail?: string };
   diff: { files: number; added: number; removed: number; commits: number };
   summary?: string;
+  // The worktree's version when diff was counted: its HEAD, and whether it
+  // had changes not committed yet.
+  head?: string;
+  dirty?: boolean;
   turns?: number;
   tokens?: RunUsage;
   judge: { rank?: number; reason?: string };
   picked?: boolean;
+}
+
+// One attempt's worktree as a judge saw it.
+export interface RunVersion {
+  index: number;
+  head?: string;
+  dirty?: boolean;
+  files: number;
+  added: number;
+  removed: number;
+  commits: number;
+  passed: boolean;
+}
+
+// One time an attempts run's attempts were judged: the judge step's, or a
+// rerun's. The last that ended is the current verdict.
+export interface RunEvaluation {
+  n: number;
+  path?: string;
+  // running; succeeded (it has a winner); failed (no valid verdict, or no
+  // attempt could win).
+  status: "running" | "succeeded" | "failed";
+  by: "agent" | "check";
+  agent?: string;
+  rerun?: boolean;
+  started: string;
+  ended?: string;
+  // judge: the agent's verdict. checks: the passing attempt with the
+  // smallest diff, by check or standing in for a judge with no valid reply.
+  source?: "judge" | "checks";
+  // Candidate indexes (from 0).
+  winner?: number;
+  ranking?: number[];
+  reasons?: Record<string, string>;
+  output?: string;
+  error?: string;
+  versions?: RunVersion[];
+  usage?: RunUsage;
 }
 
 export interface RunSummary {
@@ -797,6 +839,7 @@ export interface Run extends Omit<RunSummary, "steps" | "candidates"> {
   vars?: Record<string, string>;
   steps: RunStep[];
   candidates?: RunCandidate[];
+  evaluations?: RunEvaluation[];
   budget?: { max_rounds?: number; max_agents?: number; max_wall?: string; max_usd?: number; max_tokens?: number };
 }
 

@@ -429,6 +429,14 @@ func runGet(ctx context.Context, s *Server, a map[string]any) (any, error) {
 		}
 		out["attempts"] = cs
 	}
+	if n := len(r.Evaluations); n > 0 {
+		ev := r.Evaluations[n-1]
+		j := map[string]any{"n": ev.N, "status": ev.Status, "summary": ev.Output}
+		if ev.Fallback() {
+			j["fallback"] = "the judge gave no valid verdict; this is the checks' pick"
+		}
+		out["judge"] = j
+	}
 	return out, nil
 }
 

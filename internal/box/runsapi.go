@@ -21,6 +21,7 @@ import (
 //	GET  /v1/runs/{id}/events?since=N     its journal from record N, then live (NDJSON)
 //	POST /v1/runs/{id}/cancel
 //	POST /v1/runs/{id}/gates/{step}/decide {approve, note, pick}; step "current" is the open one
+//	POST /v1/runs/{id}/judge              an attempts run at its pick: judge the attempts again, as they are now
 
 // RunRequest starts a run.
 type RunRequest struct {
@@ -56,7 +57,8 @@ func runErr(err error) error {
 	switch {
 	case errors.Is(err, runs.ErrNotFound):
 		return httpError{http.StatusNotFound, err.Error()}
-	case errors.Is(err, runs.ErrNoGate), errors.Is(err, runs.ErrDone), errors.Is(err, runs.ErrQueueFull):
+	case errors.Is(err, runs.ErrNoGate), errors.Is(err, runs.ErrDone), errors.Is(err, runs.ErrQueueFull),
+		errors.Is(err, runs.ErrNotPicking), errors.Is(err, runs.ErrJudging), errors.Is(err, runs.ErrNoJudge):
 		return httpError{http.StatusConflict, err.Error()}
 	}
 	return err
@@ -304,9 +306,20 @@ func (b *Box) reviewRun(w http.ResponseWriter, r *http.Request, id string) error
 	if err != nil {
 		return runErr(err)
 	}
+	// Now is the worktree as it is: its diff against the base, committed
+	// or not (the Changes line and the file list both read it), and its
+	// version, to tell whether it changed since the judge looked.
+	type now struct {
+		Files   []ReviewFile `json:"files"`
+		Head    string       `json:"head,omitempty"`
+		Dirty   bool         `json:"dirty,omitempty"`
+		Base    string       `json:"base,omitempty"`
+		Commits int          `json:"commits"`
+	}
 	type compared struct {
 		runs.Candidate
 		Review *ReviewItem `json:"review,omitempty"`
+		Now    *now        `json:"now,omitempty"`
 	}
 	out := struct {
 		Run   runs.Summary `json:"run"`
@@ -314,9 +327,12 @@ func (b *Box) reviewRun(w http.ResponseWriter, r *http.Request, id string) error
 		Judge string       `json:"judge,omitempty"`
 		// PR is the pull request step: opened, skipped (a host without
 		// them) or failed, with what it said.
-		PR         *runs.StepRun `json:"pr,omitempty"`
-		Candidates []compared    `json:"candidates"`
-	}{Gate: run.Gate, Candidates: []compared{}}
+		PR          *runs.StepRun     `json:"pr,omitempty"`
+		Candidates  []compared        `json:"candidates"`
+		Evaluations []runs.Evaluation `json:"evaluations,omitempty"`
+		// CanRejudge says the judge can be asked again (POST .../judge).
+		CanRejudge bool `json:"can_rejudge,omitempty"`
+	}{Gate: run.Gate, Candidates: []compared{}, Evaluations: run.Evaluations}
 	out.Run = runs.Summary{ID: run.ID, Template: run.Template, Title: run.Title, Status: run.Status, Created: run.Created, Updated: run.Updated, Usage: run.Usage}
 	for _, st := range run.Steps {
 		if st.Kind == "judge" {
@@ -336,15 +352,55 @@ func (b *Box) reviewRun(w http.ResponseWriter, r *http.Request, id string) error
 		}
 	}
 	findPR(run.Steps)
+	// The last evaluation that ended is the one Review shows.
+	for i := len(run.Evaluations) - 1; i >= 0; i-- {
+		if ev := run.Evaluations[i]; ev.Status != runs.Running {
+			out.Judge = ev.Output
+			break
+		}
+	}
+	if run.Gate != nil && run.Gate.Pick {
+		for _, s := range run.Flow {
+			if s.Kind == "judge" && s.By != "human" {
+				out.CanRejudge = true
+			}
+		}
+	}
+	explicit, _ := run.Params["base"].(string)
 	for _, c := range run.Candidates {
 		item := compared{Candidate: c}
 		if loc, wt, ok := b.worktreeAt(r.Context(), c.Path); ok {
 			ri := gitReview(r.Context(), loc, wt)
 			item.Review = &ri
+			base := b.attemptBase(r.Context(), explicit, loc.Name)
+			d := diffSummary(r.Context(), c.Path, base)
+			d.apply(&item.Candidate)
+			// What a person picked from, not what the judge saw: the
+			// candidate's own Head and Dirty stay the judge's.
+			item.Head, item.Dirty = c.Head, c.Dirty
+			item.Now = &now{Files: d.list, Head: d.head, Dirty: d.dirty, Base: base, Commits: d.commits}
 		}
 		out.Candidates = append(out.Candidates, item)
 	}
 	writeJSON(w, out)
+	return nil
+}
+
+// rejudgeRun asks an attempts run's judge again, about the attempts as
+// they are now. It answers at once with the evaluation started; Review
+// reads the verdict when it is in.
+func (b *Box) rejudgeRun(w http.ResponseWriter, r *http.Request) error {
+	eng, err := b.runsOrNotFound()
+	if err != nil {
+		return err
+	}
+	ev, err := eng.Rejudge(r.PathValue("id"))
+	if err != nil {
+		return runErr(err)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	writeJSON(w, ev)
 	return nil
 }
 
@@ -357,6 +413,7 @@ func (b *Box) mountRuns(route func(string, func(http.ResponseWriter, *http.Reque
 	route("GET /v1/runs/{id}/events", b.runEvents)
 	route("POST /v1/runs/{id}/cancel", b.cancelRun)
 	route("POST /v1/runs/{id}/gates/{step}/decide", b.decideGate)
+	route("POST /v1/runs/{id}/judge", b.rejudgeRun)
 	route("GET /v1/autofix", b.listAutoFix)
 	route("PUT /v1/autofix", b.putAutoFix)
 	route("POST /v1/flows/{id}/secret", b.flowSecret)

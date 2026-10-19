@@ -125,93 +125,204 @@ func byCheck(cands []Candidate) (int, bool) {
 	return cands[best].Index, true
 }
 
-func (x *execution) judge(ctx context.Context, sc *scope, s Step, id, path string) (Result, error) {
-	start := x.structuralStart(id, "judge", path)
+// judgeBy is how a judge step judges: its by, else an agent when it names
+// one, else the checks.
+func judgeBy(s Step) string {
+	if s.By != "" {
+		return s.By
+	}
+	if s.Agent != "" {
+		return "agent"
+	}
+	return "check"
+}
+
+func judgeAgent(s Step) string {
+	if s.Agent == "" {
+		return "claude"
+	}
+	return s.Agent
+}
+
+// asker asks the judge agent one question at path. The run's own judge
+// journals it as a leaf step; a rerun asks beside the waiting gate.
+type asker func(q Step, path string) (Result, error)
+
+// evaluate judges cands into ev: by the checks, or by asking the judge
+// agent at at+".ask" (once more when its reply is not valid, then the
+// checks stand in, and ev says so). The error is the run's own, never the
+// judge's.
+func evaluate(s Step, prompt string, cands []Candidate, ev *Evaluation, ask asker, at string) error {
+	ev.Versions = versionsOf(cands)
+	if ev.By == "check" {
+		if w, ok := byCheck(cands); ok {
+			ev.Status, ev.Source, ev.Winner = Succeeded, "checks", &w
+			ev.Output = fmt.Sprintf("attempt %d: its check passed with the smallest diff", w+1)
+		} else {
+			ev.Status, ev.Error, ev.Output = Failed, "no attempt passed its check", "no attempt passed its check"
+		}
+		return nil
+	}
+	q := Step{ID: s.ID, Kind: "headless", Agent: ev.Agent, Text: prompt, Timeout: s.Timeout, Diff: s.Diff}
+	if q.ID == "" {
+		q.ID = "judge"
+	}
+	if q.Timeout == "" {
+		q.Timeout = "20m"
+	}
+	var usage Usage
+	r, err := ask(q, at+".ask")
+	if err != nil {
+		return err
+	}
+	usage.Add(r.Usage)
+	v, perr := ParseVerdict(r.Out, len(cands))
+	if perr != nil && r.ok() {
+		// Once more, saying what was wrong; never the whole prompt again
+		// in other words: the agent's own session already has it when
+		// it can resume, and the retry is short.
+		q.Text = prompt + "\nYour last reply was not valid (" + perr.Error() + "). Reply with the JSON object only."
+		if r, err = ask(q, at+".ask2"); err != nil {
+			return err
+		}
+		usage.Add(r.Usage)
+		v, perr = ParseVerdict(r.Out, len(cands))
+	}
+	if usage.Tokens() > 0 || usage.USD > 0 {
+		ev.Usage = &usage
+	}
+	if perr != nil {
+		why := "the judge's reply was not valid (" + perr.Error() + ")"
+		if !r.ok() {
+			why = "the judge gave no answer"
+			if r.Err != "" {
+				why += " (" + firstLine(r.Err, 200) + ")"
+			}
+		}
+		ev.Status, ev.Error, ev.Output = Failed, why, why
+		if w, ok := byCheck(cands); ok {
+			// The checks stand in, and say so.
+			ev.Source, ev.Winner = "checks", &w
+			ev.Output = fmt.Sprintf("%s; by the checks, attempt %d", why, w+1)
+		}
+		return nil
+	}
+	w := v.Winner - 1
+	ev.Status, ev.Source, ev.Winner = Succeeded, "judge", &w
+	for _, k := range v.Ranking {
+		ev.Ranking = append(ev.Ranking, k-1)
+	}
+	for k, reason := range v.Reasons {
+		if n, err := strconv.Atoi(strings.TrimSpace(k)); err == nil && n >= 1 && n <= len(cands) {
+			if ev.Reasons == nil {
+				ev.Reasons = map[int]string{}
+			}
+			ev.Reasons[n-1] = reason
+		}
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "Winner: attempt %d.", v.Winner)
+	if r := v.Reasons[strconv.Itoa(v.Winner)]; r != "" {
+		b.WriteString(" " + r)
+	}
+	ev.Output = b.String()
+	return nil
+}
+
+// rank puts an evaluation's ranking and reasons on the candidates, as
+// Review shows them: one without a verdict leaves them unranked.
+func (x *execution) rank(ev Evaluation) {
+	x.mu.Lock()
+	for i := range x.run.Candidates {
+		c := &x.run.Candidates[i]
+		c.Judge.Rank, c.Judge.Reason = 0, ""
+		if ev.Source != "judge" {
+			continue
+		}
+		c.Judge.Reason = ev.Reasons[c.Index]
+		for rank, k := range ev.Ranking {
+			if k == c.Index {
+				c.Judge.Rank = rank + 1
+			}
+		}
+	}
+	ranked := append([]Candidate(nil), x.run.Candidates...)
+	x.mu.Unlock()
+	for _, c := range ranked {
+		x.record(Record{T: recCandidate, Cand: &c}, false)
+	}
+}
+
+// candidates is a copy of the run's candidates, by index.
+func (x *execution) candidates() []Candidate {
 	x.mu.Lock()
 	cands := append([]Candidate(nil), x.run.Candidates...)
 	x.mu.Unlock()
 	sort.Slice(cands, func(i, j int) bool { return cands[i].Index < cands[j].Index })
+	return cands
+}
+
+// latestWinner is the winner of the last evaluation that ended, if it
+// has one.
+func (x *execution) latestWinner() (int, bool) {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	return latestWinnerOf(x.run.Evaluations)
+}
+
+func latestWinnerOf(evs []Evaluation) (int, bool) {
+	for i := len(evs) - 1; i >= 0; i-- {
+		if evs[i].Status == Running {
+			continue
+		}
+		if evs[i].Winner == nil {
+			return 0, false
+		}
+		return *evs[i].Winner, true
+	}
+	return 0, false
+}
+
+func (x *execution) judge(ctx context.Context, sc *scope, s Step, id, path string) (Result, error) {
+	start := x.structuralStart(id, "judge", path)
+	cands := x.candidates()
 	if len(cands) == 0 {
 		return x.finishStructural(id, "judge", path, start, Result{Status: Failed, Err: "no candidates to judge"}), nil
 	}
-	by := s.By
-	if by == "" {
-		by = "check"
-		if s.Agent != "" {
-			by = "agent"
-		}
-	}
+	by := judgeBy(s)
 	set := map[string]string{}
 	res := Result{Status: Succeeded, Set: set}
-	winner := -1
-	switch by {
-	case "human":
+	if by == "human" {
 		res.Out = "a person picks"
-	case "check":
-		if w, ok := byCheck(cands); ok {
-			winner = w
-			res.Out = fmt.Sprintf("attempt %d: its check passed with the smallest diff", w+1)
-		} else {
-			res.Status, res.Err, res.Out = Failed, "no attempt passed its check", "no attempt passed its check"
-		}
-	case "agent":
-		prompt := JudgePrompt(sc.vars["params.prompt"], ExpandText(s.Text, sc.vars), cands)
-		ask := Step{ID: id, Kind: "headless", Agent: s.Agent, Text: prompt, Timeout: s.Timeout, Diff: s.Diff}
-		if ask.Agent == "" {
-			ask.Agent = "claude"
-		}
-		if ask.Timeout == "" {
-			ask.Timeout = "20m"
-		}
-		r, err := x.leaf(ctx, sc, ask, id, path+".ask")
-		if err != nil {
-			return Result{Status: Failed}, err
-		}
-		res.Usage = r.Usage
-		v, perr := ParseVerdict(r.Out, len(cands))
-		if perr != nil && r.ok() {
-			// Once more, saying what was wrong; never the whole prompt again
-			// in other words: the agent's own session already has it when
-			// it can resume, and the retry is short.
-			ask.Text = prompt + "\nYour last reply was not valid (" + perr.Error() + "). Reply with the JSON object only."
-			r2, err := x.leaf(ctx, sc, ask, id, path+".ask2")
-			if err != nil {
-				return Result{Status: Failed}, err
-			}
-			v, perr = ParseVerdict(r2.Out, len(cands))
-		}
-		if perr != nil {
-			res.Status, res.Err = Failed, "the judge's reply was not valid: "+perr.Error()
-			if w, ok := byCheck(cands); ok {
-				// Fall back to the checks, and say so.
-				winner = w
-				res.Status, res.Err = Succeeded, ""
-				res.Out = fmt.Sprintf("the judge's reply was not valid (%v); by the checks, attempt %d", perr, w+1)
-			}
-			break
-		}
-		winner = v.Winner - 1
-		x.mu.Lock()
-		for i := range x.run.Candidates {
-			c := &x.run.Candidates[i]
-			c.Judge.Rank, c.Judge.Reason = 0, v.Reasons[strconv.Itoa(c.Index+1)]
-			for rank, k := range v.Ranking {
-				if k-1 == c.Index {
-					c.Judge.Rank = rank + 1
-				}
-			}
-		}
-		ranked := append([]Candidate(nil), x.run.Candidates...)
-		x.mu.Unlock()
-		for _, c := range ranked {
-			x.record(Record{T: recCandidate, Cand: &c}, false)
-		}
-		var b strings.Builder
-		fmt.Fprintf(&b, "Winner: attempt %d.", v.Winner)
-		if r := v.Reasons[strconv.Itoa(v.Winner)]; r != "" {
-			b.WriteString(" " + r)
-		}
-		res.Out = b.String()
+		return x.finishStructural(id, "judge", path, start, res), nil
+	}
+	// Replayed after a restart, the judge's answers come from the journal,
+	// and its evaluation (and any reruns after it) is already there.
+	x.mu.Lock()
+	replayed := len(x.run.Evaluations) > 0
+	x.mu.Unlock()
+	ev := Evaluation{N: 1, Path: path, Status: Running, By: by, Started: start}
+	if by == "agent" {
+		ev.Agent = judgeAgent(s)
+	}
+	prompt := JudgePrompt(sc.vars["params.prompt"], ExpandText(s.Text, sc.vars), cands)
+	err := evaluate(s, prompt, cands, &ev, func(q Step, p string) (Result, error) {
+		return x.leaf(ctx, sc, q, id, p)
+	}, path)
+	if err != nil {
+		return Result{Status: Failed}, err
+	}
+	ev.Ended = x.e.now().UTC()
+	if !replayed && !x.stopping() {
+		x.record(Record{T: recEval, Eval: &ev}, false)
+		x.rank(ev)
+	}
+	winner := -1
+	if ev.Winner != nil {
+		winner = *ev.Winner
+		res.Out = ev.Output
+	} else {
+		res.Status, res.Err, res.Out = Failed, ev.Error, ev.Output
 	}
 	if winner >= 0 {
 		set["judge.winner"] = strconv.Itoa(winner)

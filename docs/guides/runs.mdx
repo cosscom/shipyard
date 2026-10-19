@@ -106,7 +106,9 @@ POST /v1/runs
    the attempts side by side (check, diffstat, commits, the judge's ranking
    and reasons, files) with **Pick this one**; or `berth run approve RUN
    --pick N`. With `pick: "auto"` the judge's winner is taken when its check
-   passed.
+   passed. Each attempt's diffstat and files are its worktree as it is now,
+   against the run's `base` (else origin's default branch), committed or
+   not.
 6. The pick gets a draft PR (`then.pr`), and the other worktrees go through
    the project's archive script (`cleanup`).
 
@@ -132,6 +134,30 @@ gate with it, and the other runs pick none (`--pick 0` from the CLI is
 attempt 1; the API's `pick: -1` is none), so they open no PR and archive
 their worktrees. The cross-box comparison happens in the app, so it waits
 for you there; each box's work and checks do not.
+
+### Rerun the judge
+
+While the run waits for your pick, **Rerun judge** in Compare (or `berth
+run judge RUN`, or `POST /v1/runs/{id}/judge`) asks the same judge again,
+headless and read-only, about the attempts as they are now: an agent may
+have gone on working, or the judge's reply may not have been valid. It
+reads each worktree's diffstat and commits again first. It does not restart
+the agents or run their checks again, and the run stays at its gate: no
+pull request, nothing archived. One rerun runs at a time per run; asking
+again while one runs is refused.
+
+Every evaluation is kept in the run (`evaluations`, oldest first): when it
+ran, the version of each worktree it saw (its `HEAD` and whether it had
+changes not committed), and its verdict, ranking and reasons, or its error.
+The last one that ended is what Compare shows, and approving without
+naming an attempt takes the latest winner. Compare marks an attempt that changed since it
+was judged and lists the earlier evaluations to compare with. A reply that
+is not valid is asked once more; then the evaluation fails, and if an
+attempt passed its check, the checks' pick stands in, labelled as a
+fallback rather than a verdict, with **Retry** beside it. Picking while a
+rerun runs stops it, and a rerun `berthd` stopped in the middle of shows as
+failed when it starts again. In a group across boxes, each box's judge has
+its own **Rerun judge**.
 
 ## How a run resumes
 
@@ -195,12 +221,13 @@ GET  /v1/runs/{id}                     with steps, gate and candidates
 GET  /v1/runs/{id}/events?since=N      its journal from record N, then live (NDJSON; follow=0 stops)
 POST /v1/runs/{id}/cancel
 POST /v1/runs/{id}/gates/{step}/decide {approve, note, pick}   step "current" is the open one
-GET  /v1/review?run=ID                 an attempts run's candidates, each with its worktree's changes
+POST /v1/runs/{id}/judge               an attempts run at its pick: judge the attempts again, as they are now (202, the evaluation)
+GET  /v1/review?run=ID                 an attempts run's candidates, each with its worktree's changes now, and its evaluations
 POST /v1/exec                          {location, command, detach: true} → {run}
 ```
 
 Runs publish `run.created`, `run.queued`, `run.started`, `run.resumed`,
-`run.step`, `run.gate`, `run.gate_decided` and `run.finished`
+`run.step`, `run.gate`, `run.gate_decided`, `run.judging`, `run.judged` and `run.finished`
 ([events](/reference/events)). Finished runs past 100 per flow or template,
 or 30 days old, are compacted away, journal and all.
 

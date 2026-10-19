@@ -1,8 +1,12 @@
-import { ArrowLeftIcon, CheckIcon, Columns2Icon, CrownIcon, ExternalLinkIcon, GitCompareArrowsIcon, GitPullRequestIcon, RotateCcwIcon, SquareTerminalIcon, XIcon } from "lucide-react";
+import { ArrowLeftIcon, CheckIcon, Columns2Icon, CrownIcon, ExternalLinkIcon, GitCompareArrowsIcon, GitPullRequestIcon, ListChecksIcon, RotateCcwIcon, SquareTerminalIcon, XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { AgentIcon } from "@/components/agent-glyph";
+import { Tip } from "@/components/tip";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { changedSince, versionLabel } from "@/lib/judge-evaluations";
+import { currentPick, JudgePanel, seenVersion } from "@/views/review/judge-panel";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { ago, errorMessage } from "@/lib/format";
@@ -96,6 +100,8 @@ export function CompareView({ box, id, onClose }: { box: string; id: string; onC
   const [all, setAll] = useState<{ box: string; id: string; data: RunCompare }[]>([]);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  // The runs whose judge is being asked again from here (box/id).
+  const [asking, setAsking] = useState<string[]>([]);
 
   const load = async () => {
     try {
@@ -105,11 +111,28 @@ export function CompareView({ box, id, onClose }: { box: string; id: string; onC
       setError(plainError(err));
     }
   };
+  // Read more often while a judge is looking, to show its verdict soon.
+  const judging = all.some((r) => r.data.evaluations?.some((e) => e.status === "running"));
   useEffect(() => {
     void load();
-    const t = setInterval(() => !document.hidden && void load(), 4000);
+    const t = setInterval(() => !document.hidden && void load(), judging ? 1000 : 4000);
     return () => clearInterval(t);
-  }, [runsKey]);
+  }, [runsKey, judging]);
+
+  // Rerun the judge: it judges the attempts as their worktrees are now;
+  // the run keeps waiting for the pick.
+  const rejudge = async (r: { box: string; id: string }) => {
+    const key = `${r.box}/${r.id}`;
+    setAsking((a) => [...a, key]);
+    try {
+      await runsApi.rejudge(r.box, r.id);
+      await load();
+    } catch (err) {
+      toastManager.add({ type: "error", title: "Couldn't rerun the judge", description: plainError(err) });
+    } finally {
+      setAsking((a) => a.filter((k) => k !== key));
+    }
+  };
 
   // A pick decides every run of the group: the picked one's run takes it,
   // the others pick none and archive their attempts.
@@ -152,7 +175,18 @@ export function CompareView({ box, id, onClose }: { box: string; id: string; onC
   const multi = all.length > 1;
   // A group's runs each say how many they tried; the page shows them all.
   const titleOf = (t?: string) => (t ?? id).replace(/: \d+ attempts?$/, "");
-  const cands = all.flatMap((r) => r.data.candidates.map((c) => ({ ...c, box: r.box, runId: r.id, winner: r.data.gate?.default === c.index })));
+  const cands = all.flatMap((r) => {
+    const pick = currentPick(r.data);
+    return r.data.candidates.map((c) => ({
+      ...c,
+      box: r.box,
+      runId: r.id,
+      winner: r.data.gate?.default === c.index,
+      // Picked by the checks, not by a judge's verdict: said apart.
+      checksPick: pick?.index === c.index && (pick.kind === "fallback" || pick.kind === "checks") ? pick.kind : undefined,
+      seen: seenVersion(r.data, c.index),
+    }));
+  });
   // One winner across the group: each box's judge ranks only its own, so of
   // their first picks the one whose check passed, then the smallest change.
   const firsts = cands.filter((c) => c.judge.rank === 1);
@@ -214,18 +248,16 @@ export function CompareView({ box, id, onClose }: { box: string; id: string; onC
           {all.map((r) => (
             <PullRequestNote key={`${r.box}/${r.id}`} data={r.data} where={multi ? r.box : undefined} busy={busy} onPublish={(retry) => void publish(r, retry)} />
           ))}
-          {all
-            .filter((r) => r.data.judge)
-            .map((r) => (
-              <p key={`${r.box}/${r.id}`} className="mb-4 rounded-xl border bg-muted/30 px-4 py-2.5 text-body">
-                <span className="font-medium">Judge{multi ? ` on ${r.box}` : ""}: </span>
-                {r.data.judge}
-              </p>
-            ))}
+          {all.map((r) => (
+            <JudgePanel key={`${r.box}/${r.id}`} label={multi ? `on ${r.box}` : undefined} data={r.data} busy={asking.includes(`${r.box}/${r.id}`)} onRerun={() => void rejudge(r)} />
+          ))}
           {!cands.length && <p className="text-muted-foreground text-body">No attempt has finished yet.</p>}
           <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.max(1, cands.length)}, minmax(260px, 1fr))` }}>
             {cands.map((c) => {
-              const files = c.review?.files ?? [];
+              // Every file changed against the base, committed or not: what
+              // Changes counts. An older box sends only uncommitted ones.
+              const files = c.now?.files ?? c.review?.files ?? [];
+              const moved = changedSince(c.seen, c.now);
               return (
                 <section key={`${c.box}/${c.runId}/${c.index}`} className={cn("flex min-w-0 flex-col rounded-xl border bg-card", c.picked && "border-success/60", isBest(c) && canPick && "border-primary/50")}>
                   <header className="flex items-center gap-2 border-b px-3 py-2">
@@ -236,6 +268,12 @@ export function CompareView({ box, id, onClose }: { box: string; id: string; onC
                       <span className="ml-auto inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-meta text-primary">
                         <CrownIcon className="size-3" />
                         judge's pick
+                      </span>
+                    )}
+                    {!isBest(c) && c.checksPick && !c.picked && (
+                      <span className={cn("ml-auto inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-meta", c.checksPick === "fallback" ? "text-warning-foreground" : "text-info-foreground")}>
+                        <ListChecksIcon className="size-3" />
+                        checks' pick
                       </span>
                     )}
                     {c.picked && (
@@ -255,6 +293,21 @@ export function CompareView({ box, id, onClose }: { box: string; id: string; onC
                     <dd className="font-mono tabular-nums">
                       {c.diff.files} files <span className="text-success-foreground">+{c.diff.added}</span> <span className="text-destructive-foreground">−{c.diff.removed}</span> · {c.diff.commits} commits
                     </dd>
+                    {(c.now?.head || c.seen?.head) && (
+                      <>
+                        <dt className="text-muted-foreground">Version</dt>
+                        <dd className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                          <span className="font-mono">{versionLabel(c.now ?? c.seen)}</span>
+                          {moved && (
+                            <Tip label={`The judge saw ${versionLabel(c.seen)}; the worktree has moved on since. Rerun the judge to judge it as it is now.`}>
+                              <Badge variant="warning" size="sm" tabIndex={0}>
+                                changed since judged
+                              </Badge>
+                            </Tip>
+                          )}
+                        </dd>
+                      </>
+                    )}
                     {c.judge.rank ? (
                       <>
                         <dt className="text-muted-foreground">Judge</dt>
@@ -277,7 +330,7 @@ export function CompareView({ box, id, onClose }: { box: string; id: string; onC
                       </>
                     )}
                   </dl>
-                  {!c.verify.passed && c.verify.tail && <pre className="mx-3 mb-2 max-h-28 overflow-auto rounded-lg bg-muted/60 p-2 font-mono text-mono text-muted-foreground">{c.verify.tail}</pre>}
+                  {!c.verify.passed && c.verify.tail && <pre tabIndex={0} aria-label={`Attempt ${c.index + 1}'s failing check`} className="mx-3 mb-2 max-h-28 overflow-auto rounded-lg bg-muted/60 p-2 font-mono text-mono text-muted-foreground">{c.verify.tail}</pre>}
                   <ul className="min-h-0 flex-1 space-y-0.5 border-t px-3 py-2 text-meta">
                     {files.slice(0, 14).map((f) => (
                       <li key={f.path} className="flex items-center gap-2">
@@ -287,7 +340,7 @@ export function CompareView({ box, id, onClose }: { box: string; id: string; onC
                       </li>
                     ))}
                     {files.length > 14 && <li className="text-muted-foreground">and {files.length - 14} more</li>}
-                    {!files.length && <li className="text-muted-foreground">No uncommitted changes.</li>}
+                    {!files.length && <li className="text-muted-foreground">{c.now ? `No changes against ${c.now.base || "its base"}.` : "No uncommitted changes."}</li>}
                   </ul>
                   <footer className="flex flex-wrap items-center gap-1.5 border-t px-3 py-2">
                     {canPick && (

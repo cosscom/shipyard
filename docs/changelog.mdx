@@ -10,7 +10,6 @@ upgrades with `berth upgrade BOX`, or by running the
 again.
 
 ## Unreleased
-
 - **Every worktree shows in the sidebar.** Worktrees with nothing going on
   are no longer folded under "Show N older", so the sidebar's room goes to
   your worktrees. The Active / All worktrees choice went with it. A
@@ -86,6 +85,24 @@ Keeping main up to date and opening Codex edits need each box's new
   than stopping the app, and a pane that breaks says so in its own place,
   with a way out (its terminal, or closing the tab), while the sidebar and
   your other tabs carry on.
+- **Rerun judge.** When you try a task several ways, Review's Compare now
+  has a **Rerun judge** button: the judge looks again at the attempts as
+  their worktrees are now (after an agent made more changes, or when its
+  first reply wasn't valid), without restarting the agents. The run keeps
+  waiting for your pick, keeps every worktree, and opens no pull request.
+  Compare says when each evaluation ran and which version of each worktree
+  it saw (its commit, and whether it had changes not committed yet), marks
+  an attempt that changed since it was judged, and keeps the earlier
+  evaluations so you can see what changed. A reply that isn't valid shows as
+  a failure with **Retry**, and the checks' pick that stands in for it is
+  labelled as a fallback, not as the judge's verdict. `berth run judge
+  BOX/RUN` does the same from the command line.
+- **An attempt's changes count all its work.** Compare showed "0 files, 0
+  commits" for an attempt whose work was committed when the project's
+  checkout had no local copy of the default branch, and kept the count from
+  when the run collected it while the file list showed the work after. The
+  count and the file list now both read the worktree as it is, against
+  origin's default branch, committed or not.
 - **A helper that is back shows as back in a chat session.** In a chat
   (structured) Claude session, a helper Claude left working in the
   background stayed "working" in Crew, its time running on, after it had

@@ -77,6 +77,7 @@ var usageSections = []struct {
 		{"%[1]s run get %[2]sRUN [--json]", "A run's steps, gate, attempts and tokens"},
 		{"%[1]s run logs %[2]sRUN [--since N] [--follow] [--json]", "Its journal, as it happens"},
 		{"%[1]s run approve|reject %[2]sRUN [STEP] [--pick N] [--note TEXT]", "Decide the gate it waits at"},
+		{"%[1]s run judge %[2]sRUN", "Judge an attempts run's attempts again, as they are now"},
 		{"%[1]s run cancel %[2]sRUN", "Stop a run"},
 		{"%[1]s flow secret%[3]s FLOW [--scope S] [--json]", "Make a webhook flow's signing secret (shown once)"},
 	}},
@@ -270,7 +271,7 @@ func Run(ctx context.Context, c *box.Client, args []string, out io.Writer) error
 		return loginUsersCmd(ctx, c, rest, out)
 	case "artifact add", "artifact list", "artifact ls", "artifact show", "artifact rm":
 		return artifactCmd(ctx, c, strings.TrimPrefix(cmd, "artifact "), rest, out)
-	case "run start", "run get", "run logs", "run cancel", "run approve", "run reject", "run templates":
+	case "run start", "run get", "run logs", "run cancel", "run approve", "run reject", "run judge", "run templates":
 		return runCmd(ctx, c, strings.TrimPrefix(cmd, "run "), rest, out)
 	case "location scripts":
 		fs, asJSON := flags(rest)

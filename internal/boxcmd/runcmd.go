@@ -91,6 +91,17 @@ func runCmd(ctx context.Context, c *box.Client, sub string, args []string, out i
 		return nil
 	case "approve", "reject":
 		return runDecide(ctx, c, sub == "approve", args, out)
+	case "judge":
+		pos, err := parse(flag0(), args)
+		if err != nil || len(pos) != 1 {
+			return usageErr("run judge RUN")
+		}
+		ev, err := c.RejudgeRun(ctx, pos[0])
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "Judging %s again (evaluation %d); it stays waiting for your pick\n", pos[0], ev.N)
+		return nil
 	}
 	return fmt.Errorf("unknown command run %s", sub)
 }

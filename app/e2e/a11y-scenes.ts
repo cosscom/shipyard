@@ -252,6 +252,22 @@ export const scenes: Scene[] = [
     },
   },
   {
+    // Review's Compare after a rerun of the judge whose reply wasn't valid:
+    // the fallback, Retry and the earlier evaluation.
+    id: "review-compare-rejudged",
+    extra: true,
+    async run(app, theme) {
+      await app.open({ theme });
+      await app.page.getByTestId("nav-review").click();
+      await app.page.getByRole("button", { name: /refunds: 3 attempts · pick one/ }).click();
+      const judge = app.page.getByRole("region", { name: "Judge on devl" });
+      await judge.getByRole("button", { name: "Rerun judge" }).click();
+      await expect(judge).toHaveAttribute("data-evaluation", "fallback", { timeout: 15_000 });
+      await judge.getByRole("button", { name: "Earlier evaluations (1)" }).click();
+      await expect(judge.getByRole("list", { name: "Earlier evaluations" })).toBeVisible();
+    },
+  },
+  {
     id: "first-run",
     async run(app, theme) {
       await app.open({ theme, params: { fresh: "1" } }).catch(() => {});

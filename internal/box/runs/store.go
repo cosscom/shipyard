@@ -38,6 +38,8 @@ type Record struct {
 	Item    map[string]any    `json:"item,omitempty"`
 	// Feedback is a check's failing tail, kept for the prompt after it.
 	Feedback string `json:"feedback,omitempty"`
+	// Eval is an evaluation of an attempts run, as it starts and ends.
+	Eval *Evaluation `json:"evaluation,omitempty"`
 }
 
 // Record types.
@@ -54,6 +56,7 @@ const (
 	recCandidate  = "candidate"
 	recCoalesced  = "run.coalesced"
 	recCancelWant = "run.cancel"
+	recEval       = "judge.evaluation"
 )
 
 // maxRecordLine bounds one journal line read back; outputs are capped far

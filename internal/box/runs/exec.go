@@ -40,6 +40,12 @@ type execution struct {
 	usage  Usage
 	waived map[string]bool
 	maps   map[string][]bool // map path → its items' results
+
+	// judging is the rerun of the judge in flight, and holdJudging stops
+	// another starting (x.mu); judges counts their goroutines.
+	judging     *judging
+	holdJudging bool
+	judges      sync.WaitGroup
 }
 
 // errAbort ends the run as failed, past any step that would handle it.
@@ -120,10 +126,15 @@ func (x *execution) apply(r Record) {
 		if r.Cand != nil {
 			x.putCandidate(*r.Cand)
 		}
+	case recEval:
+		if r.Eval != nil {
+			x.putEvaluation(*r.Eval)
+		}
 	case recGateOpen:
 		x.opened[r.Path] = r
 		x.run.Gate = r.Gate
 		x.run.Status = WaitingGate
+		x.pickDefault()
 	case recGateDone:
 		if r.Decided != nil {
 			x.decisions[r.Path] = *r.Decided
@@ -158,6 +169,35 @@ func (x *execution) putCandidate(c Candidate) {
 	}
 	x.run.Candidates = append(x.run.Candidates, c)
 	sort.Slice(x.run.Candidates, func(i, j int) bool { return x.run.Candidates[i].Index < x.run.Candidates[j].Index })
+}
+
+// putEvaluation keeps an evaluation, replacing the one with its number;
+// x.mu is held (or the execution is not running yet).
+func (x *execution) putEvaluation(ev Evaluation) {
+	found := false
+	for i := range x.run.Evaluations {
+		if x.run.Evaluations[i].N == ev.N {
+			x.run.Evaluations[i], found = ev, true
+		}
+	}
+	if !found {
+		x.run.Evaluations = append(x.run.Evaluations, ev)
+		sort.Slice(x.run.Evaluations, func(i, j int) bool { return x.run.Evaluations[i].N < x.run.Evaluations[j].N })
+	}
+	x.pickDefault()
+}
+
+// pickDefault makes an open pick gate's default the latest evaluation's
+// winner; x.mu is held.
+func (x *execution) pickDefault() {
+	if x.run.Gate == nil || !x.run.Gate.Pick {
+		return
+	}
+	if w, ok := latestWinnerOf(x.run.Evaluations); ok && w != x.run.Gate.Default {
+		g := *x.run.Gate
+		g.Default = w
+		x.run.Gate = &g
+	}
 }
 
 func (x *execution) snapshot() Run {
@@ -263,6 +303,8 @@ func (x *execution) main() {
 	sc := &scope{vars: vars}
 	defer x.release(sc)
 	ok, err := x.seq(x.ctx, sc, x.run.Flow, "")
+	// A rerun of the judge ends with the run, before its journal closes.
+	x.stopJudging(true)
 	if x.stopping() {
 		// berthd is stopping: the run resumes when it starts again.
 		x.setStatus(x.run.Status, x.run.Gate)
@@ -661,8 +703,19 @@ func (x *execution) gate(ctx context.Context, sc *scope, s Step, id, path string
 		if w, err := strconv.Atoi(sc.vars["judge.winner"]); err == nil {
 			g.Default = w
 		}
+		// A rerun of the judge (before a restart) has the last word.
+		if w, ok := x.latestWinner(); ok {
+			g.Default = w
+		}
 	}
 	d, err := x.await(ctx, g, s.Timeout, s.OnTimeout, id)
+	if s.Pick {
+		// Decided: a rerun of the judge still going is too late.
+		x.stopJudging(false)
+		if w, ok := x.latestWinner(); ok {
+			g.Default = w
+		}
+	}
 	if err != nil {
 		return Result{Status: Failed}, err
 	}
