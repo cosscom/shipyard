@@ -18,7 +18,7 @@ The maintained list of what a person can do in the app, and how to prove each on
 | Plugins: built-in and your own, what they add (screens, sidebar items, widgets, panels) | [plugins.md](plugins.md) | `plugin-nav-badges` (sidebar items) |
 | Home's widget grid | [home-widgets.md](home-widgets.md) | none yet; `app/e2e/home-widgets.spec.ts` asserts it |
 | Questions in chat: an agent's form of questions as a card, answered on a real box; kept with Retry and Copy when it can't be | [chat-questions.md](chat-questions.md) | `chat-questions-live` (a real box, `--agent`); `app/e2e/chat.spec.ts` on the mock |
-| Chat and board: no question card or answers but the options the agent's screen shows; the mode menu while turn check waits | [chat-ask-card.md](chat-ask-card.md) | `chat-ask-card` (a real box, `--agent`); `app/e2e/ask-card.spec.ts` on a stand-in box |
+| Chat and board: no question card or answers but the options the agent's screen shows; the mode menu while turn check waits; a structured agent's form while its helpers report back, and a reply box that answers a card with nothing to pick | [chat-ask-card.md](chat-ask-card.md) | `chat-ask-card`, `chat-structured-ask-live` (a real box, `--agent`); `app/e2e/ask-card.spec.ts` on a stand-in box |
 | Turn check's "working": an hourglass with why in the sidebar, the tab and the rail's card, not a live turn's spinner; a handoff reads as done | [turn-check-indicator.md](turn-check-indicator.md) | `turn-check-indicator`; `app/e2e/sidebar-turn-check.spec.ts` asserts it, `TestTurnCheckLive` asks the real provider |
 
 ## Proof and skip reporting

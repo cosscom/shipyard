@@ -21,7 +21,9 @@ export type TranscriptItem =
   // command). decided is what was answered.
   // A permission the agent's hooks described (structured) names the tool,
   // what it would run or touch (detail) and why, rather than a screen line.
-  | { kind: "ask"; id: string; tool: string; detail: string; choices?: { key: string; label: string; title?: string }[]; decided?: string; why?: string; structured?: boolean; reading?: boolean }
+  // reply: with no options to pick, a reply answers it (a structured
+  // agent, which has no screen of its own).
+  | { kind: "ask"; id: string; tool: string; detail: string; choices?: { key: string; label: string; title?: string }[]; decided?: string; why?: string; structured?: boolean; reading?: boolean; reply?: boolean }
   // The agent at work: the step it is running (timed from the call), or
   // its own word for what it does (label, from its status line) with what
   // else that line says (meta: tokens); since is when it began.

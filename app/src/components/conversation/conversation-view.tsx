@@ -642,6 +642,8 @@ function Permission({ it, onAnswer, who }: { it: Extract<TranscriptItem, { kind:
                 <Spinner className="size-3.5" />
                 Reading its options…
               </>
+            ) : it.reply ? (
+              "Reply below to answer it."
             ) : (
               "Its options aren't on its screen: answer it in the terminal."
             )}

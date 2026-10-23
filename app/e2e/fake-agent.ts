@@ -50,6 +50,9 @@ export interface FakeAgent {
   // dropped once the box had it).
   sends: Record<string, unknown>[];
   send: (body: Record<string, unknown>) => Answer | "drop";
+  // The bodies of POST sessions/fix-claude/answer (a form of questions
+  // filled in, boxes with "answer"), in order.
+  answers: Record<string, unknown>[];
   // Ends every event stream, as an agent restarting does.
   dropStreams(): void;
   // Sends an event to the app's stream.
@@ -74,6 +77,7 @@ export async function fakeAgent(): Promise<FakeAgent> {
     online: {},
     sends: [],
     send: () => ({ body: { sent: true, turn: `${SESSION}#2`, seq: 9, at: now() } }),
+    answers: [],
     dropStreams() {
       for (const s of streams) s.destroy();
       streams.clear();
@@ -130,6 +134,11 @@ export async function fakeAgent(): Promise<FakeAgent> {
     res.writeHead(status, { "Content-Type": "application/json" });
     res.end(JSON.stringify(body));
   };
+  const json = async (req: IncomingMessage) => {
+    let raw = "";
+    for await (const c of req) raw += c;
+    return JSON.parse(raw || "{}") as Record<string, unknown>;
+  };
   const handle = async (req: IncomingMessage, res: ServerResponse) => {
     const u = new URL(req.url ?? "/", "http://fake");
     res.setHeader("Access-Control-Allow-Origin", req.headers.origin ?? "*");
@@ -154,14 +163,16 @@ export async function fakeAgent(): Promise<FakeAgent> {
     if (req.method === "POST" && p === "/v1/refresh") return send(res, 200, status());
     if (agent.away && p.startsWith(`/v1/boxes/${BOX}/api/`)) return send(res, 503, { error: `${BOX} is offline; Shipyard is reconnecting`, code: "box_unreachable" });
     if (req.method === "POST" && p === `/v1/boxes/${BOX}/api/sessions/${SESSION}/send`) {
-      let raw = "";
-      for await (const c of req) raw += c;
-      const body = JSON.parse(raw || "{}") as Record<string, unknown>;
+      const body = await json(req);
       agent.sends.push(body);
       const a = agent.send(body);
       if (a === "drop") return void res.destroy();
       if (a.delay) await new Promise((r) => setTimeout(r, a.delay));
       return send(res, a.status ?? 200, a.body);
+    }
+    if (req.method === "POST" && p === `/v1/boxes/${BOX}/api/sessions/${SESSION}/answer`) {
+      agent.answers.push(await json(req));
+      return send(res, 200, { answered: [] });
     }
     if (req.method === "GET" && (p === "/v1/themes" || p === "/v1/templates" || p === "/v1/plugins")) return send(res, 200, []);
     const m = /^\/v1\/boxes\/([^/]+)\/api\/(.*)$/.exec(p);

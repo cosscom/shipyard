@@ -157,6 +157,9 @@ const (
 	// maxStart is how much of a long file is read when it is first opened:
 	// its end, where the recent conversation is.
 	maxStart = 4 << 20
+	// minWindow is the fewest items a window read afresh holds, when the
+	// file has more: fewer, and it reaches back further (read).
+	minWindow = 20
 	// maxText is the most of one reply kept: a long answer, its tables and
 	// code included, reads whole.
 	maxText = 32 << 10
@@ -405,12 +408,40 @@ func (c *conv) read(path string) error {
 		return nil
 	}
 	if st.Size() < c.offset { // replaced or truncated: start again
-		*c = conv{source: c.source, dir: c.dir, p: c.p, side: c.side, byTool: map[string]int{}, crewByID: map[string]int{}, gen: gens.Add(1)}
+		c.restart(gens.Add(1))
 	}
-	if c.offset == 0 && st.Size() > maxStart {
-		c.offset = st.Size() - maxStart
-		c.truncated = true
+	if c.offset > 0 {
+		return c.follow(f)
 	}
+	// Opened afresh, a long file is read from near its end. A window that
+	// holds next to none of the conversation reaches further back, as a
+	// page of older items does: a structured session's log keeps a helper's
+	// lines beside it, and one left working can write megabytes while the
+	// agent waits on its question, which is then the window's to show.
+	for span := int64(maxStart); ; span *= 4 {
+		c.offset = max(0, st.Size()-span)
+		c.truncated = c.offset > 0
+		if err := c.follow(f); err != nil || !c.truncated || len(c.items) >= minWindow || span >= maxSpan {
+			return err
+		}
+		c.restart(c.gen)
+	}
+}
+
+// newConv is a reading of a file of source's, from nothing.
+func newConv(source, dir string, side bool) *conv {
+	return &conv{source: source, dir: dir, side: side, p: parserFor(source), byTool: map[string]int{}, crewByID: map[string]int{}}
+}
+
+// restart forgets what was read, to read the file again as reading gen.
+func (c *conv) restart(gen int64) {
+	used := c.used
+	*c = *newConv(c.source, c.dir, c.side)
+	c.gen, c.used = gen, used
+}
+
+// follow reads the file on from c.offset to its end.
+func (c *conv) follow(f *os.File) error {
 	if _, err := f.Seek(c.offset, io.SeekStart); err != nil {
 		return err
 	}
@@ -484,8 +515,8 @@ func (r *Reader) Follow(source, path, dir string, since int, gen string) (Result
 		if len(r.convs) >= maxOpen {
 			r.evictOldest()
 		}
-		c = &conv{source: source, dir: dir, side: isHelper(path), byTool: map[string]int{}, crewByID: map[string]int{}, gen: gens.Add(1)}
-		c.p = parserFor(source)
+		c = newConv(source, dir, isHelper(path))
+		c.gen = gens.Add(1)
 		r.convs[path] = c
 	}
 	c.used = now

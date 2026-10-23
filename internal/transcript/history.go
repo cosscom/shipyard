@@ -65,7 +65,8 @@ func Before(source, path, dir string, before int64, limit int) (Result, error) {
 		start := max(0, before-span)
 		// One more than asked: read from the middle of a file, the first
 		// item may be the tail of a group begun before it.
-		c := &conv{source: source, dir: dir, side: isHelper(path), paged: true, limit: limit + 1, p: parserFor(source), byTool: map[string]int{}, crewByID: map[string]int{}}
+		c := newConv(source, dir, isHelper(path))
+		c.paged, c.limit = true, limit+1
 		if err := c.scan(f, start, before); err != nil {
 			return Result{}, err
 		}

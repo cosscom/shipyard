@@ -10,12 +10,15 @@ When an agent waits for you, its chat shows what to answer. A permission prompt 
 - `ask-none`: no card for a wait with no options on screen: turn check's wait, a screen at the agent's prompt (whatever list its last message has), Remote Control's menu, the footer's `/rc`.
 - `mode-at-soft-wait`: the mode menu switches modes during turn check's wait, and stays blocked at a permission prompt.
 - `board-answers`: the Agent Dashboard's card offers a menu's options as answer chips, and never a numbered list from the agent's last message (`views/dashboard/agent-card.tsx`, `use-screen-tail.ts`).
+- `structured-form`: a structured agent's (`driver: "claude"`, the chat's header says "stdio") AskUserQuestion draws as its form even when helpers it left in the background report back after it, and even when their lines put the question megabytes back in its log and the chat is read afresh (a box restart, a chat nobody had open). The box's first read of a log reaches further back when its last 4 MB hold next to none of the conversation (`internal/transcript/transcript.go` `read`); a helper's word never answers the question (`peer.go` `addMessage`, `lib/questions.ts` `openQuestion`).
+- `structured-reply`: a structured agent's question or permission card with nothing to pick says "Reply below to answer it.", and the reply box takes words: the box says no to the ask and gives Claude the words (`claudedriver.go` `Send`). A structured agent has no screen of its own to answer at, so only something to pick holds the reply box (`lib/questions.ts` `atMenu`). An agent in its terminal keeps the old hold: its own screen opens instead.
 
 ## How to get to it (user POV)
 
 - Open a worktree's agent and switch the pane to **Conversation**.
 - Type `/rc` in the reply box; pick a mode from the mode chip under it (**Permission mode: …**).
 - Ask the agent something that makes it end its turn on a question in words; ask it to run a command in **Ask before edits**; ask it to use AskUserQuestion.
+- A structured agent (an agent the app started, with structured agents on): ask it to leave helpers working in the background and ask you something while they do.
 
 ## Driving it with drive.mjs
 
@@ -32,6 +35,23 @@ node .claude/skills/verify-berthd/scripts/drive.mjs chat-ask-card --port $PORT -
 ```
 
   It drives `/rc`, a switch to bypass, a turn that ends asking which of two numbered items to fix (it waits for `soft_wait: true` on the session), then `/rc` and a switch to **Ask before edits** during that wait, asserting no "Needs your answer" and no Yes button each time. Then a `touch` that asks permission (the card, then Allow) and AskUserQuestion (the form, then Esc). Second view: the box's own API through the agent (`call`): `sessions` (`agent_state`, `soft_wait`, `ask.tool`), `sessions/ask/screen` and `/controls`.
+- `structured-form` and `structured-reply` on a real box: `scenarios/chat-structured-ask-live.mjs`, on a dev box whose agent runs structured. A phase asks (four helpers read ~6 MB in the background while the question waits, about two minutes), the box starts again so the chat reads the log afresh, and a phase looks, expecting `form`, `reply` or (for a before on an older build) `locked`. In bash, for its arrays:
+
+```bash
+VERIFY_DRIVER=claude .claude/skills/verify-berthd/scripts/dev-box.sh up
+eval "$(.claude/skills/verify-berthd/scripts/dev-box.sh env)"
+S=chat-structured-ask-live; A=(--port $PORT --agent http://127.0.0.1:9378)
+VERIFY_PHASE=ask node .claude/skills/verify-berthd/scripts/drive.mjs $S "${A[@]}"
+.claude/skills/verify-berthd/scripts/dev-box.sh restart                 # this checkout's berthd: the form
+VERIFY_PHASE=look VERIFY_EXPECT=form node .claude/skills/verify-berthd/scripts/drive.mjs $S "${A[@]}"
+# Nothing to pick: an older berthd (a main checkout's bin/berthd) reads no form; this app takes a reply.
+VERIFY_PHASE=ask node .claude/skills/verify-berthd/scripts/drive.mjs $S "${A[@]}"
+.claude/skills/verify-berthd/scripts/dev-box.sh restart ../main/bin/berthd
+VERIFY_PHASE=look VERIFY_EXPECT=reply node .claude/skills/verify-berthd/scripts/drive.mjs $S "${A[@]}"
+.claude/skills/verify-berthd/scripts/dev-box.sh down
+```
+
+  Second view: the session's own log (`events.jsonl` under the dev box's `box-home`), read by the scenario: the question's `control_request`, the helpers' `task_notification`s after it, and the `control_response` that carried the answers or the reply.
 
 ## Gotchas
 
@@ -40,3 +60,5 @@ node .claude/skills/verify-berthd/scripts/drive.mjs chat-ask-card --port $PORT -
 - Esc on AskUserQuestion declines it, but Claude Code sends no hook for that, so the box keeps the wait (and the reply box stays blocked) until the next prompt. Keep that check last.
 - Turn check scores the turn: a scripted "reply word for word" prompt scored under its 0.65 bar. Ask for a real decision.
 - Claude Code 2.1's footer calls the default mode "manual mode".
+- Read keeps about 600 lines of a file, ~63 KB of log per call, and one helper told to read 40 files stopped after 24: the scenario splits 100 files over four helpers.
+- `dev-box.sh restart` restarts berthd only; the agents in its tmux keep running, so a question stays waiting across it.

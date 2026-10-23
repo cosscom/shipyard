@@ -357,3 +357,27 @@ func TestCodexLeavesItsTurnsAlone(t *testing.T) {
 		t.Fatalf("kinds = %s", got)
 	}
 }
+
+// A helper's notification, or its hand-back, while the agent waits on its
+// questions isn't the person's answer: the questions stay open until the
+// person replies.
+func TestAHelpersWordDoesntAnswerTheAgentsQuestion(t *testing.T) {
+	lines := append(launch("toolu_L", "Map ledger writes", "a3f9c1e7b2d4a6c80"),
+		assistant(tool("q1", "AskUserQuestion", m{"questions": threeQuestions})),
+		meta(taskNotification("a3f9c1e7b2d4a6c80", "toolu_L", "completed", `Agent "Map ledger writes" finished`, ""), m{"kind": "task-notification"}),
+		meta(handback("a3f9c1e7b2d4a6c80", "Ledger writes go through acme/ledger.go only."), m{"kind": "peer", "from": "a3f9c1e7b2d4a6c80", "handback": true}),
+	)
+	res := readAll(t, lines...)
+	q := only(t, res.Items, "question")
+	if len(q) != 1 || q[0].Done {
+		t.Fatalf("after the helper's word: %+v", q)
+	}
+	if len(only(t, res.Items, "agent-message")) != 1 {
+		t.Fatalf("the hand-back isn't shown: %s", kinds(res.Items))
+	}
+	res = readAll(t, append(lines, user("Skip the questions, just write it"))...)
+	// It closes them unanswered: the prompt is no answer to them.
+	if q := only(t, res.Items, "question"); len(q) != 1 || !q[0].Done || !q[0].Error || len(q[0].Answers) != 0 {
+		t.Fatalf("after the person's prompt: %+v", q)
+	}
+}

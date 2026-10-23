@@ -459,8 +459,10 @@ func (c *conv) addMessage(kind string, m *Message) {
 		}
 		break
 	}
+	// Another agent's word doesn't answer a question the agent asked the
+	// person, which stays open until they do (or a prompt of theirs
+	// settles it).
 	c.closeArtifacts()
-	c.closeQuestions()
 	c.add(Item{Kind: kind, ID: c.id(), Msg: m})
 }
 

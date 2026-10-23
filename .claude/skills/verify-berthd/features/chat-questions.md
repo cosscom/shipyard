@@ -36,5 +36,5 @@ The preview must be opened as `http://localhost:<1420-1439>`: the agent's API on
 ## Gotchas
 
 - The scenario sends its prompt from the chat, so the session must be at its prompt: one left at a form from a failed run needs Esc first.
-- A box started from the app starts agents structured (Claude through its SDK, which answers through a hook, not keys); `dev-box.sh` sets the box's defaults so they start in their terminals, the path this covers.
+- A box started from the app starts agents structured (Claude through its SDK, which answers through a hook, not keys); `dev-box.sh` sets the box's defaults so they start in their terminals, the path this covers. A structured agent's questions are covered by `chat-structured-ask-live` (`VERIFY_DRIVER=claude .claude/skills/verify-berthd/scripts/dev-box.sh up`, [chat-ask-card.md](chat-ask-card.md)).
 - `dev-box.sh up` refuses if the dev box rewrote the agent hooks in your home (it does that only when they are older than its own); put them back from your backup before going on.

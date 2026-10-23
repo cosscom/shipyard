@@ -158,3 +158,84 @@ func TestAnEditInAStructuredSessionsLogKeepsItsLineNumbers(t *testing.T) {
 		t.Fatalf("detail = %+v, %v", d, err)
 	}
 }
+
+// An agent that asks its questions while a helper it left in the
+// background works on: the helper's lines go on in the log, megabytes of
+// them, and its notifications come back, but the question stays the
+// conversation's last word and stays open, read live or afresh.
+func TestAQuestionStaysOpenWhileItsHelpersWorkOn(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "events.jsonl")
+	seq := 0
+	out := func(data m) m {
+		seq++
+		return m{"seq": seq, "at": 1792200000000 + int64(seq)*1000, "dir": "out", "data": data}
+	}
+	helperLine := func(parent string, data m) m { data["parent_tool_use_id"] = parent; return out(data) }
+	launched := func(call, agentID string) m {
+		return out(user([]m{{"type": "tool_result", "tool_use_id": call, "content": "Async agent launched successfully. agentId: " + agentID}}))
+	}
+	back := func(call string) m {
+		return out(m{"type": "system", "subtype": "task_notification", "tool_use_id": call, "status": "completed"})
+	}
+	write(t, path,
+		out(user("Draft the acme release notes")),
+		out(assistant(tool("toolu_tally", "Agent", m{"description": "Tally the changes", "run_in_background": true}))),
+		launched("toolu_tally", "a1b2c3d4e5f6a7b8c"),
+		out(assistant(tool("toolu_shots", "Agent", m{"description": "Take the screenshots", "run_in_background": true}))),
+		launched("toolu_shots", "b1c2d3e4f5a6b7c8d"),
+		// One helper is back before the question; the other after it.
+		back("toolu_tally"),
+		out(assistant(tool("toolu_ask", "AskUserQuestion", m{"questions": threeQuestions[:2]}))),
+		out(m{"type": "control_request", "request_id": "r1", "request": m{"subtype": "can_use_tool", "tool_name": "AskUserQuestion", "input": m{"questions": threeQuestions[:2]}}}),
+	)
+	live := NewReader()
+	asked, err := live.Read(SourceClaudeHost, path, "/home/dev/acme", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pad := strings.Repeat("y", 16<<10)
+	for i := 0; ; i++ {
+		n := itoa(i)
+		write(t, path,
+			out(m{"type": "stream_event", "event": m{"type": "content_block_delta"}}),
+			helperLine("toolu_shots", assistant(tool("toolu_r"+n, "Read", m{"file_path": "/home/dev/acme/shot" + n + ".png"}))),
+			helperLine("toolu_shots", user([]m{{"type": "tool_result", "tool_use_id": "toolu_r" + n, "content": pad}})),
+		)
+		if st, _ := os.Stat(path); st.Size() > maxStart+(1<<20) {
+			break
+		}
+	}
+	write(t, path, back("toolu_shots"))
+
+	open := func(how string, items []Item) {
+		t.Helper()
+		if len(items) == 0 {
+			t.Fatalf("%s: nothing to show", how)
+		}
+		q := items[len(items)-1]
+		if q.Kind != "question" || q.Done || q.Tool != "toolu_ask" || len(q.Questions) != 2 || len(q.Questions[1].Options) != 4 {
+			t.Fatalf("%s: last item %+v, not the open question", how, q)
+		}
+	}
+	more, err := live.Read(SourceClaudeHost, path, "/home/dev/acme", asked.Next)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The live read sends the open question again, still open and last.
+	open("followed live", more.Items)
+	for _, c := range more.Crew {
+		if c.State != "finished" {
+			t.Fatalf("a helper not back: %+v", more.Crew)
+		}
+	}
+	afresh, err := NewReader().Read(SourceClaudeHost, path, "/home/dev/acme", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Its last 4 MB are the helper's: the window reaches back to the
+	// conversation, its prompt included.
+	if afresh.Items[0].Kind != "user" {
+		t.Fatalf("read afresh, the first item is %+v", afresh.Items[0])
+	}
+	open("read afresh", afresh.Items)
+}

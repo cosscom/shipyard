@@ -238,7 +238,8 @@ func codexTurn(path, dir string, off int64) (Turn, error) {
 	if err != nil {
 		return Turn{}, err
 	}
-	c := &conv{source: "codex", dir: dir, paged: true, limit: keep, p: parserFor("codex"), byTool: map[string]int{}, crewByID: map[string]int{}}
+	c := newConv("codex", dir, false)
+	c.paged, c.limit = true, keep
 	if err := c.scan(f, off, st.Size()); err != nil {
 		return Turn{}, err
 	}

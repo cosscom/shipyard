@@ -13,6 +13,14 @@ again.
 
 - **The app has a new icon:** a box in its tray with the amber lamp lit on
   top. A dev build wears the same box on orange.
+- **A structured agent's questions can always be answered from the chat.**
+  An agent that asked you something while helpers it left in the
+  background were still working showed a bare "Claude asks you" card with
+  no options, and a reply box that took nothing. Now the chat shows the
+  agent's form with its options, however much its helpers wrote after
+  the question, and a helper reporting back no longer counts as your
+  answer. A card with nothing to pick says **Reply below to answer it**,
+  and what you type there is the answer.
 - **An agent waiting on its own work no longer looks like a live turn.**
   When turn check reads a finished turn as work still running (a build, a
   deploy, a task it waits on), the sidebar and its tab show an hourglass

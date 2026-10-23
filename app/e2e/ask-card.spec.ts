@@ -145,3 +145,96 @@ test("the board still offers a menu's options as answers", async ({ app }) => {
   await expect(card.getByRole("button", { name: /Overwrite it/ })).toBeVisible();
   await expect(card.getByRole("button", { name: /Keep mine/ })).toBeVisible();
 });
+
+// A structured session (driver "claude") has no screen of its own: its
+// chat is the only way to answer it.
+const STRUCTURED = { driver: "claude", ask: { tool: "AskUserQuestion" } };
+const helperBack = (id: string, name: string) => ({ kind: "ping", id, msg: { from: { id: `a-${id}`, name, kind: "helper", helper: `toolu_${id}` }, status: "done", summary: `Agent "${name}" finished` }, off: 0 });
+const asking = (items: Record<string, unknown>[]) => () => ({
+  body: { source: "claude", items: items.map((it, i) => ({ ...it, off: 10 + i * 100 })), next: items.length, crew: [], gen: "1.0", start: 10, file: "abc" },
+});
+
+test("a structured agent's questions draw as their form while its helpers report back", async ({ app }) => {
+  agent.capabilities = ["transcript", "turns", "answer"];
+  agent.session = { agent_state: "waiting", turn: `${SESSION}#4`, ...STRUCTURED };
+  agent.transcript = asking([
+    { kind: "user", id: "u1", text: "Draft the acme release notes" },
+    helperBack("tally", "Tally the changes"),
+    {
+      kind: "question",
+      id: "q1",
+      tool: "toolu_ask",
+      questions: [
+        { question: "Which release do these notes cover?", header: "Release", options: [{ label: "2.4" }, { label: "2.5" }] },
+        { question: "Who reads them?", header: "Readers", options: [{ label: "Customers" }, { label: "The team" }] },
+      ],
+    },
+    helperBack("shots", "Take the screenshots"),
+  ]);
+  await app.open({ agent, params: { view: "conversation" } });
+  await app.openWorktree(`${BOX}/fix`);
+
+  const form = app.chat.getByTestId("question-form");
+  await expect(form).toContainText("Claude asks you 2 questions");
+  await expect(app.chat.locator("[data-testid=chat-item][data-kind=ask]")).toHaveCount(0);
+  await expect(app.composer.getByRole("textbox", { name: "Reply" })).toHaveAttribute("placeholder", "Answer Claude's questions above");
+  if (process.env.BERTH_SHOTS) await app.page.screenshot({ path: `${process.env.BERTH_SHOTS}/structured-form-after-helper.png` });
+  const next = form.getByRole("button", { name: /^(Next|Review|Submit answers)$/ }).last();
+  await form.getByRole("radio", { name: /2\.5/ }).click();
+  await next.click();
+  await form.getByRole("radio", { name: /Customers/ }).click();
+  await next.click();
+  await expect(next).toHaveText(/Submit answers/);
+  await next.click();
+  await expect.poll(() => agent.answers).toEqual([{ tool: "toolu_ask", answers: [{ picks: ["2.5"], other: "" }, { picks: ["Customers"], other: "" }] }]);
+});
+
+test("a structured agent's ask with nothing to pick is answered from the reply box", async ({ app }) => {
+  agent.session = { agent_state: "waiting", turn: `${SESSION}#4`, ...STRUCTURED };
+  // Its record has no form for it (an older box, or one it can't read).
+  agent.transcript = asking([
+    { kind: "user", id: "u1", text: "Draft the acme release notes" },
+    { kind: "text", id: "t1", text: "I'll ask which release first." },
+  ]);
+  await app.open({ agent, params: { view: "conversation" } });
+  await app.openWorktree(`${BOX}/fix`);
+
+  const card = app.chat.locator("[data-testid=chat-item][data-kind=ask]");
+  await expect(card).toContainText("Claude asks you");
+  await expect(card).toContainText("Reply below to answer it.");
+  await expect(card).not.toContainText("terminal");
+  const box = app.composer.getByRole("textbox", { name: "Reply" });
+  await expect(box).not.toHaveAttribute("placeholder", "Pick an answer above first");
+  await box.fill("Cover 2.5, for customers");
+  const send = app.composer.getByRole("button", { name: "Send" });
+  await expect(send).toBeEnabled();
+  if (process.env.BERTH_SHOTS) await app.page.screenshot({ path: `${process.env.BERTH_SHOTS}/structured-no-options-reply.png` });
+  await send.click();
+  await expect.poll(() => agent.sends).toContainEqual(expect.objectContaining({ text: "Cover 2.5, for customers", force: true }));
+});
+
+test("a structured agent's next question, after one answered, keeps its card while its form can't be read", async ({ app }) => {
+  agent.session = { agent_state: "waiting", turn: `${SESSION}#4`, ...STRUCTURED };
+  agent.transcript = asking([
+    { kind: "user", id: "u1", text: "Draft the acme release notes" },
+    { kind: "question", id: "q1", tool: "toolu_ask1", questions: [{ question: "Which release?", header: "Release", options: [{ label: "2.4" }, { label: "2.5" }] }], answers: ["2.5"], done: true },
+    { kind: "text", id: "t1", text: "One more thing before I write them." },
+  ]);
+  await app.open({ agent, params: { view: "conversation" } });
+  await app.openWorktree(`${BOX}/fix`);
+  await expect(app.chat.locator("[data-testid=chat-item][data-kind=question]")).toContainText("Which release?→2.5");
+  const card = app.chat.locator("[data-testid=chat-item][data-kind=ask]");
+  await expect(card).toContainText("Reply below to answer it.");
+});
+
+test("a permission in its terminal with no options read still holds the reply box", async ({ app }) => {
+  agent.session = { agent_state: "waiting", turn: `${SESSION}#4`, ask: { tool: "Bash", input: "make deploy" } };
+  agent.transcript = asking([{ kind: "user", id: "u1", text: "Deploy acme" }]);
+  agent.screen = () => "";
+  await app.open({ agent, params: { view: "conversation" } });
+  await app.openWorktree(`${BOX}/fix`);
+  await expect(app.chat.locator("[data-testid=chat-item][data-kind=ask]")).toContainText("make deploy");
+  await expect.poll(() => agent.calls.filter((c) => c.includes(`/sessions/${SESSION}/screen`)).length).toBeGreaterThan(0);
+  await app.composer.getByRole("textbox", { name: "Reply" }).fill("no, stage it first");
+  await expect(app.composer.getByRole("button", { name: "Send" })).toBeDisabled();
+});
