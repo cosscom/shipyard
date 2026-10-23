@@ -1,3 +1,5 @@
+import type { Attachment, BerthApi } from "@berth/plugin";
+
 import type { Client } from "@/lib/api";
 
 // Attachments are files pasted or dropped for an agent: a screenshot, a PDF,
@@ -22,12 +24,7 @@ const TEXT_EXT = /\.(txt|md|log|csv|tsv|json|ya?ml|toml|xml|html|css|jsx?|tsx?|g
 // agent is about to start in.
 export type AttachTarget = { box: string; session: string } | { box: string; location: string; worktree: string };
 
-export interface Attachment {
-  path: string;
-  name: string;
-  type: string;
-  size: number;
-}
+export type { Attachment };
 
 export const isImage = (type: string) => IMAGE_TYPES.includes(type);
 
@@ -179,8 +176,24 @@ export function onThisComputer(address?: string): boolean {
 }
 
 // uploadLocalFile has the laptop agent read a file on this computer and
-// upload it to the box.
-export function uploadLocalFile(client: Client, target: AttachTarget, path: string): Promise<Attachment> {
+// upload it to the box; signal stops it, upload and all.
+export function uploadLocalFile(client: Client, target: AttachTarget, path: string, signal?: AbortSignal): Promise<Attachment> {
   const { box, ...to } = target;
-  return client.laptop<Attachment>("POST", `/v1/boxes/${encodeURIComponent(box)}/attach-local`, { path, ...to });
+  return client.laptop<Attachment>("POST", `/v1/boxes/${encodeURIComponent(box)}/attach-local`, { path, ...to }, signal);
 }
+
+const LOCAL_TYPES: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", pdf: "application/pdf" };
+
+// attachApi is a plugin's api.attach: a file goes up the way the composer
+// sends one (pasted: a screenshot shrinks first), a path on this computer
+// through the laptop agent. On a box that runs here a path is the box's own,
+// so it is the attachment as it is, unread (size 0). address is a box's.
+export const attachApi =
+  (client: Client, address: (box: string) => string | undefined): BerthApi["attach"] =>
+  async (box, target, f, o = {}) => {
+    const to = { ...target, box };
+    if (typeof f !== "string") return uploadAttachment(client, to, o.pasted ? await shrinkImage(f) : f, o);
+    if (!onThisComputer(address(box))) return uploadLocalFile(client, to, f, o.signal);
+    const name = f.split("/").pop() ?? f;
+    return { path: f, name, type: LOCAL_TYPES[name.split(".").pop()?.toLowerCase() ?? ""] ?? "", size: 0 };
+  };

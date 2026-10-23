@@ -2,6 +2,7 @@ import type { BerthApi, BerthPluginContext } from "@berth/plugin";
 import { createContext } from "react";
 
 import { boxApi, type Client } from "@/lib/api";
+import { attachApi, localPaths } from "@/lib/attachments";
 import { makeHelperApi } from "@/lib/helper";
 import { makeLinearApi } from "@/lib/linear";
 import { notify } from "@/lib/notify";
@@ -38,6 +39,8 @@ export function makeApi(client: Client): BerthApi {
       const ref = svc && { box, location: svc.location, worktree: svc.worktree, path: svc.path, main: svc.main };
       return (ref && portUrl(port, { ref, services, urlPort })) ?? `http://${port}.${box}.localhost${hostSuffix(urlPort)}/`;
     },
+    attach: attachApi(client, (box) => useStore.getState().status?.boxes.find((b) => b.name === box)?.address),
+    localPaths,
   };
 }
 

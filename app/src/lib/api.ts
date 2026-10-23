@@ -207,8 +207,8 @@ export interface Client {
   // onProgress how much has gone; the promise rejects with an AbortError
   // when signal aborts.
   upload<T = unknown>(box: string, path: string, body: Blob, onProgress?: (sent: number, total: number) => void, signal?: AbortSignal): Promise<T>;
-  // Any laptop API call, such as "GET", "/v1/hooks".
-  laptop<T = unknown>(method: string, path: string, body?: unknown): Promise<T>;
+  // Any laptop API call, such as "GET", "/v1/hooks"; signal aborts it.
+  laptop<T = unknown>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T>;
   // A laptop API call that answers NDJSON, one value per line, as long
   // commands do (adding a box, upgrading, signing in to a tailnet).
   stream(method: string, path: string, body: unknown, onValue: (v: unknown) => void, signal?: AbortSignal): Promise<void>;
@@ -648,7 +648,7 @@ export function httpClient(ep: Endpoint): Client {
         };
         xhr.send(body);
       }),
-    laptop: (method, path, body) => request(method, path, body),
+    laptop: (method, path, body, signal) => request(method, path, body, signal),
     async stream(method, path, body, onValue, signal) {
       const res = await fetch(ep.url + path, {
         method,

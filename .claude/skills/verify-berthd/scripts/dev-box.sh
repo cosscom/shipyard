@@ -6,6 +6,9 @@
 # them as box "devq", adds a synthetic repo "acme-shop" and starts Claude
 # Code in its terminal there, session "ask". `env` prints what drive.mjs
 # and tmux need; `down` stops it all and deletes the state.
+# VERIFY_BOX_ADDR=<ip>:7544 (say, `tailscale ip -4`) has the box listen and
+# pair there instead: a box not on 127.0.0.1 is one the app treats as on
+# another computer, so a laptop path goes up through the agent.
 #
 # HOME stays real: Claude Code needs its sign-in. The box refreshes
 # Claude's hooks in ~ only when they are out of date; `up` stops if it
@@ -14,6 +17,7 @@ set -euo pipefail
 root=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 # Short: a unix socket's path can't be longer than 108 bytes.
 dir=${VERIFY_BOX_DIR:-/tmp/verify-berthd-box}
+addr=${VERIFY_BOX_ADDR:-127.0.0.1:7544}
 box_env=(BERTH_HOME="$dir/box-home" BERTH_USER_DIR="$dir/box-user" TMUX_TMPDIR="$dir/tmux")
 lap_env=(BERTH_HOME="$dir/lap-home" BERTH_USER_DIR="$dir/lap-user" BERTH_UI_ADDR=127.0.0.1:9378 BERTH_PROXY_ADDR=127.0.0.1:9377)
 box() { env "${box_env[@]}" "$root/bin/berthd" "$@"; }
@@ -27,14 +31,14 @@ up)
   done
   mkdir -p "$dir"/{box-home,box-user,lap-home,lap-user,tmux} && chmod 700 "$dir/tmux"
   make -C "$root" build >/dev/null
-  env "${box_env[@]}" nohup "$root/bin/berthd" serve --listen 127.0.0.1:7544 >"$dir/berthd.log" 2>&1 &
+  env "${box_env[@]}" nohup "$root/bin/berthd" serve --listen "$addr" >"$dir/berthd.log" 2>&1 &
   echo $! >"$dir/berthd.pid"
   until grep -q "berthd serving" "$dir/berthd.log"; do sleep 0.5; done
   if grep -q "updated berth's hooks" "$dir/berthd.log"; then
     echo "the dev box rewrote agent hooks in $HOME (berthd.log): put them back before going on" >&2
     exit 1
   fi
-  lap pair "$(box pair --address 127.0.0.1:7544 --json | jq -r .link)" --name devq >/dev/null
+  lap pair "$(box pair --address "$addr" --json | jq -r .link)" --name devq >/dev/null
   token=$(lap ui-token | jq -r .token)
   # Agents in their terminals, as the bug reports' sessions run.
   curl -sf -X PUT -H "Authorization: Bearer $token" -H 'content-type: application/json' \
@@ -49,7 +53,7 @@ up)
   # A new folder asks to be trusted first.
   sleep 8
   tm send-keys -t ask Up && sleep 0.5 && tm send-keys -t ask Enter
-  echo "up: box devq (127.0.0.1:7544), agent http://127.0.0.1:9378, worktree devq/acme-shop, session ask"
+  echo "up: box devq ($addr), agent http://127.0.0.1:9378, worktree devq/acme-shop, session ask"
   ;;
 env)
   # VERIFY_BERTH_TOKEN is a secret: export it, don't print it anywhere else.

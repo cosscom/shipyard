@@ -20,6 +20,12 @@ again.
   also reads a handoff as done: an agent that started a worker it won't
   follow and told you that you can close the session no longer shows as
   working.
+- **Plugins can give an agent a file.** `berth.api.attach` uploads a
+  pasted or dropped file into a session's worktree, or a worktree an agent
+  is about to start in, the way the composer does, and resolves with its
+  path on the box to put in a prompt. A pasted screenshot shrinks first, and
+  a path to a file on this computer (`berth.api.localPaths` finds them in
+  pasted text) goes up through Shipyard. Files up to 20 MB.
 - **Stopping several agents can archive their worktrees too.** The Agent
   Dashboard's Stop and Clean up dialogs have a box, **Archive their
   worktrees where it's safe**. Ticked, each stopped agent's worktree is

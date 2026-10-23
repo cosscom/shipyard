@@ -199,6 +199,35 @@ export interface BerthApi {
   renameSession(box: string, session: string, title: string): Promise<Session>;
   // The private URL of a port on a box, served by the laptop's proxy.
   serviceUrl(box: string, port: number): string;
+  // Uploads a file for an agent the way the app's composer does: raw bytes into a
+  // running session's worktree, or a worktree an agent is about to start in
+  // (.berth/attachments, which git ignores). Resolves with where it is on the box
+  // (pass path to the agent in the prompt). Up to 20 MB; larger is refused.
+  // file as a string is a path on this computer (see localPaths): the laptop
+  // agent uploads it, and on a box that runs on this computer it resolves to
+  // the path as it is, unread (size 0). pasted: true shrinks a pasted
+  // screenshot first, as the composer does; a dropped file goes as it is.
+  // An older Shipyard has no attach: check typeof berth.api.attach === "function".
+  attach(
+    box: string,
+    target: { session: string } | { location: string; worktree: string },
+    file: File | string,
+    opts?: { onProgress?(sent: number, total: number): void; signal?: AbortSignal; pasted?: boolean },
+  ): Promise<Attachment>;
+  // Paths to files on this computer that a paste is made of (Finder's copy of
+  // a file, a screenshot's /var/folders/… path), or [] for any other text.
+  // Pass them to attach. An older Shipyard has no localPaths either.
+  localPaths(text: string): string[];
+}
+
+// A file uploaded by api.attach: path is where it is on the box, name what
+// the box saved it as, the time first ("20261022-101502-notes.md"; a pasted
+// "image.png" goes up as "pasted-101502.png").
+export interface Attachment {
+  path: string;
+  name: string;
+  type: string;
+  size: number;
 }
 
 // What a loop reports while it runs, and how it ends; see orchestrate.loop.

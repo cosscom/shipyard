@@ -1403,7 +1403,8 @@ function mockAgent(): Client {
           reject(new DOMException("The upload was cancelled", "AbortError"));
         });
       }),
-    laptop: <T,>(method: string, path: string, body?: unknown) => {
+    laptop: <T,>(method: string, path: string, body?: unknown, signal?: AbortSignal) => {
+      if (signal?.aborted) return Promise.reject(new DOMException("The request was cancelled", "AbortError"));
       if (method === "GET" && path === "/v1/hooks") return delay(hooksFiles.laptop) as Promise<T>;
       if (method === "PUT" && path === "/v1/hooks") return saveHooks("laptop", (body as { hooks: Hook[] }).hooks) as Promise<T>;
       // The app's own documents (/v1/app/<key>), such as project groups.
