@@ -1,9 +1,9 @@
 import { useCallback, useRef, useState } from "react";
 
 import { boxApi } from "@/lib/api";
-import { errorMessage } from "@/lib/format";
 import { plainError } from "@/lib/errors";
-import { removeWorktreeOnBox } from "@/lib/remove-worktree";
+import { keepsWork, removeWorktreeOnBox } from "@/lib/remove-worktree";
+import { removalOf, useRemovals } from "@/lib/removing";
 import { scheduleRefresh, useStore } from "@/lib/store";
 import { type SyncMode, worktreesApi } from "@/lib/worktrees";
 import type { Row } from "@/views/worktrees/use-worktrees";
@@ -58,7 +58,10 @@ export function useBulk(onRowDone: (r: Row, patch: Partial<Row>) => void) {
           set(r.key, { state: "skipped", message: "cancelled" });
           continue;
         }
-        const why = skipReason(action, r);
+        // One already on its way out (lib/removing.ts) is left to that, so
+        // its box never gets a second request for it.
+        const leaving = action.kind === "archive" && removalOf(useRemovals.getState().byKey, r.box, r.path);
+        const why = skipReason(action, r) ?? (leaving ? "already on its way out" : undefined);
         if (why) {
           set(r.key, { state: "skipped", message: why });
           continue;
@@ -100,7 +103,7 @@ export function useBulk(onRowDone: (r: Row, patch: Partial<Row>) => void) {
               try {
                 res = await removeWorktreeOnBox(client, r.box, r.location, { name: r.name, path: r.path }, "archive");
               } catch (err) {
-                if (/modified|untracked|uncommitted|contains/i.test(errorMessage(err))) throw new Error("Has uncommitted changes: commit them first, or delete it instead");
+                if (keepsWork(err)) throw new Error("Has uncommitted changes: commit them first, or delete it instead");
                 throw err;
               }
               set(r.key, { state: "ok", message: res.archive ? "Archiving: its archive script runs, then it goes" : "Archived; its branch is kept" });

@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { clearRemoving, markRemoving, markScript, pruneRemovals, removalLabel, removalOf, removeResult, STALE_MS, useRemovals } from "./removing.ts";
+import { clearRemoving, inTurn, markRemoving, markScript, pruneRemovals, removalLabel, removalOf, removeResult, STALE_MS, useRemovals } from "./removing.ts";
 
 const reset = () => useRemovals.setState({ byKey: {} });
 const of = (box: string, path: string, now?: number) => removalOf(useRemovals.getState().byKey, box, path, now);
@@ -49,4 +49,25 @@ test("a DELETE's answer is read from JSON or, from older boxes, text", () => {
   assert.deepEqual(removeResult({ removed: "a" }), { removed: "a" });
   assert.deepEqual(removeResult("not json"), {});
   assert.deepEqual(removeResult(undefined), {});
+});
+
+test("a box takes its removals one at a time; another box's don't wait", async () => {
+  const log: string[] = [];
+  let answer!: () => void;
+  const slow = new Promise<void>((r) => (answer = r));
+  void inTurn("devl", async () => {
+    log.push("a sent");
+    await slow;
+    log.push("a done");
+  });
+  const b = inTurn("devl", async () => {
+    log.push("b sent");
+  });
+  await inTurn("gpu", async () => {
+    log.push("c sent");
+  });
+  assert.deepEqual(log, ["a sent", "c sent"]);
+  answer();
+  await b;
+  assert.deepEqual(log, ["a sent", "c sent", "a done", "b sent"]);
 });

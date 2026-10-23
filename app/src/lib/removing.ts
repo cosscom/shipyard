@@ -1,11 +1,15 @@
 import { create } from "zustand";
 
-// Worktrees on their way out. Removing one is quick, but a repository with
-// an archive script has the box run it first, in the background, and the
-// worktree only goes when it succeeds: minutes, sometimes. Until the box
-// says it is gone (worktree.removed) or that archiving failed, the app shows
-// it as "Archiving…" or "Removing…" and keeps it from being opened, so
-// nobody starts work in a folder that is about to go.
+import { oneAtATime } from "./one-at-a-time.ts";
+
+// Worktrees on their way out. The box answers a removal once the folder is
+// gone, which for a big checkout (node_modules) takes seconds. A repository
+// with an archive script has the box run it first, in the background, and
+// the worktree only goes when it succeeds: minutes, sometimes. From the
+// moment it is asked until the box says it is gone (worktree.removed) or
+// that archiving failed, the app shows it as "Archiving…" or "Removing…"
+// and keeps it from being opened, so nobody starts work in a folder that is
+// about to go.
 //
 // No imports from "@/": pnpm test runs this file in plain node.
 
@@ -57,6 +61,18 @@ export function removalOf(byKey: Record<string, Removal>, box: string, path: str
 }
 
 export const useRemoval = (box: string, path: string | undefined) => useRemovals((s) => (path ? removalOf(s.byKey, box, path) : undefined));
+
+// Each box's removals, in line. A box takes one at a time, so a slow
+// teardown never has others half done beside it; another box's don't wait.
+const lines = new Map<string, ReturnType<typeof oneAtATime>>();
+
+// inTurn runs job once the box's earlier removals are done, whether they
+// worked or failed.
+export function inTurn<T>(box: string, job: () => Promise<T>): Promise<T> {
+  let line = lines.get(box);
+  if (!line) lines.set(box, (line = oneAtATime()));
+  return line(job);
+}
 
 // removalLabel is what a row says meanwhile.
 export const removalLabel = (r: Removal) => (r.kind === "archive" ? "Archiving…" : "Removing…");

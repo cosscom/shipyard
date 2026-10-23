@@ -2,7 +2,7 @@ import { toastError } from "@/components/error-note";
 import { toastManager } from "@/components/ui/toast";
 import type { Client } from "@/lib/api";
 import { errorMessage } from "@/lib/format";
-import { clearRemoving, markRemoving, markScript, pruneRemovals, type RemovalKind, removalOf, removeResult, useRemovals } from "@/lib/removing";
+import { clearRemoving, inTurn, markRemoving, markScript, pruneRemovals, type RemovalKind, removalOf, removeResult, useRemovals } from "@/lib/removing";
 import { scheduleRefresh, useStore } from "@/lib/store";
 import { forgetWorktree } from "@/lib/workspaces";
 import { worktreesApi } from "@/lib/worktrees";
@@ -39,49 +39,50 @@ export async function removeWorktreeOnBox(
   return res;
 }
 
-// Removals asked for and not yet sent, per box. Each box takes one at a
-// time, so a slow teardown never has others half done beside it.
-const waiting = new Map<string, { location: string; wt: { name: string; path: string }; force?: boolean }[]>();
-
-// queueRemoval removes a worktree without asking first: it is marked
-// "Removing…" at once and goes when its box gets to it. Its branch stays,
-// and git still refuses to lose uncommitted work: then a toast offers to
-// remove it anyway.
-export function queueRemoval(box: string, location: string, wt: { name: string; path: string }, opts: { force?: boolean } = {}) {
+// queueRemoval removes or archives a worktree in the background: it is
+// marked "Removing…" or "Archiving…" at once, so whatever asked (archive's
+// dialog) can close, and goes when its box gets to it, one at a time per
+// box (inTurn). Its branch stays, and git still refuses to lose uncommitted
+// work: then a toast says so, and a removal's offers to remove it anyway.
+export function queueRemoval(box: string, location: string, wt: Leaving, opts: { kind?: RemovalKind; force?: boolean } = {}) {
+  const kind = opts.kind ?? "remove";
   if (removalOf(useRemovals.getState().byKey, box, wt.path)) return;
-  markRemoving(box, wt.path, "remove", wt.name);
-  const list = waiting.get(box);
-  if (list) {
-    list.push({ location, wt, force: opts.force });
-    return;
-  }
-  waiting.set(box, [{ location, wt, force: opts.force }]);
-  void drain(box);
+  markRemoving(box, wt.path, kind, wt.name);
+  void inTurn(box, () => send(box, location, wt, kind, opts.force));
 }
 
-async function drain(box: string) {
-  const list = waiting.get(box)!;
-  while (list.length) {
-    const { location, wt, force } = list[0];
-    try {
-      const client = useStore.getState().client;
-      if (!client) throw new Error("not connected");
-      await removeWorktreeOnBox(client, box, location, wt, "remove", { force });
-    } catch (err) {
-      clearRemoving(box, wt.path);
-      // git's own words for work it would lose.
-      if (!force && /modified|untracked|uncommitted|contains/i.test(errorMessage(err))) {
+type Leaving = { name: string; path: string; branch?: string };
+
+// keepsWork is git refusing, in its own words, to lose uncommitted work.
+export const keepsWork = (err: unknown) => /modified|untracked|uncommitted|contains/i.test(errorMessage(err));
+
+async function send(box: string, location: string, wt: Leaving, kind: RemovalKind, force?: boolean) {
+  try {
+    const client = useStore.getState().client;
+    if (!client) throw new Error("not connected");
+    const res = await removeWorktreeOnBox(client, box, location, wt, kind, { force });
+    if (kind === "remove") return;
+    if (res.archive) toastManager.add({ title: `Archiving ${wt.name}`, description: "Its archive script is running on the box; the worktree goes when it finishes.", type: "info" });
+    else toastManager.add({ title: `Archived ${wt.name}`, description: wt.branch ? `Branch ${wt.branch} is kept.` : box, type: "success" });
+  } catch (err) {
+    clearRemoving(box, wt.path);
+    if (!force && keepsWork(err)) {
+      if (kind === "archive") {
+        toastManager.add({
+          type: "warning",
+          title: `Couldn't archive ${wt.name}`,
+          description: `${wt.name} has uncommitted changes, so it was left as it is. Commit them first, or use Remove worktree to discard them.`,
+        });
+      } else {
         toastManager.add({
           type: "warning",
           title: `Kept ${wt.name}`,
           description: "It has uncommitted changes, so git left it as it is.",
           actionProps: { children: "Remove anyway", onClick: () => queueRemoval(box, location, wt, { force: true }) },
         });
-      } else toastError(err, { title: `Couldn't remove ${wt.name}`, box });
-    }
-    list.shift();
+      }
+    } else toastError(err, { title: `Couldn't ${kind} ${wt.name}`, box });
   }
-  waiting.delete(box);
 }
 
 // worktreeGone is the box saying a worktree went: its workspace (tabs,
