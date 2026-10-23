@@ -271,8 +271,8 @@ export interface SharedLimits {
   limits: Limits;
 }
 
-// dedupeLimits keeps the newest limits Codex saw per login.
-// Limits Codex saw before the period are left out, as its tokens are.
+// dedupeLimits keeps the newest limits the agent saw per login.
+// Limits it saw before the period are left out, as its tokens are.
 function dedupeLimits(agent: Agent, sources: Source[], accounts: Record<string, Account[] | undefined>, period: Period): SharedLimits[] {
   const out = new Map<string, SharedLimits>();
   for (const { box, report } of sources) {
@@ -390,8 +390,8 @@ function windowName(w: Window) {
   return h >= 24 * 6 ? "Weekly limit" : h >= 20 ? "Daily limit" : `${h}-hour limit`;
 }
 
-// LimitRows shows the plan windows Codex itself last reported, and says how
-// old that report is: it only knows what Codex saw on its last turn.
+// LimitRows shows the plan windows the agent itself last reported, and says
+// how old that report is: it only knows what the agent saw on its last turn.
 function LimitRows({ shared }: { shared: SharedLimits }) {
   const l = shared.limits;
   const windows = [l.limits.primary, l.limits.secondary].filter(Boolean) as Window[];
@@ -413,7 +413,7 @@ function LimitRows({ shared }: { shared: SharedLimits }) {
                 <div className={cn("h-full rounded-full", w.used_percent >= 90 ? "bg-destructive" : w.used_percent >= 70 ? "bg-warning" : "bg-primary/70")} style={{ width: `${Math.min(100, w.used_percent)}%` }} />
               </div>
             )}
-            <div className="text-[11px] text-muted-foreground">{past ? `It reset ${reset.toLocaleDateString()}; Codex reports the new window on its next turn.` : `Resets ${reset.toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" })}`}</div>
+            <div className="text-[11px] text-muted-foreground">{past ? `It reset ${reset.toLocaleDateString()}; ${AGENT_NAME[l.agent]} reports the new window on its next turn.` : `Resets ${reset.toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" })}`}</div>
           </div>
         );
       })}

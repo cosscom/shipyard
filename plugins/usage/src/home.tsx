@@ -6,7 +6,7 @@ import { AGENT_NAME, compact, days, usd } from "./data";
 
 // The Usage widget on Home: tokens your agents used today and each day of
 // the week, what Claude Code estimates they cost, and how much of a plan's
-// window Codex last saw used. usage.py reads the agents' own records on
+// window Codex or Claude Code last saw used. usage.py reads the agents' own records on
 // each box, every 5 minutes while the widget is on screen.
 
 export interface UsageSummary {

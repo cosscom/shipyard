@@ -26,10 +26,30 @@ The numbers come from the files each agent writes on the box. Nothing is estimat
 | --- | --- | --- |
 | Claude Code | `~/.claude/projects/**/*.jsonl` and each account's `<dir>/projects` | `message.usage` on each assistant message, deduplicated by message and request id. It also holds Claude Code's own per-session `totalCostUSD`. |
 | Codex | `~/.codex/sessions/**/*.jsonl` and each account's `<dir>/sessions` | `token_count` events (cumulative totals per session) and the `rate_limits` Codex last saw. |
+| Claude Code limits | `~/.berth/limits/<account>.json`, written by your status line | The `rate_limits` Claude Code last passed to the status line. |
 
 - **Input** excludes cached input. Cache reads and writes are shown separately; Codex's `input_tokens` includes its cached tokens, so the plugin subtracts them.
 - **Cost** is shown only for Claude Code, and only as Claude Code's own estimate at API list prices. On a subscription (Claude Max or Pro) the screen says the plan covers the use. Codex gets no dollar figure: it records none, and the plugin keeps no price table.
-- **Plan limits** are shown only for Codex, which writes its 5-hour and weekly windows into its transcripts. They show as "as of" the last turn Codex took. A window that has reset since says so instead of showing an old percentage. Claude Code doesn't write its limits anywhere the plugin can read, so it shows none.
+- **Plan limits** show the 5-hour and weekly windows, "as of" the last turn the agent took. A window that has reset since says so instead of showing an old percentage. Codex writes them into its transcripts. Claude Code passes them only to its [status line](https://code.claude.com/docs/en/statusline), so Claude Code's show once your status line records them (below).
+
+### Claude Code's plan limits
+
+Claude Code gives a status line its `rate_limits` (Pro and Max plans, after the session's first reply) and writes them nowhere else. To see them here, have your status line script save them, one file per account:
+
+```sh
+in=$(cat)   # the JSON Claude Code passes your status line
+limits=$(printf '%s' "$in" | jq -c '.rate_limits // empty')
+if [ -n "$limits" ]; then
+  dir=${CLAUDE_CONFIG_DIR:-$HOME/.claude}; dir=${dir%/}
+  account=$(basename "$dir"); [ "$dir" = "$HOME/.claude" ] && account=default
+  mkdir -p ~/.berth/limits
+  jq -n --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson limits "$limits" '{at: $at, limits: $limits}' \
+    > ~/.berth/limits/"$account".tmp && mv ~/.berth/limits/"$account".tmp ~/.berth/limits/"$account".json
+fi
+# …then print your status line from "$in" as before.
+```
+
+The account is `default` for `~/.claude` and the folder's name for `~/.berth/accounts/claude/<name>`. A file for any other name is ignored. The screen shows the limits as of `at`, so a box whose status line hasn't run for a while shows an old reading, labelled with its age.
 
 ### How it runs on the box
 
