@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { type SessionEntry, useAllSessions } from "@/hooks/use-agent-counts";
 import { lastOf } from "@/lib/last-of";
 import { boxApi, type Session } from "@/lib/api";
+import { QUESTION_TOOLS } from "@/lib/chat-card";
 import { agentLabel, agentOf, worktreeOf } from "@/lib/derive";
 import { parseScreen } from "@/lib/screen-status";
 import { permissionChoices } from "@/lib/screen";
@@ -97,9 +98,6 @@ function OfflineNote({ boxes }: { boxes: string[] }) {
 
 // ---------- Needs you ----------
 
-// A question's tools: these are answered in the agent's own form, not with
-// Allow or Deny.
-const QUESTION_TOOLS = /^(AskUserQuestion|request_user_input|ExitPlanMode)$/;
 
 export function NeedsYouWidget() {
   const { lines, height } = useHomeWidget();

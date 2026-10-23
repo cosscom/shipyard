@@ -1,5 +1,6 @@
 import type { Location, Session, Worktree } from "@/lib/api";
 import { agentLabel, agentOf, sessionName, worktreeOf } from "@/lib/derive";
+import { isStructured } from "@/lib/structured";
 
 export interface AgentNames {
   where?: { location: Location; worktree: Worktree };
@@ -11,7 +12,8 @@ export interface AgentNames {
   // More than one agent works in the same worktree, so the place alone
   // doesn't say which card is which.
   crowded: boolean;
-  // The prompt it was started with, when its command carries one.
+  // The prompt it was started with, when its command carries one: never
+  // an agent's in chat, whose command line is its host's.
   prompt?: string;
   // What its work is called (Session.title), and then its agent, as
   // secondary text: "Fix checkout webhook" · "Claude Code".
@@ -26,7 +28,7 @@ export function describeAgent(session: Session, sessions: Session[] | undefined,
   const place = where?.worktree.main ? where.location.name : (where?.worktree.name ?? session.location ?? session.name);
   const crowded = (sessions ?? []).filter((o) => o.dir === session.dir && !o.exited && agentOf(o)).length > 1;
   const agent = agentOf(session);
-  return { where, place, name: sessionName(session, { sessions }), crowded, prompt: promptOf(session.command), title: session.title?.trim() || undefined, agent: agent ? agentLabel(agent) : "Shell" };
+  return { where, place, name: sessionName(session, { sessions }), crowded, prompt: isStructured(session.driver) ? undefined : promptOf(session.command), title: session.title?.trim() || undefined, agent: agent ? agentLabel(agent) : "Shell" };
 }
 
 // promptOf is the prompt in an agent's command line: `claude --model x

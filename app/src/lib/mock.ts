@@ -223,11 +223,37 @@ const stats: Record<string, Stats> = {
 // ?mock=1&crowd=1: many more agents, on more boxes (lib/mock-crowd.ts).
 if (new URLSearchParams(location.search).has("crowd")) crowd({ status, locations, sessions, stats });
 // ?structured: search-perf's Claude runs structured (Labs), its chat's
-// /resume the app's own picker of Claude's past conversations there.
+// /resume the app's own picker of Claude's past conversations there. On
+// gpu, the working Claude, the one asking questions and ci-flake's (waiting
+// on a command) run in chat too, for the board's cards.
 const structuredDemo = new URLSearchParams(location.search).has("structured");
 if (structuredDemo) {
+  // Its command line is the host's, which runs Claude Code over its stream
+  // (internal/box/claudedriver.go): no prompt in it.
+  const inChat = (x: Session) =>
+    Object.assign(x, {
+      driver: "claude",
+      command: `'/home/me/.local/bin/berthd' 'agent-host' --dir '/home/me/.berth/conversations/${x.name}' --socket '/home/me/.berth/conversations/${x.name}/host.sock' -- claude '-p' '--input-format' 'stream-json' '--output-format' 'stream-json' '--verbose' '--include-partial-messages' '--replay-user-messages' '--permission-mode' 'default' '--permission-prompt-tool' 'stdio'`,
+    });
   const s = sessions.devl?.find((x) => x.name === "search-perf-claude");
-  if (s) s.driver = "claude";
+  if (s) inChat(s);
+  for (const x of sessions.gpu ?? []) if (["judge-v2-claude", "shop-claude", "ci-flake-claude"].includes(x.name)) inChat(x);
+  const ci = sessions.gpu?.find((x) => x.name === "ci-flake-claude");
+  if (ci)
+    Object.assign(ci, {
+      agent_state: "waiting",
+      state_since: ago(3),
+      ask: {
+        tool: "Bash",
+        input: "pnpm ledger:backfill --since 2025-01-01",
+        why: "Backfill the new ledger from this year's invoices",
+        choices: [
+          { key: "1", label: "Yes" },
+          { key: "2", label: "Yes, and don't ask again this session" },
+          { key: "3", label: "No" },
+        ],
+      },
+    } satisfies Partial<Session>);
 }
 // ?mock=1&bench=…: far more than the fixtures, for measuring (lib/mock-bench.ts).
 if (BENCH === "fleet") benchFleet({ status, locations, sessions, stats });
@@ -783,8 +809,11 @@ function boxCall(box: string, method: string, path: string, body?: unknown): Pro
   if (method === "GET" && /^sessions\/[^/]+\/screen/.test(path)) {
     const name = decodeURIComponent(path.split("/")[1]);
     const s = sessions[box]?.find((x) => x.name === name);
-    const screen =
-      s?.agent_state === "waiting"
+    // In chat, the pane holds the host that runs the agent: its log of
+    // the frames it passes, one line each (internal/agenthost).
+    const screen = s?.driver
+      ? ["— started claude", "in user", "out system init", "out stream_event", "out stream_event", "out assistant", "out stream_event", s.agent_state === "waiting" ? "out control_request" : "out result success"].join("\n")
+      : s?.agent_state === "waiting"
         ? "● The fix needs a migration for the new idempotency_key column.\n\n  Do you want me to create it?\n  ❯ 1. Yes\n    2. No, and tell Claude what to do differently"
         : s?.agent_state === "finished"
           ? "● Search results render 38% faster on the slow-network profile.\n  All 214 tests pass.\n\n✻ Baked for 6m 41s · done"

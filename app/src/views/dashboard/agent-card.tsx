@@ -9,13 +9,16 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toastManager } from "@/components/ui/toast";
 import type { SessionEntry } from "@/hooks/use-agent-counts";
 import { boxApi } from "@/lib/api";
+import { asksIn, chatCard, shownPrompt } from "@/lib/chat-card";
 import { agentOf, atQuestion, ON_ITS_WORK } from "@/lib/derive";
 import { errorMessage } from "@/lib/format";
 import { useStore } from "@/lib/store";
+import { isStructured } from "@/lib/structured";
 import { cn } from "@/lib/utils";
 import { focusSession } from "@/lib/workspaces";
 import { describeAgent, startedAt } from "@/views/dashboard/names";
 import { confirmStop, StopMenuItems } from "@/views/dashboard/stop";
+import { useChatTail, useOpeningPrompt } from "@/views/dashboard/use-chat-tail";
 import { type Choice, useScreenTail } from "@/views/dashboard/use-screen-tail";
 
 // One clock for every card, so a board of them re-renders once a second at
@@ -59,8 +62,17 @@ export function AgentCard({ entry, selecting, selected, onSelect }: { entry: Ses
   // A titled agent leads with its work, its place below; otherwise its place.
   const title = work ?? place;
   const now = useNow();
+  // In chat, its pane shows only the host that runs it: the card reads its
+  // ask and conversation instead of that screen (lib/chat-card).
+  const chat = isStructured(session.driver);
+  const waiting = atQuestion(session, state);
   // A ready agent has said nothing yet: its screen is only a banner.
-  const { tail, choices } = useScreenTail(box, session, 3, state === "running", state !== "ready");
+  const screen = useScreenTail(box, session, 3, state === "running", state !== "ready" && !chat);
+  // What it asks needs nothing of its conversation.
+  const items = useChatTail(box, session, state === "running", state !== "ready" && chat && !asksIn(session.ask, waiting));
+  const opening = useOpeningPrompt(box, session.name, session.state_since, chat);
+  const { tail, choices } = chat ? (chatCard(session.ask, waiting, items) ?? { choices: [] }) : screen;
+  const quote = shownPrompt(opening ?? prompt, work);
   const since = session.state_since ?? session.created;
   const [shown, setShown] = useState(false);
   useEffect(() => {
@@ -69,9 +81,9 @@ export function AgentCard({ entry, selecting, selected, onSelect }: { entry: Ses
   }, []);
 
   const open = () => void focusSession(box, session.name);
-  const asking = atQuestion(session, state) && choices.length > 0;
+  const asking = waiting && choices.length > 0;
   // The question, without the options the chips below already show.
-  const lines = asking ? (tail ?? []).filter((l) => !/^\s*(?:[❯›>]\s*)?\d[.)]\s/.test(l)) : tail;
+  const lines = asking && !chat ? (tail ?? []).filter((l) => !/^\s*(?:[❯›>]\s*)?\d[.)]\s/.test(l)) : tail;
 
   return (
     <article
@@ -130,9 +142,9 @@ export function AgentCard({ entry, selecting, selected, onSelect }: { entry: Ses
             </div>
           </Tip>
         )}
-        {prompt && (!work || !prompt.startsWith(work.replace(/…$/, ""))) && (
-          <div className="mt-1 truncate pl-5.5 text-meta text-foreground/70 italic" title={prompt}>
-            “{prompt}”
+        {quote && (
+          <div className="mt-1 truncate pl-5.5 text-meta text-foreground/70 italic" title={quote}>
+            “{quote}”
           </div>
         )}
         {lines && lines.length > 0 && state !== "ready" && (

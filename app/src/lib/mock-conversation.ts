@@ -264,6 +264,9 @@ export function seedTranscript(box: string, session: string, state: string, work
     items.push({ kind: "ask", id: id(), tool: "Bash", detail: "pnpm db:migrate --name add-idempotency-key", why: "Create the migration for the new idempotency_key column", structured: true, choices: PERMISSION });
   }
   if (state === "running") {
+    // ?structured: the judge's Claude, in chat, has said what it found.
+    if (session === "judge-v2-claude" && new URLSearchParams(location.search).has("structured"))
+      items.push({ kind: "text", id: id(), text: "The judge over-scores short answers on the hard set.\n\n- **0.82** agreement with the labels, was 0.74\n- Next: rerun the hard set with a length penalty." });
     items.push({ kind: "crew", id: id(), names: ["Explore: failing tests", "Explore: fixtures"] });
     items.push({ kind: "thinking", id: id(), since: Date.now() - 12_000 });
     const t = Date.now();

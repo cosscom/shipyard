@@ -19,6 +19,7 @@ The maintained list of what a person can do in the app, and how to prove each on
 | Home's widget grid | [home-widgets.md](home-widgets.md) | none yet; `app/e2e/home-widgets.spec.ts` asserts it |
 | Questions in chat: an agent's form of questions as a card, answered on a real box; kept with Retry and Copy when it can't be | [chat-questions.md](chat-questions.md) | `chat-questions-live` (a real box, `--agent`); `app/e2e/chat.spec.ts` on the mock |
 | Chat and board: no question card or answers but the options the agent's screen shows; the mode menu while turn check waits | [chat-ask-card.md](chat-ask-card.md) | `chat-ask-card` (a real box, `--agent`); `app/e2e/ask-card.spec.ts` on a stand-in box |
+| The board's cards for agents in chat: what they ask with its answers, their reply's last lines, the prompt they started with; never the host's frames or "stdio" | [chat-board-cards.md](chat-board-cards.md) | `chat-board-cards`; `app/e2e/dashboard-chat-cards.spec.ts` asserts it |
 | Turn check's "working": an hourglass with why in the sidebar, the tab and the rail's card, not a live turn's spinner; a handoff reads as done | [turn-check-indicator.md](turn-check-indicator.md) | `turn-check-indicator`; `app/e2e/sidebar-turn-check.spec.ts` asserts it, `TestTurnCheckLive` asks the real provider |
 
 ## Proof and skip reporting

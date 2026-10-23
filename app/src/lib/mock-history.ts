@@ -3,6 +3,8 @@ import { keyOf, useConversations } from "@/lib/conversation-store";
 import type { Helper, TranscriptPage } from "@/lib/history";
 import type { ToolDetail, TranscriptItem } from "@/lib/transcript";
 import { benchOlder } from "@/lib/mock-bench";
+import { seedTranscript } from "@/lib/mock-conversation";
+import { sessionState } from "@/lib/derive";
 
 // The demo's stand-in for the box's history endpoints (?mock=1): older
 // turns of a long chat (?long=5000 seeds one, for measuring), the helpers'
@@ -71,6 +73,20 @@ function olderPage(key: string, before: number, limit: number): TranscriptPage {
   return { source: "claude", items, next: n, more: start > 0 };
 }
 
+// demoConversation is a session's conversation in the demo: what its chat
+// holds, or made up as its chat would when no one has opened it.
+function demoConversation(box: string, s: Session): TranscriptItem[] {
+  return useConversations.getState().items[keyOf(box, s.name)] ?? seedTranscript(box, s.name, sessionState(s), s.location?.split("/").pop() ?? s.name);
+}
+
+// demoPage is a page of a session's conversation as the box reads one
+// (before=0 is its end), its items placed 1,000 bytes apart.
+function demoPage(box: string, s: Session, before: number, limit: number): TranscriptPage {
+  const all = demoConversation(box, s);
+  const items = all.map((it, i) => ({ ...it, off: (i + 1) * 1000 })).filter((it) => before <= 0 || it.off < before);
+  return { source: "claude", items: items.slice(-limit), next: all.length, more: items.length > limit };
+}
+
 // ---- Helpers ---------------------------------------------------------------
 
 function helpersOf(key: string): Helper[] {
@@ -128,7 +144,23 @@ export function mockHistoryCall(
   const key = keyOf(box, session);
   if (method === "GET" && rest.startsWith("transcript?") && rest.includes("before=")) {
     const q = new URLSearchParams(rest.split("?")[1]);
-    return wait(260).then(() => olderPage(key, Number(q.get("before")), Number(q.get("limit") || 200)));
+    const before = Number(q.get("before"));
+    const limit = Number(q.get("limit") || 200);
+    if (!long.has(key) && !benchOlder(key, before, limit)) {
+      const s = st.sessions[box]?.find((x) => x.name === session);
+      if (!s) return Promise.reject(new Error("That session isn't in the demo."));
+      return wait(120).then(() => demoPage(box, s, before, limit));
+    }
+    return wait(260).then(() => olderPage(key, before <= 0 ? Infinity : before, limit));
+  }
+  // A board card's read of a chat-mode agent (views/dashboard/use-chat-tail):
+  // the whole demo conversation as its window, then what was added since.
+  if (method === "GET" && rest.startsWith("transcript?") && rest.includes("since=")) {
+    const s = st.sessions[box]?.find((x) => x.name === session);
+    if (!s) return Promise.reject(new Error("That session isn't in the demo."));
+    const all = demoConversation(box, s);
+    const since = Number(new URLSearchParams(rest.split("?")[1]).get("since")) || 0;
+    return wait(120).then(() => ({ source: "claude", items: all.slice(since), next: all.length, crew: [], gen: "demo", start: 0 }));
   }
   if (method === "GET" && rest === "subagents") return wait(150).then(() => ({ helpers: helpersOf(key) }));
   const sub = /^subagents\/([^/]+)\/(transcript|tool\/(.+))/.exec(rest);
