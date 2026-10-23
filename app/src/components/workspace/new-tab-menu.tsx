@@ -10,6 +10,7 @@ import { agentPresets, openBrowserAt, openPreviewAt, resolveUrl, startAgent, sta
 import { guessSessionName, sessionName } from "@/lib/derive";
 import { focusNewPane } from "@/lib/focus-home";
 import { leaves } from "@/lib/layout";
+import { keysFor } from "@/lib/shortcuts";
 import { useStore } from "@/lib/store";
 import { portUrl, suggestions } from "@/lib/browser-url";
 import { activateTab, focusPane, openPanel, showWorktree, useHereRef, useWorkspaces } from "@/lib/workspaces";
@@ -72,8 +73,8 @@ export function NewTabMenu() {
       ...(labs
         ? [
             { value: "add worktree tabs group", label: "Another worktree's tabs…", icon: <ListPlusIcon />, run: done(() => openWorktreePicker({ kind: "group" })) },
-            { value: "split another worktree beside", label: "Another worktree beside…", icon: <Columns2Icon />, shortcut: "⌘⌥D", run: done(() => openWorktreePicker({ kind: "split" })) },
-            { value: "compare with another worktree side by side", label: "Compare with…", icon: <GitCompareArrowsIcon />, shortcut: "⌘⌥C", run: done(() => openWorktreePicker({ kind: "compare" })) },
+            { value: "split another worktree beside", label: "Another worktree beside…", icon: <Columns2Icon />, shortcut: keysFor("split-worktree"), run: done(() => openWorktreePicker({ kind: "split" })) },
+            { value: "compare with another worktree side by side", label: "Compare with…", icon: <GitCompareArrowsIcon />, shortcut: keysFor("compare"), run: done(() => openWorktreePicker({ kind: "compare" })) },
           ]
         : []),
     ];

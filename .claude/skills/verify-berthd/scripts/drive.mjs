@@ -56,6 +56,9 @@ const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "dark" });
 // The laptop agent's ports: a run must never reach this machine's own.
 await context.route(/^https?:\/\/(?:[^/]*\.)?(?:localhost|127\.0\.0\.1|\[::1\]):(?:1377|1378|1379)(?:\/|$)/, (r) => r.abort());
+// What the scenario stands in for before the app's own scripts run (a
+// keyboard layout, say), in the page, with initArg.
+if (scenario.init) await context.addInitScript(scenario.init, scenario.initArg);
 const page = await context.newPage();
 page.on("console", (m) => {
   log.push(redact(`[${m.type()}] ${m.text()}`));

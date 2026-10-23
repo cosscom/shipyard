@@ -32,6 +32,7 @@ import { nameFromKey } from "@/lib/groups";
 import { type Leaf, leaves, paneWorktree } from "@/lib/layout";
 import { PaneContext } from "@/lib/pane-context";
 import { usePrefs } from "@/lib/prefs";
+import { keysFor } from "@/lib/shortcuts";
 import { isStructured } from "@/lib/structured";
 import { useRemoval } from "@/lib/removing";
 import { useStore } from "@/lib/store";
@@ -509,7 +510,7 @@ export function PaneActions({ wsKey, tab, pane, onClose, closable, focused = tru
                   <Columns2Icon />
                 </span>
                 Another worktree…
-                {focused && <MenuShortcut>⌘⌥D</MenuShortcut>}
+                {focused && <MenuShortcut>{keysFor("split-worktree")}</MenuShortcut>}
               </MenuItem>
             )}
           </MenuGroup>

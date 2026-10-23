@@ -61,7 +61,7 @@ import { sessionWord } from "@/lib/state-model";
 import { useThemes } from "@/hooks/use-theme";
 import { openBrowserAt, openPreviewAt, resolveUrl } from "@/lib/actions";
 import { FROM_TABLE } from "@/lib/palette-shortcuts";
-import { describe, keysFor, SHORTCUTS } from "@/lib/shortcuts";
+import { describe, keysFor, keysOf, SHORTCUTS } from "@/lib/shortcuts";
 import { runShortcut } from "@/hooks/use-shortcuts";
 import { openRenameWorktree } from "@/components/sidebar/rename-worktree";
 import type { SettingsSectionId } from "@/views/settings/open";
@@ -71,6 +71,7 @@ import { quietNow, setDoNotDisturb, setNotificationsOpen } from "@/lib/notificat
 import { usePrefs } from "@/lib/prefs";
 import { useStore } from "@/lib/store";
 import { isLink, teamRef } from "@/lib/team-ref";
+import { useKeyLabels } from "@/lib/keyboard-layout";
 import { loginUrl, loginUserLabel, useLoginConfig, worktreeOrigin } from "@/lib/login-users";
 import { openReviewSheet } from "@/lib/pr-review";
 import { parseReviewRef } from "@/lib/review-link";
@@ -147,6 +148,8 @@ const slot = (icon: React.ReactNode) => <span className="flex size-4 shrink-0 it
 // where you were; with a query that matches nothing, it offers to make it.
 export function CommandPalette() {
   const open = useStore((s) => s.paletteOpen);
+  // Its shortcuts' keys follow the keyboard layout (lib/keyboard-layout.ts).
+  const keyLabels = useKeyLabels(open);
   const setOpen = useStore((s) => s.setPaletteOpen);
   const sessions = useAllSessions();
   const boxes = useStore((s) => s.boxes);
@@ -235,7 +238,7 @@ export function CommandPalette() {
       ...FROM_TABLE.flatMap((id) => {
         const k = SHORTCUTS.find((x) => x.id === id);
         if (!k || (k.labs && !usePrefs.getState().labs)) return [];
-        return [{ value: `shortcut ${id} ${describe(k)}`, label: k.label, icon: slot(<KeyboardIcon />), shortcut: k.keys, run: go(() => void runShortcut(id, "menu")) }];
+        return [{ value: `shortcut ${id} ${k.label} ${describe(k)}`, label: k.label, icon: slot(<KeyboardIcon />), shortcut: keysOf(k, keyLabels), run: go(() => void runShortcut(id, "menu")) }];
       }),
       { value: "worktrees", label: "Worktrees", icon: slot(<GitBranchIcon />), run: go(() => st.setView({ kind: "worktrees" })) },
       { value: "automations", label: "Automations", icon: slot(<WorkflowIcon />), run: go(() => st.setView({ kind: "automations" })) },
@@ -404,7 +407,7 @@ export function CommandPalette() {
     ].filter((g) => g.items.length);
     // close is stable enough: it only reads refs and store setters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessions, boxes, status, themes, themeId, spaces, pluginCommands, query, nav.hidden, open, login]);
+  }, [sessions, boxes, status, themes, themeId, spaces, pluginCommands, query, nav.hidden, open, login, keyLabels]);
   shown.current = { groups, query };
 
   return (

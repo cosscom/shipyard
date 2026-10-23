@@ -50,10 +50,12 @@ A scenario is a module:
 ```js
 export const plugins = [{ id: "counts", name: "Counts", source: `export default function (berth) { … }` }];
 export const allowErrors = [/count boom/];
+export const init = (layout) => { /* runs in the page before the app, with initArg */ };
+export const initArg = { BracketLeft: "å" };
 export async function run({ page, shot, step, expect }) { … }
 ```
 
-`expect` is Playwright's, so assertions wait as they do in the e2e suite. Use stable hooks: `data-testid` (`nav-<id>`, `nav-more`, `nav-badge`, `home-grid`, the list at the top of `app/e2e/fixtures.ts`), roles and accessible names. Never coordinates.
+`init`, when there is one, runs in the page before the app's own scripts, with `initArg` (Playwright's `addInitScript`): it stands in for what the browser would say, such as a keyboard layout (`keyboard-layout`). `expect` is Playwright's, so assertions wait as they do in the e2e suite. Use stable hooks: `data-testid` (`nav-<id>`, `nav-more`, `nav-badge`, `home-grid`, the list at the top of `app/e2e/fixtures.ts`), roles and accessible names. Never coordinates.
 
 Which scenario proves which feature is in [features/README.md](features/README.md).
 

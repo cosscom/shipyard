@@ -14,6 +14,7 @@ The maintained list of what a person can do in the app, and how to prove each on
 | --- | --- | --- |
 | Sidebar places: Pinned, More, Hidden, counts on rows (Home's waiting, Review's, a plugin's) | [sidebar-nav.md](sidebar-nav.md) | `plugin-nav-badges` |
 | Back and forward: the window strip's arrows, ⌘[ and ⌘], the mouse's buttons; archiving or removing the worktree in front goes back, not Home; the dashboard keeps its scroll | [navigation-history.md](navigation-history.md) | `navigation-history`; `app/e2e/back-forward.spec.ts` asserts it |
+| Shortcuts in the keyboard's layout (⌘Å and ⌘¨ for Back and Forward on Norwegian) in tooltips, the Keyboard shortcuts sheet, Settings and ⌘K; the sheet's descriptions fit their lines | [navigation-history.md](navigation-history.md) (`history-layout`) | `keyboard-layout`, `keyboard-layout-us`; `app/e2e/back-forward.spec.ts` asserts it |
 | Stopping agents from the Agent Dashboard: one, the picked ones, a column, Clean up; archiving their worktrees where it's safe | [dashboard-stop.md](dashboard-stop.md) | `dashboard-stop-archive`; `app/e2e/dashboard-stop-archive.spec.ts` asserts it |
 | Plugins: built-in and your own, what they add (screens, sidebar items, widgets, panels) | [plugins.md](plugins.md) | `plugin-nav-badges` (sidebar items) |
 | Home's widget grid | [home-widgets.md](home-widgets.md) | none yet; `app/e2e/home-widgets.spec.ts` asserts it |

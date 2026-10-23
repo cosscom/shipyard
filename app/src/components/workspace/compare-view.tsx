@@ -14,6 +14,7 @@ import { focusedSide, LANE_LABEL, LANES, type Lane, type SideState, shownSides, 
 import { closeCompare, setCompareLane, setCompareSync, swapCompare, useLoadTimes } from "@/lib/compare-actions";
 import { sessionState } from "@/lib/derive";
 import { exec } from "@/lib/orchestrate";
+import { keysFor } from "@/lib/shortcuts";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { focusPane, leadAgent, splitKey, useWorkspaces, useWorktreeRef, type WsTab } from "@/lib/workspaces";
@@ -177,7 +178,7 @@ export function CompareBar({ wsKey, tab }: { wsKey: string; tab: WsTab }) {
         {/* With one side showing, there is nothing to swap or sync. */}
         {!alone && (
           <>
-            <Tip label={<Keys label="Swap sides" keys="⌘⌥S" />} side="bottom">
+            <Tip label={<Keys label="Swap sides" keys={keysFor("compare-swap")} />} side="bottom">
               <ToolbarPrimitive.Button aria-label={`Swap sides: ${lb} on the left`} onClick={() => swapCompare(wsKey, tab.id)} className={cn(btn, "w-7 justify-center px-0 text-muted-foreground hover:bg-accent hover:text-foreground")}>
                 <ArrowLeftRightIcon className="size-3.5" />
               </ToolbarPrimitive.Button>

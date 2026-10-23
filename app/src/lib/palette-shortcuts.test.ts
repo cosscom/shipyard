@@ -7,7 +7,7 @@ import { test } from "node:test";
 
 import { FROM_TABLE, NOT_IN_PALETTE, OWN_ITEMS } from "./palette-shortcuts.ts";
 
-const table = JSON.parse(readFileSync(new URL("./shortcuts.json", import.meta.url), "utf8")) as { shortcuts: { id: string; keys: string; accel?: string }[] };
+const table = JSON.parse(readFileSync(new URL("./shortcuts.json", import.meta.url), "utf8")) as { shortcuts: { id: string; label: string; keys: string; code?: string; accel?: string; what?: string }[] };
 const ids = table.shortcuts.map((s) => s.id);
 
 test("every shortcut is in ⌘K or says why it isn't, once", () => {
@@ -30,6 +30,17 @@ test("the key handler runs every shortcut a menu item or key sends", () => {
     if (elsewhere.has(id)) continue;
     assert.ok(src.includes(`"${id}"`), `use-shortcuts.ts handles ${id}`);
   }
+  // A key matched by its place (code, which the lists show in the layout in
+  // use) is matched by that code there.
+  for (const s of table.shortcuts.filter((x) => x.code)) assert.ok(src.includes(`"${s.code}"`), `use-shortcuts.ts matches ${s.id} by e.code "${s.code}"`);
   // A table entry without a key in the menu bar must say what it is.
   for (const s of table.shortcuts) assert.ok(s.keys.trim(), `${s.id} has keys`);
+});
+
+test("a shortcut's description fits on its line in the sheet: one short clause", () => {
+  // The sheet and Settings show describe(s), what or else label, on one
+  // line, about 290px wide, less beside a Labs badge: the browser tests
+  // check none is cut off. The details go in
+  // docs/guides/keyboard-shortcuts.mdx.
+  for (const s of table.shortcuts) for (const text of [s.label, s.what ?? ""]) assert.ok(text.length <= 40, `${s.id}: "${text}" is ${text.length} characters, more than 40`);
 });

@@ -8,7 +8,8 @@ import { Sheet, SheetDescription, SheetFooter, SheetHeader, SheetPanel, SheetPop
 import { isTauri } from "@/lib/api";
 import { IS_LINUX, LINUX_TERMINAL_KEYS } from "@/lib/platform";
 import { usePrefs } from "@/lib/prefs";
-import { describe, SHORTCUT_GROUPS, SHORTCUTS } from "@/lib/shortcuts";
+import { useKeyLabels } from "@/lib/keyboard-layout";
+import { describe, keysOf, SHORTCUT_GROUPS, SHORTCUTS } from "@/lib/shortcuts";
 import { useStore } from "@/lib/store";
 
 // The Keyboard shortcuts sheet (Help → Keyboard shortcuts, ⌘/, or ⌘K): every
@@ -21,6 +22,7 @@ export const openShortcuts = () => useShortcutsSheet.setState({ open: true });
 export function ShortcutsSheet() {
   const open = useShortcutsSheet((s) => s.open);
   const labs = usePrefs((p) => p.labs);
+  const labels = useKeyLabels(open);
   const close = () => useShortcutsSheet.setState({ open: false });
   return (
     <Sheet open={open} onOpenChange={(o) => useShortcutsSheet.setState({ open: o })}>
@@ -49,7 +51,7 @@ export function ShortcutsSheet() {
                   <li key={s.id} className="flex min-h-7.5 items-center gap-2 border-b border-dashed py-0.5 text-body last:border-b-0">
                     <span className="min-w-0 flex-1 truncate">{describe(s)}</span>
                     {s.labs && !labs && <Badge variant="outline">Labs</Badge>}
-                    <Kbd className="text-foreground/80">{s.keys}</Kbd>
+                    <Kbd className="text-foreground/80">{keysOf(s, labels)}</Kbd>
                   </li>
                 ))}
               </ul>

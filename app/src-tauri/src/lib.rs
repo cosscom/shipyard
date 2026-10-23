@@ -6,6 +6,7 @@ use tauri::Manager;
 mod agent;
 mod browser;
 mod cli_link;
+mod keys;
 #[cfg(target_os = "linux")]
 mod linux;
 mod menu;
@@ -88,6 +89,15 @@ fn open_terminal() -> Result<(), String> {
     }
 }
 
+// key_layout is what each of codes (KeyboardEvent.code) types on the
+// keyboard layout in use (keys.rs), so the shortcuts the webview matches by a
+// key's place show that key. Not async: Tauri runs it on the main thread,
+// which macOS's Text Input Sources wants.
+#[tauri::command]
+fn key_layout(codes: Vec<String>) -> std::collections::HashMap<String, String> {
+    keys::labels(&codes)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "linux")]
@@ -135,6 +145,7 @@ pub fn run() {
             open_devtools,
             restart_app,
             open_terminal,
+            key_layout,
             cli_link::cli_link_status,
             cli_link::install_cli_link,
             agent::agent_binary,

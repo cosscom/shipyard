@@ -64,8 +64,10 @@ export function Tip({
     children
   );
   if (layer) return <LayerTip layer={layer} spec={{ label, side, align, delay, className }} trigger={trigger} />;
+  // A new trigger element when disabled flips: hover only finds the first
+  // one (Back's arrow, disabled until there is somewhere to go).
   return (
-    <Tooltip>
+    <Tooltip key={disabled ? "disabled" : "enabled"}>
       <TooltipTrigger delay={delay} render={trigger} />
       <TooltipPopup side={side} align={align} className={className}>
         {label}

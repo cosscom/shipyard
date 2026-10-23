@@ -43,6 +43,7 @@ import { startBoxDefaultsSync } from "@/lib/box-defaults";
 import { startSkillsNoticeWatch } from "@/lib/skills-notice";
 import { startRunsWatch } from "@/lib/runs";
 import { watchStillness } from "@/lib/still";
+import { watchKeyboardLayout } from "@/lib/keyboard-layout";
 import { useStore } from "@/lib/store";
 import { startUpdater } from "@/lib/updater";
 import { useWhatsNewAfterUpdate } from "@/lib/whats-new";
@@ -85,6 +86,8 @@ export default function App() {
   useApplyTheme();
   useBerthConnection();
   useShortcuts();
+  // The keyboard layout, so the keys shown are the keys to press there.
+  useEffect(watchKeyboardLayout, []);
   useWindowTitle();
   // Checks for a newer Shipyard on launch and every few hours (lib/updater.ts).
   useEffect(startUpdater, []);

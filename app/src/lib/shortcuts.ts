@@ -1,3 +1,5 @@
+import { layoutKeys } from "@/lib/key-layout";
+import { keyLabels } from "@/lib/keyboard-layout";
 import table from "@/lib/shortcuts.json";
 
 // The app's keyboard shortcuts, from shortcuts.json: the one table the key
@@ -11,7 +13,11 @@ export interface Shortcut {
   group: ShortcutGroup;
   // The menu item's name; with count, {n} is each item's number.
   label: string;
+  // A US keyboard's keys; keysOf shows them on the layout in use.
   keys: string;
+  // The e.code the key handler matches its key by, when that is its place
+  // and not its character (lib/key-layout.ts).
+  code?: string;
   // Set when the item is in the menu bar, as a Tauri accelerator.
   accel?: string;
   count?: number;
@@ -30,5 +36,14 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = ["File", "View", "Go", "Help"];
 // describe is what a list of shortcuts calls one.
 export const describe = (s: Shortcut) => s.what ?? s.label.replace(/…$/, "");
 
-// keysFor is the keys of a shortcut, for a menu item or a hint to show.
-export const keysFor = (id: string) => SHORTCUTS.find((s) => s.id === id)?.keys;
+// keysOf is a shortcut's keys as they read on the keyboard layout in use:
+// Back is ⌘[ on a US layout and ⌘Å on a Norwegian one. A component passes
+// useKeyLabels()'s labels, so it shows them again when the layout changes.
+export const keysOf = (s: Shortcut, labels = keyLabels()) => layoutKeys(s.keys, s.code, labels);
+
+// keysFor is the keys of a shortcut, for a menu item or a hint to show
+// ("" for an id the table hasn't).
+export const keysFor = (id: string, labels = keyLabels()) => {
+  const s = SHORTCUTS.find((x) => x.id === id);
+  return s ? keysOf(s, labels) : "";
+};

@@ -5,9 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { isTauri } from "@/lib/api";
+import { useKeyLabels } from "@/lib/keyboard-layout";
 import { IS_LINUX, LINUX_TERMINAL_KEYS, platformKeys } from "@/lib/platform";
 import { usePrefs } from "@/lib/prefs";
-import { describe, SHORTCUT_GROUPS, SHORTCUTS } from "@/lib/shortcuts";
+import { describe, keysOf, SHORTCUT_GROUPS, SHORTCUTS } from "@/lib/shortcuts";
 import { SettingsGroup, SettingsPage, SettingsRow } from "@/views/settings/rows";
 
 // Every shortcut, searchable, grouped as the menu bar groups them; the same
@@ -15,10 +16,14 @@ import { SettingsGroup, SettingsPage, SettingsRow } from "@/views/settings/rows"
 export function ShortcutsSection() {
   const [query, setQuery] = useState("");
   const labs = usePrefs((p) => p.labs);
+  const labels = useKeyLabels();
   const q = query.trim().toLowerCase();
+  // By its description, its menu name and its keys, as shown or on a US
+  // keyboard: "back", "⌘å" and "⌘[" all find Back.
+  const finds = (s: (typeof SHORTCUTS)[number]) => [describe(s), s.label, platformKeys(keysOf(s, labels)), platformKeys(s.keys)].some((t) => t.toLowerCase().includes(q));
   const grouped = SHORTCUT_GROUPS.map((title) => ({
     title,
-    items: SHORTCUTS.filter((s) => s.group === title && (!q || describe(s).toLowerCase().includes(q) || platformKeys(s.keys).toLowerCase().includes(q))),
+    items: SHORTCUTS.filter((s) => s.group === title && (!q || finds(s))),
   })).filter((g) => g.items.length > 0);
 
   return (
@@ -37,7 +42,7 @@ export function ShortcutsSection() {
             <SettingsRow key={s.id} label={describe(s)} className="min-h-10 py-2">
               <span className="flex items-center gap-2">
                 {s.labs && !labs && <Badge variant="outline">Labs</Badge>}
-                <Kbd>{s.keys}</Kbd>
+                <Kbd>{keysOf(s, labels)}</Kbd>
               </span>
             </SettingsRow>
           ))}

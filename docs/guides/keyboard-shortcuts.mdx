@@ -1,0 +1,64 @@
+---
+title: Keyboard shortcuts
+description: Every shortcut is in Help → Keyboard shortcuts; this page has what they do in each place, and how they meet your keyboard's layout.
+---
+
+**Help → Keyboard shortcuts** (⌘/) lists every shortcut, one line each, and
+**Settings → Shortcuts** searches them by name or by keys. In the Mac app
+most are in the menu bar too, under File, View, Go and Help. They work
+everywhere in the window, terminals included: the app sees them first.
+
+In the Linux app Ctrl stands in for ⌘. In a terminal there, Ctrl and a
+letter go to the shell (Ctrl+W, Ctrl+D, Ctrl+K…); add Shift for the app's
+(Ctrl+Shift+T, Ctrl+Shift+K). Ctrl+Shift+C and Ctrl+Shift+V copy and paste
+there.
+
+## Your keyboard's layout
+
+Back and Forward are ⌘ and the two keys right of P, wherever those are on
+your keyboard. On a US layout they read ⌘[ and ⌘]. On a layout where [ and ]
+need ⌥, the app shows the keys in that place instead, on the arrows'
+tooltips, in the Keyboard shortcuts sheet, in Settings and in ⌘K: ⌘Å and ⌘¨
+on a Norwegian keyboard, ⌘Ü and ⌘+ on a German one. The Mac app asks macOS
+which input source is in use, and asks again when its window comes to the
+front, so switching the input source shows there too. Until the app knows
+your layout, it shows a US keyboard's keys.
+
+The ⌘⌥ shortcuts with a letter (⌘⌥D, ⌘⌥C, ⌘⌥S, ⌘⌥I) go by the key's place
+too, because ⌥ changes what a letter types. The others go by the character
+you type, so they read the same on any layout.
+
+## What they do where
+
+- **Back** (⌘[) and **Forward** (⌘]) take you through the places you've
+  been, as in a browser: a page such as the Agent Dashboard, or a worktree
+  and the tab you had open in it. A mouse's back and forward buttons do the
+  same. In a File tab's editor, ⌘[ and ⌘] stay its outdent and indent. In
+  the Linux app's terminals they're Ctrl+Shift+[ and Ctrl+Shift+], because
+  Ctrl+[ is esc to a shell.
+- **Go to file** (⌘P) finds a file in the worktree in front, with what the
+  agent changed this turn first. ↵ opens it in a File tab, ⌥↵ beside the
+  pane, and ⌘↵ in your editor.
+- **Save file** (⌘S) saves the File tab you're in. If the agent wrote the
+  file since you opened it, you choose what to keep instead.
+- **Files panel** (⌘⇧E) shows or hides the worktree's files beside its
+  tabs: all of them, or what the agent changed this turn.
+- **Close group** (⌘⇧W) closes the tab group in front; its worktree and
+  agents carry on. With one group, it closes the window.
+- **Rename worktree** (F2), on a worktree in the sidebar or the rail, gives
+  it a display name. ↵ keeps it and esc leaves it as it was.
+- **Move between panes** (⌘⌥ and an arrow) works from a terminal too. A
+  terminal keeps ⇥ for itself.
+- **Find in the chat** (⌘F) finds words in the chat you're in. ↵ or ⌘G goes
+  to the next one, and esc closes it.
+- **Send the reply** (↵) sends a reply box; ⇧↵ is a new line. **Stop the
+  agent** (esc) in a chat's reply box, while its agent works, stops it as
+  esc does at its terminal.
+- **Fold a project** (← and →) on a project in the sidebar hides or shows
+  its worktrees. **Open a row's menu** (⇧F10) on a sidebar row or a tab
+  opens the menu a right-click does.
+- **Console and network** (⌘⌥I) in a Browser tab shows or hides the page's
+  Console and Network drawer.
+- With [Labs](/guides/labs) on, **Compare lanes** (⌥1–5) in a Compare tab
+  pick its Chat, Diff, Preview, Terminal or Artifacts lane, and **Swap
+  compared sides** (⌘⌥S) swaps its two sides.
