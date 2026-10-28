@@ -194,7 +194,7 @@ func (b *Box) forkSession(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	ns, err := b.startSession(r, defaultSessionName(sess.Location, cmd), sess.Location, sess.Dir, cmd, "claude", strings.TrimSpace(req.Text) != "")
+	ns, err := b.startSession(r, defaultSessionName(sess.Location, cmd), sess.Location, sess.Dir, cmd, "claude", strings.TrimSpace(req.Text) != "", nil)
 	if err != nil {
 		return err
 	}

@@ -112,10 +112,43 @@ agents, `exec`, repository hooks, flow steps, services):
 | `BERTH_KIT_DIR` | Its kit's files, when it has a kit |
 | `BERTH_REVIEW`, `BERTH_REVIEW_REPO`, `BERTH_REVIEW_SHA`, `BERTH_WITHHELD` | In a [review](/guides/review-a-pr): the PR number, its repository, the commit checked out, and the names of the reviewer's own keys it does not get |
 | then | the box's `env.json`, the project's `env`, and resolved secrets (in a review, without the reviewer's own keys) |
+| then | Terminals and agents: the session's [own variables](#a-sessions-own-variables), over all of these |
 | `PORT` | `$BERTH_PORT`, for servers that read `PORT`, unless the box or `env` sets it |
 | `AGENT_BROWSER_IDLE_TIMEOUT_MS` | Terminals and agents: `300000`, so an [agent-browser](/guides/agent-browser#agent-browser) left idle closes after 5 minutes, unless the box, `env` or berthd's environment sets it |
 | `ORCA_ROOT_PATH`, `ORCA_WORKTREE_PATH`, `ORCA_WORKSPACE_NAME` | Setup and archive scripts, for scripts written for Orca |
 | what a helper answers | Services only: before berthd starts one, each running [plugin's helper](/guides/plugins#attach-what-a-helper-adds-to-a-service) that asks to be told may set the variables its manifest names (`OTEL_*`, a `DATABASE_URL` through its proxy). Each helper is shown the project's own values, not another helper's answer. Never a `BERTH_` variable, and never one that names a secret |
+
+### A session's own variables
+
+A terminal or agent can be started with variables of its own, for it alone:
+`--env KEY=VALUE` on `task new` and `session new` (repeat it for more), `env`
+in a `POST /v1/tasks` or `POST /v1/sessions` body, or `env` on the
+`berth_task_new` [MCP tool](/guides/runs#from-an-agent-mcp), an object such
+as `{"TICKET": "T-7"}`.
+
+```sh
+# a ticket for the agent's hooks to report against
+berthd task new acme/fix-login --agent claude --prompt "fix the login redirect" --env TICKET=T-7
+
+# a second Claude Code account, for this agent only
+berthd session new acme --agent claude --env CLAUDE_CONFIG_DIR=$HOME/.claude-second
+```
+
+- They come over the box's `env.json` and the project's `env`: a variable
+  set both ways has the session's value.
+- They are taken as given: `$VAR` in one is not expanded, and a value
+  shaped like a secret reference is not resolved. Like the rest of a
+  session's environment, they are passed to tmux on its command line, so
+  keep secrets in `env` as [references](/guides/secrets).
+- They last as long as the session, through a switch between its terminal
+  and the chat. A conversation reopened from history, a fork, or a run's
+  agent starts without them.
+- A name berthd sets itself (`BERTH_SESSION`, `BERTH_PORT`, `BERTH_PORT_1`,
+  the rest of the table above, `BERTH_AGENT`, `BERTH_DRIVER`,
+  `BERTH_SECRET_VARS`), or one that says where berthd keeps its state or
+  which `op` it runs (`BERTH_HOME`, `BERTH_USER_DIR`, `BERTH_OP`), is refused, and so is a malformed one (`--env KEY`
+  with no `=`, an empty name, the same name twice): nothing is started.
+  Other names, `BERTH_` ones included, are the session's to use.
 
 ### What a helper gets
 

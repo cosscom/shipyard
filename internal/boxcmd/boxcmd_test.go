@@ -70,6 +70,42 @@ func TestSessionNewPassesTheCommandAfterDoubleDash(t *testing.T) {
 	}
 }
 
+func TestEnvFlagsSetTheNewSessionsOwnVariables(t *testing.T) {
+	r, _ := run(t, `{"worktree":{"name":"fix"},"session":{"name":"s"}}`, "task", "new", "acme/fix", "--agent", "claude", "--env", "TICKET=T-7", "--env", "NOTE=a=b c", "--env", "EMPTY=", "--no-notify")
+	if env, _ := r.body["env"].(map[string]any); len(env) != 3 || env["TICKET"] != "T-7" || env["NOTE"] != "a=b c" || env["EMPTY"] != "" {
+		t.Fatalf("task body env = %v", r.body["env"])
+	}
+	r, _ = run(t, `{"name":"s","dir":"/w"}`, "session", "new", "acme/fix", "--env", "CLAUDE_CONFIG_DIR=/home/acme/.claude-two", "--agent", "claude")
+	if env, _ := r.body["env"].(map[string]any); len(env) != 1 || env["CLAUDE_CONFIG_DIR"] != "/home/acme/.claude-two" {
+		t.Fatalf("session body env = %v", r.body["env"])
+	}
+	r, _ = run(t, `{"name":"s","dir":"/w"}`, "session", "new", "acme/fix", "--", "make")
+	if _, ok := r.body["env"]; ok {
+		t.Fatalf("no --env sent %v", r.body["env"])
+	}
+}
+
+func TestAMalformedEnvFlagIsRefusedNeverDropped(t *testing.T) {
+	for _, tc := range []struct {
+		args []string
+		says string
+	}{
+		{[]string{"task", "new", "acme/fix", "--env", "TICKET"}, `--env takes KEY=VALUE, got "TICKET" with no =`},
+		{[]string{"task", "new", "acme/fix", "--env", "=T-7"}, `--env takes KEY=VALUE, got "=T-7" with no KEY`},
+		{[]string{"task", "new", "acme/fix", "--env", "A=1", "--env", "A=2"}, "--env takes KEY=VALUE once per KEY, got A twice"},
+		{[]string{"session", "new", "acme/fix", "--env", "TICKET"}, `--env takes KEY=VALUE, got "TICKET" with no =`},
+	} {
+		r := &recorder{reply: "{}"}
+		err := Run(context.Background(), &box.Client{Doer: r}, tc.args, io.Discard)
+		if err == nil || !strings.Contains(err.Error(), tc.says) {
+			t.Errorf("%v: %v, want %q", tc.args, err, tc.says)
+		}
+		if r.method != "" {
+			t.Errorf("%v reached the box", tc.args)
+		}
+	}
+}
+
 func TestLocationAddAndRemoveWorktree(t *testing.T) {
 	r, out := run(t, `{"name":"cal","path":"/home/alex/work/cal","repo":true,"worktrees":[{"name":"cal","main":true}]}`, "location", "add", "cal", "~/work/cal")
 	if r.body["name"] != "cal" || r.body["path"] != "~/work/cal" || !strings.Contains(out, "git repository") {

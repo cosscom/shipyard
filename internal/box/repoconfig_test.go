@@ -206,7 +206,7 @@ func TestAWorktreesTerminalsGetItsPortAsPORT(t *testing.T) {
 		t.Fatal(err)
 	}
 	envOf := func() map[string]string {
-		env, _ := b.sessionEnv(ctx, wt.Path)
+		env, _ := b.sessionEnv(ctx, wt.Path, nil)
 		m := map[string]string{}
 		for _, kv := range env {
 			k, v, _ := strings.Cut(kv, "=")

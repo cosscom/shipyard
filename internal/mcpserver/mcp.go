@@ -135,7 +135,7 @@ const told = " Shipyard tells you when it ends, needs a person or hits a gate: a
 var Tools = []Tool{
 	{Name: "berth_sessions", Description: "List agent sessions on this box: name, agent, state, current turn.", InputSchema: obj(map[string]any{}), call: sessions},
 	{Name: "berth_screen", Description: "Read the last lines of a session's screen. Use only when an agent waits for someone.", InputSchema: obj(map[string]any{"session": str("session name"), "lines": num("lines of history, at most 60 (default 20)")}, "session"), call: screen},
-	{Name: "berth_task_new", Description: "Make a worktree with an agent in it, working on prompt. Returns the session, worktree path and branch." + told, InputSchema: obj(with(map[string]any{"location": str("repository (location) name"), "name": str("new worktree name"), "agent": str("agent preset, e.g. claude or codex"), "prompt": str("its first prompt"), "base": str("base branch (optional)")}), "location", "name", "agent"), call: taskNew},
+	{Name: "berth_task_new", Description: "Make a worktree with an agent in it, working on prompt. Returns the session, worktree path and branch." + told, InputSchema: obj(with(map[string]any{"location": str("repository (location) name"), "name": str("new worktree name"), "agent": str("agent preset, e.g. claude or codex"), "prompt": str("its first prompt"), "base": str("base branch (optional)"), "env": map[string]any{"type": "object", "additionalProperties": map[string]any{"type": "string"}, "description": "variables to set in the agent's environment, over the box's and the repository's (optional)"}}), "location", "name", "agent"), call: taskNew},
 	{Name: "berth_send", Description: "Send a prompt to a session (held until it is idle by default). Returns its turn." + told, InputSchema: obj(with(map[string]any{"session": str("session name"), "text": str("the prompt"), "when": str("idle (default) or now"), "idem": str("a key that makes a retry return the same turn")}), "session", "text"), call: send},
 	{Name: "berth_wait_turn", Description: "Wait up to timeout seconds (at most 90) for a turn to end. For short waits: work you start reports back by itself (a <berth-notification>), so rather than calling this in a loop, end your turn. If ended is false, call again with the cursor.", InputSchema: obj(map[string]any{"turn": str("turn ID, or the cursor from a previous call"), "timeout": num("seconds, at most 90 (default 60)")}, "turn"), call: waitTurn},
 	{Name: "berth_exec", Description: "Run a command in a worktree as a detached run; with wait (at most 90 s) return its result if done, else the run, which reports back (a <berth-notification>) when it ends.", InputSchema: obj(with(map[string]any{"location": str("location or location/worktree"), "command": str("shell command"), "wait": num("seconds to wait, at most 90 (default 0)")}), "location", "command"), call: execTool},
@@ -249,6 +249,31 @@ func seconds(a map[string]any, k string, def, max float64) time.Duration {
 	return time.Duration(v * float64(time.Second))
 }
 
+// envArg is a[k] as environment variables: an object of names to string
+// values. Anything else is an error, never dropped.
+func envArg(a map[string]any, k string) (map[string]string, error) {
+	raw, ok := a[k]
+	if !ok || raw == nil {
+		return nil, nil
+	}
+	m, ok := raw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("%s must be an object of names to values, like {\"TICKET\": \"T-7\"}", k)
+	}
+	env := make(map[string]string, len(m))
+	for name, v := range m {
+		s, ok := v.(string)
+		switch {
+		case name == "":
+			return nil, fmt.Errorf("%s: a variable needs a name", k)
+		case !ok:
+			return nil, fmt.Errorf("%s: %s's value must be a string", k, name)
+		}
+		env[name] = s
+	}
+	return env, nil
+}
+
 func need(a map[string]any, keys ...string) error {
 	for _, k := range keys {
 		if strings.TrimSpace(arg(a, k)) == "" {
@@ -307,8 +332,12 @@ func taskNew(ctx context.Context, s *Server, a map[string]any) (any, error) {
 	if err := need(a, "location", "name", "agent"); err != nil {
 		return nil, err
 	}
+	env, err := envArg(a, "env")
+	if err != nil {
+		return nil, err
+	}
 	c, reports := s.forWork(ctx, a)
-	t, err := c.AddTask(ctx, box.TaskRequest{Location: arg(a, "location"), Name: arg(a, "name"), Agent: arg(a, "agent"), Prompt: arg(a, "prompt"), Base: arg(a, "base"), FromSession: s.Caller})
+	t, err := c.AddTask(ctx, box.TaskRequest{Location: arg(a, "location"), Name: arg(a, "name"), Agent: arg(a, "agent"), Prompt: arg(a, "prompt"), Base: arg(a, "base"), FromSession: s.Caller, Env: env})
 	if err != nil {
 		return nil, err
 	}

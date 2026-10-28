@@ -702,6 +702,9 @@ type SessionRequest struct {
 	// what it asks.
 	Driver string `json:"driver,omitempty"`
 	Mode   string `json:"mode,omitempty"`
+	// Env is the session's own variables, over the box's and the
+	// project's (sessionenv.go). berthd's own can't be among them.
+	Env map[string]string `json:"env,omitempty"`
 }
 
 func (b *Box) addSession(w http.ResponseWriter, r *http.Request) error {
@@ -714,6 +717,9 @@ func (b *Box) addSession(w http.ResponseWriter, r *http.Request) error {
 	}
 	if req.Open != "" && req.Open != "split" && req.Open != "tab" {
 		return badRequest("open must be split or tab")
+	}
+	if err := CheckSessionEnv(req.Env); err != nil {
+		return err
 	}
 	if req.Home {
 		return b.addHomeSession(w, r, req)
@@ -746,7 +752,7 @@ func (b *Box) addSession(w http.ResponseWriter, r *http.Request) error {
 			if req.Name == "" {
 				req.Name = defaultSessionName(req.Location, p.Command)
 			}
-			sess, err := b.startStructuredSession(r, req.Name, req.Location, dir, req.Agent, l, req.Prompt)
+			sess, err := b.startStructuredSession(r, req.Name, req.Location, dir, req.Agent, l, req.Prompt, req.Env)
 			if err != nil {
 				return err
 			}
@@ -767,7 +773,7 @@ func (b *Box) addSession(w http.ResponseWriter, r *http.Request) error {
 		req.Name = defaultSessionName(req.Location, req.Command)
 	}
 	preset := req.Agent
-	sess, err := b.startSession(r, req.Name, req.Location, dir, req.Command, preset, preset != "" && req.Prompt != "")
+	sess, err := b.startSession(r, req.Name, req.Location, dir, req.Command, preset, preset != "" && req.Prompt != "", req.Env)
 	if err != nil {
 		return err
 	}
@@ -795,7 +801,7 @@ func (b *Box) addHomeSession(w http.ResponseWriter, r *http.Request, req Session
 	if req.Name == "" {
 		req.Name = defaultSessionName("home", req.Command)
 	}
-	sess, err := b.startSession(r, req.Name, "", dir, req.Command, "", false)
+	sess, err := b.startSession(r, req.Name, "", dir, req.Command, "", false, req.Env)
 	if err != nil {
 		return err
 	}
@@ -815,14 +821,14 @@ func (b *Box) announceOpen(r *http.Request, sess Session, open string) {
 }
 
 // startSession runs command in dir once the hooks allow it; preset is the
-// agent preset it runs, if any, and prompted says its command carries a
-// first prompt.
-func (b *Box) startSession(r *http.Request, name, location, dir, command, preset string, prompted bool) (Session, error) {
+// agent preset it runs, if any, prompted says its command carries a first
+// prompt, and own is the session's own variables.
+func (b *Box) startSession(r *http.Request, name, location, dir, command, preset string, prompted bool, own map[string]string) (Session, error) {
 	data := map[string]any{"name": name, "location": location, "path": dir, "command": command}
 	if err := b.before(r, "session.start", data); err != nil {
 		return Session{}, err
 	}
-	sess, err := b.createAgentSession(r.Context(), name, location, dir, command, preset)
+	sess, err := b.createAgentSessionWith(r.Context(), name, location, dir, command, preset, nil, nil, own)
 	if err != nil {
 		return Session{}, err
 	}
@@ -881,12 +887,12 @@ func (b *Box) launchStructured(kind string, p AgentPreset, model, effort, mode s
 
 // startStructuredSession starts a structured agent (claudedriver.go) and
 // gives it its first prompt once its host listens.
-func (b *Box) startStructuredSession(r *http.Request, name, location, dir, preset string, l structuredLaunch, prompt string) (Session, error) {
+func (b *Box) startStructuredSession(r *http.Request, name, location, dir, preset string, l structuredLaunch, prompt string, own map[string]string) (Session, error) {
 	data := map[string]any{"name": name, "location": location, "path": dir, "command": l.command}
 	if err := b.before(r, "session.start", data); err != nil {
 		return Session{}, err
 	}
-	sess, err := b.createAgentSessionWith(r.Context(), name, location, dir, l.command, preset, l.env, l.labels)
+	sess, err := b.createAgentSessionWith(r.Context(), name, location, dir, l.command, preset, l.env, l.labels, own)
 	if err != nil {
 		return Session{}, err
 	}

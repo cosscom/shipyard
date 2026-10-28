@@ -147,8 +147,8 @@ Who may be reviewed is read from GitHub with this laptop's `gh`, as you. See
 | --- | --- |
 | `berth sessions BOX [--json]` | List sessions |
 | `berth agents BOX [--json]` | Agent CLIs this box can start |
-| `berth task new BOX/LOC/NAME [--agent ID] [--prompt TEXT] [--open split\|tab] [--branch B] [--base REF] [-- COMMAND...]` | A worktree with an agent (or a command) running in it |
-| `berth session new BOX/LOC[/WORKTREE] [--name N] [--agent ID [--prompt TEXT]] [--open split\|tab] [-- COMMAND...]` | Start an agent or a command (default: a shell) there |
+| `berth task new BOX/LOC/NAME [--agent ID] [--prompt TEXT] [--env KEY=VALUE]... [--open split\|tab] [--branch B] [--base REF] [-- COMMAND...]` | A worktree with an agent (or a command) running in it; `--env` sets a variable [for this agent only](/reference/files#a-sessions-own-variables) |
+| `berth session new BOX/LOC[/WORKTREE] [--name N] [--agent ID [--prompt TEXT]] [--env KEY=VALUE]... [--open split\|tab] [-- COMMAND...]` | Start an agent or a command (default: a shell) there, `--env` as for `task new` |
 | `berth session screen BOX/NAME [--history N]` | Print what the session shows |
 | `berth session send BOX/NAME TEXT [--when now\|idle] [--force] [--idem KEY] [--no-enter] [--wait [--timeout 30m]] [--queue]` | Type a prompt into a session (or hold it until the agent is idle), and wait for its turn |
 | `berth session wait BOX/NAME [--turn ID] [--for finished,waiting] [--timeout 30m]` | Wait for a turn (from `session send`), or its agent's current one, to end |

@@ -279,6 +279,8 @@ type TaskRequest struct {
 	Open string `json:"open,omitempty"`
 	// Title names the work; without one, the prompt's first line does.
 	Title string `json:"title,omitempty"`
+	// Env is the agent's own variables: see SessionRequest.
+	Env map[string]string `json:"env,omitempty"`
 }
 
 type Task struct {
@@ -293,6 +295,9 @@ func (b *Box) addTask(w http.ResponseWriter, r *http.Request) error {
 	}
 	if req.Location == "" || req.Name == "" {
 		return badRequest("a task needs a location and a name")
+	}
+	if err := CheckSessionEnv(req.Env); err != nil {
+		return err
 	}
 	// Without tmux there is nothing to run the agent in: say so before
 	// making a worktree that would only be removed again.
@@ -349,9 +354,9 @@ func (b *Box) addTask(w http.ResponseWriter, r *http.Request) error {
 	}
 	var sess Session
 	if launch != nil {
-		sess, err = b.startStructuredSession(r, defaultSessionName(where, command), where, wt.Path, preset, *launch, req.Prompt)
+		sess, err = b.startStructuredSession(r, defaultSessionName(where, command), where, wt.Path, preset, *launch, req.Prompt, req.Env)
 	} else {
-		sess, err = b.startSession(r, defaultSessionName(where, command), where, wt.Path, command, preset, preset != "" && req.Prompt != "")
+		sess, err = b.startSession(r, defaultSessionName(where, command), where, wt.Path, command, preset, preset != "" && req.Prompt != "", req.Env)
 	}
 	if err != nil {
 		// A task is a worktree with an agent in it: without the agent, the

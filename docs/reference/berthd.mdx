@@ -71,8 +71,8 @@ asks the app to open the page as a browser tab beside the agent; the
 | --- | --- |
 | `berthd sessions [--json]` | List sessions |
 | `berthd agents [--json]` | Agent CLIs this box can start |
-| `berthd task new LOC/NAME [--agent ID] [--prompt TEXT] [--open split\|tab] [--branch B] [--base REF] [--no-notify] [-- COMMAND...]` | A worktree with an agent (or a command) running in it; from an agent's session, that agent [hears back](/guides/orchestration#hearing-back) when its first turn ends, and the new worktree nests under that agent's |
-| `berthd session new LOC[/WORKTREE] [--name N] [--agent ID [--prompt TEXT]] [--open split\|tab] [-- COMMAND...]` | Start an agent or a command (default: a shell) there |
+| `berthd task new LOC/NAME [--agent ID] [--prompt TEXT] [--env KEY=VALUE]... [--open split\|tab] [--branch B] [--base REF] [--no-notify] [-- COMMAND...]` | A worktree with an agent (or a command) running in it; from an agent's session, that agent [hears back](/guides/orchestration#hearing-back) when its first turn ends, and the new worktree nests under that agent's. `--env` sets a variable [for this agent only](/reference/files#a-sessions-own-variables) |
+| `berthd session new LOC[/WORKTREE] [--name N] [--agent ID [--prompt TEXT]] [--env KEY=VALUE]... [--open split\|tab] [-- COMMAND...]` | Start an agent or a command (default: a shell) there, `--env` as for `task new` |
 | `berthd session screen NAME [--history N]` | Print what the session shows |
 | `berthd session send NAME TEXT [--when now\|idle] [--force] [--idem KEY] [--no-enter] [--wait [--timeout 30m]] [--no-notify]` | Type a prompt into a session (or hold it until the agent is idle), and wait for its turn; without `--wait`, an agent sending it hears back when the turn ends |
 | `berthd session wait NAME [--turn ID] [--for finished,waiting] [--timeout 30m]` | Wait for a turn (from `session send`), or its agent's current one, to end |

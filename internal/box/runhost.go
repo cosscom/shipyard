@@ -469,7 +469,7 @@ func (h *runHost) startStructuredAgent(ctx context.Context, x *runs.StepCtx, st 
 	if err := b.beforeAs(ctx, origOf(x), "session.start", map[string]any{"location": st.where, "path": st.dir, "command": l.command, "agent": st.agent}); err != nil {
 		return fail(err)
 	}
-	sess, err := b.createAgentSessionWith(ctx, st.name, st.where, st.dir, l.command, st.agent, l.env, l.labels)
+	sess, err := b.createAgentSessionWith(ctx, st.name, st.where, st.dir, l.command, st.agent, l.env, l.labels, nil)
 	if err != nil {
 		return fail(err)
 	}

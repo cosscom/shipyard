@@ -343,7 +343,7 @@ func (b *Box) resumeConversation(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	name := defaultSessionName(firstNonEmpty(conv.Location, filepath.Base(conv.Dir)), firstNonEmpty(conv.Agent, "claude"))
-	sess, err := b.startStructuredSession(r, name, conv.Location, conv.Dir, firstNonEmpty(conv.Agent, "claude"), l, "")
+	sess, err := b.startStructuredSession(r, name, conv.Location, conv.Dir, firstNonEmpty(conv.Agent, "claude"), l, "", nil)
 	if err != nil {
 		return err
 	}

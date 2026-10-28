@@ -276,11 +276,13 @@ func lastSessionID(path string) string {
 // respawnAgent runs command in the session's pane in place of what ran
 // there, with env added to the session's own and labels set, as create
 // starts one (sessions.go): with its agent's CLI on PATH, which a login
-// shell may otherwise lose (Debian's resets it).
+// shell may otherwise lose (Debian's resets it). The variables the session
+// was started with of its own stay over its worktree's.
 func (b *Box) respawnAgent(ctx context.Context, sess Session, command string, env []string, labels map[string]string) error {
 	agent := firstNonEmpty(agentFor(sess), "claude")
 	s := b.Sessions
-	extra, wrap := b.sessionEnv(ctx, sess.Dir)
+	own := b.ownEnv(ctx, sess)
+	extra, wrap := b.sessionEnv(ctx, sess.Dir, own)
 	file, err := s.writeCommand(sess.Name, command)
 	if err != nil {
 		return err
@@ -289,7 +291,8 @@ func (b *Box) respawnAgent(ctx context.Context, sess Session, command string, en
 	argv := []string{shell, "-lc", withPATH(shell, launchPATH(command, agent), sourceCommand(shell, file))}
 	target := "=" + sess.Name + ":"
 	args := []string{"respawn-pane", "-k", "-t", target, "-c", sess.Dir}
-	for _, kv := range append(append(withAgentBrowserIdle(extra), "BERTH_SESSION="+sess.Name, "BERTH_AGENT="+agent), env...) {
+	// A default for one of the session's own would hide its value.
+	for _, kv := range append(append(withoutVars(withAgentBrowserIdle(extra), own), "BERTH_SESSION="+sess.Name, "BERTH_AGENT="+agent), env...) {
 		args = append(args, "-e", kv)
 	}
 	args = append(append(args, "--"), groups.Wrap(append(append([]string(nil), wrap...), argv...))...)

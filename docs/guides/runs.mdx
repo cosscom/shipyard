@@ -215,7 +215,7 @@ JSON:
 | --- | --- |
 | `berth_sessions` | name, agent, state, turn, where |
 | `berth_screen` | the last lines (at most 60) |
-| `berth_task_new` | the new session and worktree |
+| `berth_task_new` | the new session and worktree; `env` gives its agent [variables of its own](/reference/files#a-sessions-own-variables), such as a different config per agent you start |
 | `berth_send` | the turn (held until the agent is idle, by default) |
 | `berth_wait_turn` | the state after at most 90 s; if not ended, a cursor to call again with (for short waits) |
 | `berth_exec` | a detached run; with `wait` (at most 90 s) its exit code and failing tail |

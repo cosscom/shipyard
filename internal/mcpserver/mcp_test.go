@@ -102,3 +102,49 @@ func TestToolsAreShortAndNonBlocking(t *testing.T) {
 		t.Fatal("an unknown method answered")
 	}
 }
+
+// taskBox answers a task and keeps what it was asked for.
+type taskBox struct {
+	tasks []box.TaskRequest
+}
+
+func (f *taskBox) DoWithHeader(ctx context.Context, method, path string, body io.Reader, h http.Header) (*http.Response, error) {
+	w := httptest.NewRecorder()
+	if path != "/v1/tasks" {
+		w.WriteHeader(404)
+		w.WriteString(`{"error":"no"}`)
+		return w.Result(), nil
+	}
+	var req box.TaskRequest
+	json.NewDecoder(body).Decode(&req)
+	f.tasks = append(f.tasks, req)
+	w.WriteString(`{"worktree":{"name":"fix","path":"/w/fix","branch":"fix"},"session":{"name":"acme-fix-claude"}}`)
+	return w.Result(), nil
+}
+
+func TestATasksAgentGetsTheVariablesItWasGiven(t *testing.T) {
+	f := &taskBox{}
+	res := rpc(t, &Server{Box: box.NewClient(f)},
+		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"berth_task_new","arguments":{"location":"acme","name":"fix","agent":"claude","env":{"TICKET":"T-7","CLAUDE_CONFIG_DIR":"/home/acme/.claude-two"}}}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"berth_task_new","arguments":{"location":"acme","name":"fix","agent":"claude"}}}`,
+		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"berth_task_new","arguments":{"location":"acme","name":"fix","agent":"claude","env":["TICKET=T-7"]}}}`,
+		`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"berth_task_new","arguments":{"location":"acme","name":"fix","agent":"claude","env":{"TICKET":7}}}}`,
+		`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"berth_task_new","arguments":{"location":"acme","name":"fix","agent":"claude","env":{"":"T-7"}}}}`,
+	)
+	if len(f.tasks) != 2 {
+		t.Fatalf("%d tasks reached the box, want 2: %+v", len(f.tasks), f.tasks)
+	}
+	if env := f.tasks[0].Env; len(env) != 2 || env["TICKET"] != "T-7" || env["CLAUDE_CONFIG_DIR"] != "/home/acme/.claude-two" {
+		t.Fatalf("env = %v", env)
+	}
+	if f.tasks[1].Env != nil {
+		t.Fatalf("no env sent %v", f.tasks[1].Env)
+	}
+	for i, says := range map[int]string{2: "env must be an object", 3: "TICKET's value must be a string", 4: "a variable needs a name"} {
+		r := res[i]["result"].(map[string]any)
+		text := r["content"].([]any)[0].(map[string]any)["text"].(string)
+		if r["isError"] != true || !strings.Contains(text, says) {
+			t.Errorf("call %d: %v %q, want an error saying %q", i+1, r["isError"], text, says)
+		}
+	}
+}

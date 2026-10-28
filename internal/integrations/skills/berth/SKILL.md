@@ -68,6 +68,9 @@ berthd session screen shop-fix-login-claude-1a2b --history 200
   it in the user's Shipyard app when they are looking at that worktree, and
   offers it otherwise. Use it whenever the user asks for an agent "beside
   me", "in a split" or "in a new tab".
+- `--env KEY=VALUE` (repeatable) gives that one agent a variable, over the
+  box's and the repository's: `--env TICKET=T-7`. Names berth sets itself
+  (`BERTH_SESSION`, `BERTH_PORT`, …) are refused.
 - A new agent may stop at a question before it is ready, such as "do you
   trust this folder?". Wait with `berthd session wait NAME --for idle,waiting`:
   `idle` means it is at its prompt; `waiting` means it needs the user, so

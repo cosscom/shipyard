@@ -9,6 +9,18 @@ upgrades with `berth upgrade BOX`, or by running the
 [install command](/getting-started/add-a-box#with-the-install-command)
 again.
 
+## Unreleased
+
+- **Give one agent variables of its own.** `berthd task new` and
+  `berthd session new` (and `berth` for a box) take `--env KEY=VALUE`, as
+  many as you like, and the `berth_task_new` tool for agents takes `env`.
+  The variables reach that session alone, in its terminal or its chat, and
+  win over the same names from the box's `env.json` or the project's
+  `env`: a ticket for its hooks, a second Claude Code account
+  (`CLAUDE_CONFIG_DIR`), a different config for each agent you try. Names
+  Shipyard sets itself, such as `BERTH_SESSION` or `BERTH_PORT`, and
+  malformed ones are refused with a message, and nothing is started.
+
 ## v0.3.31
 
 - **Worktrees with submodules can be removed.** git refuses to remove any

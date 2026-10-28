@@ -53,8 +53,8 @@ var usageSections = []struct {
 	{"Agent sessions", [][2]string{
 		{"%[1]s sessions%[3]s [--json]", "List sessions"},
 		{"%[1]s agents%[3]s [--json]", "Agent CLIs this box can start"},
-		{"%[1]s task new %[2]sLOC/NAME [--agent ID] [--prompt TEXT] [--title T] [--open split|tab] [--branch B] [--base REF] [--no-notify] [-- COMMAND...]", "A worktree with an agent (or COMMAND) running in it; run from\nan agent, it hears back when the first turn ends"},
-		{"%[1]s session new %[2]sLOC[/WORKTREE] [--name N] [--agent ID [--prompt TEXT]] [--title T] [--open split|tab] [-- COMMAND...]", "Start an agent or COMMAND (default: a shell) there"},
+		{"%[1]s task new %[2]sLOC/NAME [--agent ID] [--prompt TEXT] [--title T] [--env KEY=VALUE]... [--open split|tab] [--branch B] [--base REF] [--no-notify] [-- COMMAND...]", "A worktree with an agent (or COMMAND) running in it; run from\nan agent, it hears back when the first turn ends. --env sets a\nvariable for this agent only, over the box's and the repo's"},
+		{"%[1]s session new %[2]sLOC[/WORKTREE] [--name N] [--agent ID [--prompt TEXT]] [--title T] [--env KEY=VALUE]... [--open split|tab] [-- COMMAND...]", "Start an agent or COMMAND (default: a shell) there, --env as\nfor task new"},
 		{"%[1]s session rename %[2]sNAME [TITLE]", "Name a session's work (no TITLE clears it; a prompt names an untitled one)"},
 		{"%[1]s session screen %[2]sNAME [--history N]", "Print what the session shows"},
 		{"%[1]s session send %[2]sNAME TEXT [--when now|idle] [--force] [--idem KEY] [--no-enter] [--wait [--timeout 30m]] [--no-notify]%[4]s", "Type a prompt into a session (or hold it until the agent is idle), and wait for its turn"},
@@ -1033,9 +1033,13 @@ func sessionNew(ctx context.Context, c *box.Client, args []string, out io.Writer
 	fs.StringVar(&req.Prompt, "prompt", "", "the agent's first prompt")
 	fs.StringVar(&req.Open, "open", "", "show it in the Shipyard app: split (beside the current terminal) or tab")
 	fs.StringVar(&req.Title, "title", "", "name the work (default: the prompt's first line)")
+	fs.Var((*envFlag)(&req.Env), "env", "set KEY=VALUE in the session's environment, over the box's and the project's (repeatable)")
 	pos, err := parse(fs, args)
+	if err != nil && strings.Contains(err.Error(), envFlagErr) {
+		return err
+	}
 	if err != nil || len(pos) != 1 {
-		return usageErr("session new LOC[/WORKTREE] [--name N] [--agent ID [--prompt TEXT]] [--title T] [--open split|tab] [-- COMMAND...]")
+		return usageErr("session new LOC[/WORKTREE] [--name N] [--agent ID [--prompt TEXT]] [--title T] [--env KEY=VALUE]... [--open split|tab] [-- COMMAND...]")
 	}
 	req.Location, req.Command = pos[0], commandLine(command)
 	sess, err := c.StartSession(ctx, req)
@@ -1045,6 +1049,32 @@ func sessionNew(ctx context.Context, c *box.Client, args []string, out io.Writer
 	return show(out, *asJSON, sess, func() {
 		fmt.Fprintf(out, "Started session %s in %s\n", sess.Name, sess.Dir)
 	})
+}
+
+// envFlag is a repeatable --env KEY=VALUE. A malformed one is an error,
+// never dropped; the box refuses the names it sets itself.
+type envFlag map[string]string
+
+const envFlagErr = "--env takes KEY=VALUE"
+
+func (e *envFlag) String() string { return "" }
+
+func (e *envFlag) Set(kv string) error {
+	k, v, ok := strings.Cut(kv, "=")
+	switch {
+	case !ok:
+		return fmt.Errorf("%s, got %q with no =", envFlagErr, kv)
+	case k == "":
+		return fmt.Errorf("%s, got %q with no KEY", envFlagErr, kv)
+	}
+	if *e == nil {
+		*e = map[string]string{}
+	}
+	if _, dup := (*e)[k]; dup {
+		return fmt.Errorf("%s once per KEY, got %s twice", envFlagErr, k)
+	}
+	(*e)[k] = v
+	return nil
 }
 
 // commandLine turns the words after -- back into one shell command. A
@@ -1252,9 +1282,13 @@ func taskNew(ctx context.Context, c *box.Client, args []string, out io.Writer) e
 	fs.StringVar(&req.Branch, "branch", "", "branch to create (default: the worktree name)")
 	fs.StringVar(&req.Base, "base", "", "ref to branch from")
 	fs.StringVar(&req.Title, "title", "", "name the work (default: the prompt's first line)")
+	fs.Var((*envFlag)(&req.Env), "env", "set KEY=VALUE in the agent's environment, over the box's and the project's (repeatable)")
 	noNotify := fs.Bool("no-notify", false, "don't tell this agent (BERTH_SESSION) when the new agent's first turn ends")
 	pos, err := parse(fs, args)
-	usage := "task new LOC/NAME [--agent ID] [--prompt TEXT] [--title T] [--open split|tab] [--branch B] [--base REF] [--no-notify] [-- COMMAND...]"
+	usage := "task new LOC/NAME [--agent ID] [--prompt TEXT] [--title T] [--env KEY=VALUE]... [--open split|tab] [--branch B] [--base REF] [--no-notify] [-- COMMAND...]"
+	if err != nil && strings.Contains(err.Error(), envFlagErr) {
+		return err
+	}
 	if err != nil || len(pos) != 1 {
 		return usageErr(usage)
 	}
