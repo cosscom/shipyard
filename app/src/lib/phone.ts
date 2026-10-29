@@ -29,20 +29,8 @@ export const phoneApi = {
   change: (c: Client, box: string, change: PhoneChange) => c.box<PhoneStatus>(box, "PUT", "phone", change),
 };
 
-export interface PairedBox {
-  name: string;
-  url: string;
-  token: string;
-}
-
-// pairingLink opens the first box's phone app and hands it every box, in
-// the URL fragment so the tokens never reach a server or its logs.
-export function pairingLink(boxes: PairedBox[]): string | undefined {
-  if (!boxes.length) return undefined;
-  const json = JSON.stringify(boxes.map((b) => ({ name: b.name, url: b.url, token: b.token })));
-  const b64 = btoa(unescape(encodeURIComponent(json))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  return `${new URL(boxes[0].url).origin}/#pair=${b64}`;
-}
+// Pairing links are shared with the phone app: packages/core.
+export { pairingLink, type PairedBox } from "../../../packages/core/src/pairing.ts";
 
 // A topic only you know is what keeps ntfy notifications private.
 export function newNtfyTopic(): string {

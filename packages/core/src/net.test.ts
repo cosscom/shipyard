@@ -1,4 +1,4 @@
-// node --experimental-strip-types --test src/lib/net.test.ts (pnpm test)
+// node --experimental-strip-types --test packages/core/src/net.test.ts (pnpm test in app/)
 import assert from "node:assert/strict";
 import { test } from "node:test";
 

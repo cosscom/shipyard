@@ -179,7 +179,7 @@ export default defineConfig(({ mode }) => ({
     host: host || false,
     // Mock mode reads Leadline's and Database's files from the listing in site/plugins/
     // (src/lib/mock-marketplace.ts), which is outside this folder.
-    fs: { allow: [searchForWorkspaceRoot(process.cwd()), path.resolve(import.meta.dirname, "../site/plugins")] },
+    fs: { allow: [searchForWorkspaceRoot(process.cwd()), path.resolve(import.meta.dirname, "../site/plugins"), path.resolve(import.meta.dirname, "../packages/core")] },
     hmr: host
       ? {
           protocol: "ws",

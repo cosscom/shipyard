@@ -149,7 +149,10 @@ jobs:
       # Every built-in theme's text, states and terminal meet their contrast
       # (src/themes/contrast.ts).
       - run: pnpm check:themes
-      # The split tree's moves (lib/layout.test.ts).
+      # packages/core, shared with the phone app, imports only itself and
+      # has no DOM (scripts/check-core.mjs).
+      - run: pnpm check:core
+      # The split tree's moves (lib/layout.test.ts), and packages/core's tests.
       - run: pnpm test
       - run: pnpm build
       # The smoke suite (e2e/): the production build in Playwright's Chromium,

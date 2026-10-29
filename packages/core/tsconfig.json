@@ -1,0 +1,21 @@
+{
+  // No DOM and no packages: the desktop app (Vite), the phone app (Metro)
+  // and node's test runner all load these files as they are. Checked by
+  // app's check:core.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "types": []
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
+}

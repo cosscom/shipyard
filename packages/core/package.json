@@ -1,0 +1,7 @@
+{
+  "name": "@berth/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plain TypeScript shared by the Shipyard app and the phone app: what a session's state is, reading an agent's screen and transcript, pairing links.",
+  "type": "module"
+}
