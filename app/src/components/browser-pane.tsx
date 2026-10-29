@@ -249,7 +249,7 @@ export function BrowserPane({ id: paneId, url, visible, onNavigate, worktree, on
   };
 
   return (
-    <div data-testid="browser-pane" data-mode={mode} className="flex min-h-0 flex-1 flex-col bg-background">
+    <div data-testid="browser-pane" data-mode={mode} className="flex min-h-0 flex-1 flex-col bg-pane">
       {sandboxView ? (
         <SandboxBar box={ctx.ref!.box} fixed={sandbox === "fixed" || sandbox === "no-sandbox"} onBack={() => setSandboxOpen(false)} />
       ) : agentView && ctx.ref ? (
@@ -371,7 +371,7 @@ export function BrowserPane({ id: paneId, url, visible, onNavigate, worktree, on
       {/* Watching the agent keeps your page as it was, hidden underneath. */}
       {agentView && ctx.ref && <AgentView ctx={ctx} visible={visible} tab={watchedTab} onUrl={setAgentAt} onSize={setAgentSize} />}
       {sandboxView && (
-        <div className="flex min-h-0 flex-1 items-start justify-center overflow-y-auto bg-muted/30 p-6 pt-12">
+        <div className="flex min-h-0 flex-1 items-start justify-center overflow-y-auto bg-muted/30 p-6 pt-12 vibrancy:bg-transparent">
           <BrowserSandboxCard box={ctx.ref!.box} worktree={ctx.ref} className="w-full max-w-2xl bg-background shadow-xs" />
         </div>
       )}
@@ -1082,7 +1082,7 @@ function AgentView({ ctx, visible, tab, onUrl, onSize }: { ctx: BrowserContext; 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, ref.box, ref.location, ref.worktree, tab]);
   return (
-    <div ref={space} className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-muted/30 p-3">
+    <div ref={space} className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-muted/30 p-3 vibrancy:bg-transparent">
       {frame ? (
         <img
           alt="The agent's browser"

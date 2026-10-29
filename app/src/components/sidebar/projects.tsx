@@ -676,6 +676,12 @@ export function RowOverlay({ className, selected, beside, children }: { classNam
       className={cn(
         "pointer-events-none absolute inset-y-0 right-0 flex items-center rounded-r-lg pr-1 pl-3 opacity-0 transition-opacity duration-100 [mask-image:linear-gradient(to_right,transparent,black_12px)] focus-within:pointer-events-auto focus-within:opacity-100 group-hover/row:pointer-events-auto group-hover/row:opacity-100 has-[[data-popup-open]]:pointer-events-auto has-[[data-popup-open]]:opacity-100",
         selected ? "[background:linear-gradient(color-mix(in_srgb,var(--sidebar-accent),var(--foreground)_4%),color-mix(in_srgb,var(--sidebar-accent),var(--foreground)_4%)),var(--sidebar)]" : "[background:linear-gradient(var(--sidebar-accent),var(--sidebar-accent)),var(--sidebar)]",
+        // On the Mac's glass (native-vibrancy) opaque --sidebar would be a
+        // slab on it: half of it, and a blur, hide what is under instead.
+        "vibrancy:[background-color:color-mix(in_srgb,var(--sidebar)_50%,transparent)] vibrancy:backdrop-blur-md",
+        selected
+          ? "vibrancy:[background-image:linear-gradient(color-mix(in_srgb,var(--sidebar-accent),var(--foreground)_4%),color-mix(in_srgb,var(--sidebar-accent),var(--foreground)_4%))]"
+          : "vibrancy:[background-image:linear-gradient(var(--sidebar-accent),var(--sidebar-accent))]",
         beside && "right-[76px] rounded-r-none pr-0",
         className,
       )}

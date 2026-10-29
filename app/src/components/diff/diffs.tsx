@@ -76,7 +76,7 @@ function useSyntax(): Syntax {
 const CSS = `
 :host {
   --diffs-font-family: "JetBrains Mono Variable", ui-monospace, monospace;
-  --diffs-header-font-family: "Inter Variable", system-ui, sans-serif;
+  --diffs-header-font-family: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif;
   --diffs-font-size: 0.75rem;
   --diffs-line-height: 1.25rem;
   --diffs-font-features: "calt" 0, "liga" 0;

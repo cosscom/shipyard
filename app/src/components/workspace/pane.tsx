@@ -120,7 +120,7 @@ export function Pane({ wsKey, tab, pane, visible, focused, split, mixed, compare
           // the pane's worktree, and the focus line is in that one's colour.
           <div
             onPointerDown={(e) => armDrag(e, { kind: "pane", key: wsKey, tab, pane: pane.id }, (c.kind === "terminal" && (session?.title?.trim() || c.title)) || paneLabel(c, agent), <PaneIcon content={c} agent={agent} className="size-3" />)}
-            className={cn("group/header flex h-bar-pane shrink-0 items-center gap-1.5 border-b px-edge text-meta", focused ? "bg-accent/50 text-foreground shadow-[inset_0_2px_0_var(--ring)]" : "text-muted-foreground")}
+            className={cn("group/header flex h-bar-pane shrink-0 items-center gap-1.5 border-b px-edge text-meta vibrancy:border-foreground/8", focused ? "bg-accent/50 text-foreground vibrancy:bg-foreground/4 shadow-[inset_0_2px_0_var(--ring)]" : "text-muted-foreground")}
             style={tone ? { boxShadow: focused ? `inset 0 2px 0 ${tone}` : `inset 0 1px 0 color-mix(in oklab, ${tone} 50%, transparent)` } : undefined}
           >
             {tone && <WtChip wsKey={owner} />}
@@ -133,9 +133,11 @@ export function Pane({ wsKey, tab, pane, visible, focused, split, mixed, compare
         <div className={cn("relative flex min-h-0 flex-1 flex-col transition-opacity", split && !focused && "opacity-85", lifted && "opacity-40")}>
           {gone && <GonePane name={gone} onClose={close} />}
           {/* Under a chat the terminal is out of reach: Tab never lands in its
-              hidden input, where it would type a tab and keep the focus. */}
+              hidden input, where it would type a tab and keep the focus.
+              On the glass the chat paints nothing, so the terminal under
+              it is hidden too, or its colour would show through. */}
           {c.kind === "terminal" && (
-            <div className="contents" inert={view === "conversation" || undefined}>
+            <div className={cn("contents", view === "conversation" && "vibrancy:invisible")} inert={view === "conversation" || undefined}>
               {/* Typing shows before the box echoes it on a slow link, in a
                   shell; an agent's own screen (Claude Code, Codex) draws
                   its input its own way, so it gets none. */}
@@ -459,7 +461,7 @@ export function PaneActions({ wsKey, tab, pane, onClose, closable, focused = tru
       )}
       <Menu>
         <Tip label="Pane actions">
-          <MenuTrigger render={<button type="button" aria-label="Pane actions" className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground data-popup-open:bg-accent" />}>
+          <MenuTrigger render={<button type="button" aria-label="Pane actions" className="inline-flex size-6.5 items-center justify-center rounded-md text-muted-foreground hover:bg-foreground/5 hover:text-foreground data-popup-open:bg-foreground/9" />}>
             <EllipsisIcon className="size-3.5" />
           </MenuTrigger>
         </Tip>
@@ -571,7 +573,7 @@ function HeaderButton({ label, keys, onClick, children }: { label: string; keys?
         type="button"
         aria-label={label}
         onClick={onClick}
-        className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-3.5"
+        className="inline-flex size-6.5 items-center justify-center rounded-md text-muted-foreground hover:bg-foreground/5 hover:text-foreground [&_svg]:size-3.5"
       >
         {children}
       </button>

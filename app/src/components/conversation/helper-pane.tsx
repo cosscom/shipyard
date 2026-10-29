@@ -62,7 +62,7 @@ export function HelperPane({ box, session, helper, title, onResolve, onClose }: 
 
   const missing = !offline && helpers && !h;
   return (
-    <div data-testid="helper" data-state={h ? h.state : offline ? "offline" : missing ? "missing" : error ? "error" : "loading"} className="flex min-h-0 flex-1 flex-col bg-background">
+    <div data-testid="helper" data-state={h ? h.state : offline ? "offline" : missing ? "missing" : error ? "error" : "loading"} className="flex min-h-0 flex-1 flex-col bg-pane">
       <header className="shrink-0 border-b px-6 pt-4 pb-3">
         <div className="mx-auto flex w-full max-w-(--berth-chat-w) flex-col gap-1.5">
           <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-meta">

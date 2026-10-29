@@ -59,7 +59,7 @@ export function TeamSetupView({ org: initial, from, box: wantBox, update, onBack
   );
 
   return (
-    <div className="@container flex h-full flex-col bg-background">
+    <div className="@container flex h-full flex-col bg-pane">
       {!firstRun && (
         <ViewHeader
           title="Team setup"

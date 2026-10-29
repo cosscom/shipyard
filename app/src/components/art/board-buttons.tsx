@@ -64,7 +64,7 @@ export function BoardButton() {
         aria-label={`Artifacts board, ${list.length}`}
         data-testid="art-board-button"
         onClick={() => openBoard(key)}
-        className="relative inline-flex h-6 shrink-0 items-center justify-center gap-1 rounded-md px-1 text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        className="relative inline-flex h-6.5 shrink-0 items-center justify-center gap-1 rounded-md px-1.5 text-muted-foreground outline-none hover:bg-foreground/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         <LayoutGridIcon className="size-3.5" />
         <span className="text-tag tabular-nums">{list.length}</span>

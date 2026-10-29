@@ -174,6 +174,9 @@ export const chrome = EditorView.theme({
   ".cm-line": { padding: "0 24px 0 14px" },
   // Line numbers read at 4.5:1, as muted text does everywhere.
   ".cm-gutters": { backgroundColor: "var(--background)", border: "none", color: "var(--muted-foreground)" },
+  // On the Mac's glass, the card's colour, still opaque: code scrolled
+  // sideways passes under the line numbers (index.css, --content-solid).
+  ":root.native-vibrancy & .cm-gutters": { backgroundColor: "var(--content-solid)" },
   ".cm-lineNumbers .cm-gutterElement": { padding: "0 4px 0 18px", minWidth: "40px", fontVariantNumeric: "tabular-nums" },
   ".cm-activeLineGutter": { backgroundColor: "transparent" },
   "&.cm-focused .cm-activeLineGutter": { color: "var(--foreground)" },

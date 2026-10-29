@@ -64,7 +64,7 @@ export function OnboardingView() {
   };
 
   return (
-    <div className="relative flex h-full flex-col overflow-y-auto bg-background">
+    <div className="relative flex h-full flex-col overflow-y-auto bg-pane">
       {/* Anchored at the top, as the launcher is: steps differ in height, and
           centring them would move each title as the step changes. */}
       <div className="mx-auto flex w-full max-w-lg flex-1 flex-col px-6 pt-[18vh] pb-16">

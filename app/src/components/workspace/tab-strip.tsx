@@ -103,7 +103,7 @@ export function TabStrip() {
   const fade = edges.left && edges.right ? "[mask-image:linear-gradient(to_right,transparent,black_24px,black_calc(100%-24px),transparent)]" : edges.left ? "[mask-image:linear-gradient(to_right,transparent,black_24px)]" : edges.right ? "[mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)]" : "";
 
   return (
-    <div data-tauri-drag-region data-tab-bar className="flex h-bar shrink-0 items-stretch border-b bg-sidebar">
+    <div data-tauri-drag-region data-tab-bar className="flex h-bar shrink-0 items-stretch">
       {/* Tabs scroll when they do not fit (a wheel scrolls them sideways),
           with a fade at each end that has more; + stays just after them,
           outside the scroller, so it never scrolls away. */}
@@ -120,7 +120,7 @@ export function TabStrip() {
         role="tablist"
         aria-label="Tabs"
         onKeyDown={stripKeys}
-        className={cn("relative flex min-w-0 items-stretch overflow-x-auto [scrollbar-width:none]", fade)}
+        className={cn("relative flex min-w-0 items-center gap-1 overflow-x-auto px-1.5 [scrollbar-width:none]", fade)}
       >
         {/* Narrow, only the group in front scrolls here; the others wait as
             labels beside it, always in view (tiny, as chips). */}
@@ -144,7 +144,7 @@ export function TabStrip() {
         <StripMarker />
       </div>
       {grouped && narrow && (
-        <div className="flex shrink-0 items-stretch border-l" role="group" aria-label="Other tab groups" onKeyDown={stripKeys}>
+        <div className="flex shrink-0 items-center gap-1 px-1" role="group" aria-label="Other tab groups" onKeyDown={stripKeys}>
           {groups
             .filter((g) => g !== key)
             .map((g) => (
@@ -153,23 +153,23 @@ export function TabStrip() {
         </div>
       )}
       {ws && (
-        <div className="flex shrink-0 items-center px-1">
+        <div className="flex shrink-0 items-center">
           <NewTabMenu />
         </div>
       )}
       <div data-tauri-drag-region className="min-w-4 flex-1" />
       {ws && (
-        <div data-tauri-drag-region className="flex shrink-0 items-center gap-2 pr-2 pl-3 text-muted-foreground text-meta">
+        <div data-tauri-drag-region className="flex shrink-0 items-center gap-1 pr-1.5 pl-3 text-muted-foreground text-meta">
           {leaving && (
             <Tip label={leaving.script ? "The repo's archive script is running on the box. This worktree closes when it finishes, or stays if it fails." : "Waiting for the box."} side="bottom">
-              <span role="status" className="flex items-center gap-1.5 rounded-lg bg-accent/70 px-2 py-0.5 text-foreground">
+              <span role="status" className="flex items-center gap-1.5 rounded-lg bg-foreground/6 px-2 py-0.5 text-foreground">
                 <Spinner className="size-3" />
                 {removalLabel(leaving)}
               </span>
             </Tip>
           )}
           {hereLeaving && !leaving && (
-            <span role="status" className="flex items-center gap-1.5 rounded-lg bg-accent/70 px-2 py-0.5 text-foreground">
+            <span role="status" className="flex items-center gap-1.5 rounded-lg bg-foreground/6 px-2 py-0.5 text-foreground">
               <Spinner className="size-3" />
               {removalLabel(hereLeaving)}
             </span>
@@ -184,7 +184,7 @@ export function TabStrip() {
                   {hereRef.location}
                   {hereRef.main ? "" : ` / ${hereTitle ?? hereRef.worktree}`}
                 </span>
-                <span className="rounded bg-accent/70 px-1 py-px font-mono text-tag">{hereRef.box}</span>
+                <span className="rounded bg-foreground/6 px-1 py-px font-mono text-tag">{hereRef.box}</span>
               </span>
             </Tip>
           )}
@@ -192,7 +192,7 @@ export function TabStrip() {
           <BoardButton />
           <DockButton />
           {key && active && lone && (
-            <div className="flex items-center border-l pl-1">
+            <div className="flex items-center gap-1">
               <PaneActions wsKey={key} tab={active.id} pane={lone} compact={tiny} />
             </div>
           )}
@@ -296,9 +296,11 @@ export function TabButton({ tab, wsKey, tone, active, onActivate, onClose, onDra
         }
       }}
       className={cn(
-        "group relative flex h-full min-w-24 shrink-0 cursor-default items-center gap-1.5 border-r pr-1 pl-3 text-meta outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-popup-open:bg-background/60",
+        "group relative flex h-6.5 min-w-24 shrink-0 cursor-default items-center gap-1.5 rounded-md pr-1 pl-2.5 text-meta outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-popup-open:bg-foreground/6",
         tab.compare ? "max-w-72" : "max-w-56",
-        active ? "bg-background text-foreground" : "text-muted-foreground hover:bg-background/40 hover:text-foreground",
+        // A pill: the active one a solid, see-through fill with a faint
+        // edge; the others bare until hovered.
+        active ? "bg-foreground/9 text-foreground shadow-xs/5 ring-1 ring-foreground/6 ring-inset" : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
         dragged && "opacity-50",
       )}
       onMouseDown={(e) => {
@@ -311,11 +313,12 @@ export function TabButton({ tab, wsKey, tone, active, onActivate, onClose, onDra
       onClick={onActivate}
       onDoubleClick={() => session && setEditing(true)}
     >
-      {active && <span className={cn("absolute inset-x-0 top-0", tone ? "h-0.5" : "h-px bg-foreground/50")} style={tone ? { background: tone } : undefined} />}
+      {/* In a group, the active pill wears its worktree's colour underneath. */}
+      {active && tone && <span className="absolute inset-x-2.5 bottom-0 h-0.5 rounded-full" style={{ background: tone }} />}
       {owners.length > 0 && (
         <span className="flex shrink-0 -space-x-0.5" aria-hidden>
           {owners.map((o) => (
-            <WtDot key={o} wsKey={o} className={cn("size-2 ring-[1.5px]", active ? "ring-background" : "ring-sidebar")} />
+            <WtDot key={o} wsKey={o} className="size-2 ring-[1.5px] ring-background" />
           ))}
         </span>
       )}
@@ -358,7 +361,7 @@ export function TabButton({ tab, wsKey, tone, active, onActivate, onClose, onDra
             e.stopPropagation();
             onClose();
           }}
-          className={cn("ml-auto inline-flex size-5 shrink-0 cursor-default items-center justify-center rounded hover:bg-accent", active ? "opacity-70" : "opacity-0 group-hover:opacity-70")}
+          className={cn("ml-auto inline-flex size-4.5 shrink-0 cursor-default items-center justify-center rounded-sm hover:bg-foreground/10 hover:opacity-100", active ? "opacity-70" : "opacity-0 group-hover:opacity-70")}
         >
           <XIcon className="size-3" />
         </span>
@@ -368,7 +371,7 @@ export function TabButton({ tab, wsKey, tone, active, onActivate, onClose, onDra
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger render={<div className="flex shrink-0 items-stretch" />}>
+      <ContextMenuTrigger render={<div className="flex shrink-0 items-center" />}>
         {editing ? (
           tab$
         ) : (

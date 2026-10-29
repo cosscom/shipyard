@@ -59,7 +59,7 @@ function Endpoints({ ctx }: { ctx: PanelContext }) {
           ) : (
             <div className="min-h-0 flex-1 overflow-auto" data-testid="leadline-list">
               <table className="w-full border-separate border-spacing-0 text-sm">
-                <thead className="sticky top-0 z-10 bg-background [&_th]:border-b">
+                <thead className="sticky top-0 z-10 bg-background vibrancy:bg-(--content-solid) [&_th]:border-b">
                   <tr>
                     <SortHead id="name" {...head} className="pl-3 text-left">
                       Endpoint

@@ -210,7 +210,7 @@ export function Grid({ label, columns, rows, offset = 0, order, onSort, onFilter
   const allPicked = pickables.length > 0 && pickables.every((id) => picked?.has(id));
 
   return (
-    <div ref={scroller} className="min-h-0 flex-1 overflow-auto overscroll-contain bg-background" data-testid="database-grid" onScroll={(e) => setView({ top: e.currentTarget.scrollTop, height: e.currentTarget.clientHeight })}>
+    <div ref={scroller} className="min-h-0 flex-1 overflow-auto overscroll-contain bg-pane" data-testid="database-grid" onScroll={(e) => setView({ top: e.currentTarget.scrollTop, height: e.currentTarget.clientHeight })}>
       <table role="grid" aria-label={label} aria-readonly={!onEdit} aria-rowcount={rows.length + 1} aria-colcount={columns.length + 1} className="border-separate border-spacing-0 text-sm" style={{ tableLayout: "fixed", width: total }}>
         <colgroup>
           <col style={{ width: MARGIN }} />
@@ -220,7 +220,7 @@ export function Grid({ label, columns, rows, offset = 0, order, onSort, onFilter
         </colgroup>
         <thead>
           <tr aria-rowindex={1} style={{ height: HEAD }}>
-            <th scope="col" className="sticky top-0 left-0 z-30 border-r border-b bg-background px-2 text-center font-normal text-muted-foreground text-xs">
+            <th scope="col" className="sticky top-0 left-0 z-30 border-r border-b bg-background vibrancy:bg-(--content-solid) px-2 text-center font-normal text-muted-foreground text-xs">
               {pickable && pickables.length > 0 ? (
                 <input type="checkbox" className="size-3.5 cursor-pointer align-middle accent-primary" aria-label={allPicked ? "Pick no rows" : "Pick every row on this page"} checked={allPicked} onChange={(e) => onPick?.(pickables, e.target.checked)} />
               ) : (
@@ -231,7 +231,7 @@ export function Grid({ label, columns, rows, offset = 0, order, onSort, onFilter
             {columns.map((c, i) => {
               const by = order?.find((o) => o.column === c.name);
               return (
-                <th key={c.name + i} scope="col" aria-colindex={i + 2} aria-sort={by ? (by.desc ? "descending" : "ascending") : onSort ? "none" : undefined} className="group/head sticky top-0 z-20 border-r border-b bg-background px-2 text-left align-middle font-normal">
+                <th key={c.name + i} scope="col" aria-colindex={i + 2} aria-sort={by ? (by.desc ? "descending" : "ascending") : onSort ? "none" : undefined} className="group/head sticky top-0 z-20 border-r border-b bg-background vibrancy:bg-(--content-solid) px-2 text-left align-middle font-normal">
                   <div className="flex items-center gap-1">
                     {onSort ? (
                       <button type="button" onClick={() => onSort(c.name)} className={cn("flex min-w-0 items-center gap-1 rounded-sm font-medium text-[13px] outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring", by ? "text-foreground" : "text-foreground/90")}>
@@ -328,7 +328,7 @@ const RowView = memo(function RowView({ at, number, row, columns, sel, tab, edit
       <td
         role="rowheader"
         className={cn(
-          "sticky left-0 z-10 border-r border-b bg-background px-2 text-center text-muted-foreground text-xs tabular-nums",
+          "sticky left-0 z-10 border-r border-b bg-background vibrancy:bg-(--content-solid) px-2 text-center text-muted-foreground text-xs tabular-nums",
           row.state === "new" && "bg-[color-mix(in_oklab,var(--success)_8%,var(--background))]",
           // A row that is gone, by this edit or by something else's, looks the same: it is not there.
           gone && "bg-[color-mix(in_oklab,var(--destructive)_8%,var(--background))]",

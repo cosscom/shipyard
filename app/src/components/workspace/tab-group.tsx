@@ -34,7 +34,7 @@ export function TabGroup({ wsKey, front, folded, many, compact }: { wsKey: strin
   };
   return (
     // Not positioned: the strip measures its tabs' offsets from itself.
-    <div data-group={wsKey} className="flex shrink-0 items-stretch" style={{ boxShadow: `inset 0 -2px 0 color-mix(in oklab, ${tone} ${front ? 100 : 40}%, transparent)` }}>
+    <div data-group={wsKey} className="flex shrink-0 items-center gap-1 self-stretch" style={{ boxShadow: `inset 0 -2px 0 color-mix(in oklab, ${tone} ${front ? 100 : 40}%, transparent)` }}>
       <GroupLabel wsKey={wsKey} front={front} folded={folded} count={ws.tabs.length} tone={tone} many={many} compact={compact} />
       {!folded &&
         ws.tabs.map((t) => (

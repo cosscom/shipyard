@@ -4,12 +4,13 @@ import { expect, mockOnly, test } from "./fixtures";
 // grid in index.css), so the view's name and what's under it line up.
 
 // lined says whether the left of the view's title and of the first thing
-// under its header that `content` picks, from the header's parent.
+// under its header that `content` picks, in the page (<main>): beside the
+// sidebar the header sits in the window's band above the page's card.
 async function lined(page: import("@playwright/test").Page, title: string, content: string) {
   return page.evaluate(
     ({ title, content }) => {
       const h1 = [...document.querySelectorAll("header h1")].find((h) => h.textContent === title);
-      const el = h1?.closest("header")?.parentElement?.querySelector(content);
+      const el = document.querySelector("main")?.querySelector(content);
       if (!h1 || !el) return false;
       const pad = parseFloat(getComputedStyle(el).paddingLeft) || 0;
       return Math.round(h1.getBoundingClientRect().left) === Math.round(el.getBoundingClientRect().left + pad);
@@ -30,7 +31,7 @@ test("the Worktrees view's filters start under its title", async ({ app }) => {
   mockOnly();
   await app.open();
   await app.page.getByTestId("nav-worktrees").click();
-  await expect.poll(() => lined(app.page, "Worktrees", "header + div > :first-child")).toBe(true);
+  await expect.poll(() => lined(app.page, "Worktrees", "[class*='@container/toolbar'] > :first-child")).toBe(true);
 });
 
 test("Kits' cards start under its title, and a row of them ends on one line", async ({ app }) => {

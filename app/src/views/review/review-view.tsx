@@ -219,7 +219,7 @@ function Notices({ outdated, errors }: { outdated: string[]; errors: Record<stri
   const failing = Object.entries(errors);
   if (!outdated.length && !failing.length) return null;
   return (
-    <div className="flex shrink-0 flex-col gap-1 border-b bg-muted/30 px-page py-2 text-meta">
+    <div className="flex shrink-0 flex-col gap-1 border-b bg-muted/30 px-page py-2 text-meta vibrancy:bg-transparent">
       {outdated.map((box) => (
         <NeedsUpdate key={box} box={box} className="py-1.5 text-meta">
           <span className="font-medium">{box}</span> runs an older berthd without Review. Update it to include its agents' work here.

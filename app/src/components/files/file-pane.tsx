@@ -106,7 +106,7 @@ export function FilePane({ path, owner, visible, onClose }: Props) {
 
   if (!doc || doc.state === "loading")
     return (
-      <div className="flex flex-1 items-center justify-center bg-background" data-testid="file-pane" data-state="loading">
+      <div className="flex flex-1 items-center justify-center bg-pane" data-testid="file-pane" data-state="loading">
         <Spinner className="size-4 text-muted-foreground" />
       </div>
     );
@@ -140,7 +140,7 @@ export function FilePane({ path, owner, visible, onClose }: Props) {
   }
 
   return (
-    <div ref={frame} className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-background" data-testid="file-pane" data-state={doc.state} data-path={path} data-wrap={wrap || undefined}>
+    <div ref={frame} className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-pane" data-testid="file-pane" data-state={doc.state} data-path={path} data-wrap={wrap || undefined}>
       <FileHeader narrow={narrow} doc={doc} dirty={dirty} added={marks?.added} removed={marks?.removed} hunks={view === "preview" ? 0 : hunks.length} at={at} onStep={step} wrap={wrap} text={isText} view={view} />
       {doc.conflict && !showCompare && <ConflictBanner doc={doc} />}
       {body}

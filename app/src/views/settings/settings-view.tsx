@@ -83,7 +83,7 @@ export function SettingsView() {
       <nav
         aria-label="Settings sections"
         style={{ width: `clamp(${SIDEBAR_MIN}px, var(--sidebar-w, ${SIDEBAR_DEFAULT}px), max(${SIDEBAR_DEFAULT}px, min(${SIDEBAR_MAX}px, 40vw)))` }}
-        className={cn("flex shrink-0 flex-col border-sidebar-border border-r bg-sidebar text-sidebar-foreground", inkScale)}
+        className={cn("flex shrink-0 flex-col border-sidebar-border border-r bg-sidebar-surface text-sidebar-foreground", inkScale)}
       >
         {/* Room for the macOS traffic lights; the strip drags the window. */}
         <div data-tauri-drag-region className="h-bar shrink-0" />
@@ -109,7 +109,7 @@ export function SettingsView() {
           </div>
         </div>
       </nav>
-      <div data-testid={`settings-${id}`} className="min-w-0 flex-1 overflow-y-auto bg-background">
+      <div data-testid={`settings-${id}`} className="min-w-0 flex-1 overflow-y-auto bg-pane">
         <current.Component key={id} />
       </div>
     </div>

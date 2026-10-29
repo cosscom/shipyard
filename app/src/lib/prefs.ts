@@ -83,6 +83,9 @@ export interface Prefs {
   agentBrowserBeside: boolean;
   // The themes "Match system" uses by day and when macOS is dark.
   systemThemes: { light: string; dark: string };
+  // The Mac app: the desktop shows softly through the sidebar and around the
+  // content (lib/vibrancy.ts). Off: an opaque sidebar, as elsewhere.
+  translucentSidebar: boolean;
   // Home's widgets, in order and size (lib/home-layout.ts). Null until the
   // person customises Home: they get the default layout, which can change.
   home: HomeLayout | null;
@@ -129,6 +132,7 @@ const DEFAULTS: Prefs = {
   filesPanel: false,
   agentBrowserBeside: true,
   systemThemes: { light: "berth-light", dark: "berth-dark" },
+  translucentSidebar: true,
   home: null,
   installAgents: null,
   whatsNewSeen: null,

@@ -150,7 +150,7 @@ export function PreviewPane({ url, visible, worktree, onNavigate }: Props) {
 
   if (!url) {
     return (
-      <div data-testid="preview-pane" className="flex min-h-0 flex-1 flex-col bg-background">
+      <div data-testid="preview-pane" className="flex min-h-0 flex-1 flex-col bg-pane">
         <AddressBar url="" onGo={(raw) => {
           const next = resolveBrowserInput(raw, ctx);
           if (next) go(next);
@@ -161,7 +161,7 @@ export function PreviewPane({ url, visible, worktree, onNavigate }: Props) {
   }
   if (!proxied(url) && !__BERTH_DEMO__) {
     return (
-      <div data-testid="preview-pane" className="flex min-h-0 flex-1 flex-col bg-background">
+      <div data-testid="preview-pane" className="flex min-h-0 flex-1 flex-col bg-pane">
         <AddressBar url={url} onGo={(raw) => {
           const next = resolveBrowserInput(raw, ctx);
           if (next) go(next);
@@ -385,7 +385,7 @@ function Frames({ worktree, base, address, frames, paused, onGo, onReload, onNav
   })();
 
   return (
-    <div data-testid="preview-pane" data-layout={s.layout} data-sync={s.sync ? "synced" : "isolated"} className="flex min-h-0 flex-1 flex-col bg-background">
+    <div data-testid="preview-pane" data-layout={s.layout} data-sync={s.sync ? "synced" : "isolated"} className="flex min-h-0 flex-1 flex-col bg-pane">
       <PreviewBar
         worktree={worktree}
         address={address}
@@ -407,7 +407,7 @@ function Frames({ worktree, base, address, frames, paused, onGo, onReload, onNav
         ref={area}
         data-testid="preview-frames"
         className={cn(
-          "relative flex min-h-0 flex-1 items-start bg-muted/40",
+          "relative flex min-h-0 flex-1 items-start bg-muted/40 vibrancy:bg-transparent",
           s.layout === "row" && "flex-nowrap overflow-x-auto overflow-y-hidden",
           s.layout === "grid" && "flex-wrap content-start overflow-auto",
           s.layout === "fit" && "flex-wrap content-center justify-center overflow-hidden",

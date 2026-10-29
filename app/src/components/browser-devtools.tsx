@@ -142,7 +142,7 @@ export function DevtoolsDrawer({ logKey, pageUrl, ctx, proxied, agent }: DrawerP
   };
 
   return (
-    <section ref={root} data-testid="devtools-drawer" aria-label="Console and network" style={{ height }} className="relative flex max-h-[75%] min-h-30 shrink-0 flex-col border-t bg-background text-meta">
+    <section ref={root} data-testid="devtools-drawer" aria-label="Console and network" style={{ height }} className="relative flex max-h-[75%] min-h-30 shrink-0 flex-col border-t bg-pane text-meta">
       <div
         role="separator"
         tabIndex={0}
@@ -426,7 +426,7 @@ function NetworkList({ log, pageUrl, proxied, agent, sending, onSend }: { log?: 
       </FilterBar>
       <div role="table" aria-label="Requests" data-testid="devtools-network" className="min-h-0 flex-1 overflow-y-auto text-meta">
         {proxied && list.length > 0 && (
-          <div role="row" className={cn(COLS, "sticky top-0 z-raised border-b bg-background px-2 py-1 font-medium text-tag text-muted-foreground")}>
+          <div role="row" className={cn(COLS, "sticky top-0 z-raised border-b bg-background vibrancy:bg-(--content-solid) px-2 py-1 font-medium text-tag text-muted-foreground")}>
             <span role="columnheader">Status</span>
             <span role="columnheader">Method</span>
             <span role="columnheader">Path</span>

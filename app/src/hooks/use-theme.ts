@@ -3,6 +3,7 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { Theme } from "@/lib/api";
 import { usePrefs } from "@/lib/prefs";
 import { useStore } from "@/lib/store";
+import { setWindowAppearance } from "@/lib/vibrancy";
 import { useRegistry } from "@/plugins/registry";
 import { applyTheme } from "@/themes/apply";
 import { berthDark, builtinThemes } from "@/themes/builtin";
@@ -52,5 +53,9 @@ export function useActiveTheme(): Theme {
 // useApplyTheme keeps the document's colors in step with the chosen theme.
 export function useApplyTheme() {
   const theme = useActiveTheme();
+  const following = useStore((s) => s.themeId) === SYSTEM_THEME;
   useEffect(() => applyTheme(theme), [theme]);
+  // The Mac window's material, light or dark with the theme (lib/vibrancy).
+  const appearance = following ? null : theme.appearance === "dark" ? "dark" : "light";
+  useEffect(() => setWindowAppearance(appearance), [appearance]);
 }

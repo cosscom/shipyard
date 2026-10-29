@@ -57,18 +57,22 @@ export function RailSidebar({ prefs, update, places }: { prefs: SidebarPrefs; up
       aria-label="Sidebar"
       data-testid="sidebar"
       data-layout="rail"
+      data-glass
       style={{ width: rail ? `calc(${RAIL}px + ${sheet})` : sheet }}
-      className={cn("@container/side relative flex shrink-0 flex-col border-sidebar-border border-r bg-sidebar text-sidebar-foreground", inkScale)}
+      className={cn("@container/side relative flex shrink-0 flex-col border-sidebar-border border-r bg-sidebar-surface text-sidebar-foreground", inkScale)}
     >
       <SidebarResizeHandle />
       <TopStrip />
       <div className="flex min-h-0 flex-1">
         {rail && <ProjectRail projects={ordered} picked={project?.id} />}
         {/* The sheet's top border is the tab bar's bottom one carried on:
-            both bands are h-bar, the tab bar's border on its last pixel. */}
+            both bands are h-bar, the tab bar's border on its last pixel.
+            On the Mac's glass (native-vibrancy) it is no sheet of its own:
+            no fill and no edge, the rail and it one see-through surface.
+            Its border stays, transparent, so nothing on it moves. */}
         <div
           data-testid="sidebar-sheet"
-          className={cn("flex min-w-0 flex-1 flex-col", rail ? "-mt-px rounded-tl-xl border-sidebar-border border-t border-l bg-background" : "pl-px")}
+          className={cn("flex min-w-0 flex-1 flex-col", rail ? "-mt-px rounded-tl-xl border-sidebar-border border-t border-l bg-background vibrancy:border-transparent vibrancy:bg-transparent" : "pl-px")}
         >
           {/* The places' own gutters are the list sidebar's, from the
               aside's edge: the sheet's pixel in comes off them. */}
@@ -120,7 +124,7 @@ export function FoldedRail() {
   const ordered = useMemo(() => [...projects.filter((p) => !p.section), ...sections.flatMap((name) => projects.filter((p) => p.section === name))], [projects, sections]);
   const picked = usePicked("project");
   return (
-    <aside aria-label="Sidebar" data-testid="sidebar-rail" data-layout="rail" className={cn("relative flex w-rail-folded shrink-0 flex-col border-sidebar-border border-r bg-sidebar", inkScale)}>
+    <aside aria-label="Sidebar" data-testid="sidebar-rail" data-layout="rail" data-glass className={cn("relative flex w-rail-folded shrink-0 flex-col border-sidebar-border border-r bg-sidebar-surface", inkScale)}>
       <SidebarResizeHandle folded />
       <div data-tauri-drag-region className="h-bar w-full shrink-0" />
       <ProjectRail projects={ordered} picked={picked?.kind === "project" ? picked.project.id : undefined} folded />
@@ -305,7 +309,7 @@ const ProjectTile = memo(function ProjectTile({ project: p, selected, shared, fo
           }}
           className={cn(
             "relative flex size-9 items-center justify-center rounded-[10px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-            selected ? "border border-sidebar-border bg-background shadow-xs" : "hover:bg-sidebar-accent",
+            selected ? "border border-sidebar-border bg-background shadow-xs vibrancy:border-transparent vibrancy:bg-foreground/8 vibrancy:shadow-none" : "hover:bg-sidebar-accent",
             !online && "opacity-55",
           )}
         >
@@ -416,7 +420,7 @@ function ProjectSheet({ project: p, prefs, update }: { project: Project; prefs: 
           type="button"
           data-testid="sheet-search"
           onClick={() => useStore.getState().setPaletteOpen(true)}
-          className="flex h-8 w-full items-center gap-2 rounded-lg border border-sidebar-border bg-background px-[calc(var(--spacing-lane)-var(--spacing-edge)-1px)] text-left shadow-xs/5 hover:border-foreground/15"
+          className="flex h-8 w-full items-center gap-2 rounded-lg border border-sidebar-border bg-background px-[calc(var(--spacing-lane)-var(--spacing-edge)-1px)] text-left shadow-xs/5 hover:border-foreground/15 vibrancy:border-transparent vibrancy:bg-foreground/5 vibrancy:shadow-none vibrancy:hover:border-transparent vibrancy:hover:bg-foreground/8"
         >
           <SearchIcon className={cn("size-3.5 shrink-0", ink.glyph)} strokeWidth={2} />
           <span className={cn("flex-1 text-desc", ink.faint)}>Search</span>
