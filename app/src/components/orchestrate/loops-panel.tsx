@@ -97,7 +97,7 @@ export function LoopsPanel() {
   // page's own controls; it opens again on a click, or when a loop needs you.
   if (folded && !loops.some((l) => l.outcome === "needs-you")) {
     return (
-      <div ref={ref} style={{ bottom, right: `calc(${GAP}px + var(--berth-dock-w, 0px))` }} className="fixed z-40" role="region" aria-label="Loops">
+      <div ref={ref} style={{ bottom, right: `calc(${GAP}px + var(--berth-dock-w, 0px) + var(--berth-card-edge, 0px))` }} className="fixed z-40" role="region" aria-label="Loops">
         <Button size="sm" variant="outline" className="rounded-full bg-popover shadow-lg/5" onClick={() => setFolded(false)} aria-expanded={false}>
           {live ? <Spinner className="size-3.5" /> : <RepeatIcon />}
           {`${loops.length} loop${loops.length === 1 ? "" : "s"}${live ? ` · ${live} running` : ""}`}
@@ -107,7 +107,7 @@ export function LoopsPanel() {
     );
   }
   return (
-    <div ref={ref} style={{ bottom, right: `calc(${GAP}px + var(--berth-dock-w, 0px))` }} className="fixed z-40 flex max-h-[50vh] w-88 flex-col gap-2 overflow-y-auto" role="region" aria-label="Loops">
+    <div ref={ref} style={{ bottom, right: `calc(${GAP}px + var(--berth-dock-w, 0px) + var(--berth-card-edge, 0px))` }} className="fixed z-40 flex max-h-[50vh] w-88 flex-col gap-2 overflow-y-auto" role="region" aria-label="Loops">
       {loops.map((l) => (
         <LoopCard key={l.id} loop={l} />
       ))}

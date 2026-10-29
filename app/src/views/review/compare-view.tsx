@@ -23,7 +23,7 @@ import { openUrl } from "@/lib/open-url";
 export function CompareStrip({ runs, onOpen }: { runs: BoxRun[]; onOpen(r: BoxRun): void }) {
   if (!runs.length) return null;
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b bg-muted/30 px-page py-2 text-meta">
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b bg-muted/30 px-page py-2 text-meta vibrancy:bg-transparent">
       <GitCompareArrowsIcon className="size-3.5 text-muted-foreground" />
       <span className="text-muted-foreground">Attempts to compare:</span>
       {runs.map((r) => (

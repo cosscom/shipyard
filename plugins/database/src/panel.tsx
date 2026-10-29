@@ -43,7 +43,7 @@ export function DatabasePanel({ berth, box, location, worktree, main }: Worktree
     else if (online && state && GONE.has(state)) setKept(false);
   }, [running, online, state]);
   return (
-    <div ref={ref} data-testid="database" data-state={online ? (state ?? "reading") : "offline"} className="@container flex h-full min-h-0 flex-col bg-background text-sm">
+    <div ref={ref} data-testid="database" data-state={online ? (state ?? "reading") : "offline"} className="@container flex h-full min-h-0 flex-col bg-pane text-sm">
       {(running || kept) && (
         <div className={running ? "contents" : "hidden"}>
           <Connections berth={berth} box={box} source={sourceOf({ location, worktree, main })} worktree={main ? location : worktree} at={{ location, worktree: main ? "" : worktree }} active={visible && running} />

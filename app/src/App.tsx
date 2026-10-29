@@ -1,5 +1,5 @@
 import { TeamKitSheet } from "@/views/team/team-kit-sheet";
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 
 import { AddLocationDialog } from "@/components/add-location-dialog";
 import { Connecting } from "@/components/agent-offline";
@@ -58,6 +58,7 @@ import { useReviewStatuses } from "@/views/pr-review/use-review-status";
 import { AddBoxDialog } from "@/views/onboarding/add-box-dialog";
 import { useOnboardingActive } from "@/views/onboarding/onboarding-state";
 import { HomeView } from "@/views/home/home-view";
+import { TopBand } from "@/views/view-header";
 import { usePrefs } from "@/lib/prefs";
 import { lazyView, preloadViews } from "@/lib/lazy-view";
 import { placeLabel } from "@/lib/worktree-names";
@@ -122,9 +123,22 @@ export default function App() {
   // Settings is a page of its own: its nav takes the sidebar's place, and
   // the status bar goes until it closes.
   const settings = view.kind === "settings";
+  // Beside the sidebar the content is a card, inset from the window's edges
+  // on the sidebar's colour, as in a Mac app (monocode, Notes): the top band
+  // (the tabs or a page's header) floats above it on the window, the
+  // status bar below it. Zen and Settings have no sidebar, so no card
+  // either: the page runs to the window's edges.
+  const card = !zen && !settings;
+  // The element a page's header (ViewHeader) moves up into, above the card.
+  const [band, setBand] = useState<HTMLDivElement | null>(null);
   // Without the status bar, what floats over its corner (toasts, the loops
-  // panel) comes down to the window's edge.
-  useEffect(() => document.documentElement.style.setProperty("--berth-status-h", zen || settings ? "0px" : "26px"), [zen, settings]);
+  // panel) comes down to the window's edge. With it, they keep clear of the
+  // bar (26px, the card's foot) and of the card's edge (--berth-card-edge).
+  useEffect(() => {
+    const root = document.documentElement.style;
+    root.setProperty("--berth-status-h", card ? "26px" : "0px");
+    root.setProperty("--berth-card-edge", card ? "var(--window-inset)" : "0px");
+  }, [card]);
   // The keyboard is never dropped on <body> by what had it going away.
   useRescueRemovedFocus();
   // Onboarding has no tabs yet, so it gets the plain strip, not the tab strip.
@@ -178,51 +192,72 @@ export default function App() {
           it through --berth-bar-lift (hooks/lift-toasts.ts). With a dialog
           or sheet open they move to a corner clear of it; see
           components/ui/toast.tsx. The stack is as wide as the loops panel. */}
-      <ToastProvider position="bottom-right" viewportClassName="max-w-88 data-[position=bottom-right]:bottom-[max(calc(var(--berth-status-h,26px)+12px+var(--berth-loops-h,0px)),var(--berth-bar-lift,0px))] data-[position=bottom-right]:right-3 data-[position=bottom-left]:bottom-[calc(var(--berth-status-h,26px)+12px)] data-[position=bottom-left]:left-3 data-[position=top-left]:top-3 data-[position=top-left]:left-3 data-[position=top-right]:top-3 data-[position=top-right]:right-3">
-        <div className="flex h-svh flex-col overflow-hidden bg-background text-foreground">
+      <ToastProvider position="bottom-right" viewportClassName="max-w-88 data-[position=bottom-right]:bottom-[max(calc(var(--berth-status-h,26px)+12px+var(--berth-loops-h,0px)),var(--berth-bar-lift,0px))] data-[position=bottom-right]:right-[calc(var(--berth-card-edge,0px)+12px)] data-[position=bottom-left]:bottom-[calc(var(--berth-status-h,26px)+12px)] data-[position=bottom-left]:left-3 data-[position=top-left]:top-3 data-[position=top-left]:left-3 data-[position=top-right]:top-3 data-[position=top-right]:right-3">
+        <div className="flex h-svh flex-col overflow-hidden bg-window text-foreground">
           {fakeTrafficLights() && <FakeTrafficLights />}
-          <div className="flex min-h-0 flex-1">
+          {/* Around the card is the sidebar's colour (see-through with
+              the Mac's vibrancy), and the window's to drag, as the
+              sidebar's strip is. */}
+          <div data-tauri-drag-region className={cn("flex min-h-0 flex-1", card && "bg-sidebar-surface")}>
             {/* Hidden, not taken away, while Settings is open, so it comes
-                back as it was: folds, scroll and notices. */}
+                back as it was: folds, scroll and notices. The card's inset
+                is the sidebar's edge, so it draws no line of its own. */}
             {!zen && (
-              <Disconnectable className={cn(settings && "hidden")}>
+              <Disconnectable className={cn("[&>aside]:border-r-0", settings && "hidden")}>
                 <AppSidebar />
               </Disconnectable>
             )}
-            <div className="relative flex min-w-0 flex-1 flex-col">
-              {zen && !onboarding ? (
-                <ZenBar />
-              ) : workspace && !onboarding ? (
-                <Disconnectable className="shrink-0 flex-col" label="Tab bar">
-                  {!onHome && <WorkspaceHeading />}
-                  <ErrorBoundary compact scope="the tab bar" className="h-bar border-b bg-sidebar" rescues={showingTabRescues}>
-                    {onHome ? <HomeTabs /> : <TabStrip />}
-                  </ErrorBoundary>
-                </Disconnectable>
-              ) : !workspace ? null /* every other view's ViewHeader is the strip */ : (
-                // Onboarding names itself; the strip only drags the window.
-                <div data-tauri-drag-region className="h-bar shrink-0 bg-background" />
+            <div data-tauri-drag-region className="relative flex min-w-0 flex-1 flex-col">
+              {/* The top band, on the window beside the sidebar's strip:
+                  the tabs and their toolbar, or a page's header
+                  (ViewHeader, which moves up here). Bare: only the tab
+                  in front has a fill. */}
+              {card && (
+                <div ref={setBand} data-tauri-drag-region data-top-band className="mx-inset flex h-bar shrink-0 flex-col">
+                  {workspace && !onboarding && (
+                    <Disconnectable className="shrink-0 flex-col" label="Tab bar">
+                      {!onHome && <WorkspaceHeading />}
+                      <ErrorBoundary compact scope="the tab bar" className="h-bar" rescues={showingTabRescues}>
+                        {onHome ? <HomeTabs /> : <TabStrip />}
+                      </ErrorBoundary>
+                    </Disconnectable>
+                  )}
+                </div>
               )}
-              <main className="relative min-h-0 flex-1">
-                {/* Always mounted: terminals keep running behind other views. */}
-                <TreeDockFrame showing={workspace && view.kind === "workspace"}>
-                  {/* Each pane guards itself (pane-guard.tsx); this is for the
-                      layer around them, with the tab showing as the way out. */}
-                  <ErrorBoundary scope="the workspace" rescues={showingTabRescues}>
-                    <PaneLayer showing={workspace} />
-                  </ErrorBoundary>
-                </TreeDockFrame>
-                <ErrorBoundary key={view.kind} scope={viewTitles[view.kind as keyof typeof viewTitles] || (view.kind === "workspace" ? "the workspace" : undefined)} onLeave={view.kind === "workspace" ? undefined : () => useStore.getState().setView({ kind: "workspace" })}>
-                  <MainView />
-                </ErrorBoundary>
-              </main>
+              {/* The card: a darker glass on the Mac's (bg-content), with
+                  no outline there; off it the page's colour, outlined so
+                  it holds in a theme whose sidebar is the page's colour.
+                  The outline is a ring, outside the card, so the card's
+                  content starts on the band's lines. */}
+              <div data-window-card={card || undefined} className={cn("relative flex min-h-0 flex-1 flex-col bg-content", card && "mx-inset overflow-hidden rounded-window ring-1 ring-border vibrancy:ring-black/8 dark:vibrancy:ring-white/8")}>
+                {zen && !onboarding && <ZenBar />}
+                {/* Onboarding names itself; the strip only drags the window. */}
+                {zen && onboarding && workspace && <div data-tauri-drag-region className="h-bar shrink-0" />}
+                <main className="relative min-h-0 flex-1">
+                  {/* Always mounted: terminals keep running behind other views. */}
+                  <TreeDockFrame showing={workspace && view.kind === "workspace"}>
+                    {/* Each pane guards itself (pane-guard.tsx); this is for the
+                        layer around them, with the tab showing as the way out. */}
+                    <ErrorBoundary scope="the workspace" rescues={showingTabRescues}>
+                      <PaneLayer showing={workspace} />
+                    </ErrorBoundary>
+                  </TreeDockFrame>
+                  <TopBand value={card ? band : null}>
+                    <ErrorBoundary key={view.kind} scope={viewTitles[view.kind as keyof typeof viewTitles] || (view.kind === "workspace" ? "the workspace" : undefined)} onLeave={view.kind === "workspace" ? undefined : () => useStore.getState().setView({ kind: "workspace" })}>
+                      <MainView />
+                    </ErrorBoundary>
+                  </TopBand>
+                </main>
+              </div>
+              {/* Under the card, on the window, as the band is above it;
+                  hidden with the card (Settings), gone in zen. */}
+              {!zen && (
+                <div className={cn("contents", settings && "hidden")}>
+                  <StatusBar />
+                </div>
+              )}
             </div>
           </div>
-          {!zen && (
-            <div className={cn("contents", settings && "hidden")}>
-              <StatusBar />
-            </div>
-          )}
         </div>
         <ErrorBoundary scope="a dialog">
           <CommandPalette />
@@ -291,7 +326,7 @@ function MainView() {
   return (
     // In zen there is no sidebar: a view keeps the width it has beside one,
     // centred, rather than stretching across the window.
-    <div className={cn("absolute inset-0 bg-background", zen && "mx-auto max-w-[1280px] min-[1300px]:border-x")}>
+    <div className={cn("absolute inset-0 bg-pane", zen && "mx-auto max-w-[1280px] min-[1300px]:border-x")}>
       <Suspense>
         {view.kind === "dashboard" && <DashboardView />}
         {view.kind === "automations" && <AutomationsView />}

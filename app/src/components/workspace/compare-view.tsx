@@ -151,7 +151,7 @@ export function CompareBar({ wsKey, tab }: { wsKey: string; tab: WsTab }) {
     <ToolbarPrimitive.Root
       aria-label={`Compare ${la} and ${lb}`}
       data-compare-bar
-      className="absolute inset-x-0 top-0 z-10 grid items-center gap-2 border-b bg-sidebar px-edge"
+      className="absolute inset-x-0 top-0 z-10 grid items-center gap-2 border-b bg-sidebar px-edge vibrancy:bg-transparent"
       style={{ height: COMPARE_BAR, gridTemplateColumns: "minmax(0,1fr) auto minmax(0,1fr)" }}
     >
       <Side wsKey={wsKey} tab={tab} i={0} pane={pair[0].id} focused={focused === 0} shown={shown[0]} other={lb} stats={!narrow} preview={c.lane === "preview"} tiny={tiny} ms={times[0]} faster={faster === 0} />

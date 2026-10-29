@@ -78,7 +78,7 @@ function Shown({ art }: { art: Art }) {
   const pick = (n: number) => setN(n === cur.n ? null : n);
 
   return (
-    <div data-testid="artifact-pane" data-art-id={art.id} className={cn("flex min-h-0 flex-1 flex-col bg-background", kind.compact && "@container/art")}>
+    <div data-testid="artifact-pane" data-art-id={art.id} className={cn("flex min-h-0 flex-1 flex-col bg-pane", kind.compact && "@container/art")}>
       <header className={cn("shrink-0 border-b px-5 pt-3 pb-2.5", narrow("@max-[40rem]/art:px-3 @max-[40rem]/art:py-1.5"))} data-art-header>
         <div className={cn("mx-auto flex w-full flex-col gap-1.5", kind.wide ? "max-w-[88rem]" : "max-w-[72rem]")}>
           <div className={cn("flex min-w-0 items-center gap-1.5 text-muted-foreground text-meta", narrow("@max-[40rem]/art:sr-only"))}>

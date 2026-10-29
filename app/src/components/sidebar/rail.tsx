@@ -324,7 +324,7 @@ function LaneHead({ lane, count, folded, onFold }: { lane: Lane; count: number; 
         aria-expanded={!folded}
         aria-label={`${LANE_WORDS[lane]}: ${count}`}
         onClick={onFold}
-        className="sticky top-0 z-10 flex h-6 w-full items-center justify-center gap-1 rounded-md bg-sidebar font-medium text-tag tabular-nums outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring"
+        className="sticky top-0 z-10 flex h-6 w-full items-center justify-center gap-1 rounded-md bg-sidebar font-medium text-tag tabular-nums vibrancy:bg-sidebar/50 vibrancy:backdrop-blur-md outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring"
       >
         {lane === "away" ? <ServerOffIcon className="size-3 text-muted-foreground" /> : <StateGlyph state={lane} className="size-3" />}
         <span className={cn(lane === "waiting" ? "text-warning-foreground" : "text-muted-foreground")}>{count}</span>

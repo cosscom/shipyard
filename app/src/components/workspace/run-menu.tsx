@@ -119,7 +119,7 @@ export function RunMenu() {
           // Not disabled when there is nothing to run, so the tooltip can say why.
           aria-disabled={!primary || busy !== undefined || away}
           onClick={() => primary && busy === undefined && !away && onPrimary()}
-          className="flex items-center gap-1.5 rounded-l-md px-2 text-muted-foreground hover:bg-accent hover:text-foreground aria-disabled:opacity-45 aria-disabled:hover:bg-transparent"
+          className="flex items-center gap-1.5 rounded-l-md px-2 text-muted-foreground hover:bg-foreground/5 hover:text-foreground aria-disabled:opacity-45 aria-disabled:hover:bg-transparent"
         >
           {busy ? <Spinner className="size-3" /> : running ? <span className="size-1.5 rounded-full bg-success" /> : <PlayIcon className="size-3" />}
           {running ? primary.name : "Run"}
@@ -130,7 +130,7 @@ export function RunMenu() {
           if (open) void reload();
         }}
       >
-        <MenuTrigger render={<button type="button" aria-label="Services" className="flex min-w-6 items-center justify-center rounded-r-md px-1 text-muted-foreground hover:bg-accent hover:text-foreground data-popup-open:bg-accent" />}>
+        <MenuTrigger render={<button type="button" aria-label="Services" className="flex min-w-6 items-center justify-center rounded-r-md px-1 text-muted-foreground hover:bg-foreground/5 hover:text-foreground data-popup-open:bg-foreground/9" />}>
           <ChevronDownIcon className="size-3" />
         </MenuTrigger>
         <MenuPopup align="end" className="min-w-64">

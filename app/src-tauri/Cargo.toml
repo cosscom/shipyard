@@ -19,8 +19,12 @@ tauri-build = { version = "2", features = [] }
 # keeps WebKit's Web Inspector in release builds, for a Browser tab's Inspect
 # button and its page's Inspect Element (browser.rs). On macOS that is a
 # private WebKit API (developerExtrasEnabled), which the App Store refuses;
-# Shipyard ships notarized outside it.
-tauri = { version = "2", features = ["unstable", "devtools"] }
+# Shipyard ships notarized outside it. "macos-private-api" lets the Mac
+# window be see-through with the sidebar material behind the webview
+# (tauri.macos.conf.json). The Tauri CLI rewrites it to match "macOSPrivateApi"
+# in tauri.conf.json, which is on for every platform so a Linux build keeps
+# this line; elsewhere it does nothing.
+tauri = { version = "2", features = ["macos-private-api", "unstable", "devtools"] }
 tauri-plugin-notification = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-deep-link = "2"

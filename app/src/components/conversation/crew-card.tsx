@@ -95,7 +95,7 @@ export function CrewCard({ crew, teammates = [], chat }: { crew: CrewMember[]; t
 
   const first = crew.find((c) => c.state !== "finished");
   return (
-    <section role="group" aria-label="Crew" data-crew data-open={open ? "" : undefined} className="mb-2 overflow-hidden rounded-lg border bg-card shadow-xs/5">
+    <section role="group" aria-label="Crew" data-crew data-open={open ? "" : undefined} className="mb-2 overflow-hidden rounded-lg border bg-card shadow-xs/5 vibrancy:bg-foreground/4 vibrancy:shadow-none">
       <div className="flex items-center gap-2 py-1.5 pr-1.5 pl-3">
         <button
           type="button"

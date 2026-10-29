@@ -85,7 +85,7 @@ export function PanelShell({ berth, box, location, worktree, main, path, panel, 
     onFault,
   };
   return (
-    <div ref={ref} data-testid="leadline" data-leadline={panel} data-state={online ? (helper.status?.state ?? "reading") : "offline"} className="@container flex h-full min-h-0 flex-col bg-background text-sm">
+    <div ref={ref} data-testid="leadline" data-leadline={panel} data-state={online ? (helper.status?.state ?? "reading") : "offline"} className="@container flex h-full min-h-0 flex-col bg-pane text-sm">
       {!online ? (
         <Notice icon="CloudOff" title={`${box} is offline`} body="Leadline's helper runs on the box and keeps what it records there, so there is nothing to read until the box is back." />
       ) : running ? (

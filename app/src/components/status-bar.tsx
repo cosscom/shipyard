@@ -18,9 +18,10 @@ import { openRenameWorktree } from "@/components/sidebar/rename-worktree";
 import { homeBox, useWorkspaces } from "@/lib/workspaces";
 import { findWorktree } from "@/lib/worktree-names";
 
-// StatusBar is the strip along the bottom: what agents are doing on the
-// left, updates and forwards on the right. Every item goes somewhere when
-// clicked. The boxes themselves are the sidebar's foot (BoxesFoot), whose
+// StatusBar is the strip along the bottom, under the content's card, bare
+// on the window (and the window's to drag, between its items): what agents
+// are doing on the left, updates and forwards on the right. Every item goes
+// somewhere when clicked. The boxes themselves are the sidebar's foot (BoxesFoot), whose
 // tip says how each is and how busy.
 export function StatusBar() {
   const status = useStore((s) => s.status);
@@ -35,7 +36,7 @@ export function StatusBar() {
   const forwards = status?.forwards.length ?? 0;
 
   return (
-    <footer className="@container flex h-6.5 shrink-0 items-center gap-3 overflow-hidden whitespace-nowrap border-t bg-sidebar px-3 text-tag text-muted-foreground">
+    <footer data-tauri-drag-region className="@container flex h-6.5 shrink-0 items-center gap-3 overflow-hidden whitespace-nowrap px-3 text-tag text-muted-foreground">
       {/* ?shots=1, used by site/scripts/capture.mjs, hides the badge. */}
       {__BERTH_DEMO__ ? (
         !new URLSearchParams(location.search).has("shots") && <Tip label="A demo: invented boxes and repositories, and nothing runs">
@@ -82,7 +83,7 @@ export function StatusBar() {
           </PluginBoundary>
         ))}
 
-      <div className="flex-1" />
+      <div data-tauri-drag-region className="flex-1 self-stretch" />
 
       {items
         .filter((i) => i.item.align === "right")

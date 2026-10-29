@@ -10,7 +10,7 @@ import { openSettings, type SettingsSectionId } from "@/views/settings/open";
 const INDEX: { id: SettingsSectionId; title: string; words: string }[] = [
   { id: "general", title: "General", words: "closing tabs stop keep running confirm browser beside login startup helper berth command cli private urls ports" },
   { id: "notifications", title: "Notifications", words: "toast system centre center quiet hours do not disturb sound alerts waiting" },
-  { id: "appearance", title: "Appearance", words: "theme dark light match system home picture wallpaper harbour chat background width text size density font sidebar rail list columns layout" },
+  { id: "appearance", title: "Appearance", words: "theme dark light match system home picture wallpaper harbour chat background width text size density font sidebar rail list columns layout translucent transparent vibrancy glass" },
   { id: "terminal", title: "Terminal", words: "font size line height cursor blink scrollback predict typing copy on select renderer" },
   { id: "boxes", title: "Boxes", words: "servers machines berthd update routes sessions browsers offline reconnect pair" },
   { id: "computers", title: "Computers", words: "laptops this mac join link pair remove" },

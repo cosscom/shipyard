@@ -115,7 +115,7 @@ export function Launcher({ worktree: ref }: { worktree: WorktreeRef }) {
   };
 
   return (
-    <div className="absolute inset-0 overflow-y-auto bg-background">
+    <div className="absolute inset-0 overflow-y-auto bg-pane">
       {band && <HeaderBand picture={band} position={0.45} fade={0.5} className="absolute inset-x-0 top-0 h-[clamp(160px,30vh,280px)]" />}
       <div className={cn("relative flex min-h-full items-start justify-center px-6 pb-10", band ? "pt-[clamp(120px,24vh,230px)]" : "pt-[18vh]")}>
         <div ref={list} onKeyDown={onKeyDown} className="w-full max-w-[560px]">

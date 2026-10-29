@@ -49,7 +49,7 @@ export function LogView({ box, location, worktree, service, visible }: Props) {
   }, [text]);
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col bg-background">
+    <div className="relative flex min-h-0 flex-1 flex-col bg-pane">
       {error && <ErrorText className="border-b px-3 py-1.5 text-destructive text-meta" text={error} />}
       <pre
         ref={scroller}

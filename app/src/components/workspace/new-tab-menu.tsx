@@ -158,7 +158,7 @@ export function NewTabMenu() {
     >
       <Tip label="New tab (⌘T for a terminal)" side="bottom">
         <PopoverTrigger
-          render={<button type="button" aria-label="New tab" className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground data-popup-open:bg-accent" />}
+          render={<button type="button" aria-label="New tab" className="inline-flex size-6.5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-foreground/5 hover:text-foreground data-popup-open:bg-foreground/9" />}
         >
           <PlusIcon className="size-4" />
         </PopoverTrigger>

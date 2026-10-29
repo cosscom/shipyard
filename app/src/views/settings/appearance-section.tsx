@@ -3,10 +3,12 @@ import { useState } from "react";
 
 import { SimpleSelect } from "@/components/simple-select";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { SYSTEM_THEME, useActiveTheme, useThemes } from "@/hooks/use-theme";
 import type { Theme } from "@/lib/api";
 import { setPrefs, usePrefs } from "@/lib/prefs";
 import { useStore } from "@/lib/store";
+import { NATIVE_VIBRANCY } from "@/lib/vibrancy";
 import { cn } from "@/lib/utils";
 import { berthThemes } from "@/themes/builtin";
 import { ChatBackgroundSettings, ChatWidthSettings } from "@/views/settings/chat-background-section";
@@ -24,6 +26,7 @@ export function AppearanceSection() {
   const density = usePrefs((p) => p.density);
   const uiFontSize = usePrefs((p) => p.uiFontSize);
   const sidebarLayout = usePrefs((p) => p.sidebarLayout);
+  const translucent = usePrefs((p) => p.translucentSidebar);
   const [query, setQuery] = useState("");
 
   const [all, setAll] = useState(false);
@@ -153,6 +156,11 @@ export function AppearanceSection() {
             onChange={(density) => setPrefs({ density })}
           />
         </SettingsRow>
+        {NATIVE_VIBRANCY && (
+          <SettingsRow label="Translucent sidebar" description="The desktop shows softly through the sidebar and around the content, as in Finder.">
+            <Switch checked={translucent} onCheckedChange={(translucentSidebar) => setPrefs({ translucentSidebar })} aria-label="Translucent sidebar" />
+          </SettingsRow>
+        )}
       </SettingsGroup>
     </SettingsPage>
   );

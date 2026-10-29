@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { toastError } from "@/components/error-note";
 import { Spinner } from "@/components/ui/spinner";
@@ -22,6 +22,7 @@ import { EchoPredictor } from "@/lib/predict-overlay";
 import { createTerminal, type TermHandle } from "@/lib/terminal";
 import { terminalKeyInput } from "@/lib/terminal-keys";
 import { cn } from "@/lib/utils";
+import { useVibrancy } from "@/lib/vibrancy";
 import { hereRef } from "@/lib/workspaces";
 import { WheelBatcher, wheelPixels } from "@/lib/wheel";
 
@@ -80,7 +81,15 @@ export function TerminalView({ box, session, agent, command, wsKey, tab, pane, v
   // terminal says how many.
   const open = useRef(false);
   const held = useRef<{ at: number; data: string[]; bytes: number }>({ at: 0, data: [], bytes: 0 });
-  const theme = useActiveTheme();
+  const active = useActiveTheme();
+  // On the Mac's glass a dark theme's content card is the theme's sidebar
+  // colour (index.css, --content): the terminal paints that, not its own
+  // background, so it reads as part of the card. ghostty-web paints its
+  // canvas opaque, row by row with no clear, so a see-through colour would
+  // build up frame on frame; this one is the sidebar's, opaque. Text on it
+  // keeps its contrast: a dark theme's sidebar is as dark as its page.
+  const glass = useVibrancy() && active.appearance === "dark";
+  const theme = useMemo(() => (glass ? { ...active, terminal: { ...active.terminal, background: active.colors.sidebar } } : active), [active, glass]);
   const themeRef = useRef(theme);
   themeRef.current = theme;
   const prefs = usePrefs((p) => p.terminal);
@@ -114,7 +123,8 @@ export function TerminalView({ box, session, agent, command, wsKey, tab, pane, v
   dirRef.current = dir;
 
   // Create the terminal once per renderer, font and (for ghostty-web, which
-  // cannot change colours in place yet) theme. Each one gets its own mount
+  // cannot change colours in place yet) theme, the glass's background
+  // included, so an open terminal follows it too. Each one gets its own mount
   // node, removed with it, so a terminal still being created when the next
   // replaces it can never draw over its successor.
   useEffect(() => {
@@ -203,7 +213,7 @@ export function TerminalView({ box, session, agent, command, wsKey, tab, pane, v
     };
     // xterm takes a new theme in place (below).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefs.renderer, prefs.fontFamily, prefs.fontSize, prefs.lineHeight, prefs.cursorStyle, prefs.cursorBlink, prefs.scrollback, prefs.renderer === "ghostty" ? theme.id : ""]);
+  }, [prefs.renderer, prefs.fontFamily, prefs.fontSize, prefs.lineHeight, prefs.cursorStyle, prefs.cursorBlink, prefs.scrollback, prefs.renderer === "ghostty" ? `${theme.id} ${theme.terminal.background}` : ""]);
 
   useEffect(() => term?.setTheme(theme.terminal), [term, theme]);
   useEffect(() => predictor.current?.setStyle(theme.terminal, prefs), [term, theme, prefs]);

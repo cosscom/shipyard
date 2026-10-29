@@ -28,10 +28,14 @@ export function ViewHeader(props: ViewHeaderProps) {
 
 // Strip is the window's top band (h-bar, as the tab bar is), so its bottom
 // edge carries on the sidebar's and the tab bar's line: the title, its
-// context on the same line, and the actions, on the page's gutter.
+// context on the same line, and the actions, on the page's gutter. Beside
+// the sidebar it moves up out of the content's card into the band above it
+// (TopBand, App.tsx), bare on the window as the tabs are; without one
+// (Settings, zen) it tops the page, with a line under it.
 function Strip({ title, description, actions, children }: ViewHeaderProps) {
-  return (
-    <header data-tauri-drag-region className="flex h-bar shrink-0 items-center gap-4 border-b bg-sidebar px-page">
+  const band = useContext(BandContext);
+  const strip = (
+    <header data-tauri-drag-region className={cn("flex h-bar shrink-0 items-center gap-4 px-page", !band && "border-b bg-sidebar-surface")}>
       <div data-tauri-drag-region className="flex min-w-0 flex-1 items-baseline gap-3">
         <h1 className="shrink-0 font-semibold text-heading">{title}</h1>
         {description && <p className="hidden min-w-0 truncate text-desc text-muted-foreground md:block">{description}</p>}
@@ -40,6 +44,15 @@ function Strip({ title, description, actions, children }: ViewHeaderProps) {
       {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
     </header>
   );
+  return band ? createPortal(strip, band) : strip;
+}
+
+const BandContext = createContext<HTMLElement | null>(null);
+
+// TopBand gives the pages under it the window's band above the content's
+// card to put their header in (App.tsx); null keeps it on the page.
+export function TopBand({ value, children }: { value: HTMLElement | null; children: ReactNode }) {
+  return <BandContext.Provider value={value}>{children}</BandContext.Provider>;
 }
 
 const HostContext = createContext<{ el: HTMLElement | null; claim(): () => void } | null>(null);

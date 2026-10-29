@@ -101,7 +101,7 @@ export function TreeDockFrame({ showing, children }: { showing: boolean; childre
           aria-label="Files in this worktree"
           data-testid="files-panel"
           data-float={float || undefined}
-          className={cn("absolute inset-y-0 right-0 flex flex-col border-l bg-sidebar", float && "z-drawer shadow-[-18px_0_40px_-10px_rgb(0_0_0/0.45)]")}
+          className={cn("absolute inset-y-0 right-0 flex flex-col border-l bg-sidebar", float ? "z-drawer shadow-[-18px_0_40px_-10px_rgb(0_0_0/0.45)]" : "vibrancy:bg-transparent")}
           style={{ width: float ? FLOAT_W : DOCK_W }}
         >
           <TreePanel
@@ -138,7 +138,7 @@ export function DockButton() {
         aria-pressed={open}
         data-testid="files-panel-button"
         onClick={toggleTree}
-        className={cn("relative inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring", open && "bg-accent text-foreground")}
+        className={cn("relative inline-flex size-6.5 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-foreground/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring", open && "bg-foreground/9 text-foreground")}
       >
         <PanelRightIcon className="size-3.5" />
         {!open && n > 0 && <span data-testid="files-panel-dot" className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-info ring-2 ring-background" />}

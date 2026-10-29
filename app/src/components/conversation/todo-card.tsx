@@ -32,7 +32,7 @@ export function TodoCard({ todos, session, working }: { todos: ChatTodo[]; sessi
   if (!todos.length || dismissed) return null;
   const pct = Math.round((done / todos.length) * 100);
   return (
-    <section role="group" aria-label="Tasks" data-todos className="mb-2 overflow-hidden rounded-lg border bg-card shadow-xs/5">
+    <section role="group" aria-label="Tasks" data-todos className="mb-2 overflow-hidden rounded-lg border bg-card shadow-xs/5 vibrancy:bg-foreground/4 vibrancy:shadow-none">
       <div className="flex items-center gap-2 py-1.5 pr-1.5 pl-3">
         <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="-my-1 flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <ListChecksIcon className={cn("size-3.5 shrink-0", all ? "text-success" : "text-muted-foreground")} aria-hidden />

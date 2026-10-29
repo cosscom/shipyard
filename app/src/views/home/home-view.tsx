@@ -32,7 +32,7 @@ export function HomeView() {
   const noProjects = useStore((s) => !!s.status && s.status.boxes.every((b) => b.state !== "online" || s.boxes[b.name]?.locations !== undefined) && !Object.values(s.boxes).some((b) => b.locations?.length));
   const height = noProjects ? HERO : BAND;
   return (
-    <div className="absolute inset-0 overflow-y-auto bg-background">
+    <div className="absolute inset-0 overflow-y-auto bg-pane">
       <div className="relative min-h-full">
         {band && <HeaderBand picture={band} position={0.42} fade={0.45} className="absolute inset-x-0 top-0" style={{ height }} />}
         <div

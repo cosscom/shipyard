@@ -51,7 +51,7 @@ export function PaneLayer({ showing }: { showing: boolean }) {
         return [
           ...(visible
             ? [
-                <ErrorBoundary key={`bar:${tab.id}`} compact scope="the Compare bar" className="absolute inset-x-0 top-0 z-10 h-bar border-b bg-sidebar" rescues={() => [{ label: "Close tab", run: () => closeCompare(key, tab.id) }]}>
+                <ErrorBoundary key={`bar:${tab.id}`} compact scope="the Compare bar" className="absolute inset-x-0 top-0 z-10 h-bar border-b bg-sidebar vibrancy:bg-transparent" rescues={() => [{ label: "Close tab", run: () => closeCompare(key, tab.id) }]}>
                   <CompareBar wsKey={key} tab={tab} />
                 </ErrorBoundary>,
               ]
@@ -66,7 +66,7 @@ export function PaneLayer({ showing }: { showing: boolean }) {
                 data-pane-kind={leaf.content.kind}
                 data-compare-side={i}
                 data-pane-focused={on && tab.focus === leaf.id ? "" : undefined}
-                className={cn("absolute overflow-hidden", r && r.x > 0 && "border-l", r && r.y > 0 && "border-t")}
+                className={cn("absolute overflow-hidden", r && r.x > 0 && "border-l", r && r.y > 0 && "border-t", "vibrancy:border-foreground/8")}
                 style={{ left: pct(r?.x ?? 0), width: pct(r?.w ?? 1), top: `calc(${COMPARE_BAR}px + (100% - ${COMPARE_BAR}px) * ${r?.y ?? 0})`, height: `calc((100% - ${COMPARE_BAR}px) * ${r?.h ?? 1})`, display: on ? "block" : "none" }}
               >
                 <PaneGuard wsKey={key} tab={tab.id} pane={leaf.id}>
@@ -95,7 +95,7 @@ export function PaneLayer({ showing }: { showing: boolean }) {
             data-pane-kind={leaf.content.kind}
             // Where the keyboard goes home to when what had it closes (lib/focus-home.ts).
             data-pane-focused={visible && tab.focus === leaf.id ? "" : undefined}
-            className={cn("absolute overflow-hidden", rect.x > 0 && "border-l", rect.y > 0 && "border-t")}
+            className={cn("absolute overflow-hidden", rect.x > 0 && "border-l", rect.y > 0 && "border-t", "vibrancy:border-foreground/8")}
             style={{ left: pct(rect.x), top: pct(rect.y), width: pct(rect.w), height: pct(rect.h), display: visible ? "block" : "none" }}
           >
             <PaneGuard wsKey={key} tab={tab.id} pane={leaf.id}>

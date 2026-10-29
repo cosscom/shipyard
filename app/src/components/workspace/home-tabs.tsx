@@ -28,9 +28,9 @@ export function HomeTabs() {
   const onHome = !front;
 
   return (
-    <div data-tauri-drag-region data-tab-bar className="flex h-bar shrink-0 items-stretch border-b bg-sidebar">
+    <div data-tauri-drag-region data-tab-bar className="flex h-bar shrink-0 items-stretch">
       {homes.length > 0 && (
-        <div data-tauri-drag-region data-tab-strip role="tablist" aria-label="Home tabs" className="flex min-w-0 items-stretch overflow-x-auto [scrollbar-width:none]">
+        <div data-tauri-drag-region data-tab-strip role="tablist" aria-label="Home tabs" className="flex min-w-0 items-center gap-1 overflow-x-auto px-1.5 [scrollbar-width:none]">
           <Tip label="Home" side="bottom">
             <div
               role="tab"
@@ -46,11 +46,10 @@ export function HomeTabs() {
                 }
               }}
               className={cn(
-                "relative flex h-full w-10 shrink-0 cursor-default items-center justify-center border-r outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-                onHome ? "bg-background text-foreground" : "text-muted-foreground hover:bg-background/40 hover:text-foreground",
+                "flex h-6.5 w-8 shrink-0 cursor-default items-center justify-center rounded-md outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                onHome ? "bg-foreground/9 text-foreground shadow-xs/5 ring-1 ring-foreground/6 ring-inset" : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
               )}
             >
-              {onHome && <span className="absolute inset-x-0 top-0 h-px bg-foreground/50" />}
               <HouseIcon className="size-3.5" />
             </div>
           </Tip>
@@ -82,13 +81,13 @@ export function HomeTabs() {
         </div>
       )}
       {homes.length > 0 && (
-        <div className="flex shrink-0 items-center px-1">
+        <div className="flex shrink-0 items-center">
           <NewHomeTerminal box={homeBox(current) ?? homeBox(homes[homes.length - 1])!} />
         </div>
       )}
       <div data-tauri-drag-region className="min-w-4 flex-1" />
       {current && active && lone && (
-        <div className="flex shrink-0 items-center gap-1 pr-2 pl-3">
+        <div className="flex shrink-0 items-center gap-1 pr-1.5 pl-3">
           <PaneActions wsKey={current} tab={active.id} pane={lone} />
         </div>
       )}
@@ -101,8 +100,8 @@ function BoxHomeChip({ box }: { box: string }) {
   const home = useStore((s) => (s.boxes[box]?.info as { home?: string } | undefined)?.home);
   return (
     <Tip label={`Terminals in ${box}'s home folder${home ? `, ${home}` : ""}. They belong to no worktree.`} side="bottom">
-      <span data-tauri-drag-region data-home-box={box} className="flex shrink-0 items-center pr-1.5 pl-2.5">
-        <span className="rounded bg-accent/70 px-1.5 py-px font-mono text-tag text-muted-foreground">{box} · ~</span>
+      <span data-tauri-drag-region data-home-box={box} className="flex shrink-0 items-center pl-1">
+        <span className="rounded bg-foreground/6 px-1.5 py-px font-mono text-tag text-muted-foreground">{box} · ~</span>
       </span>
     </Tip>
   );
@@ -124,7 +123,7 @@ function NewHomeTerminal({ box }: { box: string }) {
         type="button"
         aria-label={`New terminal on ${box}`}
         onClick={() => void openHomeTerminal(box)}
-        className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        className="inline-flex size-6.5 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-foreground/5 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         <PlusIcon className="size-4" />
       </button>

@@ -583,7 +583,7 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
     // The column steps left of the floating loops panel when there is room
     // (a pane 900px wide, as beside the Files panel); in a narrower one the
     // composer rises above the loops pill instead.
-    <div data-testid="chat" className="@container relative isolate flex min-h-0 flex-1 flex-col bg-background">
+    <div data-testid="chat" className="@container relative isolate flex min-h-0 flex-1 flex-col bg-pane">
       <ChatBackground />
       <div className="min-h-0 flex-1 overflow-y-auto pt-6 pr-6 pb-4 pl-6 @[900px]:pr-[max(24px,var(--berth-loops-w,0px))]">
         {!mock && feed === "loading" && !items.length ? (
@@ -892,7 +892,7 @@ function Reply({ onSend, onFail, who, mode, blocked, hint, attach, agent }: { on
 // what to do next.
 function PaneEmpty({ scene, title, description, children }: { scene?: SceneName; title: string; description: React.ReactNode; children?: React.ReactNode }) {
   return (
-    <div className="flex flex-1 items-center justify-center bg-background p-6">
+    <div className="flex flex-1 items-center justify-center bg-pane p-6">
       <Empty>
         <EmptyHeader>
           {scene ? (
@@ -932,7 +932,7 @@ function useStalled(active: boolean, ms: number, reset: string): boolean {
 
 function Reading() {
   return (
-    <div className="flex flex-1 items-center justify-center bg-background text-body">
+    <div className="flex flex-1 items-center justify-center bg-pane text-body">
       <PixelLoader label="Reading the conversation…" />
     </div>
   );
@@ -946,7 +946,7 @@ const boxWord = (state?: string) => (state === "untrusted" ? "unreachable" : (st
 function FirstPrompt({ box, session, agent, name, branch, onSend, onFail }: { box: string; session: string; agent?: string; name: string; branch?: string; onSend(text: string): Promise<void>; onFail(err: unknown): void }) {
   const picture = useHeaderPicture();
   return (
-    <div className="absolute inset-0 overflow-y-auto bg-background">
+    <div className="absolute inset-0 overflow-y-auto bg-pane">
       {picture && <HeaderBand picture={picture} position={0.45} fade={0.5} className="absolute inset-x-0 top-0 h-[clamp(160px,30vh,280px)]" />}
       <div className={cn("relative flex min-h-full items-start justify-center px-6 pb-10", picture ? "pt-[clamp(120px,24vh,230px)]" : "pt-[18vh]")}>
         <div className="w-full max-w-[calc(var(--berth-chat-w)-120px)]">

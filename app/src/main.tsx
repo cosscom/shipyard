@@ -10,6 +10,8 @@ import { isTauri } from "@/lib/api";
 import { openUrl } from "@/lib/open-url";
 // Says once when terminals fall back to xterm.js, and why.
 import "@/lib/terminal-health";
+// The Mac app's see-through sidebar, before the first paint.
+import "@/lib/vibrancy";
 import { installGlobals } from "@/plugins/host";
 import "@/index.css";
 

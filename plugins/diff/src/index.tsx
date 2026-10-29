@@ -119,7 +119,7 @@ function DiffPanel({ berth, box, location, worktree, path, main }: WorktreePanel
   const removed = ok?.files.reduce((n, f) => n + f.removed, 0) ?? 0;
 
   return (
-    <div className="@container flex h-full min-h-0 flex-col bg-background">
+    <div className="@container flex h-full min-h-0 flex-col bg-pane">
       <header className="flex h-10 shrink-0 items-center gap-2 border-b px-3 text-sm">
         <Icon name="GitBranch" className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="min-w-0 truncate font-medium">{ok?.branch || (result?.kind === "nobase" ? result.branch : "") || (ok ? "detached HEAD" : "…")}</span>
@@ -449,7 +449,7 @@ function FileHeader({ entry, open, onToggle }: { entry: Entry; open: boolean; on
   const empty = !fileDiff?.hunks.length;
   const note = stat.binary ? "Binary file, not shown" : empty ? (fileDiff?.type === "rename-pure" ? "Renamed, no changes" : "No content changes") : !open && why ? (why === "Large" ? "Large diff, folded" : `${why}, folded`) : undefined;
   return (
-    <div className="flex h-9 items-center gap-2 border-y bg-background px-2 font-sans text-xs">
+    <div className="flex h-9 items-center gap-2 border-y bg-background px-2 font-sans text-xs vibrancy:bg-(--content-solid)">
       <Button size="icon-xs" variant="ghost" aria-label={open ? "Fold this file" : "Unfold this file"} aria-expanded={open} disabled={empty} onClick={onToggle} className="shrink-0">
         <Icon name="ChevronRight" className={cn("size-3.5 transition-transform", open && "rotate-90")} />
       </Button>

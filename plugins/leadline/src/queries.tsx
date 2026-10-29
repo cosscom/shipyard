@@ -74,7 +74,7 @@ function Queries({ ctx }: { ctx: PanelContext }) {
           ) : (
             <div className="min-h-0 flex-1 overflow-auto" data-testid="leadline-list">
               <table className="w-full border-separate border-spacing-0 text-sm">
-                <thead className="sticky top-0 z-10 bg-background [&_th]:border-b">
+                <thead className="sticky top-0 z-10 bg-background vibrancy:bg-(--content-solid) [&_th]:border-b">
                   <tr>
                     <Head className="pl-3 text-left">Query</Head>
                     <SortHead id="calls" {...head} className="text-right">

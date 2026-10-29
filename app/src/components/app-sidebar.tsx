@@ -67,8 +67,9 @@ export function AppSidebar() {
         <aside
           aria-label="Sidebar"
           data-testid="sidebar"
+          data-glass
           style={{ width: `clamp(${SIDEBAR_MIN}px, var(--sidebar-live, var(--sidebar-w, ${SIDEBAR_DEFAULT}px)), max(${SIDEBAR_DEFAULT}px, min(${SIDEBAR_MAX}px, 40vw)))` }}
-          className={cn("@container/side relative flex shrink-0 flex-col border-sidebar-border border-r bg-sidebar pb-2 text-sidebar-foreground", inkScale)}
+          className={cn("@container/side relative flex shrink-0 flex-col border-sidebar-border border-r bg-sidebar-surface pb-2 text-sidebar-foreground", inkScale)}
         >
           <SidebarResizeHandle />
           <WindowStrip />
@@ -100,7 +101,7 @@ function ColumnsSidebar({ prefs, update }: SidebarPrefsProps) {
   const noBoxes = useStore((s) => !!s.status && s.status.boxes.length === 0);
   const picked = usePicked(prefs.groupBy);
   return (
-    <aside aria-label="Sidebar" data-testid="sidebar" data-layout="columns" className={cn("relative flex shrink-0 flex-col border-sidebar-border border-r bg-sidebar pb-2 text-sidebar-foreground", inkScale)}>
+    <aside aria-label="Sidebar" data-testid="sidebar" data-glass data-layout="columns" className={cn("relative flex shrink-0 flex-col border-sidebar-border border-r bg-sidebar-surface pb-2 text-sidebar-foreground", inkScale)}>
       <div className="mb-1 flex min-h-0 flex-1 border-sidebar-border border-b">
         <div data-testid="sidebar-projects" style={{ width: PROJECTS_COLUMN }} className={cn("relative flex shrink-0 flex-col", !folded && !noBoxes && "border-sidebar-border border-r")}>
           <WindowStrip extra={folded && !noBoxes ? <ShowTasks /> : undefined} />
@@ -260,7 +261,7 @@ function Rail() {
     </Tip>
   );
   return (
-    <aside aria-label="Sidebar" data-testid="sidebar-rail" className={cn("relative flex w-rail-folded shrink-0 flex-col items-center border-sidebar-border border-r bg-sidebar", inkScale)}>
+    <aside aria-label="Sidebar" data-testid="sidebar-rail" data-glass className={cn("relative flex w-rail-folded shrink-0 flex-col items-center border-sidebar-border border-r bg-sidebar-surface", inkScale)}>
       <SidebarResizeHandle folded />
       <div data-tauri-drag-region className="h-bar w-full shrink-0" />
       <div className="flex flex-col items-center gap-1">

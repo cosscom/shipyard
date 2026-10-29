@@ -35,6 +35,9 @@ import { setSwitchboardOpen, useSwitchboardOpen } from "@/lib/switchboard";
 
 type Via = "key" | "menu" | "mouse";
 
+// A dialog that is open, not one fading out after it closed.
+const OPEN_DIALOG = "[role=dialog]:not([data-closed]), [role=alertdialog]:not([data-closed])";
+
 type Dir = "left" | "right" | "up" | "down";
 const arrows: Record<string, Dir> = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down" };
 
@@ -120,7 +123,10 @@ function run(id: string, from: Via, arg?: number | Dir): boolean {
       // ⌘W again while "Close shell?" is open confirms it, as on macOS.
       if (submitConfirm()) return true;
       // Any other dialog: ⌘W does nothing, rather than close a pane behind it.
-      if (document.querySelector("[role=dialog], [role=alertdialog]")) return true;
+      // One already closing (data-closed while it fades out: the "+" menu
+      // just after picking from it, a confirm just answered) is gone for
+      // the keyboard, so ⌘W closes the pane as it would a moment later.
+      if (document.querySelector(OPEN_DIALOG)) return true;
       if (!inWorkspace || !tab || !wsKey) return false;
       void closePane(wsKey, tab.id, tab.focus);
       return true;
