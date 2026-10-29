@@ -305,7 +305,7 @@ func driveAnswers(ctx context.Context, t keyTerm, qs []transcript.Question, as [
 		}
 		r := f.row(row)
 		switch {
-		case r.words() == words && (!multi || r.checked):
+		case r.holds(words) && (!multi || r.checked):
 			return nil
 		case !ownWordsEmpty(r.text):
 			return stuck("Claude's own-words answer already holds %q", clip(r.words(), 60))
@@ -317,7 +317,7 @@ func driveAnswers(ctx context.Context, t keyTerm, qs []transcript.Question, as [
 		// are exactly what was typed.
 		if g, ok := until(func(g formView) bool {
 			r := g.row(row)
-			return g.ok && r.words() == words && (!multi || r.checked)
+			return g.ok && r.holds(words) && (!multi || r.checked)
 		}); !ok {
 			return stuck("Claude's form didn't take your words: it shows %q", clip(g.row(row).words(), 60))
 		}
@@ -433,7 +433,7 @@ func driveAnswers(ctx context.Context, t keyTerm, qs []transcript.Question, as [
 	// before they go. Submit only what it shows as wanted.
 	shown, _ := checkAnswers(qs, as)
 	for i, s := range shown {
-		if !strings.Contains(f.reviewText, "→ "+flatText(s)) {
+		if !wrapsWith(f.reviewLines, "→ "+s) {
 			return stuck("Claude's review doesn't show %q for question %d", s, i+1)
 		}
 	}
@@ -458,6 +458,8 @@ type formView struct {
 	// review is the last step, listing every answer, with Submit.
 	review     bool
 	reviewText string
+	// reviewLines are its lines, as they wrap.
+	reviewLines []string
 	// question is the one shown, its words on one line.
 	question string
 	rows     []formRow
@@ -479,6 +481,11 @@ type formRow struct {
 // words is the person's own words in the row, on one line.
 func (r formRow) words() string {
 	return flatText(r.text + " " + strings.Join(r.more, " "))
+}
+
+// holds says the row shows words, wherever the form wrapped them.
+func (r formRow) holds(words string) bool {
+	return wrappedAs(append([]string{r.text}, r.more...), words)
 }
 
 func (f formView) row(n int) formRow {
@@ -552,6 +559,11 @@ func readForm(sc string) formView {
 				text = append(text, x)
 			}
 			f.reviewText = flatText(strings.Join(text, "\n"))
+			for _, l := range text {
+				if l = flatText(l); l != "" {
+					f.reviewLines = append(f.reviewLines, l)
+				}
+			}
 			region = region[i+1:]
 			break
 		}
@@ -601,6 +613,50 @@ func readForm(sc string) formView {
 
 // flatText is words on one line: a form wraps long ones.
 func flatText(s string) string { return strings.Join(strings.Fields(s), " ") }
+
+// A form wraps words at a space where it can, and inside a word too long
+// for a line (an attached file's path) where it can't: read back, a line
+// break is a space or nothing, and only there may the two differ.
+
+// wrappedAs says lines are words, wrapped.
+func wrappedAs(lines []string, words string) bool {
+	return wrapRe(words, true).MatchString(strings.Join(flatLines(lines), "\n"))
+}
+
+// wrapsWith says lines hold words somewhere, wrapped.
+func wrapsWith(lines []string, words string) bool {
+	return wrapRe(words, false).MatchString(strings.Join(flatLines(lines), "\n"))
+}
+
+func flatLines(lines []string) []string {
+	var out []string
+	for _, l := range lines {
+		if l = flatText(l); l != "" {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+// wrapRe matches words with a line break for any space, or between any
+// two of their letters.
+func wrapRe(words string, whole bool) *regexp.Regexp {
+	var b strings.Builder
+	for i, r := range []rune(flatText(words)) {
+		switch {
+		case r == ' ':
+			b.WriteString(`[ \n]`)
+			continue
+		case i > 0:
+			b.WriteString(`\n?`)
+		}
+		b.WriteString(regexp.QuoteMeta(string(r)))
+	}
+	if whole {
+		return regexp.MustCompile(`^` + b.String() + `$`)
+	}
+	return regexp.MustCompile(b.String())
+}
 
 // questionIndex is which question the form shows, by its words, or -1.
 func questionIndex(qs []transcript.Question, shown string) int {

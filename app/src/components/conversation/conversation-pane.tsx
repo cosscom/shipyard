@@ -4,7 +4,7 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { AgentIcon, StateGlyph } from "@/components/agent-glyph";
 import { HeaderBand, useHeaderPicture } from "@/components/art/header-band";
 import { TaskComposer } from "@/components/conversation/task-composer";
-import { AttachmentChips, useAttachments } from "@/components/conversation/attachments";
+import { AttachmentChips } from "@/components/conversation/attachments";
 import { Scene, type SceneName } from "@/components/art/scenes";
 import { ChatBackground } from "@/components/conversation/chat-background";
 import { ChatControls } from "@/components/conversation/chat-controls";
@@ -15,7 +15,7 @@ import { RepoRefs } from "@/components/conversation/repo-refs";
 import { PixelLoader } from "@/components/pixel-loader";
 import { useComposerMenu } from "@/components/conversation/command-menu";
 import { LiveScreen, useLiveScreen } from "@/components/conversation/live-screen";
-import { QuestionsContext } from "@/components/conversation/question-form";
+import { ChatFiles, QuestionsContext, useChatFiles } from "@/components/conversation/question-form";
 import { ResumePicker } from "@/components/conversation/resume-picker";
 import { toastError } from "@/components/error-note";
 import { UpgradeBox } from "@/components/upgrade-box";
@@ -153,6 +153,9 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
   // A structured session's screen is its host's, never the agent's own:
   // there is nothing on it to answer, and it never shows a prompt.
   const structured = isStructured(s?.driver);
+  // Where the reply box's attachments go, which a form of questions takes
+  // while it waits (ChatFiles).
+  const attach = useMemo(() => ({ box, session }), [box, session]);
   // Comments on the diff are kept per worktree, as Review keys them.
   const wt = s ? worktreeOf(locations, s) : undefined;
   const reviewKey = wt ? `${box}|${wt.worktree.path}` : undefined;
@@ -579,7 +582,7 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
     );
   }
 
-  return (
+  const chat = (
     // The column steps left of the floating loops panel when there is room
     // (a pane 900px wide, as beside the Files panel); in a narrower one the
     // composer rises above the loops pill instead.
@@ -618,6 +621,7 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
             comments={reviewKey ? toSend.length : 0}
             live={live.show}
             terminal={!!onShowTerminal}
+            attach={attach}
             mode={replyMode(state)}
             blocked={(asking && menu) || live.show}
             hint={live.show ? (liveWhy ?? `${who} is showing its own screen: answer it above`) : wantsWords ? `Tell ${who} what to change, then press Enter` : answerable ? `Answer ${who}'s ${openQ?.questions.length === 1 ? "question" : "questions"} above` : undefined}
@@ -640,6 +644,8 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
       {picker}
     </div>
   );
+  // The reply box and a form of questions share its attachments.
+  return <ChatFiles target={attach}>{chat}</ChatFiles>;
 }
 
 const NO_COMMENTS: LineComment[] = [];
@@ -671,6 +677,7 @@ const ChatFoot = memo(function ChatFoot({
   comments,
   live,
   terminal,
+  attach,
   mode,
   blocked,
   hint,
@@ -689,12 +696,12 @@ const ChatFoot = memo(function ChatFoot({
   comments: number;
   live: boolean;
   terminal: boolean;
+  attach: AttachTarget;
   mode: "send" | "queue" | "answer";
   blocked: boolean;
   hint?: string;
   actions: FootActions;
 }) {
-  const attach = useMemo(() => ({ box, session }), [box, session]);
   return (
     <ChatControls box={box} session={session} agent={agent} state={state} asking={asking} stateSince={stateSince} dir={dir} who={who} visible={visible} ended={ended} onShowTerminal={terminal ? actions.showTerminal : undefined} onStartAgain={actions.again} onSend={actions.reply}>
       {ended ? (
@@ -777,12 +784,15 @@ function CommentsStrip({ count, who, onSend }: { count: number; who: string; onS
 // agent waits at a menu, Enter there would pick its highlighted option, so
 // it waits for the answer above.
 // Images and files pasted or dropped on it go up to the agent's worktree
-// (components/conversation/attachments), and their paths go with the reply.
+// (components/conversation/attachments), and their paths go with the reply;
+// while a form of questions is drawn, they show on it and go with its
+// answer instead (ChatFiles).
 // "/" and "@" open the agent's commands and the worktree's files
 // (command-menu).
 function Reply({ onSend, onFail, who, mode, blocked, hint, attach, agent }: { onSend(text: string): Promise<void>; onFail(err: unknown): void; who: string; mode: "send" | "queue" | "answer"; blocked?: boolean; hint?: string; attach?: AttachTarget; agent?: string }) {
   const [text, setText] = useState("");
-  const att = useAttachments(attach);
+  const files = useChatFiles()!;
+  const att = files.att;
   const menu = useComposerMenu({ box: attach?.box, session: attach && "session" in attach ? attach.session : undefined, agent, text, setText });
   const ready = (!!text.trim() || att.paths.length > 0) && !att.blocker;
   // Up and Down recall the prompts sent before (lib/history).
@@ -823,7 +833,7 @@ function Reply({ onSend, onFail, who, mode, blocked, hint, attach, agent }: { on
   // While a file uploads, the field says so, and that the reply can be
   // written meanwhile.
   const placeholder =
-    hint ??
+    (files.taken && att.items.length ? `Your ${att.items.length === 1 ? "attachment goes" : "attachments go"} with your answer above` : hint) ??
     (blocked
       ? "Pick an answer above first"
       : att.uploading
@@ -842,7 +852,7 @@ function Reply({ onSend, onFail, who, mode, blocked, hint, attach, agent }: { on
       {/* Attachments sit inside the frame, above what is typed; the field and
           Send share the row below them. */}
       <InputGroup className={cn("flex-wrap has-data-[align=block-start]:flex-row **:[textarea]:min-h-0! **:[textarea]:min-w-0 **:[textarea]:flex-1 **:[textarea]:basis-0 **:[textarea]:py-2.5! **:[textarea]:max-h-[min(40vh,16rem)] **:[textarea]:overflow-y-auto", att.dragging && "border-ring ring-[3px]")}>
-        {att.items.length > 0 && (
+        {att.items.length > 0 && !files.taken && (
           <InputGroupAddon align="block-start" className="pt-2.5 pb-0 [&_svg]:mx-0">
             <AttachmentChips items={att.items} onRemove={att.remove} onRetry={att.retry} className="w-full" />
           </InputGroupAddon>

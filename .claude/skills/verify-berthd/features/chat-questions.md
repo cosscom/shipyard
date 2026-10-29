@@ -8,6 +8,7 @@ When an agent asks with a form of its own (Claude Code's AskUserQuestion: up to 
 - `questions-deliver`: on a real box, long own words (wrapped by Claude Code), questions with lists in them, on an agent nobody has open (its pane at tmux's 80x24): every answer arrives word for word and the agent goes on. The box makes the pane tall enough while it answers and puts it back.
 - `questions-kept`: when the box can't fill the form in, the card keeps every answer and says why, with **Retry** and **Copy answers** (each answer on a line under its question's name), and the agent's own screen opens under it to finish there. A retry that goes closes both.
 - `questions-log`: every answer that doesn't go is in the box's log with why, and the screen it stopped at.
+- `questions-images`: images pasted into a question's own words or dropped on the card, or waiting in the reply box, go with the answer as their paths after the words, and Claude reads them, on both drivers. See [attachments.md](attachments.md) (`attach-question`, `attach-question-wrap`) and `../scripts/scenarios/chat-question-images-live.mjs`.
 
 ## How to get to it (user POV)
 

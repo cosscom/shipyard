@@ -1,11 +1,11 @@
 import { CircleAlertIcon, FileTextIcon, ImageIcon, RotateCwIcon, XIcon } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Tip } from "@/components/tip";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api";
-import { type AttachTarget, attachable, isImage, localPaths, MAX_ATTACHMENT, named, onThisComputer, pastedFiles, shrinkImage, uploadAttachment, uploadLocalFile } from "@/lib/attachments";
+import { type AttachTarget, attachable, isImage, localPaths, MAX_ATTACHMENT, named, onThisComputer, pastedFiles, shownName, shrinkImage, uploadAttachment, uploadLocalFile } from "@/lib/attachments";
 import { errorMessage } from "@/lib/format";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -160,7 +160,7 @@ export function useAttachments(target: AttachTarget | undefined, { without, wait
       (a) => {
         if (jobs.current.get(id) !== job) return;
         jobs.current.delete(id);
-        patch(id, { name: a.name.replace(/^\d{8}-\d{6}-/, ""), size: a.size, state: "ready", path: a.path });
+        patch(id, { name: shownName(a.name), size: a.size, state: "ready", path: a.path });
       },
       (err: unknown) => {
         if (jobs.current.get(id) !== job) return;
@@ -287,22 +287,55 @@ export function useAttachments(target: AttachTarget | undefined, { without, wait
       return [];
     });
   };
-  const paths = items.flatMap((x) => (x.state === "ready" && x.path ? [x.path] : []));
-  const going = items.filter((x) => x.state === "uploading" || x.state === "shrinking");
-  const uploading = going.length > 0;
-  const failed = items.some((x) => x.state === "error");
-  // What holds the prompt back, in words for a placeholder or a tip.
-  let blocker: string | undefined;
-  if (uploading) {
-    const total = going.reduce((n, x) => n + x.size, 0);
-    const sent = going.reduce((n, x) => n + x.size * (x.progress ?? 0), 0);
-    const pct = total && going.every((x) => x.progress !== undefined) ? ` (${Math.floor((sent / total) * 100)}%)` : "";
-    blocker = `Uploading ${going.length === 1 ? (isImage(going[0].type) ? "the image" : "the file") : `${going.length} files`}${pct}`;
-  } else if (failed) blocker = "An attachment didn't upload: retry or remove it";
-  return { items, paths, uploading, failed, blocker, dragging, onPaste, dropProps, remove, retry, clear, add };
+  // The handlers stay the same functions and call this render's: what
+  // they read (the client, the target) is always the latest.
+  const latest = useRef({ onPaste, dropProps, remove, retry, clear, add });
+  latest.current = { onPaste, dropProps, remove, retry, clear, add };
+  const stable = useMemo(
+    () => ({
+      onPaste: (e: React.ClipboardEvent) => latest.current.onPaste(e),
+      dropProps: {
+        onDragOver: (e: React.DragEvent) => latest.current.dropProps.onDragOver(e),
+        onDragLeave: (e: React.DragEvent) => latest.current.dropProps.onDragLeave(e),
+        onDrop: (e: React.DragEvent) => latest.current.dropProps.onDrop(e),
+      },
+      remove: (id: string) => latest.current.remove(id),
+      retry: (id: string) => latest.current.retry(id),
+      clear: () => latest.current.clear(),
+      add: (files: File[], pasted?: boolean) => latest.current.add(files, pasted),
+    }),
+    [],
+  );
+  // The same object until what it shows changes: a composer drawn only
+  // when its props change, or a form reading it from context, takes it as
+  // one.
+  return useMemo(() => {
+    const paths = readyPaths(items);
+    const uploading = items.some(going);
+    const failed = items.some((x) => x.state === "error");
+    return { items, paths, uploading, failed, blocker: blockerOf(items), dragging, ...stable };
+  }, [items, dragging, stable]);
 }
 
 export type Attachments = ReturnType<typeof useAttachments>;
+
+const going = (x: PendingAttachment) => x.state === "uploading" || x.state === "shrinking";
+
+// blockerOf is what holds back a prompt (or an answer) these go with, in
+// words for a placeholder or a tip: an upload still going, or one failed.
+export function blockerOf(items: PendingAttachment[]): string | undefined {
+  const up = items.filter(going);
+  if (up.length) {
+    const total = up.reduce((n, x) => n + x.size, 0);
+    const sent = up.reduce((n, x) => n + x.size * (x.progress ?? 0), 0);
+    const pct = total && up.every((x) => x.progress !== undefined) ? ` (${Math.floor((sent / total) * 100)}%)` : "";
+    return `Uploading ${up.length === 1 ? (isImage(up[0].type) ? "the image" : "the file") : `${up.length} files`}${pct}`;
+  }
+  if (items.some((x) => x.state === "error")) return "An attachment didn't upload: retry or remove it";
+}
+
+// readyPaths is where the uploaded ones are on the box.
+export const readyPaths = (items: PendingAttachment[]) => items.flatMap((x) => (x.state === "ready" && x.path ? [x.path] : []));
 
 const size = (n: number) => (n < 1024 ? `${n} B` : n < 2 ** 20 ? `${Math.round(n / 1024)} KB` : `${(n / 2 ** 20).toFixed(1)} MB`);
 

@@ -1,0 +1,16 @@
+────────────────────────────────────────────────────────────────────────────────
+ ☐ Checkout 
+
+Which screen of the checkout looks wrong?
+
+  1. Cart
+     The cart screen looks wrong.
+  2. Payment
+     The payment screen looks wrong.
+❯ 3. this is the one that is off [attached: /tmp/verify-berthd-box/acme-shop/.b
+     erth/attachments/20261025-152924-orange-giraffe.png /tmp/verify-berthd-box
+     /acme-shop/.berth/attachments/20261025-152924-teal-anchor.png]
+────────────────────────────────────────────────────────────────────────────────
+  4. Chat about this
+
+Enter to select · ↑/↓ to navigate · ctrl+g to edit in Vim · Esc to cancel

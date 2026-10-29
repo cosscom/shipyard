@@ -1,3 +1,5 @@
+import type { Locator } from "@playwright/test";
+
 import { agentWorktree, expect, mockOnly, test } from "./fixtures";
 
 // An agent's pane as a conversation: what the transcript draws and what
@@ -223,6 +225,114 @@ test("answers the box couldn't deliver stay in the form, to retry or copy", asyn
   const answered = app.chat.locator("[data-testid=chat-item][data-kind=question]");
   await expect(answered).toContainText("Answered 3 questions");
   await expect(answered).toContainText(words);
+});
+
+// drop lets files fall on the element, as from Finder: a note and a small
+// image, or one image of size bytes (which the mock uploads at 1 MB/s).
+async function drop(target: Locator, size?: number) {
+  await target.evaluate(
+    (el, size) => {
+      const dt = new DataTransfer();
+      if (size) dt.items.add(new File([new Uint8Array(size)], "flow-step-3.png", { type: "image/png" }));
+      else {
+        dt.items.add(new File(["The banner overlaps the total.\n"], "notes.md", { type: "text/markdown" }));
+        dt.items.add(new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], "shot.png", { type: "image/png" }));
+      }
+      for (const type of ["dragover", "drop"]) el.dispatchEvent(new DragEvent(type, { dataTransfer: dt, bubbles: true, cancelable: true }));
+    },
+    size,
+  );
+}
+
+// pasteShot pastes a screenshot into the field, as the app gets one from
+// macOS.
+async function pasteShot(field: Locator) {
+  await field.evaluate(async (el) => {
+    const c = document.createElement("canvas");
+    c.width = 96;
+    c.height = 64;
+    c.getContext("2d")!.fillRect(0, 0, 96, 64);
+    const blob = await new Promise<Blob>((r) => c.toBlob((b) => r(b!), "image/png"));
+    const dt = new DataTransfer();
+    dt.items.add(new File([blob], "image.png", { type: "image/png" }));
+    el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+  });
+}
+
+test("files in the reply box and dropped on the form go with its answer", async ({ app }) => {
+  mockOnly("answers a question on a box");
+  await app.openWorktree("gpu/shop");
+  const form = app.chat.getByTestId("question-form");
+  await expect(form).toContainText("1 of 3");
+  const next = form.getByRole("button", { name: /^(Next|Review|Submit answers)$/ }).last();
+
+  // Dropped on the reply box while Claude asks: they show on the form, as
+  // its first answer in the person's own words, and not in the reply box.
+  await drop(app.composer.getByRole("textbox", { name: "Reply" }));
+  const chips = form.getByTestId("attachment-chip");
+  await expect(chips).toHaveCount(2);
+  for (const chip of await chips.all()) await expect(chip).toHaveAttribute("data-state", "ready");
+  await expect(app.composer.getByTestId("attachment-chip")).toHaveCount(0);
+  await expect(app.composer.getByRole("textbox", { name: "Reply" })).toHaveAttribute("placeholder", "Your attachments go with your answer above");
+  await expect(form.getByRole("radio", { name: "Something else" })).toBeChecked();
+  // The files alone answer it; words go before them.
+  await expect(next).toBeEnabled();
+  await form.getByRole("textbox", { name: "Your own answer" }).fill("the banner step was off");
+  await next.click();
+  await form.getByRole("checkbox", { name: /Unit tests/ }).click();
+  await next.click();
+  await form.getByRole("radio", { name: /bailey/ }).click();
+  await next.click();
+  await expect(form).toContainText("Review your answers");
+  await expect(form).toContainText("the banner step was offnotes.md, shot.png");
+
+  // Dropped on the form at its review: it goes with the answer in words.
+  // Submit waits for its upload.
+  await drop(form, 2_500_000);
+  await expect(chips).toHaveCount(3);
+  await expect(chips.nth(2)).toHaveAttribute("data-state", "uploading");
+  await expect(next).toBeDisabled();
+  await expect(form).toContainText(/Uploading the image \(\d+%\)/);
+  await expect(chips.nth(2)).toHaveAttribute("data-state", "ready", { timeout: 10_000 });
+  await expect(form).toContainText("notes.md, shot.png, flow-step-3.png");
+  await next.click();
+
+  // Answered: the files by name; Claude got their paths after the words,
+  // and the reply box doesn't send them again.
+  await expect(form).toHaveCount(0);
+  const answered = app.chat.locator("[data-testid=chat-item][data-kind=question]");
+  await expect(answered.getByTestId("answer-attachments")).toHaveText("notes.md, shot.png, flow-step-3.png");
+  await expect(app.chat).toContainText(/I'll plan it for the banner step was off \[attached: \S+\/\.berth\/attachments\/\d{8}-\d{6}-notes\.md, \S+-shot\.png, \S+-flow-step-3\.png\]/);
+  await expect(app.composer.getByTestId("attachment-chip")).toHaveCount(0);
+});
+
+test("a screenshot pasted into the form's own words is an answer, kept when it doesn't go", async ({ app }) => {
+  mockOnly("answers a question on a box");
+  await app.open({ params: { view: "conversation", scene: "answer-stuck" } });
+  await app.openWorktree("gpu/shop");
+  const form = app.chat.getByTestId("question-form");
+  const next = form.getByRole("button", { name: /^(Next|Review|Submit answers)$/ }).last();
+  await form.getByRole("radio", { name: /Next minor/ }).click();
+  // Pasted after a pick: the answer turns to the person's own words.
+  await pasteShot(form.getByRole("textbox", { name: "Your own answer" }));
+  await expect(form.getByTestId("attachment-chip")).toHaveText(/pasted-\d+\.png/);
+  await expect(form.getByRole("radio", { name: "Something else" })).toBeChecked();
+  await next.click();
+  await form.getByRole("checkbox", { name: /Unit tests/ }).click();
+  await next.click();
+  await form.getByRole("radio", { name: /bailey/ }).click();
+  await next.click();
+  await next.click();
+
+  // It didn't take: the form keeps the screenshot.
+  const failed = form.getByTestId("question-form-failed");
+  await expect(failed).toBeVisible();
+  await expect(form.getByTestId("attachment-chip")).toHaveCount(1);
+  await failed.getByRole("button", { name: "Retry" }).click();
+  await expect(form).toHaveCount(0);
+  const answered = app.chat.locator("[data-testid=chat-item][data-kind=question]");
+  await expect(answered.getByTestId("answer-attachments")).toHaveText(/^pasted-\d+\.png$/);
+  await expect(app.composer.getByTestId("attachment-chip")).toHaveCount(0);
 });
 
 test("the artifacts chip lists the pages an agent published", async ({ app }) => {

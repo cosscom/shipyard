@@ -181,25 +181,34 @@ func (f *fakeForm) answer(i int) string {
 const fakeRule = "────────────────────────────────────────────────────────────────────────────────"
 
 // wrap breaks words into lines of the form's width, the first after
-// first and the rest after more, as Claude Code wraps them.
+// first and the rest after more, as Claude Code wraps them: at a space,
+// or inside a word too long for a line of its own (a file's path), which
+// fills the line it starts on.
 func (f *fakeForm) wrap(first, more, words string) []string {
 	if f.width == 0 {
 		return []string{first + words}
 	}
 	var out []string
-	line := first
+	line := []rune(first)
+	empty := func() bool { return string(line) == first || string(line) == more }
 	for _, word := range strings.Fields(words) {
-		if line != first && line != more && len([]rune(line+" "+word)) > f.width {
-			out = append(out, line)
-			line = more
+		w := []rune(word)
+		if !empty() && len(line)+1+len(w) > f.width && len([]rune(more))+len(w) <= f.width {
+			out = append(out, string(line))
+			line = []rune(more)
 		}
-		if line == first || line == more {
-			line += word
-		} else {
-			line += " " + word
+		if !empty() {
+			line = append(line, ' ')
+		}
+		for _, r := range w {
+			if len(line) == f.width {
+				out = append(out, string(line))
+				line = []rune(more)
+			}
+			line = append(line, r)
 		}
 	}
-	return append(out, line)
+	return append(out, string(line))
 }
 
 // screen is the frame as the pane shows it: a short one, its foot only.
@@ -655,6 +664,61 @@ func TestDriveLongWordsOnAShortPane(t *testing.T) {
 	}
 }
 
+// Images attached to an answer go as their paths after the words, each
+// longer than a line of an 80-column pane: Claude Code breaks them inside
+// the path, and every answer still goes in whole, through the review.
+func TestDriveAttachedPathsOnAShortPane(t *testing.T) {
+	fastSteps(t)
+	f := newFakeForm(listQs)
+	f.width, f.rows = 80, 24
+	dir := "/home/acme/work/acme-shop-checkout-rollout/.berth/attachments/"
+	words1 := "the flag step was off [attached: " + dir + "20261025-152924-pasted-152924.webp " + dir + "20261025-152931-checkout-step-two-after-the-flag.png]"
+	words3 := "[attached: " + dir + "20261025-153002-pasted-153002.webp]"
+	as := []QuestionAnswer{{Other: words1}, {Picks: []string{"Sam"}}, {Other: words3}}
+	if _, err := checkAnswers(listQs, as); err != nil {
+		t.Fatal(err)
+	}
+	if err := driveAnswers(context.Background(), f, listQs, as); err != nil {
+		t.Fatalf("drive: %v\nkeys %v\n%s", err, f.keysLog, f.screen())
+	}
+	if !f.sent || f.answer(0) != words1 || f.answer(2) != words3 {
+		t.Fatalf("sent %v: %q %q", f.sent, f.answer(0), f.answer(2))
+	}
+}
+
+// Read back, words may differ from what was typed only where a line
+// breaks: a space there, or none inside a long word. A space anywhere
+// else is a different answer.
+func TestWordsAsWrapped(t *testing.T) {
+	cases := []struct {
+		lines []string
+		words string
+		want  bool
+	}{
+		{[]string{"use /tmp/a b"}, "use /tmp/a b", true},
+		{[]string{"use /tmp/a b"}, "use /tmp/ab", false},
+		{[]string{"use /tmp/ab"}, "use /tmp/a b", false},
+		{[]string{"now here"}, "nowhere", false},
+		{[]string{"now", "here"}, "now here", true},
+		{[]string{"/home/acme/.b", "erth/x.png"}, "/home/acme/.berth/x.png", true},
+		{[]string{"/home/acme/.b", "erth/x.png"}, "/home/acme/.b erth/x.png", true},
+		{[]string{"off [attached: /a/", "b.png]"}, "off [attached: /a/b.png]", true},
+		{[]string{"off [attached: /a/", "b.png] more"}, "off [attached: /a/b.png]", false},
+	}
+	for _, c := range cases {
+		if got := (formRow{text: c.lines[0], more: c.lines[1:]}).holds(c.words); got != c.want {
+			t.Errorf("%q holds %q = %v", c.lines, c.words, got)
+		}
+	}
+	review := []string{"· Which screen? → off [attached: /home/acme/.b", "erth/x.png]", "· Who? → Sam"}
+	if !wrapsWith(review, "→ off [attached: /home/acme/.berth/x.png]") || !wrapsWith(review, "→ Sam") {
+		t.Errorf("review doesn't show its wrapped answers")
+	}
+	if wrapsWith(review, "→ off [attached: /home/acme/.be rth/x.png]") {
+		t.Errorf("review shows an answer with a space it hasn't")
+	}
+}
+
 // Kept short, the form's top is out of sight: nothing is pressed.
 func TestDriveNeedsTheWholeForm(t *testing.T) {
 	fastSteps(t)
@@ -703,6 +767,15 @@ func TestReadFormRealScreens(t *testing.T) {
 	f = readForm(readScreen(t, "own-words-wrapped-80.txt"))
 	if !f.ok || f.cursor != 4 || f.row(4).words() != longWords1 {
 		t.Fatalf("own words: %q\n%+v", f.row(4).words(), f)
+	}
+	// Paths too long for a line, broken inside them (Claude Code 2.1.310).
+	f = readForm(readScreen(t, "own-words-paths-80.txt"))
+	paths := "this is the one that is off [attached: /tmp/verify-berthd-box/acme-shop/.berth/attachments/20261025-152924-orange-giraffe.png /tmp/verify-berthd-box/acme-shop/.berth/attachments/20261025-152924-teal-anchor.png]"
+	if !f.ok || f.cursor != 3 || !f.row(3).holds(paths) {
+		t.Fatalf("paths: %q\n%+v", f.row(3).words(), f)
+	}
+	if f.row(3).holds(strings.Replace(paths, "teal", "tea", 1)) {
+		t.Errorf("holds words that aren't there")
 	}
 	// The review, every long answer wrapped.
 	f = readForm(readScreen(t, "review-long-80.txt"))

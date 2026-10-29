@@ -18,6 +18,10 @@
 # Claude's hooks in ~ only when they are out of date; `up` stops if it
 # did, so a dev box never changes the real one's hooks unnoticed.
 set -euo pipefail
+# Run from an agent's own terminal, the caller's BERTH_* (its session, and
+# BERTH_DRIVER=structured, which turns `berthd hook` off) would reach the
+# dev box's agents: none of them go in.
+for v in $(compgen -e | grep '^BERTH_' || true); do unset "$v"; done
 root=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 # Short: a unix socket's path can't be longer than 108 bytes.
 dir=${VERIFY_BOX_DIR:-/tmp/verify-berthd-box}
@@ -69,9 +73,25 @@ up)
       http://127.0.0.1:9378/v1/boxes/devq/api/sessions -d '{"name":"ask","location":"acme-shop","agent":"claude","driver":"claude","mode":"bypassPermissions"}' >/dev/null
   else
     box session new acme-shop --name ask -- claude --dangerously-skip-permissions >/dev/null
-    # A new folder asks to be trusted first.
-    sleep 8
-    tm send-keys -t ask Up && sleep 0.5 && tm send-keys -t ask Enter
+    # A new folder asks to be trusted first. One trusted already (Claude keeps
+    # that in ~, past `down`) goes straight to its prompt, and there Up and
+    # Enter would send the last prompt again from its history. So wait for
+    # one or the other, answer the question once, and stop if neither shows.
+    trusted=
+    for ((i = 0; ; i++)); do
+      pane=$(tm capture-pane -p -t ask)
+      if [[ -z $trusted ]] && grep -qi 'trust' <<<"$pane"; then
+        tm send-keys -t ask Up && sleep 0.5 && tm send-keys -t ask Enter
+        trusted=1
+      elif grep -qiE 'bypass permissions on|\? for shortcuts' <<<"$pane"; then
+        break
+      fi
+      if ((i == 90)); then
+        printf 'up: Claude in session ask showed neither the trust question nor its prompt in 90 s; its screen:\n%s\n' "$pane" >&2
+        exit 1
+      fi
+      sleep 1
+    done
   fi
   echo "up: box devq ($addr), agent http://127.0.0.1:9378, worktree devq/acme-shop, session ask"
   ;;
@@ -90,7 +110,7 @@ restart)
   ;;
 env)
   # VERIFY_BERTH_TOKEN is a secret: export it, don't print it anywhere else.
-  echo "export VERIFY_BERTH_TOKEN=$(lap ui-token | jq -r .token) VERIFY_WORKTREE=devq/acme-shop TMUX_TMPDIR=$dir/tmux"
+  echo "export VERIFY_BERTH_TOKEN=$(lap ui-token | jq -r .token) VERIFY_WORKTREE=devq/acme-shop TMUX_TMPDIR=$(printf %q "$dir/tmux")"
   ;;
 down)
   [[ -f $dir/berthd.pid ]] && kill "$(cat "$dir/berthd.pid")" 2>/dev/null || true
