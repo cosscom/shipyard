@@ -28,7 +28,9 @@ export default function Boxes() {
   const [pushNote, setPushNote] = useState<string>();
 
   useEffect(() => {
-    void pushChoice().then(setChoice);
+    void pushChoice()
+      .then(setChoice)
+      .catch(() => undefined);
   }, []);
 
   const choose = async (next: PushChoice) => {
@@ -95,7 +97,15 @@ export default function Boxes() {
       <SectionTitle title={demo ? "Demo boxes" : "Paired boxes"} count={boxes.length} />
       {boxes.map((b) => {
         const d = data[b.id];
-        const state = d?.error ? "Can't reach it" : d?.live ? "Live" : d?.info ? (d.info.version >= 2 ? "Connecting" : "Checking every few seconds (older berthd)") : "Connecting";
+        const state = demo
+          ? "Made up for the demo"
+          : d?.error
+            ? "Can't reach it"
+            : d?.live
+              ? "Live"
+              : d?.info && d.info.version < 2
+                ? "Checking every few seconds (older berthd)"
+                : "Connecting";
         return (
           <Card key={b.id}>
             <View style={st.row}>

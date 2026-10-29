@@ -76,7 +76,8 @@ const gateRun = (): Run => ({
 
 export async function mockCall(box: Box, method: string, path: string): Promise<unknown> {
   await new Promise((r) => setTimeout(r, 120));
-  if (path === "/phone/v1/info") return { box: box.name, version: 1 };
+  // A current box, less what needs a real one: a stream and notifications.
+  if (path === "/phone/v1/info") return { box: box.name, version: 2, capabilities: ["transcript", "interrupt"] };
   if (path === "/phone/v1/sessions") return sessions()[box.name] ?? [];
   if (path === "/phone/v1/runs") return box.name === "devl" ? [gateRun(), { id: "r_demo2", template: "loop", title: "Loop until pnpm test passes", status: "running", cursor: "1.r2.0", created: at(8) }] : [];
   if (path.startsWith("/phone/v1/runs/") && method === "GET") return gateRun();

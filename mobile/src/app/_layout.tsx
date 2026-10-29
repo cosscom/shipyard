@@ -63,7 +63,12 @@ export default function Layout() {
     const open = (r: Notifications.NotificationResponse | null) => {
       if (r) router.push(routeFor(noticeData(r.notification), useStore.getState().boxes) as never);
     };
-    void Notifications.getLastNotificationResponseAsync().then(open);
+    // (It throws where notifications aren't supported, which must not stop
+    // the rest of this.)
+    void Promise.resolve()
+      .then(() => Notifications.getLastNotificationResponseAsync())
+      .then(open)
+      .catch(() => undefined);
     const taps = Notifications.addNotificationResponseReceivedListener(open);
     // A new device token needs a new key from the relay, at every box.
     const tokens = Notifications.addPushTokenListener(() => void forgetPushKey().then(() => syncPush(pushTargets())));
