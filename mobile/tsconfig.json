@@ -1,0 +1,16 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "allowImportingTsExtensions": true,
+    "types": ["jest"],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@berth/core/*": ["../packages/core/src/*"],
+      "@berth/plugin": ["../packages/plugin-sdk/src/types.ts"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
+}

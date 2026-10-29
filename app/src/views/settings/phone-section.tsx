@@ -1,4 +1,4 @@
-import { CopyIcon, EllipsisIcon, RefreshCwIcon, SmartphoneIcon } from "lucide-react";
+import { BellIcon, CopyIcon, EllipsisIcon, RefreshCwIcon, SmartphoneIcon } from "lucide-react";
 import QRCode from "qrcode";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -7,16 +7,17 @@ import { Input } from "@/components/ui/input";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
 import { Switch } from "@/components/ui/switch";
 import { toastManager } from "@/components/ui/toast";
-import { errorMessage } from "@/lib/format";
+import { ago, errorMessage } from "@/lib/format";
 import { BoxError } from "@/components/upgrade-box";
-import { newNtfyTopic, type PairedBox, pairingLink, phoneApi, type PhoneStatus } from "@/lib/phone";
+import { newNtfyTopic, type PairedBox, pairingLink, phoneApi, type PhonePush, type PhoneStatus } from "@/lib/phone";
 import { NONE, useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/views/settings/confirm";
 import { Code, SettingsGroup, SettingsPage, SettingsRow } from "@/views/settings/rows";
 
 // Settings → Phone: turn on each box's phone app, pair a phone with one QR
-// code, and send "needs you" notifications through ntfy.
+// code, see the Shipyard phone apps each box notifies, and send "needs
+// you" notifications through ntfy.
 export function PhoneSection() {
   const client = useStore((s) => s.client);
   const boxes = useStore((s) => s.status?.boxes ?? NONE);
@@ -112,6 +113,8 @@ export function PhoneSection() {
         <PairCode link={link} count={paired.length} />
       </SettingsGroup>
 
+      <PhoneApps boxes={paired.map((p) => p.name)} phone={phone} onChange={change} />
+
       <Notifications boxes={paired.map((p) => p.name)} phone={phone} onChange={change} />
 
       <ConfirmDialog
@@ -153,7 +156,7 @@ function PairCode({ link, count }: { link?: string; count: number }) {
         </p>
         <ol className="list-decimal space-y-1 pl-4 text-muted-foreground">
           <li>Your phone needs the Tailscale app, signed in to the same tailnet as the boxes.</li>
-          <li>Scan the code, then add the page to your home screen (Share → Add to Home Screen).</li>
+          <li>Scan the code in the Shipyard app on iPhone. Or scan it with the camera, then add the page to your home screen (Share → Add to Home Screen).</li>
           <li>Anyone with this code can answer your agents. Make a new code if it leaks.</li>
         </ol>
         <div>
@@ -202,7 +205,7 @@ function Notifications({ boxes, phone, onChange }: { boxes: string[]; phone: Rec
       title="Notifications"
       description={
         <>
-          Boxes push to an <Code>ntfy</Code> topic when an agent needs you, and the ntfy app shows it on iOS and Android. Tapping it opens that agent here.
+          For the web phone app and Android: boxes push to an <Code>ntfy</Code> topic when an agent needs you, and the ntfy app shows it. Tapping it opens that agent in the web app. The Shipyard app on iPhone needs none of this.
         </>
       }
     >
@@ -235,6 +238,64 @@ function Notifications({ boxes, phone, onChange }: { boxes: string[]; phone: Rec
           </div>
         </div>
       )}
+    </SettingsGroup>
+  );
+}
+
+type PhoneState = PhoneStatus | { error: string; unsupported: true };
+
+// PhoneApps lists the Shipyard phone apps the boxes notify, one row per
+// phone with the boxes that notify it. A phone turns this on from its
+// own Boxes tab; removing it here stops every box at once.
+function PhoneApps({ boxes, phone, onChange }: { boxes: string[]; phone: Record<string, PhoneState>; onChange: (box: string, c: Parameters<typeof phoneApi.change>[2]) => Promise<void> }) {
+  const apps = new Map<string, { push: PhonePush; boxes: string[] }>();
+  for (const b of boxes) {
+    const st = phone[b];
+    for (const d of (st && "push" in st && st.push) || []) {
+      const app = apps.get(d.id);
+      if (app) {
+        app.boxes.push(b);
+        if ((d.last_ok ?? "") > (app.push.last_ok ?? "")) app.push = d;
+      } else apps.set(d.id, { push: d, boxes: [b] });
+    }
+  }
+  const ntfyToo = boxes.some((b) => {
+    const st = phone[b];
+    return st && "notify" in st && !!st.notify;
+  });
+  return (
+    <SettingsGroup title="Phone apps" description="The Shipyard app on these phones gets notifications through Shipyard's push relay: which worktree and box need you, never what an agent wrote.">
+      {apps.size === 0 ? (
+        <div className="flex items-center gap-3 py-5 text-muted-foreground text-body">
+          <BellIcon className="size-5 shrink-0" />
+          No phone gets notifications yet. In the Shipyard app, open Boxes and turn notifications on.
+        </div>
+      ) : (
+        [...apps.values()].map(({ push, boxes: from }) => (
+          <SettingsRow
+            key={push.id}
+            label={push.name || (push.platform === "ios" ? "iPhone" : "Android phone")}
+            description={
+              push.last_error ? (
+                <span className="text-destructive">{push.last_error}</span>
+              ) : (
+                `${from.join(", ")} · ${(push.on ?? ["waiting"]).includes("finished") ? "needs you and done" : "needs you"}${push.last_ok ? ` · last sent ${ago(push.last_ok)}` : ""}`
+              )
+            }
+          >
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={async () => {
+                for (const b of from) await onChange(b, { remove_push: push.id });
+              }}
+            >
+              Remove
+            </Button>
+          </SettingsRow>
+        ))
+      )}
+      {apps.size > 0 && ntfyToo && <p className="py-3 text-muted-foreground text-meta">ntfy is on too, so these phones may get each notification twice. Turn ntfy off below if they only use the app.</p>}
     </SettingsGroup>
   );
 }

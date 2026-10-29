@@ -1,0 +1,19 @@
+{
+  "cli": { "version": ">= 16.0.0", "appVersionSource": "remote" },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": { "BERTH_APNS_ENV": "sandbox" }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": { "BERTH_APNS_ENV": "production" }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": { "BERTH_APNS_ENV": "production" }
+    }
+  },
+  "submit": { "production": {} }
+}
