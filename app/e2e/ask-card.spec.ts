@@ -98,6 +98,30 @@ test("a question its screen shows options for still gets its card", async ({ app
   await expect.poll(() => agent.sends.map((s) => s.text)).toContain("2");
 });
 
+test("an address in a question its screen shows is a link that opens it whole", async ({ app }) => {
+  const URL = "https://docs.example.com/lockfiles?mode=overwrite&keep=none";
+  await app.page.addInitScript(() => {
+    const w = window as unknown as { __opened: string[] };
+    w.__opened = [];
+    window.open = (url?: string | URL) => {
+      w.__opened.push(String(url));
+      return null;
+    };
+  });
+  await openWaiting(app, {}, ["─".repeat(80), ` Overwrite it? See ${URL}`, "", " ❯ 1. Overwrite it", "   2. Keep mine", "", " Esc to cancel"].join("\n"));
+  const card = app.chat.locator("[data-testid=chat-item][data-kind=ask]");
+  await expect(card).toContainText("Needs your answer");
+  const link = card.getByRole("link", { name: URL });
+  await expect(link).toHaveAttribute("href", URL);
+  expect(await card.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await link.click();
+  await expect.poll(() => app.page.evaluate(() => (window as unknown as { __opened: string[] }).__opened)).toEqual([URL]);
+  // A pick after it is the only thing sent: the link's click sent nothing,
+  // even late.
+  await card.getByRole("button", { name: /Keep mine/ }).click();
+  await expect.poll(() => agent.sends.map((s) => s.text)).toEqual(["2"]);
+});
+
 // The board's card offers the options of a menu on the agent's screen as
 // chips: a plan in its last message, above its prompt, is no menu.
 const PLAN = [

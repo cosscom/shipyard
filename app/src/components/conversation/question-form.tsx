@@ -1,6 +1,7 @@
 import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, CopyIcon, ListChecksIcon, PencilIcon, RotateCwIcon, SendHorizontalIcon, SquareTerminalIcon, TriangleAlertIcon, XIcon } from "lucide-react";
-import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
+import { createContext, Fragment, type ReactNode, useContext, useEffect, useRef, useState } from "react";
 
+import { LinkedText } from "@/components/conversation/linked-text";
 import { ErrorText } from "@/components/error-note";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -156,11 +157,16 @@ function InTerminal({ it, who }: { it: Item; who: string }) {
             <li key={q.question} className="flex gap-2.5">
               <span className="mt-px font-mono text-muted-foreground text-mono tabular-nums">{i + 1}.</span>
               <div className="min-w-0">
-                <p data-selectable className="text-body">
-                  {q.question}
+                <p data-selectable className="wrap-anywhere text-body">
+                  <LinkedText text={q.question} />
                 </p>
-                <p className="text-muted-foreground text-meta">
-                  {q.options.map((o) => o.label).join(" · ")}
+                <p className="wrap-anywhere text-muted-foreground text-meta">
+                  {q.options.map((o, j) => (
+                    <Fragment key={o.label}>
+                      {j > 0 && " · "}
+                      <LinkedText text={o.label} />
+                    </Fragment>
+                  ))}
                   {q.multi ? " — pick any" : ""}
                 </p>
               </div>
@@ -295,15 +301,16 @@ function Form({ it, who, stuck, onSubmit }: { it: Item; who: string; stuck?: str
           </Alert>
         </div>
       )}
-      <div className="flex items-center gap-2 border-t px-4 py-3">
+      {/* At a phone's width Back, the status (min-w-32) and Submit answers don't fit on one line: the button goes under, on the right. */}
+      <div className="flex flex-wrap items-center gap-2 border-t px-4 py-3">
         {steps > 1 && (
           <Button size="sm" variant="ghost" disabled={busy || step === 0} onClick={() => go(step - 1)}>
             <ArrowLeftIcon />
             Back
           </Button>
         )}
-        <span className="min-w-0 flex-1 truncate text-meta text-muted-foreground">{busy ? `Answering in ${who}'s form…` : failed ? "Not sent yet" : review ? "Check your answers, then submit" : `${who} waits for your answer`}</span>
-        <Button size="sm" disabled={busy || (review ? !done.every(Boolean) : !done[step])} onClick={next}>
+        <span className="min-w-32 flex-1 truncate text-meta text-muted-foreground">{busy ? `Answering in ${who}'s form…` : failed ? "Not sent yet" : review ? "Check your answers, then submit" : `${who} waits for your answer`}</span>
+        <Button size="sm" className="ml-auto" disabled={busy || (review ? !done.every(Boolean) : !done[step])} onClick={next}>
           {busy ? <Spinner className="size-3.5" /> : last ? <SendHorizontalIcon /> : null}
           {last ? (reviewed ? "Submit answers" : "Submit") : step === qs.length - 1 ? "Review" : "Next"}
           {!last && <ArrowRightIcon />}
@@ -337,10 +344,12 @@ function Step({ q, d, disabled, onChange, onEnter }: { q: Question; d: Draft; di
     />
   );
   return (
-    <fieldset className="flex flex-col gap-3" disabled={disabled}>
+    // min-w-0: a fieldset is as wide as its widest word, a long address,
+    // unless told otherwise, and the card would cut it off.
+    <fieldset className="flex min-w-0 flex-col gap-3" disabled={disabled}>
       <legend className="contents">
-        <span data-selectable className="block text-heading">
-          {q.question}
+        <span data-selectable className="wrap-anywhere block text-heading">
+          <LinkedText text={q.question} />
         </span>
       </legend>
       <span className="-mt-1.5 text-muted-foreground text-meta">{q.multi ? "Pick any that apply" : "Pick one"}</span>
@@ -385,9 +394,15 @@ function Step({ q, d, disabled, onChange, onEnter }: { q: Question; d: Draft; di
 
 function OptionText({ label, description }: { label: string; description?: string }) {
   return (
-    <span className="flex min-w-0 flex-col gap-0.5">
-      <span className="text-row">{label}</span>
-      {description && <span className="text-desc text-muted-foreground">{description}</span>}
+    <span className="wrap-anywhere flex min-w-0 flex-col gap-0.5">
+      <span className="text-row">
+        <LinkedText text={label} />
+      </span>
+      {description && (
+        <span className="text-desc text-muted-foreground">
+          <LinkedText text={description} />
+        </span>
+      )}
     </span>
   );
 }
@@ -401,8 +416,9 @@ function Review({ questions, answers, onEdit, disabled }: { questions: Question[
           <li key={q.question}>
             <button type="button" disabled={disabled} onClick={() => onEdit(i)} className="group flex w-full items-start gap-3 px-3 py-2.5 text-left outline-none transition-colors focus-visible:bg-accent/60 enabled:hover:bg-accent/40">
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="truncate text-muted-foreground text-meta">{q.question}</span>
-                <span className="break-words text-row">{shownAnswer(q, answers[i]) || "—"}</span>
+                {/* Whole, so an address in it shows; not a link, inside the row's button. */}
+                <span className="wrap-anywhere text-muted-foreground text-meta">{q.question}</span>
+                <span className="wrap-anywhere text-row">{shownAnswer(q, answers[i]) || "—"}</span>
               </span>
               <PencilIcon className="mt-1 size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" aria-label="Change" />
             </button>

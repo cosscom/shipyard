@@ -46,6 +46,11 @@
 .cv-md strong { font-weight: 600; }
 .cv-md a { color: var(--link, var(--foreground)); text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); text-underline-offset: 2px; }
 .cv-md a:hover { text-decoration-color: currentColor; }
+/* An address in a question or its options (linked-text.tsx), drawn as a
+   reply's links are. */
+a.cv-link { color: var(--link, var(--foreground)); text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); text-underline-offset: 2px; outline: none; border-radius: 3px; }
+a.cv-link:hover, a.cv-link:focus-visible { text-decoration-color: currentColor; }
+a.cv-link:focus-visible { box-shadow: 0 0 0 2px var(--ring); }
 /* An issue, pull request or commit the reply names (repo-refs.tsx): a link
    the app made rather than one the agent wrote, so a quieter dotted line;
    hovered or focused, the line in the text's own colour. A commit's hash

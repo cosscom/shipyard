@@ -13,28 +13,38 @@ export interface UrlMatch {
 // Web and mail addresses only: what the app can hand to the system browser
 // (lib/open-url, and the shell plugin's scope in the app).
 const URL_RE = /\b(?:https?:\/\/|mailto:)[^\s<>"'`]+/gi;
+// In prose an apostrophe can be part of an address (?q=O'Reilly): it is
+// kept, and one that closes a quote around it is trimmed as punctuation.
+const PROSE_URL_RE = /\b(?:https?:\/\/|mailto:)[^\s<>"`]+/gi;
 const TRAILING = /[.,;:!?'"*]+$/;
 const CLOSERS: Record<string, string> = { ")": "(", "]": "[", "}": "{", ">": "<" };
 
 // findUrls finds the addresses in a line of a terminal's text. Punctuation
 // that ends a sentence is left out, and so is a closing bracket the address
 // doesn't open: "(see https://example.com/a)" links https://example.com/a,
-// https://en.wikipedia.org/wiki/Tmux_(software) keeps its own.
-export function findUrls(line: string): UrlMatch[] {
+// https://en.wikipedia.org/wiki/Tmux_(software) keeps its own. prose is
+// for an agent's own text rather than a terminal's (lib/link-text).
+export function findUrls(line: string, prose = false): UrlMatch[] {
   const out: UrlMatch[] = [];
-  URL_RE.lastIndex = 0;
-  for (let m = URL_RE.exec(line); m; m = URL_RE.exec(line)) {
-    let url = m[0];
-    for (;;) {
-      const before = url;
-      url = url.replace(TRAILING, "");
-      const last = url.at(-1);
-      if (last && CLOSERS[last] && count(url, CLOSERS[last]) < count(url, last)) url = url.slice(0, -1);
-      if (url === before) break;
-    }
+  const re = prose ? PROSE_URL_RE : URL_RE;
+  re.lastIndex = 0;
+  for (let m = re.exec(line); m; m = re.exec(line)) {
+    const url = trimUrl(m[0]);
     if (/^(?:https?:\/\/|mailto:)./i.test(url)) out.push({ start: m.index, end: m.index + url.length, url });
   }
   return out;
+}
+
+// trimUrl drops what findUrls leaves out of an address's end: a sentence's
+// punctuation and a closing bracket it doesn't open.
+export function trimUrl(url: string): string {
+  for (;;) {
+    const before = url;
+    url = url.replace(TRAILING, "");
+    const last = url.at(-1);
+    if (last && CLOSERS[last] && count(url, CLOSERS[last]) < count(url, last)) url = url.slice(0, -1);
+    if (url === before) return url;
+  }
 }
 
 // A terminal's rows as lib/terminal reads them, for links that run on from

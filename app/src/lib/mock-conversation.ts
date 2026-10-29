@@ -155,6 +155,20 @@ const RELEASE_QUESTIONS: Question[] = [
   { header: "Reviewer", question: "Who should review the change?", options: [{ label: "bailey" }, { label: "me" }] },
 ];
 
+// ?scene=question-links: questions with long addresses in them, as a
+// sign-in page's (made up), and one the box cut short (its "…"), which
+// is shown but not linked.
+const LINK_URL = "https://shop.example.com/admin/oauth/authorize?client_id=0000example0000example&scope=read_products,write_products,read_orders&redirect_uri=https%3A%2F%2Fapp.example.com%2Fauth%2Fcallback&state=mock-state-1234567890abcdef";
+const CUT_URL = "https://logs.example.com/explorer?query=resource.type%3D%22cloud_run_revision%22%20severity%3E%3DERROR&cursorTimestamp=2026-10-27T15:00:00Z&duration=PT1H&project=acme-shop&";
+const LINK_QUESTIONS: Question[] = [
+  {
+    header: "Connect",
+    question: `Approve the app for the shop at ${LINK_URL} and pick how it went.`,
+    options: [{ label: "Approved", description: `If it asks again, open ${LINK_URL}&grant_options%5B%5D=per-user instead.` }, { label: "It failed" }],
+  },
+  { header: "Logs", question: "Did the errors stop?", options: [{ label: "Yes" }, { label: "No", description: `The log the box cut short: ${CUT_URL}…` }] },
+];
+
 const RELEASE_PLAN = `## The fix, in short
 
 Webhook retries now reuse the order the first delivery made:
@@ -204,13 +218,14 @@ function releaseChat(): TranscriptItem[] {
   const picture = new URLSearchParams(location.search).get("scene") === "chat-image" ? "\n\nThe checkout screenshot shows the confirmed order:\n\n![Checkout result](screenshots/checkout-result.png)" : "";
   const tables = new URLSearchParams(location.search).get("scene") === "chat-tables";
   const testReport = new URLSearchParams(location.search).get("scene") === "chat-tests";
+  const links = new URLSearchParams(location.search).get("scene") === "question-links";
   return [
     { kind: "user", id: "rq-u1", text: "Plan the release of the checkout fix." },
     { kind: "tools", id: "rq-t1", verb: "Read", done: true, items: [{ verb: "Read", target: "webhook.ts", file: true, id: "mock-read-1" }, { verb: "Read", target: "createOrder.ts", file: true, id: "mock-read-2" }] },
     { kind: "text", id: "rq-x1", text: RELEASE_PLAN + picture },
     ...(tables ? [{ kind: "text" as const, id: "rq-x2", text: TABLE_REPORT }] : []),
     ...(testReport ? [{ kind: "text" as const, id: "rq-x2", text: TEST_REPORT }] : []),
-    { kind: "question", id: "rq-q1", tool: "mock-ask-release", questions: RELEASE_QUESTIONS },
+    { kind: "question", id: "rq-q1", tool: "mock-ask-release", questions: links ? LINK_QUESTIONS : RELEASE_QUESTIONS },
   ];
 }
 

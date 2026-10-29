@@ -24,6 +24,7 @@ import { ChatList } from "@/components/conversation/chat-list";
 import { ChatSearch, plainMarkdown, type SearchEntry } from "@/components/conversation/chat-search";
 import { EditChange, EditPanel } from "@/components/conversation/edit-diff";
 import { ArtifactCard, ArtifactJumper } from "@/components/conversation/artifacts";
+import { LinkedText } from "@/components/conversation/linked-text";
 import { QuestionCard } from "@/components/conversation/question-form";
 import { SelectionActions } from "@/components/conversation/selection-actions";
 import { PromptActions, PromptActionsContext, type PromptContext } from "@/components/conversation/prompt-actions";
@@ -689,7 +690,11 @@ function Ask({ it, onAnswer }: { it: Extract<TranscriptItem, { kind: "ask" }>; o
           <span className="size-2 rounded-full bg-warning" aria-hidden />
           {question ? "Needs your answer" : "Wants to run a command"}
         </div>
-        {it.detail && (question ? <p data-selectable className="whitespace-pre-wrap">{it.detail}</p> : <code className="rounded-lg bg-muted/40 px-3 py-2 font-mono text-mono">{it.detail}</code>)}
+        {it.detail && (question ? (
+          <p data-selectable className="wrap-anywhere whitespace-pre-wrap">
+            <LinkedText text={it.detail} />
+          </p>
+        ) : <code className="rounded-lg bg-muted/40 px-3 py-2 font-mono text-mono">{it.detail}</code>)}
       </div>
       <div className="flex flex-wrap items-center gap-2 border-t px-4 py-3">
         {choices.map((c, i) => (
