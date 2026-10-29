@@ -138,6 +138,10 @@ events.
 | `integrations.installed` | `tool`, `account?`: an agent CLI's hooks and skills were installed from the app or the API, or by berthd in an account folder a new session uses |
 | `agents.installed` | `agents`: agent CLIs were added to the box from the app (**Add agents…**) or `POST /v1/agents/install` |
 | `secret.failed` | `location`, `name`, `path`, `variable`, `ref`, `reason`: a [secret reference](/guides/secrets) could not be read, so the variable was left unset; never the value |
+| `secret.requested` | `id`, `session`, `name`, `location`, `reason`: an agent asked for a [secret](/guides/secrets#when-an-agent-asks-for-a-secret) |
+| `secret.request.ended` | `id`, `session`, `name`, `status` (`saved`, `declined`, `timed_out`) |
+| `secret.saved`, `secret.deleted` | `name`, `store`, `where` (`expired: true` when the sweep deleted it); never the value |
+| `secret.settings.changed` | Where secrets are saved changed |
 | `secret.resolved` | `location`, `name`, `path`, `variable`, `ref`: one that failed reads again |
 | `share.started`, `share.stopped` | `id`, `port`, `url` |
 | `unit.started`, `unit.stopped`, `unit.restarted` | `name` |

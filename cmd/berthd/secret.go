@@ -8,7 +8,10 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -25,16 +28,25 @@ import (
 // behind it too, since tmux would otherwise take the values as arguments. A
 // reference that cannot be resolved leaves its variable unset, and the box
 // hears about it and announces it as a secret.failed event.
+//
+// An agent runs it itself to use a saved secret in one command:
+// --env K=box://NAME puts the value in K for that command alone, and
+// --file K=box://NAME writes it to a private temporary file, puts the
+// file's path in K, and removes the file when the command ends. These
+// must resolve: one that can't stops the command.
 func secretExec(b boxHome, args []string) error {
 	fs := flag.NewFlagSet("secret exec", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	socket := fs.String("socket", b.socket(), "the box's local API socket")
+	var envRefs, fileRefs refFlags
+	fs.Var(&envRefs, "env", "VAR=REF: the value of REF in VAR, for this command")
+	fs.Var(&fileRefs, "file", "VAR=REF: a temporary file holding REF's value, its path in VAR")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	argv := fs.Args()
 	if len(argv) == 0 {
-		return errors.New("usage: berthd secret exec [--socket PATH] -- PROGRAM [ARGS...]")
+		return errors.New("usage: berthd secret exec [--socket PATH] [--env VAR=REF]... [--file VAR=REF]... -- PROGRAM [ARGS...]")
 	}
 	refs := map[string]string{}
 	for _, k := range strings.Split(os.Getenv(box.SecretVarsEnv), ",") {
@@ -60,11 +72,125 @@ func secretExec(b boxHome, args []string) error {
 	if len(rep.Results) > 0 {
 		reportSecrets(*socket, rep)
 	}
+	asked := map[string]string{}
+	for k, ref := range envRefs {
+		asked[k] = ref
+	}
+	for k, ref := range fileRefs {
+		asked[k] = ref
+	}
+	got, bad := b.boxSecrets().ResolveAll(ctx, asked, nil)
+	if len(bad) > 0 {
+		var msgs []string
+		for k, err := range bad {
+			msgs = append(msgs, fmt.Sprintf("%s (%s): %s", k, asked[k], err))
+		}
+		sort.Strings(msgs)
+		return errors.New("could not resolve " + strings.Join(msgs, "; "))
+	}
+	for k := range envRefs {
+		os.Setenv(k, got[k])
+	}
 	bin, err := exec.LookPath(argv[0])
 	if err != nil {
 		return err
 	}
-	return syscall.Exec(bin, argv, os.Environ())
+	if len(fileRefs) == 0 {
+		return syscall.Exec(bin, argv, os.Environ())
+	}
+	files := map[string]string{}
+	for k := range fileRefs {
+		files[k] = got[k]
+	}
+	code, err := runWithFiles(bin, argv, files)
+	if err != nil {
+		return err
+	}
+	if code != 0 {
+		return exitCode(code)
+	}
+	return nil
+}
+
+// refFlags is a repeated VAR=REF flag.
+type refFlags map[string]string
+
+func (r *refFlags) String() string { return "" }
+
+func (r *refFlags) Set(v string) error {
+	k, ref, ok := strings.Cut(v, "=")
+	if !ok || !envVarName.MatchString(k) {
+		return fmt.Errorf("%q is not VAR=REF", v)
+	}
+	if err := box.ValidateSecretRef(ref); err != nil {
+		return err
+	}
+	if *r == nil {
+		*r = refFlags{}
+	}
+	(*r)[k] = ref
+	return nil
+}
+
+var envVarName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// secretFileDir is where --file writes: a folder in memory when the box
+// has one, so the value never reaches a disk.
+func secretFileDir() string {
+	if d := os.Getenv("XDG_RUNTIME_DIR"); d != "" {
+		if st, err := os.Stat(d); err == nil && st.IsDir() {
+			return d
+		}
+	}
+	if st, err := os.Stat("/dev/shm"); err == nil && st.IsDir() {
+		return "/dev/shm"
+	}
+	return os.TempDir()
+}
+
+// runWithFiles runs a program with each value in a file of its own,
+// readable by this user only, and each variable naming its file. The files
+// go when the program ends, and when this is stopped by a signal, which it
+// passes on to the program first.
+func runWithFiles(bin string, argv []string, values map[string]string) (int, error) {
+	dir, err := os.MkdirTemp(secretFileDir(), "berth-secret-")
+	if err != nil {
+		return 0, err
+	}
+	defer os.RemoveAll(dir)
+	env := os.Environ()
+	for k, v := range values {
+		p := filepath.Join(dir, k)
+		if err := os.WriteFile(p, []byte(v), 0o600); err != nil {
+			return 0, err
+		}
+		env = append(env, k+"="+p)
+	}
+	cmd := exec.Command(bin, argv[1:]...)
+	cmd.Env, cmd.Stdin, cmd.Stdout, cmd.Stderr = env, os.Stdin, os.Stdout, os.Stderr
+	sigs := make(chan os.Signal, 4)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
+	defer signal.Stop(sigs)
+	if err := cmd.Start(); err != nil {
+		return 0, err
+	}
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	for {
+		select {
+		case s := <-sigs:
+			cmd.Process.Signal(s)
+		case err := <-done:
+			var ee *exec.ExitError
+			if errors.As(err, &ee) {
+				if st, ok := ee.Sys().(syscall.WaitStatus); ok && st.Signaled() {
+					return 128 + int(st.Signal()), nil
+				}
+				return ee.ExitCode(), nil
+			}
+			return 0, err
+		}
+	}
 }
 
 // reportSecrets tells the box, if berthd is running, which variables
@@ -86,7 +212,14 @@ func (b boxHome) opSessionFile() string { return filepath.Join(b.dir, "op-sessio
 // boxSecrets is how this box reads secrets, outside berthd serve too.
 func (b boxHome) boxSecrets() *box.Secrets {
 	host, _ := os.Hostname()
-	return &box.Secrets{SessionFile: b.opSessionFile(), Box: host}
+	return &box.Secrets{SessionFile: b.opSessionFile(), Box: host, Stores: b.secretStores()}
+}
+
+// secretStores are the secrets saved through secret cards, which berthd
+// serve saves and any process on the box reads.
+func (b boxHome) secretStores() *box.SecretStores {
+	host, _ := os.Hostname()
+	return &box.SecretStores{Dir: b.dir, Box: host}
 }
 
 // secretSignin signs the box's op in to 1Password, in the terminal it runs

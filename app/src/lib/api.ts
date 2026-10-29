@@ -339,7 +339,89 @@ export const boxApi = {
   // testSecret asks the box to resolve a secret reference now. It reports
   // whether it could and the value's length, never the value.
   testSecret: (c: Client, box: string, ref: string) => c.box<SecretTest>(box, "POST", "secrets/test", { ref }),
+  // The secrets agents asked for and wait on (berthd secret request).
+  secretRequests: async (c: Client, box: string) => (await c.box<SecretRequest[] | null>(box, "GET", "secrets/requests")) ?? [],
+  // saveSecret hands the person's value to the box in this one request,
+  // which stores it and answers with its reference: the value is never
+  // kept, queued or sent again from here (lib/secret-request.ts).
+  saveSecret: (c: Client, box: string, id: string, value: string, expires: SecretExpiry) =>
+    c.box<{ ref: string }>(box, "POST", `secrets/requests/${encodeURIComponent(id)}/save`, { value, expires }),
+  declineSecret: (c: Client, box: string, id: string) => c.box<{ ok: true }>(box, "POST", `secrets/requests/${encodeURIComponent(id)}/decline`),
+  // The secrets saved through requests: names and where they are, never a
+  // value.
+  secrets: (c: Client, box: string) => c.box<SecretsList>(box, "GET", "secrets"),
+  // A production secret is deleted only with its name typed as confirm.
+  deleteSecret: (c: Client, box: string, ref: string, confirm?: string) => c.box<{ ok: true }>(box, "POST", "secrets/delete", confirm === undefined ? { ref } : { ref, confirm }),
+  secretSettings: (c: Client, box: string) => c.box<SecretSettings>(box, "GET", "secrets/settings"),
+  putSecretSettings: (c: Client, box: string, s: SecretSettings) => c.box<SecretSettings>(box, "PUT", "secrets/settings", s),
 };
+
+// How long a saved secret lasts: "" never expires.
+export type SecretExpiry = "" | "1h" | "24h" | "7d";
+
+// A secret an agent asked the person for (berthd secret request NAME
+// --reason …), pending on its session (Session.secret_request) until saved,
+// declined or an hour passes. It names the secret and where it will go;
+// the value goes only from the card to the box (boxApi.saveSecret).
+export interface SecretRequest {
+  id: string;
+  name: string;
+  reason: string;
+  session: string;
+  location?: string;
+  // The provider ("local", "gcp") and its words ("Encrypted file", "GCP
+  // Secret Manager"); where is its place, a GCP project.
+  store: string;
+  store_label: string;
+  where?: string;
+  environment?: "staging" | "production";
+  // A service account the save grants read access to this one secret.
+  grant?: string;
+  // The expiry the agent suggests.
+  ttl?: Exclude<SecretExpiry, "">;
+  // A secret of this name is saved already, since replaced_at.
+  replace?: boolean;
+  replaced_at?: string;
+  created: string;
+  expires: string;
+  status: "pending";
+}
+
+// A saved secret as Settings › Secrets lists it: never its value.
+export interface SecretMeta {
+  name: string;
+  ref: string;
+  store: string;
+  store_label: string;
+  where?: string;
+  environment?: "staging" | "production";
+  created: string;
+  expires?: string;
+  session?: string;
+  reason?: string;
+  location?: string;
+}
+
+export interface SecretStore {
+  id: string;
+  label: string;
+  caps: { expiry: boolean; labels: boolean; grant: boolean };
+}
+
+// Where a box saves secrets: its default store, and a project's own.
+export interface SecretSettings {
+  store: string;
+  gcp_project?: string;
+  locations?: Record<string, { store?: string; gcp_project?: string }>;
+}
+
+export interface SecretsList {
+  secrets: SecretMeta[] | null;
+  stores: SecretStore[] | null;
+  settings: SecretSettings;
+  // A store the box couldn't list (a GCP project it has no access to).
+  errors?: { store: string; where?: string; error: string }[];
+}
 
 export interface SessionDiff {
   file: string;

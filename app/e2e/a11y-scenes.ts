@@ -175,6 +175,14 @@ export const scenes: Scene[] = [
     },
   },
   {
+    // An agent asking for a production secret (?secrets, lib/mock-secrets).
+    id: "chat-secret-request",
+    async run(app, theme) {
+      await chat(app, theme, "gpu/ci-flake", { secrets: "1" });
+      await expect(app.chat.getByTestId("secret-card")).toBeVisible();
+    },
+  },
+  {
     id: "terminal",
     async run(app, theme) {
       await app.open({ theme });
@@ -317,7 +325,7 @@ export const scenes: Scene[] = [
       await expect(page.getByTestId("install-plan")).toBeVisible();
     },
   },
-  ...["general", "notifications", "appearance", "terminal", "boxes", "computers", "phone", "agents", "integrations", "plugins", "shortcuts", "labs", "about", "developer"].map(settings),
+  ...["general", "notifications", "appearance", "terminal", "boxes", "computers", "phone", "agents", "integrations", "secrets", "plugins", "shortcuts", "labs", "about", "developer"].map(settings),
   {
     id: "sidebar-rename",
     async run(app, theme) {

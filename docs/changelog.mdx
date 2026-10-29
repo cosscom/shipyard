@@ -15,6 +15,17 @@ again.
   the ones you're using stand out. Switching to one of those opens New
   task in it; a project whose agents are only idle or done just switches
   to where you were, as before.
+- **Agents ask for secrets through a masked card.** Instead of having an
+  API key pasted into the chat, an agent runs `berthd secret request NAME
+  --reason …` (or the `berth_secret_request` tool), and a card shows
+  wherever a question does: a masked field, the agent's reason, where it
+  will be saved, and Save securely or Decline. The value goes from the app
+  to the box only, never into the chat, an event or a log, and the agent
+  gets a reference such as `box://ACME_TOKEN` to use in one command with
+  `berthd secret exec --env` or `--file`. Saved secrets live in the
+  Keychain on a Mac, a Secret Service or an encrypted file on Linux, or
+  Google Cloud Secret Manager, and Settings → Secrets lists and deletes
+  them. [Secrets](/guides/secrets#when-an-agent-asks-for-a-secret)
 - **Agents come back after a reboot.** Starting a chat agent again after
   its box restarted ran its old command with its last word cut off, so
   Claude refused to start ("argument missing") and the tab only said it had

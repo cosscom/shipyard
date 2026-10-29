@@ -5,7 +5,8 @@ import { handleBrowserOpened } from "@/lib/agent-browser-open";
 import { handleArtifactEvent } from "@/lib/art/model";
 import { agentLabel, agentOf, sessionAgent, sessionName } from "@/lib/derive";
 import { isLive, useLoops } from "@/lib/loops";
-import { flowKey, resolveFromEvent, route, secretKey, serviceKey } from "@/lib/notifications";
+import { flowKey, resolveFromEvent, route, secretKey, secretRequestKey, serviceKey } from "@/lib/notifications";
+import { askLine, SECRET_TOOL } from "@/lib/secret-request";
 import { handlePreview } from "@/lib/preview";
 import { handleQueueEvent } from "@/lib/queue";
 import { scheduleRuns } from "@/lib/runs";
@@ -33,6 +34,8 @@ const refreshes: [prefix: string, parts: BoxPart[]][] = [
   ["review.", ["locations"]],
   // Agent CLIs added or found on the box: the agents it offers.
   ["agents.", ["info"]],
+  // A secret asked for, saved, declined or timed out: the session's card.
+  ["secret.", ["sessions"]],
 ];
 
 // The most recent events, newest first, for the Automations view.
@@ -85,8 +88,10 @@ function notifyFor(e: BerthEvent) {
     // agent finishing is not news.
     const sessions = box ? useStore.getState().boxes[box]?.sessions : undefined;
     const looped = !waiting && useLoops.getState().loops.some((l) => isLive(l) && l.box === box && (l.session === where.session || (!!where.path && sessions?.find((s) => s.name === l.session)?.dir === where.path)));
+    // Waiting on a secret it asked for: secret.requested says that, better.
+    const forSecret = waiting && (d.tool === SECRET_TOOL || sessions?.find((s) => s.name === where.session)?.ask?.tool === SECRET_TOOL);
     // Stopped from the chat (Esc, Stop): the person knows; it isn't done.
-    if (!looped && d.source !== "interrupt") {
+    if (!looped && !forSecret && d.source !== "interrupt") {
       route({
         category: waiting ? "waiting" : "finished",
         title: waiting ? `${where.agent} needs you` : `${where.agent} is done`,
@@ -205,6 +210,29 @@ function notifyFor(e: BerthEvent) {
       worktree: wt !== d.location ? wt : undefined,
       action: d.location ? { kind: "project", box, location: String(d.location) } : undefined,
       key: secretKey(box, d.location, d.variable),
+    });
+  }
+  // An agent asks for a secret: it waits on the person as at a question.
+  // The event names the secret and why, never a value; the card in its
+  // chat (or on the board) takes it. Settled by secret.request.ended.
+  if (e.type === "secret.requested" && box) {
+    // The event names the session, not its folder: the folder is its.
+    const dir = useStore.getState().boxes[box]?.sessions?.find((s) => s.name === d.session)?.dir;
+    const where = describeAgent({ ...e, data: { ...d, path: d.path ?? dir } });
+    const session = str(d.session) ?? where.session;
+    const name = str(d.name) ?? "a secret";
+    route({
+      category: "waiting",
+      title: `${where.agent} asks for a secret`,
+      detail: askLine({ name, reason: str(d.reason) }),
+      tone: "warning",
+      box,
+      path: where.path,
+      project: where.project ?? str(d.location),
+      worktree: where.worktree,
+      session,
+      action: session ? { kind: "session", box, session } : str(d.location) ? { kind: "project", box, location: str(d.location)! } : undefined,
+      key: secretRequestKey(box, d.id),
     });
   }
   // A flow's notify step: its own title and body, from whichever box.

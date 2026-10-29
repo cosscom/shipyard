@@ -10,6 +10,7 @@ import { useTones } from "@/components/workspace/worktree-tone";
 import type { Location, Session, Worktree } from "@/lib/api";
 import { agentLabel, agentOf, ON_ITS_WORK, onItsWork, type SessionState, sessionState } from "@/lib/derive";
 import { ago } from "@/lib/format";
+import { SECRET_TOOL } from "@/lib/secret-request";
 import { usePrefs } from "@/lib/prefs";
 import { useProjects } from "@/lib/project-groups";
 import { load, save } from "@/lib/storage";
@@ -151,7 +152,7 @@ export function AgentCard({ e }: { e: RailAgent }) {
       {e.state === "running" && !e.away && onItsWork(e.session) && <span className="text-muted-foreground">{ON_ITS_WORK}</span>}
       {ask && (ask.input || ask.message) && (
         <span className="line-clamp-2 break-words rounded bg-muted/60 px-1.5 py-0.5 font-mono text-tag text-foreground/80">
-          {ask.tool ? `${ask.tool}: ` : ""}
+          {ask.tool && ask.tool !== SECRET_TOOL ? `${ask.tool}: ` : ""}
           {ask.input ?? ask.message}
         </span>
       )}

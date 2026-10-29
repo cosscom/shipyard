@@ -8,6 +8,7 @@ import { type SessionEntry, useAllSessions } from "@/hooks/use-agent-counts";
 import { lastOf } from "@/lib/last-of";
 import { boxApi, type Session } from "@/lib/api";
 import { QUESTION_TOOLS } from "@/lib/chat-card";
+import { SECRET_TOOL } from "@/lib/secret-request";
 import { agentLabel, agentOf, worktreeOf } from "@/lib/derive";
 import { parseScreen } from "@/lib/screen-status";
 import { permissionChoices } from "@/lib/screen";
@@ -134,7 +135,8 @@ function WaitingRow({ r }: { r: AgentRow }) {
   const client = useStore((s) => s.client);
   const s = r.session;
   const tool = s.ask?.tool;
-  const question = !tool || QUESTION_TOOLS.test(tool);
+  // A secret it asked for is answered in its card: Answer opens it there.
+  const question = !tool || QUESTION_TOOLS.test(tool) || tool === SECRET_TOOL;
   // A permission's options are on the agent's screen (or, structured, on
   // its ask): read them while the row can be seen, as its own pane does.
   const ask = useAsk(r.box, s.name, visible && !preview && !question, s.state_since, s.ask);

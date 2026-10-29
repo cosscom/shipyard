@@ -28,22 +28,24 @@ import (
 //
 //	"DATABASE_PASSWORD": "op://dev/shop-db/password"   1Password, through the box's op CLI
 //	"STRIPE_KEY": "env://STRIPE_TEST_KEY"             a variable from berthd's own environment
+//	"ACME_TOKEN": "box://ACME_TOKEN"                  a secret saved on the box (secretstore.go)
+//	"ACME_KEY": "gcp://projects/acme/secrets/ACME_KEY" one saved in Secret Manager
 //
 // References are resolved on the box, when a worktree's environment is
 // built for a session, hook, flow or service. Resolved values live in memory
-// for a few minutes and nowhere else: never on disk, in a log, an event, an
-// API response or an error message. A reference that cannot be resolved
-// leaves its variable unset, and the box says so once with a secret.failed
-// event.
+// for a few minutes and nowhere else: never in a log, an event, an API
+// response or an error message, and on disk only in the store a person saved
+// them to. A reference that cannot be resolved leaves its variable unset, and
+// the box says so once with a secret.failed event.
 
-// secretSchemes are the providers a reference can name. Another provider
-// slots in as a scheme here and a case in lookup.
+// secretSchemes are the providers a reference can name besides the saved
+// secrets' stores, which register their own (secretstore.go).
 var secretSchemes = map[string]bool{"op": true, "env": true}
 
 // IsSecretRef says whether v names a secret rather than holding a value.
 func IsSecretRef(v string) bool {
 	scheme, _, ok := strings.Cut(v, "://")
-	return ok && secretSchemes[scheme]
+	return ok && (secretSchemes[scheme] || secretProviderByScheme(scheme) != nil)
 }
 
 // opRef is 1Password's own syntax: op://vault/item/[section/]field, with an
@@ -65,7 +67,10 @@ func ValidateSecretRef(ref string) error {
 		}
 		return nil
 	}
-	return fmt.Errorf("%q is not a secret reference; use op://vault/item/field or env://NAME", ref)
+	if p := secretProviderByScheme(scheme); p != nil {
+		return p.ValidateRef(ref)
+	}
+	return fmt.Errorf("%q is not a secret reference; use op://vault/item/field, env://NAME or box://NAME", ref)
 }
 
 // validateEnvRefs checks the references among env's values.
@@ -126,6 +131,9 @@ type Secrets struct {
 	SessionFile string
 	// Box names the box in errors; empty is the hostname.
 	Box string
+	// Stores reads the secrets saved through secret cards (box://, gcp://);
+	// nil reads none.
+	Stores *SecretStores
 
 	mu       sync.Mutex
 	cache    map[string]*secretEntry
@@ -153,6 +161,13 @@ func orDefault(d, def time.Duration) time.Duration {
 		return d
 	}
 	return def
+}
+
+// Forget drops what was resolved for ref, so a replaced value is read anew.
+func (s *Secrets) Forget(ref string) {
+	s.mu.Lock()
+	delete(s.cache, ref)
+	s.mu.Unlock()
 }
 
 // Resolve returns ref's value, from memory when it was resolved in the last
@@ -251,6 +266,9 @@ func (s *Secrets) lookup(ctx context.Context, ref string, opEnv []string) (strin
 		return v, nil
 	case "op":
 		return s.opRead(ctx, ref, opEnv)
+	}
+	if s.Stores != nil && secretProviderByScheme(scheme) != nil {
+		return s.Stores.Resolve(ctx, ref)
 	}
 	return "", fmt.Errorf("no provider for %s:// references", scheme)
 }

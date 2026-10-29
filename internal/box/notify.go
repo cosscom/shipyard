@@ -94,6 +94,8 @@ type Report struct {
 	Needs      string `json:"needs,omitempty"`
 	Error      string `json:"error,omitempty"`
 	Transcript string `json:"transcript,omitempty"`
+	// Ref is a saved secret's reference (kind secret).
+	Ref string `json:"ref,omitempty"`
 }
 
 // Limits. A parent hears at most once every MinGap and PerHour times an
@@ -226,6 +228,20 @@ func (n *Notifier) Kick() {
 	case k <- struct{}{}:
 	default:
 	}
+}
+
+// Tell queues a report that is not read off a watch (a secret request's
+// answer), to be said once at the parent's next idle.
+func (n *Notifier) Tell(r Report) {
+	n.mu.Lock()
+	n.load()
+	if r.Key != "" && r.Parent != "" && !n.done(r.Key) && !n.pendingKey(r.Key) {
+		n.st.Pending[r.Parent] = append(n.st.Pending[r.Parent], r)
+		n.dirty = true
+		n.save()
+	}
+	n.mu.Unlock()
+	n.Kick()
 }
 
 // Add records a watch. One already kept (the same work for the same

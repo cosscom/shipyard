@@ -71,6 +71,11 @@ func (c RepoConfig) validate() error {
 	if err := validateEnvRefs(c.Env); err != nil {
 		return err
 	}
+	if c.Secrets != nil {
+		if err := c.Secrets.validate(); err != nil {
+			return err
+		}
+	}
 	if err := ValidateFlows(c.Flows); err != nil {
 		return err
 	}
@@ -130,6 +135,8 @@ func merge(repo, local RepoConfig) RepoConfig {
 	if local.KeepMain != nil {
 		out.KeepMain = local.KeepMain
 	}
+	// Where secrets go is the box's to say alone.
+	out.Secrets = local.Secrets
 	return out
 }
 
