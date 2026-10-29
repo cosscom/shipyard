@@ -27,6 +27,27 @@ the ntfy app. Boxes then push "Claude Code needs you · shop/checkout on devl"
 when an agent waits for you (and, if you switch it on, when one finishes its
 turn), and tapping it opens that agent in the phone app.
 
+## The Shipyard app for iPhone
+
+The Shipyard app does what the web app does, and more:
+
+- **Pair** by scanning the same code in the app (Pair), or pasting its link.
+- **Needs you** lists every paired box's agents, waiting first, and the runs
+  waiting at a gate. Boxes with an up-to-date berthd say what changes as it
+  happens; older ones are read every few seconds.
+- **A session** shows its conversation (**Chat**) or its terminal (**Screen**),
+  the answers it offers as buttons (a permission reads as Allow, Always allow
+  or Deny), Enter, Stop, and a box for a prompt.
+- **Runs** shows a run's gate, to approve, reject or pick an attempt, and its
+  steps.
+- **Notifications** come without ntfy: in Boxes, choose Needs you (or Needs
+  you and done). Each box then notifies the phone through Shipyard's push
+  relay (below), and a notification opens its agent or run. Settings → Phone
+  on the laptop lists the phones that get them, and removes one.
+
+The app keeps each box's token in the iPhone's keychain, on that phone only.
+**Try the demo** on its Pair screen shows made-up boxes, without one.
+
 ## How it works
 
 Each box serves the phone app itself, on its tailnet address, port 1379.

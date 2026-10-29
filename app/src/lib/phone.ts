@@ -9,10 +9,25 @@ export interface PhoneNotify {
   on?: ("waiting" | "finished")[];
 }
 
+// A Shipyard phone app the box notifies through the push relay
+// (internal/box/phonev2.go): never its key, which stays on the box.
+export interface PhonePush {
+  id: string;
+  name?: string;
+  platform: "ios" | "android";
+  on?: ("waiting" | "finished")[];
+  added: string;
+  last_ok?: string;
+  last_error?: string;
+}
+
 export interface PhoneStatus {
   enabled: boolean;
   token?: string;
   notify?: PhoneNotify;
+  push?: PhonePush[];
+  // The push relay, when not the default.
+  relay?: string;
   url?: string;
   error?: string;
 }
@@ -22,6 +37,8 @@ export interface PhoneChange {
   rotate?: boolean;
   notify?: PhoneNotify;
   clear_notify?: boolean;
+  // Stops notifying one phone app, by its id.
+  remove_push?: string;
 }
 
 export const phoneApi = {
