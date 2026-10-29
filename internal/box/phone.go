@@ -16,6 +16,7 @@ import (
 	"net/netip"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -42,12 +43,19 @@ const DefaultPhonePort = 1379
 //go:embed phoneui
 var phoneUI embed.FS
 
-// PhoneConfig is what a paired laptop sets.
+// PhoneConfig is what a paired laptop sets, and the phones that asked for
+// notifications (phonev2.go).
 type PhoneConfig struct {
 	Enabled bool   `json:"enabled"`
 	Token   string `json:"token,omitempty"`
 	// Notify, when set, pushes to an ntfy topic when an agent needs you.
 	Notify *PhoneNotify `json:"notify,omitempty"`
+	// Push are the Shipyard phone apps that registered for notifications,
+	// sent through the push relay.
+	Push []PhonePush `json:"push,omitempty"`
+	// Relay is the push relay's address, set only by a laptop; empty is
+	// DefaultPushRelay.
+	Relay string `json:"relay,omitempty"`
 }
 
 // PhoneNotify sends a push through ntfy (ntfy.sh or your own server), whose
@@ -81,6 +89,14 @@ type Phone struct {
 	url      string
 	err      string
 	failures map[string][]time.Time
+	// streams counts the phones' open event streams (phonev2.go).
+	streams int
+	// edit serializes changes to phone.json: a laptop's, a phone
+	// registering, and a relay saying a phone is gone.
+	edit sync.Mutex
+	// where remembers the session working in a folder, briefly, so an
+	// agent event reaches every phone's stream with one lookup.
+	where map[string]sessionAt
 }
 
 func (p *Phone) load() PhoneConfig {
@@ -99,6 +115,17 @@ func (p *Phone) save(c PhoneConfig) error {
 	return statefile.Write(p.Path, b)
 }
 
+// update changes phone.json under the edit lock and returns what it saved.
+func (p *Phone) update(fn func(*PhoneConfig) error) (PhoneConfig, error) {
+	p.edit.Lock()
+	defer p.edit.Unlock()
+	c := p.load()
+	if err := fn(&c); err != nil {
+		return c, err
+	}
+	return c, p.save(c)
+}
+
 func newPhoneToken() string {
 	b := make([]byte, 24)
 	rand.Read(b)
@@ -109,7 +136,15 @@ func newPhoneToken() string {
 func (p *Phone) Status() PhoneStatus {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return PhoneStatus{PhoneConfig: p.load(), URL: p.url, Error: p.err}
+	c := p.load()
+	// A laptop sees which phones get notifications, never their keys.
+	push := make([]PhonePush, len(c.Push))
+	for i, d := range c.Push {
+		d.Key = ""
+		push[i] = d
+	}
+	c.Push = push
+	return PhoneStatus{PhoneConfig: c, URL: p.url, Error: p.err}
 }
 
 // Apply starts or stops the listener to match the config on disk.
@@ -253,7 +288,7 @@ func (p *Phone) Handler(b *Box, listenAddr string) http.Handler {
 
 	api := http.NewServeMux()
 	api.HandleFunc("GET /phone/v1/info", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, map[string]any{"box": b.Name, "version": 1})
+		writeJSON(w, map[string]any{"box": b.Name, "version": 2, "capabilities": phoneCapabilities})
 	})
 	api.HandleFunc("GET /phone/v1/sessions", func(w http.ResponseWriter, r *http.Request) {
 		all, err := b.Sessions.List(r.Context())
@@ -345,6 +380,9 @@ func (p *Phone) Handler(b *Box, listenAddr string) http.Handler {
 		}
 		writeJSON(w, map[string]bool{"sent": true})
 	})
+	// The conversation, live events, notifications and stopping an agent:
+	// the phone app's (phonev2.go).
+	p.mountV2(api, b)
 
 	// Runs, in the phone's "answer things" scope: see what runs and what
 	// waits for you, decide a gate, cancel a run. Starting one is not here.
@@ -431,7 +469,7 @@ func (p *Phone) Handler(b *Box, listenAddr string) http.Handler {
 		if o := r.Header.Get("Origin"); o != "" && phoneOrigin(o) {
 			h.Set("Access-Control-Allow-Origin", o)
 			h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
-			h.Set("Access-Control-Allow-Methods", "GET, POST")
+			h.Set("Access-Control-Allow-Methods", "GET, POST, DELETE")
 			h.Set("Vary", "Origin")
 		}
 		if r.Method == http.MethodOptions {
@@ -462,26 +500,26 @@ var phoneKeys = map[string]string{
 	"y": "y", "n": "n",
 }
 
-// notify pushes an agent's state to ntfy when the config asks for it.
-func (p *Phone) notify(ctx context.Context, b *Box, e events.Event) {
-	state := map[string]string{"agent.waiting": "waiting", "agent.finished": "finished", "run.gate": "waiting"}[e.Type]
+// phoneNotice is what a phone is told about an event: never what the agent
+// wrote, only who needs you and where.
+type phoneNotice struct {
+	// State is waiting or finished.
+	State string
+	Title string
+	// Where is "location/worktree on box".
+	Where   string
+	Session string
+	Run     string
+}
+
+// noticeStates are the events a phone hears of, and the state each is.
+var noticeStates = map[string]string{"agent.waiting": "waiting", "agent.finished": "finished", "run.gate": "waiting"}
+
+// notice is the notice an event makes, if it makes one.
+func (p *Phone) notice(ctx context.Context, b *Box, e events.Event) (phoneNotice, bool) {
+	state := noticeStates[e.Type]
 	if state == "" {
-		return
-	}
-	c := p.load()
-	if c.Notify == nil || c.Notify.URL == "" {
-		return
-	}
-	on := c.Notify.On
-	if len(on) == 0 {
-		on = []string{"waiting"}
-	}
-	wanted := false
-	for _, s := range on {
-		wanted = wanted || s == state
-	}
-	if !wanted {
-		return
+		return phoneNotice{}, false
 	}
 	where := ""
 	session := ""
@@ -508,23 +546,73 @@ func (p *Phone) notify(ctx context.Context, b *Box, e events.Event) {
 		title = "Run needs you: " + gate
 		session = ""
 	}
-	body := where + " on " + b.Name
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Notify.URL, bytes.NewBufferString(body))
+	return phoneNotice{State: state, Title: title, Where: where + " on " + b.Name, Session: session, Run: run}, true
+}
+
+// wants says whether a phone asked to hear of state: waiting unless it
+// said otherwise.
+func wants(on []string, state string) bool {
+	if len(on) == 0 {
+		on = []string{"waiting"}
+	}
+	for _, s := range on {
+		if s == state {
+			return true
+		}
+	}
+	return false
+}
+
+// notify tells ntfy and the registered phone apps of an agent that needs
+// you, as each asked, all at once.
+func (p *Phone) notify(ctx context.Context, b *Box, e events.Event) {
+	state := noticeStates[e.Type]
+	if state == "" {
+		return
+	}
+	c := p.load()
+	ntfy := c.Notify != nil && c.Notify.URL != "" && wants(c.Notify.On, state)
+	var devices []PhonePush
+	for _, d := range c.Push {
+		if wants(d.On, state) {
+			devices = append(devices, d)
+		}
+	}
+	if !ntfy && len(devices) == 0 {
+		return
+	}
+	n, ok := p.notice(ctx, b, e)
+	if !ok {
+		return
+	}
+	var wg sync.WaitGroup
+	if ntfy {
+		wg.Go(func() { p.deliverNtfy(ctx, b, n, c.Notify.URL) })
+	}
+	if len(devices) > 0 {
+		wg.Go(func() { p.deliverPush(ctx, b, n, firstNonEmpty(c.Relay, DefaultPushRelay), devices) })
+	}
+	wg.Wait()
+}
+
+// deliverNtfy posts a notice to an ntfy topic.
+func (p *Phone) deliverNtfy(ctx context.Context, b *Box, n phoneNotice, topic string) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, topic, bytes.NewBufferString(n.Where))
 	if err != nil {
 		return
 	}
-	req.Header.Set("Title", title)
-	req.Header.Set("Tags", map[string]string{"waiting": "bell", "finished": "white_check_mark"}[state])
-	if state == "waiting" {
+	req.Header.Set("Title", n.Title)
+	req.Header.Set("Tags", map[string]string{"waiting": "bell", "finished": "white_check_mark"}[n.State])
+	if n.State == "waiting" {
 		req.Header.Set("Priority", "high")
 	}
 	p.mu.Lock()
 	url := p.url
 	p.mu.Unlock()
-	if url != "" && session != "" {
-		req.Header.Set("Click", url+"#s="+session)
-	} else if url != "" && run != "" {
-		req.Header.Set("Click", url+"#r="+run)
+	if url != "" && n.Session != "" {
+		req.Header.Set("Click", url+"#s="+n.Session)
+	} else if url != "" && n.Run != "" {
+		req.Header.Set("Click", url+"#r="+n.Run)
 	}
 	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -575,19 +663,13 @@ func (b *Box) putPhone(w http.ResponseWriter, r *http.Request) error {
 		Notify  *PhoneNotify `json:"notify"`
 		// ClearNotify turns notifications off.
 		ClearNotify bool `json:"clear_notify"`
+		// RemovePush stops notifying one phone app, by its id.
+		RemovePush string `json:"remove_push"`
+		// Relay is the push relay's address; "" goes back to the default.
+		Relay *string `json:"relay"`
 	}
 	if err := decode(r, &req); err != nil {
 		return err
-	}
-	if err := b.before(r, "phone.change", map[string]any{}); err != nil {
-		return err
-	}
-	c := b.Phone.load()
-	if req.Enabled != nil {
-		c.Enabled = *req.Enabled
-	}
-	if c.Enabled && c.Token == "" || req.Rotate {
-		c.Token = newPhoneToken()
 	}
 	if req.Notify != nil {
 		if u, err := url.Parse(req.Notify.URL); err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil {
@@ -598,13 +680,53 @@ func (b *Box) putPhone(w http.ResponseWriter, r *http.Request) error {
 				return badRequest("notify on waiting or finished")
 			}
 		}
-		c.Notify = req.Notify
 	}
-	if req.ClearNotify {
-		c.Notify = nil
+	if req.Relay != nil && *req.Relay != "" {
+		if u, err := url.Parse(*req.Relay); err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+			return badRequest("the push relay must be an https address")
+		}
 	}
-	if err := b.Phone.save(c); err != nil {
+	if err := b.before(r, "phone.change", map[string]any{}); err != nil {
 		return err
+	}
+	var removed []PhonePush
+	c, err := b.Phone.update(func(c *PhoneConfig) error {
+		if req.Enabled != nil {
+			c.Enabled = *req.Enabled
+		}
+		if c.Enabled && c.Token == "" || req.Rotate {
+			c.Token = newPhoneToken()
+		}
+		// A new code is what you make when a phone is lost, and off is off:
+		// the phones' notifications stop with their access.
+		if req.Rotate || !c.Enabled {
+			removed, c.Push = c.Push, nil
+		}
+		if req.RemovePush != "" {
+			c.Push = slices.DeleteFunc(c.Push, func(d PhonePush) bool {
+				if d.ID == req.RemovePush {
+					removed = append(removed, d)
+					return true
+				}
+				return false
+			})
+		}
+		if req.Notify != nil {
+			c.Notify = req.Notify
+		}
+		if req.ClearNotify {
+			c.Notify = nil
+		}
+		if req.Relay != nil {
+			c.Relay = *req.Relay
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	for _, d := range removed {
+		b.publish(r, "phone.push.removed", map[string]any{"name": d.Name, "platform": d.Platform})
 	}
 	b.Phone.Apply(b)
 	b.publish(r, "phone.changed", map[string]any{"enabled": c.Enabled})

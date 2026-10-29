@@ -47,10 +47,44 @@ The phone can:
   "needs you" notification too, with ntfy when that is on, and the push
   opens the run.
 
+For the Shipyard phone app, the box also offers (the
+[phone API](/reference/phone-api)'s version 2):
+
+- an agent's recent conversation, as its chat shows it: prompts, replies,
+  one-line tool calls, the files it edited with their line counts, its
+  questions and their answers. Never tool output, thinking, file contents,
+  diffs or older pages;
+- what happens as it happens: which session or run changed, by name, so the
+  app updates without asking every few seconds;
+- notifications without ntfy, sent through Shipyard's push relay (below);
+- stopping an agent, the way **Stop** does in the desktop app.
+
 It cannot reach anything else on the box: not worktrees, locations,
 sessions' commands, hooks, flows, kits, shares, upgrades, or the box's own
 API. Those are different routes on a different port, and the phone listener
 does not serve them.
+
+## Notifications through the push relay
+
+The Shipyard phone app asks each box it pairs with to notify it. Apple and
+Google deliver a notification only from a server holding the app's own key,
+which a box can't have, so the box asks Shipyard's push relay
+(`push.berthd.app`) to send it:
+
+1. The app gets a device token from the phone and gives it to the relay,
+   which seals it in a key only the relay can open.
+2. The app gives that key to each box (`POST /phone/v1/push`). A box never
+   sees the device token.
+3. When an agent needs you, the box sends the relay the key and the notice:
+   "Claude Code needs you", "shop/checkout on devl", and which session or run
+   it is. The relay makes the notification from those few fields itself and
+   keeps nothing.
+
+The relay sees your box's name, the project and worktree, and the session or
+run's name, never what an agent wrote. Settings → Phone lists the phones each
+box notifies, and removes one. A new code, or turning phone access off,
+forgets them all. If the relay says a phone no longer takes notifications
+(the app was deleted), the box forgets it too.
 
 ## Threat model
 
@@ -76,11 +110,24 @@ does not serve them.
   the token in a header, never a cookie. The app's page denies framing and
   only loads its own scripts.
 - **What a stolen token allows.** Anyone on your tailnet with a box's token
-  can read its agents' screens and type into its sessions, which is enough to
-  instruct an agent. Treat the code like a password: make a new one if a
+  can read its agents' screens and recent conversations, follow which
+  sessions change, and type into its sessions, which is enough to instruct
+  an agent. They can also have the box notify a phone of theirs. Treat the code like a password: make a new one if a
   phone is lost, and turn phone access off on boxes you don't need it on.
-  `before:session.send` hooks see phone prompts and key presses
-  (`from: "phone"`, with `key` for a key) and can refuse them.
+  `before:session.send` hooks see phone prompts, key presses and stops
+  (`from: "phone"`, with `key` for a key) and can refuse them, and
+  `before:phone.push` hooks see a phone asking for notifications.
+- **The conversation is a copy, field by field.** The phone reads a
+  conversation through its own route, which copies each field it may show
+  from the box's reading, so a field added to the box's chat reaches a phone
+  only when it is added there on purpose. Tool call ids, the agent's mode,
+  model and tasks, published pages and the record's own name stay on the
+  box. A command's output is cut to 2 KB.
+- **Events are rebuilt, not passed on.** The phone hears agents', sessions'
+  and runs' changes, by name and state, and a conversation that grew. Never
+  paths, logins, secrets, hooks or any other event, and at most the last 500
+  when it catches up. At most 16 streams are open on a box; a new code
+  closes every one.
 - **Notifications** carry which worktree and box need you, never what the
   agent wrote. An ntfy topic is readable by anyone who knows its name, so
   the topic Shipyard makes is long and random; use your own ntfy server for
@@ -90,6 +137,9 @@ does not serve them.
   `~/.berth/network.json` (see
   [outbound requests](/guides/automations#outbound-requests)); the check is
   made on the address actually dialled, redirects included.
+- **The push relay** is chosen by a paired laptop, never by a phone, and the
+  box reaches it on public addresses only. It gets the same notice ntfy
+  does, plus the key that names the phone, and keeps neither.
 
 ## What works where
 
@@ -99,6 +149,7 @@ does not serve them.
 | Add to home screen | Yes, opens full screen | Yes |
 | Notifications through ntfy | Yes, with the ntfy app | Yes, with the ntfy app |
 | Web Push straight from a box | No | No |
+| Notifications through the push relay | The Shipyard app | The Shipyard app, later |
 
 Web Push needs a secure context (HTTPS) for the service worker it relies on,
 and a tailnet address over HTTP is not one. Serving the app over HTTPS would
