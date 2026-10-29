@@ -46,6 +46,10 @@ test("the sidebar says which box's skills aren't installed, and folds the others
   await app.open();
   await expect(card(page)).toBeVisible();
   await expect(page.getByRole("region", { name: "Shipyard's skills" })).toBeVisible();
+  // The line is short enough to show whole; the full sentence is its tip's
+  // and what a screen reader hears.
+  await expect(notice(page, "devl").getByTestId("skills-notice-line")).toHaveText("Skills missing on devl");
+  expect(await notice(page, "devl").locator("p").first().evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
   await expect(notice(page, "devl")).toContainText("devl: Shipyard's skills aren't installed for Claude Code");
   await expect(notice(page, "devl")).toHaveAttribute("data-kind", "missing");
   await expect(notice(page, "devl").getByRole("button", { name: "Install now" })).toBeVisible();

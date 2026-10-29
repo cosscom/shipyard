@@ -217,3 +217,31 @@ test("the sheet's + next to Worktrees opens a new worktree in that project", asy
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Project: shop" })).toBeVisible();
 });
+
+// A row's own name sits beside its title only with room for a few letters
+// of it, never a letter and an ellipsis: where it doesn't fit it wraps out
+// of the row's one line. A wider sheet shows them again.
+test("a row's own name shows a few letters or none, at any width", async ({ app }) => {
+  mockOnly();
+  const page = app.page;
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await app.open({ prefs: { ...rail, sidebarWidth: 400 } });
+  await page.locator("[data-testid=rail-project][data-project=shop]").click();
+  await expect(app.worktree("devl/checkout-fix")).toBeVisible();
+  const names = () =>
+    page.locator("[data-testid=worktree-row-name]").evaluateAll((els) =>
+      els.map((el) => {
+        const r = el.getBoundingClientRect();
+        const shown = r.width > 0 && r.top < el.parentElement!.getBoundingClientRect().bottom;
+        // In the mono face a character is 0.6em wide.
+        return { shown, chars: r.width / (parseFloat(getComputedStyle(el).fontSize) * 0.6) };
+      }),
+    );
+  const wide = await names();
+  expect(wide.some((n) => n.shown)).toBe(true);
+  for (const n of wide) if (n.shown) expect(n.chars).toBeGreaterThan(6.5);
+  // Narrower, fewer show, and still none as a fragment.
+  await page.evaluate(() => document.documentElement.style.setProperty("--sidebar-w", "300px"));
+  await expect.poll(async () => (await names()).filter((n) => n.shown).length).toBeLessThan(wide.filter((n) => n.shown).length);
+  for (const n of await names()) if (n.shown) expect(n.chars).toBeGreaterThan(6.5);
+});

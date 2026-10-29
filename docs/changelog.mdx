@@ -10,6 +10,17 @@ upgrades with `berth upgrade BOX`, or by running the
 again.
 
 ## Unreleased
+- **A sidebar that's easier to scan.** In the list sidebar, project names
+  now stand out from the section headings above them, which are quiet
+  dividers, and projects in no section come last, under Other. An empty
+  section no longer says "Drag a project here" all the time: the hint shows
+  only while you drag one. A list scrolled under the places fades out
+  instead of showing a row cut in half. The row you open no longer turns
+  bold, so a long title stays cut off in the same place. In the rail, a
+  row hides its branch name when there's only room for a letter of it, and
+  the letter that tells two projects with the same owner's picture apart is
+  bigger and easier to read. The skills reminder at the foot now fits:
+  "Skills missing on devl", with the full sentence in its tip.
 - **Upgrading a box no longer leaves dead processes behind.** Each upgrade
   left the terminals that were open on the box, and any command berthd had
   running, as zombie processes under berthd until it restarted for good. A

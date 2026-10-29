@@ -64,6 +64,15 @@ export function noticeText(n: SkillsNotice): string {
   return `${skills(n.missing)} ${n.missing === 1 ? "isn't" : "aren't"} installed`;
 }
 
+// noticeShort is the notice as the open sidebar's one line has room for it,
+// whole at its narrowest: "Skills missing on devl", "Skills out of date on
+// gpu", or after an install that didn't go through, "Couldn't install
+// skills on devl". Its tip says the rest (noticeText).
+export function noticeShort(n: Pick<SkillsNotice, "box" | "kind">, failed = false): string {
+  if (failed) return `Couldn't ${n.kind === "outdated" ? "update" : "install"} skills on ${n.box}`;
+  return n.kind === "outdated" ? `Skills out of date on ${n.box}` : `Skills missing on ${n.box}`;
+}
+
 // noticeDetail is the button's tooltip: what Install now does, and what
 // else it brings that the notice's one line left out.
 export function noticeDetail(n: SkillsNotice): string {

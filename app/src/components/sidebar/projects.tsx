@@ -12,13 +12,13 @@ import {
   Trash2Icon,
   UsersRoundIcon,
 } from "lucide-react";
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { AgentIcon } from "@/components/agent-glyph";
 import { ink } from "@/components/sidebar/ink";
 import { awayText, BoxDot, BranchMark, childRowClass, TaskGlyph, taskRowClass, TimeLane, toneOf } from "@/components/sidebar/task-parts";
-import { type Action, Armed, boxActions, useArmed, ContextRow, DotsMenu, newSection, projectActions, projectGroupActions, removeWorktree, worktreeActions } from "@/components/sidebar/actions";
+import { type Action, boxActions, useArmed, ContextRow, DotsMenu, newSection, projectActions, projectGroupActions, removeWorktree, worktreeActions } from "@/components/sidebar/actions";
 import { ReviewNotice, ReviewTag } from "@/views/pr-review/review-marks";
 import { confirm } from "@/components/sidebar/confirm";
 import { type Project, projectActions as groupActions, useProjects } from "@/lib/project-groups";
@@ -449,13 +449,19 @@ const WorktreeRow = memo(function WorktreeRow({ box, loc, wt, sessions, data, se
             className={cn(taskRowClass, child && childRowClass, toneOf(state), away && ink.quiet)}
           >
             <TaskGlyph state={state} small={child} onWork={onWork} />
-            <span className="mr-auto min-w-0 truncate">{name}</span>
-            {/* Its own name beside the title, when the sidebar is wide enough. */}
-            {((!wt.main && wt.title) || task) && (
-              <span data-testid="worktree-row-name" className={cn("hidden min-w-0 max-w-max grow basis-0 truncate font-mono text-tag @min-[22rem]/side:inline", ink.faint)}>
-                {self}
-              </span>
-            )}
+            {/* The title, and its own name at the end of the line when the
+                sidebar is wide enough and the title leaves room for a few
+                letters of it: the name is at least 7ch wide, and where that
+                doesn't fit beside the title it wraps to a second line this
+                one-line box clips, so it is never a letter and an ellipsis. */}
+            <span className="flex h-lh min-w-0 flex-1 flex-wrap items-baseline gap-x-2 overflow-hidden">
+              <span className="mr-auto min-w-0 max-w-full truncate">{name}</span>
+              {((!wt.main && wt.title) || task) && (
+                <span data-testid="worktree-row-name" className={cn("hidden min-w-[7ch] max-w-max grow basis-0 truncate text-right font-mono text-tag @min-[22rem]/side:inline", ink.faint)}>
+                  {self}
+                </span>
+              )}
+            </span>
             {project && (
               <span data-testid="worktree-row-project" className={cn("max-w-[35%] shrink-0 truncate text-tag", ink.faint)}>
                 {project}
@@ -632,11 +638,12 @@ export function AwayWord({ boxes, lane }: { boxes: BoxStatus[]; lane?: boolean }
 // leading icon, its trailing glyphs stay put, and its actions fade in over
 // them on a background of their own (RowOverlay).
 
-// A project's own row is a quiet label over its tasks, with a + to start
-// one in it; it still opens the main checkout when clicked.
+// A project's own row is the label you scan the list for: a step up from
+// its tasks in weight and ink, over a section's quiet divider. It has
+// a + to start a task in it, and still opens the main checkout when clicked.
 // Lit while the pointer is anywhere on the row, its buttons too, so they sit
 // on the row's own highlight rather than a patch of their own.
-const headerClass = cn("h-6 gap-1.5 rounded-lg px-2 text-tag font-medium hover:bg-sidebar-accent hover:text-foreground group-hover/row:bg-sidebar-accent group-hover/row:text-foreground", ink.faint);
+const headerClass = cn("h-side-row gap-1.5 rounded-lg px-2 text-desc font-semibold hover:bg-sidebar-accent group-hover/row:bg-sidebar-accent", ink.strong);
 // A project's tasks line up with the places above, not indented under it.
 const rowsClass = "mx-0 mt-px translate-x-0 gap-px border-l-0 px-0 py-0";
 
@@ -813,24 +820,34 @@ function PinnedWorktrees() {
   );
 }
 
-// ProjectSections lists projects under their sections (Work, Personal…);
-// projects in none come first. Drag a project onto a section to move it.
-// row draws a project another way (the two-column sidebar's project rows);
-// by default it is the project with its tasks under it.
+// ProjectSections lists projects under their sections (Work, Personal…),
+// then the ones in none under "Other" (no heading at all while there are no
+// sections). A section is a quiet divider, its projects the labels you scan
+// for. Drag a project onto a section to move it: only while one is dragged
+// does an empty section say where to drop it; otherwise it is just its
+// heading. row draws a project another way (the two-column sidebar's
+// project rows); by default it is the project with its tasks under it.
+const PROJECT_DRAG = "application/x-berth-project";
+const OTHER = "section:\u0000other";
+
 export function ProjectSections({ prefs, update, row }: { prefs: SidebarPrefs; update(p: Partial<SidebarPrefs>): void; row?: (p: Project) => React.ReactNode }) {
   const { projects, sections } = useProjects();
   const multiBox = useStore((s) => (s.status?.boxes.length ?? 0) > 1);
   const [over, setOver] = useState<string>();
+  const dragging = useProjectDrag();
   const loose = projects.filter((p) => !p.section);
   const drop = (section?: string) => ({
     onDragOver: (e: React.DragEvent) => {
-      if (!e.dataTransfer.types.includes("application/x-berth-project")) return;
+      if (!e.dataTransfer.types.includes(PROJECT_DRAG)) return;
       e.preventDefault();
       setOver(section ?? "");
     },
-    onDragLeave: () => setOver(undefined),
+    onDragLeave: (e: React.DragEvent) => {
+      // Moving onto a row inside the same group is still over it.
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(undefined);
+    },
     onDrop: (e: React.DragEvent) => {
-      const id = e.dataTransfer.getData("application/x-berth-project");
+      const id = e.dataTransfer.getData(PROJECT_DRAG);
       setOver(undefined);
       const p = projects.find((x) => x.id === id);
       if (p && p.section !== section) void groupActions.setSection(p, section);
@@ -838,42 +855,103 @@ export function ProjectSections({ prefs, update, row }: { prefs: SidebarPrefs; u
   });
   const list = (ps: Project[]) => ps.map((p) => (row ? row(p) : <ProjectGroup key={p.id} project={p} chips={multiBox} prefs={prefs} update={update} />));
 
-  return (
-    <>
-      <div {...drop(undefined)} className={cn("rounded-md", over === "" && "bg-sidebar-accent/40 ring-1 ring-ring/40")}>
+  // With no sections the projects are one list, with no heading.
+  if (!sections.length) {
+    return (
+      <div {...drop(undefined)}>
         <SidebarMenu className="gap-px">{list(loose)}</SidebarMenu>
       </div>
-      {sections.map((name) => {
-        const inside = projects.filter((p) => p.section === name);
-        const key = `section:${name}`;
-        const closed = prefs.collapsed[key] ?? false;
-        return (
-          <div key={name} {...drop(name)} className={cn("mt-2 rounded-md", over === name && "bg-sidebar-accent/40 ring-1 ring-ring/40")}>
-            <ContextRow items={() => sectionActions(name)}>
-              <div className="group/row flex h-6 items-center gap-1 rounded-md pr-1 pl-2 hover:bg-sidebar-accent/40">
-                <button
-                  type="button"
-                  onClick={() => update({ collapsed: { ...prefs.collapsed, [key]: !closed } })}
-                  className={cn("flex min-w-0 flex-1 items-center gap-1 text-tag font-medium hover:text-foreground", ink.faint)}
-                >
-                  <ChevronRightIcon className={cn("size-3 transition-transform", !closed && "rotate-90")} />
-                  <span className="truncate">{name}</span>
-                  <span className="font-normal tabular-nums">{inside.length || ""}</span>
-                </button>
-                <span className="opacity-0 group-hover/row:opacity-100 has-[[data-popup-open]]:opacity-100">
-                  <Armed>
-                    <DotsMenu label={`${name} section`} items={() => sectionActions(name)} />
-                  </Armed>
-                </span>
-              </div>
-            </ContextRow>
-            {!closed &&
-              (inside.length ? <SidebarMenu className="gap-px">{list(inside)}</SidebarMenu> : <p className={cn("px-6 py-1 text-meta", ink.faint)}>Drag a project here.</p>)}
-          </div>
-        );
-      })}
+    );
+  }
+
+  const group = (key: string, name: string, inside: Project[], section: string | undefined, hint: string, menu?: () => Action[]) => {
+    // A folded section stays folded through a drag (nothing jumps under the
+    // pointer); its heading takes the drop.
+    const closed = prefs.collapsed[key] ?? false;
+    return (
+      <div
+        key={key}
+        data-testid="project-section"
+        data-section={name}
+        {...drop(section)}
+        className={cn("mt-4 rounded-lg transition-colors first:mt-0", dragging && over === (section ?? "") && "bg-sidebar-accent/60 ring-1 ring-ring/40")}
+      >
+        <SectionHeader name={name} count={inside.length} closed={closed} onToggle={() => update({ collapsed: { ...prefs.collapsed, [key]: !closed } })} menu={menu} />
+        {!closed && inside.length > 0 && <SidebarMenu className="gap-px">{list(inside)}</SidebarMenu>}
+        {dragging && !inside.length && (
+          <p data-testid="section-drop-hint" className={cn("flex h-side-row items-center px-2 text-meta", ink.faint)}>
+            {hint}
+          </p>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      {sections.map((name) => group(`section:${name}`, name, projects.filter((p) => p.section === name), name, "Drop a project here", () => sectionActions(name)))}
+      {/* The projects in no section come after the sections; while one is
+          dragged, this is also where it goes to leave its section. */}
+      {(loose.length > 0 || dragging) && group(OTHER, "Other", loose, undefined, "Drop here to take it out of its section")}
     </>
   );
+}
+
+// useProjectDrag says whether a project is being dragged anywhere in the
+// window, so the drop hints show only then.
+function useProjectDrag() {
+  const [dragging, setDragging] = useState(false);
+  useEffect(() => {
+    // After the drag has begun: rows moving under the pointer while
+    // dragstart runs would cancel it.
+    const start = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes(PROJECT_DRAG)) window.setTimeout(() => setDragging(true));
+    };
+    const stop = () => setDragging(false);
+    document.addEventListener("dragstart", start);
+    document.addEventListener("dragend", stop);
+    document.addEventListener("drop", stop);
+    return () => {
+      document.removeEventListener("dragstart", start);
+      document.removeEventListener("dragend", stop);
+      document.removeEventListener("drop", stop);
+    };
+  }, []);
+  return dragging;
+}
+
+// SectionHeader is a section's divider: its name and count on the lane in
+// the faint ink, then a hairline to the edge. Its fold sits after the name,
+// as a project's does, showing while folded or pointed at. An empty
+// section's tip says how to fill it.
+function SectionHeader({ name, count, closed, onToggle, menu }: { name: string; count: number; closed: boolean; onToggle(): void; menu?: () => Action[] }) {
+  const head = (
+    <div className="group/row relative flex h-6 items-center gap-2 px-2">
+      <Tip label={count ? undefined : "Drag a project here"} side="right" delay={400}>
+        <button
+          type="button"
+          aria-expanded={!closed}
+          onClick={onToggle}
+          className={cn("flex min-w-0 items-center gap-1 rounded-sm text-tag font-medium outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring", ink.faint)}
+        >
+          <span data-testid="section-name" className="truncate">
+            {name}
+          </span>
+          {count > 0 && <span className="tabular-nums">{count}</span>}
+          <ChevronRightIcon aria-hidden className={cn("size-3 shrink-0 transition-[rotate,opacity]", ink.glyph, !closed && "rotate-90 opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100")} />
+        </button>
+      </Tip>
+      <span aria-hidden className="h-px min-w-4 flex-1 bg-sidebar-border" />
+      {/* Its ⋯ fades in over the rule's end, so every section's rule runs
+          to the same place. */}
+      {menu && (
+        <RowOverlay className="rounded-none [background:var(--sidebar)]">
+          <DotsMenu label={`${name} section`} items={menu} />
+        </RowOverlay>
+      )}
+    </div>
+  );
+  return menu ? <ContextRow items={menu}>{head}</ContextRow> : head;
 }
 
 function sectionActions(name: string): Action[] {

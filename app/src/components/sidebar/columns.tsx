@@ -3,7 +3,7 @@ import { type ReactNode, useCallback, useId, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { type Action, ContextRow, DotsMenu, projectActions, projectGroupActions } from "@/components/sidebar/actions";
-import { ink } from "@/components/sidebar/ink";
+import { fade, ink } from "@/components/sidebar/ink";
 import { rowClass } from "@/components/sidebar/nav";
 import {
   AwayWord,
@@ -147,7 +147,7 @@ export function ProjectsColumn({ prefs, update, picked }: { prefs: SidebarPrefs;
     rows[to]?.focus();
   };
   return (
-    <RowLayer onKeyDown={onKeyDown} aria-label="Projects" role="group" className="min-h-0 flex-1 overflow-y-auto px-edge pt-5 pb-3">
+    <RowLayer onKeyDown={onKeyDown} aria-label="Projects" role="group" className={cn("min-h-0 flex-1 overflow-y-auto px-edge pt-5 pb-3", fade)}>
       {prefs.groupBy === "project" ? (
         <ProjectSections prefs={prefs} update={update} row={(p) => <ProjectColumnRow key={p.id} project={p} selected={picked === p.id} />} />
       ) : (

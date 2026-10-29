@@ -268,7 +268,7 @@ export function RowKeys({ keys }: { keys: string }) {
 // A place's row, sized as Settings' nav: 28px at the default density, a
 // 14px icon and its name in text-desc, in the ordinary row's ink; the one
 // you are on is full ink on the selected tint.
-export const rowClass = cn("h-side-row gap-2 px-2 text-desc font-normal hover:text-foreground [&>svg]:size-3.5 [&>svg]:text-(color:--ink-glyph) data-[active=true]:[&>svg]:text-(color:--ink-row)", ink.row, selectedRow, "data-[active=true]:font-normal");
+export const rowClass = cn("h-side-row gap-2 px-2 text-desc font-normal hover:text-foreground [&>svg]:size-3.5 [&>svg]:text-(color:--ink-glyph) data-[active=true]:[&>svg]:text-(color:--ink-row)", ink.row, selectedRow);
 
 function NavRow({ item, list, index, ids }: { item: NavItem; list: NavList; index: number; ids: string[] }) {
   const over = useDrag((s) => s.over);

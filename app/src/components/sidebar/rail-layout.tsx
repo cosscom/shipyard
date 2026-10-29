@@ -6,7 +6,7 @@ import { NotificationBell } from "@/components/notifications/notification-center
 import { ContextRow, DotsMenu, projectGroupActions } from "@/components/sidebar/actions";
 import { BackForward } from "@/components/sidebar/back-forward";
 import { switchTo, usePicked } from "@/components/sidebar/columns";
-import { ink, inkScale } from "@/components/sidebar/ink";
+import { fade, ink, inkScale } from "@/components/sidebar/ink";
 import { MoreItems, type NavItem, useArrangedNav } from "@/components/sidebar/nav";
 import { AwayWord, PlaceTip, ProjectTreeRows, RowButton, type SidebarPrefs, summary, useProjectTree } from "@/components/sidebar/projects";
 import { SidebarResizeHandle } from "@/components/sidebar/resize-handle";
@@ -45,7 +45,9 @@ const inWorktrees = (loc: Location, s: Session) => !s.service && !!loc.worktrees
 export function RailSidebar({ prefs, update, places }: { prefs: SidebarPrefs; update: Update; places: ReactNode }) {
   const { projects, sections } = useProjects();
   const noBoxes = useStore((s) => !!s.status && s.status.boxes.length === 0);
-  // Loose projects, then each section's, as the other layouts list them.
+  // Loose projects, then each section's. The rail keeps this order (and so
+  // its first tile, picked until you pick one); the list puts the loose
+  // ones last, under Other, where a heading says what they are.
   const ordered = useMemo(() => [...projects.filter((p) => !p.section), ...sections.flatMap((name) => projects.filter((p) => p.section === name))], [projects, sections]);
   const picked = usePicked("project");
   const project = picked?.kind === "project" ? picked.project : undefined;
@@ -314,7 +316,10 @@ const ProjectTile = memo(function ProjectTile({ project: p, selected, shared, fo
             <span
               aria-hidden
               data-testid="rail-project-letter"
-              className="pointer-events-none absolute right-0 bottom-0 flex size-4 items-center justify-center rounded-[5px] border-[1.5px] border-sidebar bg-foreground font-semibold text-tag text-background leading-none"
+              // Big enough to read at a glance: the letter is what tells
+              // one owner's projects apart. Over the tile's corner, in full
+              // ink, cut out of the rail by its own border.
+              className="pointer-events-none absolute -right-1 -bottom-1 flex size-[19px] items-center justify-center rounded-md border-2 border-sidebar bg-foreground font-bold text-label text-background leading-none"
             >
               {(p.name.match(/[\p{L}\p{N}]/u)?.[0] ?? "?").toUpperCase()}
             </span>
@@ -439,7 +444,7 @@ function ProjectSheet({ project: p, prefs, update }: { project: Project; prefs: 
         )}
       </div>
       {/* One context menu and one tooltip for every row in it. */}
-      <RowLayer className={cn("min-h-0 flex-1 overflow-y-auto pt-1.5 pb-3", lanes.box)}>
+      <RowLayer className={cn("min-h-0 flex-1 overflow-y-auto pt-1.5 pb-3", fade, lanes.box)}>
         {t.any ? (
           <SidebarMenuSub className="mx-0 translate-x-0 gap-px border-l-0 px-0 py-0">
             <ProjectTreeRows t={t} prefs={prefs} update={update} />

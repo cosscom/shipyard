@@ -297,7 +297,7 @@ const AgentTile = memo(function AgentTile({ e }: { e: RailAgent }) {
               <Ring e={e} />
             </span>
             <span
-              className={cn("line-clamp-2 w-full text-center text-tag leading-[13px] [overflow-wrap:anywhere]", e.selected ? "font-medium text-foreground" : "text-muted-foreground group-hover:text-foreground", e.away && "opacity-70")}
+              className={cn("line-clamp-2 w-full text-center text-tag leading-[13px] [overflow-wrap:anywhere]", e.selected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground", e.away && "opacity-70")}
               style={e.tone ? { color: e.tone } : undefined}
             >
               {wtName(e)}

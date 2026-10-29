@@ -11,6 +11,7 @@ import {
   normalizePrefs,
   noticeDetail,
   noticeFor,
+  noticeShort,
   noticeText,
   shown,
   snoozedUntil,
@@ -116,6 +117,14 @@ test("an agent with none comes before another's older copies", () => {
   assert.deepEqual([n.kind, n.missing, n.outdated], ["missing", 7, 7]);
   assert.equal(noticeText(n), "Shipyard's skills aren't installed for Codex");
   assert.equal(noticeDetail(n), "Installs all of Shipyard's skills for devl's user, for Claude Code and Codex. 7 skills are out of date, too.");
+});
+
+test("the sidebar's one line names the box and what is wrong, short enough to show whole", () => {
+  assert.equal(noticeShort(noticeFor(online, both, none)!), "Skills missing on devl");
+  const older = noticeFor(online, both, report({ claude: "installed", codex: "installed" }, { berth: { claude: "outdated" } }))!;
+  assert.equal(noticeShort(older), "Skills out of date on devl");
+  assert.equal(noticeShort(noticeFor(online, both, none)!, true), "Couldn't install skills on devl");
+  assert.equal(noticeShort(older, true), "Couldn't update skills on devl");
 });
 
 test("copies inside a project never count", () => {

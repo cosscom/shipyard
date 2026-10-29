@@ -12,7 +12,7 @@ import { FoldedRail, RailSidebar } from "@/components/sidebar/rail-layout";
 import { SidebarResizeHandle } from "@/components/sidebar/resize-handle";
 import { RowLayer } from "@/components/sidebar/row-layer";
 import { RailSkillsNotices, SkillsNotices } from "@/components/sidebar/skills-notice";
-import { ink, inkScale } from "@/components/sidebar/ink";
+import { fade, ink, inkScale } from "@/components/sidebar/ink";
 import { BoxesFoot } from "@/components/sidebar/task-parts";
 import { Tip } from "@/components/tip";
 import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
@@ -77,7 +77,7 @@ export function AppSidebar() {
           <TeamSidebarCard />
 
           {/* One context menu and one tooltip for every row in it. */}
-          <RowLayer className="min-h-0 flex-1 overflow-y-auto px-edge pt-5 pb-3">
+          <RowLayer className={cn("min-h-0 flex-1 overflow-y-auto px-edge pt-5 pb-3", fade)}>
             <Projects prefs={prefs} update={update} />
           </RowLayer>
 

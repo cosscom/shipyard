@@ -149,9 +149,10 @@ test("projects fold and open, and drag into a section", async ({ app }) => {
   // sidebar's foot (the skills notice), so nothing scrolls under the drag.
   await page.setViewportSize({ width: 1440, height: 1100 });
   await app.open();
-  const personal = sidebar.locator("div.mt-2", { hasText: "Personal" });
+  // Personal is empty: just its heading until the drag, which takes the drop.
+  const personal = sidebar.locator("[data-testid=project-section][data-section=Personal]");
   const evals = sidebar.locator("[draggable=true]", { hasText: "evals" });
   await expect(personal.locator("[draggable=true]", { hasText: "evals" })).toHaveCount(0);
-  await evals.dragTo(personal.getByText("Drag a project here."));
+  await evals.dragTo(personal.getByTestId("section-name"));
   await expect(personal.locator("[draggable=true]", { hasText: "evals" })).toBeVisible();
 });

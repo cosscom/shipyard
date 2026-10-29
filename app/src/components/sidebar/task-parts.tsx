@@ -22,8 +22,10 @@ import { openAddBox } from "@/views/onboarding/add-box-dialog";
 // and times line up down the list; no logos, the lane says how it's going.
 
 // The row you have open: a soft tint a step past the hover colour, from
-// the theme's own sidebar and text colours.
-export const selectedRow = "data-[active=true]:bg-[color-mix(in_srgb,var(--sidebar-accent),var(--foreground)_4%)] data-[active=true]:font-medium data-[active=true]:text-foreground";
+// the theme's own sidebar and text colours, and full ink. Never a heavier
+// weight: that moves where a long title is cut off (coss ui's menu button
+// adds one, so this sets it back).
+export const selectedRow = "data-[active=true]:bg-[color-mix(in_srgb,var(--sidebar-accent),var(--foreground)_4%)] data-[active=true]:font-normal data-[active=true]:text-foreground";
 
 // A task row is a place row's height (28px at the default density), and so
 // is a child's, under its parent on the guide.

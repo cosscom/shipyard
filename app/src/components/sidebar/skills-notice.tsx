@@ -8,7 +8,7 @@ import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@/compone
 import { Popover, PopoverPopup, PopoverTrigger } from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
 import { installSkills, setRemind, type ShownNotice, snoozeSkillsNotice, useSkillsNotices } from "@/lib/skills-notice";
-import { actionLabel, noticeDetail, noticeText, SNOOZE_CHOICES } from "@/lib/skills-notice-model";
+import { actionLabel, noticeDetail, noticeShort, noticeText, SNOOZE_CHOICES } from "@/lib/skills-notice-model";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { ink } from "@/components/sidebar/ink";
@@ -45,11 +45,26 @@ function Notice({ n, onLeave, className, line }: { n: ShownNotice; onLeave?: () 
       className={cn(line ? "flex flex-wrap items-center min-h-7 gap-x-1 gap-y-0.5 pr-edge pl-lane" : "flex flex-col gap-2 px-2.5 py-row-pad", className)}
     >
       <div className={cn("flex flex-col gap-0.5 text-meta", line && "min-w-0 flex-1")}>
+        {/* The open sidebar's line is the short form, whole at any width
+            ("Skills missing on devl"); its tip and screen readers get the
+            full sentence. The rail's popover has room for the sentence. */}
         <Tip label={line ? `${n.box}: ${said(n, !!f)}` : undefined} side="top" align="start">
-          <p id={`${id}-text`} className={cn(line ? cn("truncate text-meta", ink.faint) : "text-pretty text-muted-foreground")}>
-            <BookOpenIcon aria-hidden className={cn("-mt-0.5 mr-1.5 inline size-3.5", line && ink.glyph)} />
-            <span className={cn("font-medium", line ? ink.row : "text-foreground/80")}>{n.box}</span>: {said(n, !!f)}
-          </p>
+          {line ? (
+            <p id={`${id}-text`} className={cn("truncate text-meta", ink.faint)}>
+              <BookOpenIcon aria-hidden className={cn("-mt-0.5 mr-1.5 inline size-3.5", ink.glyph)} />
+              <span aria-hidden data-testid="skills-notice-line">
+                {noticeShort(n, !!f)}
+              </span>
+              <span className="sr-only">
+                {n.box}: {said(n, !!f)}
+              </span>
+            </p>
+          ) : (
+            <p id={`${id}-text`} className="text-pretty text-muted-foreground">
+              <BookOpenIcon aria-hidden className="-mt-0.5 mr-1.5 inline size-3.5" />
+              <span className="font-medium text-foreground/80">{n.box}</span>: {said(n, !!f)}
+            </p>
+          )}
         </Tip>
         {f && (
           <p data-testid="skills-notice-error" className="text-pretty text-destructive-foreground">
