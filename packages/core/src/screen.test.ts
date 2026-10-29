@@ -1,4 +1,4 @@
-// node --experimental-strip-types --test src/lib/screen.test.ts (pnpm test)
+// node --experimental-strip-types --test packages/core/src/screen.test.ts (pnpm test in app/)
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

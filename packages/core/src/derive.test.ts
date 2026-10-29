@@ -1,8 +1,8 @@
-// node --experimental-strip-types --test src/lib/derive.test.ts (pnpm test)
+// node --experimental-strip-types --test packages/core/src/derive.test.ts (pnpm test in app/)
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { Session } from "@berth/plugin";
+import type { Session } from "../../plugin-sdk/src/types.ts";
 
 import { allOnItsWork, chatState, firstPrompt, offBoard, onItsWork, replyMode, restartCommand, sessionState } from "./derive.ts";
 

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import type { Artifact, CrewMember, TranscriptItem } from "@/lib/transcript";
+import { fillItems, mergeItems, offOf, resyncItems } from "../../../packages/core/src/conversation.ts";
 
 // The conversations the app holds for agents shown as a conversation rather
 // than a terminal: each session's recent items and the crew working beside
@@ -34,9 +35,7 @@ interface ConversationState {
   setArtifacts(key: string, list: Artifact[]): void;
 }
 
-// Where an item's line starts in the agent's record (boxes send it as off;
-// 0 is left out).
-export const offOf = (it: TranscriptItem) => (it as { off?: number }).off ?? 0;
+export { offOf };
 
 // spill hears the items a chat lets go past KEEP, oldest first: the chat's
 // older turns (lib/history) take them, so what it shows has no hole.
@@ -56,30 +55,11 @@ export const useConversations = create<ConversationState>()((set, get) => {
     crew: {},
     artifacts: {},
     push: (key, item) => put(key, [...(get().items[key] ?? []), item]),
-    merge: (key, incoming) => {
-      const list = [...(get().items[key] ?? [])];
-      const at = new Map(list.map((it, i) => [it.id, i]));
-      for (const it of incoming) {
-        const i = at.get(it.id);
-        if (i === undefined) {
-          at.set(it.id, list.length);
-          list.push(it);
-        } else list[i] = it;
-      }
-      put(key, list);
-    },
-    resync: (key, window, start, fresh) => {
-      const held = fresh ? [] : (get().items[key] ?? []).filter((it) => offOf(it) < start);
-      const ids = new Set(window.map((it) => it.id));
-      put(key, [...held.filter((it) => !ids.has(it.id)), ...window]);
-    },
+    merge: (key, incoming) => put(key, mergeItems(get().items[key] ?? [], incoming)),
+    resync: (key, window, start, fresh) => put(key, resyncItems(get().items[key] ?? [], window, start, fresh)),
     fill: (key, items) => {
-      const list = get().items[key] ?? [];
-      const have = new Set(list.map((it) => it.id));
-      const add = items.filter((it) => !have.has(it.id));
-      if (!add.length) return;
-      // In the record's order; a sort that keeps the order of equals.
-      put(key, [...list, ...add].map((it, i) => [it, i] as const).sort((a, b) => offOf(a[0]) - offOf(b[0]) || a[1] - b[1]).map(([it]) => it));
+      const list = fillItems(get().items[key] ?? [], items);
+      if (list) put(key, list);
     },
     update: (key, id, patch) =>
       set((s) => ({ items: { ...s.items, [key]: (s.items[key] ?? []).map((i) => (i.id === id ? ({ ...i, ...patch } as TranscriptItem) : i)) } })),

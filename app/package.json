@@ -18,6 +18,7 @@
     "check:grid": "node scripts/check-grid.mjs",
     "check:plugin-consent": "node scripts/check-plugin-consent.mjs",
     "check:csp": "node scripts/check-csp.mjs",
+    "check:core": "node scripts/check-core.mjs && tsc -p ../packages/core",
     "check:themes": "node --experimental-strip-types --test src/themes/contrast.test.ts",
     "test:e2e": "tsc --noEmit -p e2e && pnpm -s build && playwright test",
     "smoke:live": "node e2e/live.mjs",
@@ -25,7 +26,7 @@
     "perf:guard": "node perf/guard.mjs",
     "perf:soak": "node perf/soak.mjs",
     "perf:terminals": "node perf/terminals.mjs",
-    "test": "node --experimental-strip-types --test 'src/lib/**/*.test.ts'"
+    "test": "node --experimental-strip-types --test 'src/lib/**/*.test.ts' '../packages/core/src/**/*.test.ts'"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
