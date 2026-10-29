@@ -10,6 +10,13 @@ upgrades with `berth upgrade BOX`, or by running the
 again.
 
 ## Unreleased
+- **Boxes are ready for the Shipyard phone app.** With phone access on, a
+  box now also lets a paired phone read an agent's recent conversation
+  (never tool output or files), follow which agents and runs change as it
+  happens, stop an agent, and ask to be notified through Shipyard's push
+  relay instead of ntfy. Notifications still never carry what an agent
+  wrote, a new code forgets every phone, and `before:phone.push` hooks can
+  refuse a phone. See [the phone API](/reference/phone-api).
 - **Worktrees fits a narrow window.** With the sidebar open on a small
   window, the table and its filters ran off the right edge. Now the Port
   column steps aside first and "vs base" after it (both are in a

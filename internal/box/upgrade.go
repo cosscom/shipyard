@@ -169,6 +169,12 @@ func (b *Box) Capabilities() []string {
 	// screen (draft.go); and transcript.changed when a shown chat's
 	// transcript is written to (transcriptwatch.go).
 	caps = append(caps, "draft")
+	if b.Phone != nil {
+		// phone.push: the phone API's version 2 (phonev2.go): phone apps
+		// register for notifications through the push relay, and GET/PUT
+		// /v1/phone show and remove them.
+		caps = append(caps, "phone.push")
+	}
 	if b.Runs != nil {
 		caps = append(caps, "runs", "exec.detach")
 	}
