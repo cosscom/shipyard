@@ -37,7 +37,7 @@ Read only. It checks the port answers with the app, that the PID in `/tmp/verify
 node .claude/skills/verify-berthd/scripts/drive.mjs <scenario> --port $PORT [--out DIR]
 ```
 
-`<scenario>` is a file in `scripts/scenarios/` (by name, without `.mjs`) or a path. With `--agent http://127.0.0.1:9378` and `VERIFY_BERTH_TOKEN` in the environment it opens the app on that laptop agent instead of the mock (a scenario that needs it exports `live = true`), and gives the scenario `call(path, init)`, the agent's API (a box's own under `/v1/boxes/<box>/api/`), to read a change's effect on the box. The driver:
+`<scenario>` is a file in `scripts/scenarios/` (by name, without `.mjs`) or a path. With `--agent http://127.0.0.1:9378` and `VERIFY_BERTH_TOKEN` in the environment it opens the app on that laptop agent instead of the mock (a scenario that needs it exports `live = true`), and gives the scenario `call(path, init)`, the agent's API (a box's own under `/v1/boxes/<box>/api/`), to read a change's effect on the box (JSON; with `init.raw`, `{ type, bytes }` for a body that isn't). The driver:
 
 - opens `http://localhost:$PORT/?mock=1` at 1440×900 in dark mode, and waits until the sidebar's `nav-home` is there;
 - refuses every request to the laptop agent's ports (1377-1379), as the e2e fixtures do;

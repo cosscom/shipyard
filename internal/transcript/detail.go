@@ -3,6 +3,7 @@ package transcript
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -39,6 +40,27 @@ type ToolDetail struct {
 	Pending bool `json:"pending,omitempty"`
 	// Live is a background shell whose output is still growing.
 	Live bool `json:"live,omitempty"`
+	// Images are the pictures the call returned that the app can show,
+	// fetched one by one (GET …/tool/{id}/image/{n}): never inline, so a
+	// detail stays small. Output keeps an "[image]" line for every one.
+	Images []ToolImage `json:"images,omitempty"`
+}
+
+// ToolImage is one picture in a call's result. N counts the result's image
+// blocks, the ones not served too; Line is where it stands in Output: its
+// "[image]" line, or the "… more lines …" line when the middle was cut.
+type ToolImage struct {
+	N         int    `json:"n"`
+	Line      int    `json:"line"`
+	MediaType string `json:"mediaType"`
+}
+
+// imageTypes are the pictures a result's image may be served as.
+var imageTypes = map[string]bool{"image/png": true, "image/jpeg": true, "image/gif": true, "image/webp": true}
+
+// servable says an image block's source is one the box serves.
+func servable(sourceType, mediaType string) bool {
+	return sourceType == "base64" && imageTypes[mediaType]
 }
 
 // Hunk is one piece of a change, as a unified diff has it: where it starts
@@ -55,6 +77,10 @@ type Hunk struct {
 // ErrNoTool is a call the transcript doesn't hold (any more).
 var ErrNoTool = errors.New("no such tool call in this conversation")
 
+// ErrNoImage is a picture a call's result doesn't hold, or not as one of
+// imageTypes.
+var ErrNoImage = errors.New("no such image in that step")
+
 const (
 	// detailWindow is how far back a call is looked for: the end of the
 	// file, where the conversation on screen is.
@@ -66,46 +92,27 @@ const (
 
 // Detail finds one call in a transcript by its ID.
 func Detail(source, path, dir, id string) (ToolDetail, error) {
-	if id == "" || strings.ContainsAny(id, "\"\\\n") {
-		return ToolDetail{}, ErrNoTool
-	}
-	f, err := os.Open(path)
-	if err != nil {
-		return ToolDetail{}, err
-	}
-	defer f.Close()
-	if st, err := f.Stat(); err == nil && st.Size() > detailWindow {
-		if _, err := f.Seek(st.Size()-detailWindow, io.SeekStart); err != nil {
-			return ToolDetail{}, err
-		}
-	}
-	r := bufio.NewReaderSize(f, 256<<10)
-	needle := []byte(`"` + id + `"`)
 	d := ToolDetail{ID: id}
 	found, answered := false, false
-	var line []byte
-	for {
-		var err error
-		line, err = readLineInto(r, line)
-		if len(line) > 0 && bytes.Contains(line, needle) {
-			var call, result bool
-			if source == "codex" {
-				call, result = codexDetail(line, id, dir, &d)
-			} else if source == SourceCodexHost {
-				call, result = codexHostDetail(line, id, dir, &d)
-			} else if source == SourceClaudeHost {
-				if inner, ok := unwrapHost(line); ok {
-					call, result = claudeDetail(inner, id, dir, &d)
-				}
-			} else {
-				call, result = claudeDetail(line, id, dir, &d)
+	err := scanFor(path, id, func(line []byte) bool {
+		var call, result bool
+		if source == "codex" {
+			call, result = codexDetail(line, id, dir, &d)
+		} else if source == SourceCodexHost {
+			call, result = codexHostDetail(line, id, dir, &d)
+		} else if source == SourceClaudeHost {
+			if inner, ok := unwrapHost(line); ok {
+				call, result = claudeDetail(inner, id, dir, &d)
 			}
-			found = found || call
-			answered = answered || result
+		} else {
+			call, result = claudeDetail(line, id, dir, &d)
 		}
-		if err != nil {
-			break
-		}
+		found = found || call
+		answered = answered || result
+		return false
+	})
+	if err != nil {
+		return ToolDetail{}, err
 	}
 	if !found {
 		return ToolDetail{}, ErrNoTool
@@ -113,6 +120,65 @@ func Detail(source, path, dir, id string) (ToolDetail, error) {
 	d.Pending = !answered
 	liveOutput(&d)
 	return d, nil
+}
+
+// Image is the n-th picture in call id's result, decoded: its type and
+// bytes. Only Claude Code's results hold pictures.
+func Image(source, path, id string, n int) (string, []byte, error) {
+	if n < 0 || (source != "claude" && source != SourceClaudeHost) {
+		return "", nil, ErrNoImage
+	}
+	var typ string
+	var data []byte
+	err := scanFor(path, id, func(line []byte) bool {
+		if source == SourceClaudeHost {
+			var ok bool
+			if line, ok = unwrapHost(line); !ok {
+				return false
+			}
+		}
+		results := claudeResults(line, id)
+		if len(results) == 0 {
+			return false
+		}
+		typ, data = resultImage(results[0], n)
+		return true
+	})
+	if errors.Is(err, ErrNoTool) || (err == nil && data == nil) {
+		return "", nil, ErrNoImage
+	}
+	return typ, data, err
+}
+
+// scanFor calls fn with each line of the transcript's last detailWindow
+// that mentions id, until fn says it has what it wanted.
+func scanFor(path, id string, fn func(line []byte) (done bool)) error {
+	if id == "" || strings.ContainsAny(id, "\"\\\n") {
+		return ErrNoTool
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if st, err := f.Stat(); err == nil && st.Size() > detailWindow {
+		if _, err := f.Seek(st.Size()-detailWindow, io.SeekStart); err != nil {
+			return err
+		}
+	}
+	r := bufio.NewReaderSize(f, 256<<10)
+	needle := []byte(`"` + id + `"`)
+	var line []byte
+	for {
+		var err error
+		line, err = readLineInto(r, line)
+		if len(line) > 0 && bytes.Contains(line, needle) && fn(line) {
+			return nil
+		}
+		if err != nil {
+			return nil
+		}
+	}
 }
 
 // readLine reads one line, skipping (not keeping) any longer than
@@ -208,7 +274,15 @@ func claudeDetail(line []byte, id, dir string, d *ToolDetail) (call, result bool
 		case b.Type == "tool_result" && b.ToolUseID == id:
 			result = true
 			d.Error = b.IsError
-			d.Output, d.Truncated = capOutput(resultFull(b.Content))
+			full, images := resultParts(b.Content)
+			d.Output, d.Truncated = capOutput(full)
+			if d.Truncated {
+				full = plain(full)
+				for i := range images {
+					images[i].Line = cappedLine(full, images[i].Line)
+				}
+			}
+			d.Images = images
 			if !b.IsError {
 				d.Hunks = structuredHunks(l.ToolUseResult)
 			}
@@ -251,26 +325,104 @@ func structuredHunks(raw json.RawMessage) []Hunk {
 
 // resultFull is a tool result's whole text: a string, or all its text blocks.
 func resultFull(raw json.RawMessage) string {
+	s, _ := resultParts(raw)
+	return s
+}
+
+// resultParts is a tool result's whole text, with an "[image]" line for
+// each of its pictures, and the pictures the box serves, each at its line.
+// Their bytes are skipped, not read.
+func resultParts(raw json.RawMessage) (string, []ToolImage) {
 	var s string
 	if json.Unmarshal(raw, &s) == nil {
-		return s
+		return s, nil
 	}
 	var parts []struct {
-		Type string `json:"type"`
-		Text string `json:"text"`
+		Type   string `json:"type"`
+		Text   string `json:"text"`
+		Source struct {
+			Type      string `json:"type"`
+			MediaType string `json:"media_type"`
+		} `json:"source"`
 	}
 	if json.Unmarshal(raw, &parts) != nil {
-		return ""
+		return "", nil
 	}
 	var out []string
+	var images []ToolImage
+	line, n := 0, 0
 	for _, p := range parts {
-		if p.Type == "text" {
+		switch p.Type {
+		case "text":
 			out = append(out, p.Text)
-		} else if p.Type == "image" {
+			line += strings.Count(p.Text, "\n") + 1
+		case "image":
+			if servable(p.Source.Type, p.Source.MediaType) {
+				images = append(images, ToolImage{N: n, Line: line, MediaType: p.Source.MediaType})
+			}
 			out = append(out, "[image]")
+			line, n = line+1, n+1
 		}
 	}
-	return strings.Join(out, "\n")
+	return strings.Join(out, "\n"), images
+}
+
+// resultImage is the n-th image block in a tool's result, decoded, if the
+// box serves it.
+func resultImage(raw json.RawMessage, n int) (string, []byte) {
+	if !isArray(raw) {
+		return "", nil
+	}
+	var parts []json.RawMessage
+	if json.Unmarshal(raw, &parts) != nil {
+		return "", nil
+	}
+	for _, p := range parts {
+		var head struct {
+			Type string `json:"type"`
+		}
+		if json.Unmarshal(p, &head) != nil || head.Type != "image" {
+			continue
+		}
+		if n--; n >= 0 {
+			continue
+		}
+		var img struct {
+			Source struct {
+				Type      string `json:"type"`
+				MediaType string `json:"media_type"`
+				Data      string `json:"data"`
+			} `json:"source"`
+		}
+		if json.Unmarshal(p, &img) != nil || !servable(img.Source.Type, img.Source.MediaType) {
+			return "", nil
+		}
+		data, err := base64.StdEncoding.DecodeString(img.Source.Data)
+		if err != nil {
+			return "", nil
+		}
+		return img.Source.MediaType, data
+	}
+	return "", nil
+}
+
+// claudeResults are the contents of line's tool_result blocks for call id.
+func claudeResults(line []byte, id string) []json.RawMessage {
+	var l struct {
+		Message struct {
+			Content []claudeBlock `json:"content"`
+		} `json:"message"`
+	}
+	if json.Unmarshal(line, &l) != nil {
+		return nil
+	}
+	var out []json.RawMessage
+	for _, b := range l.Message.Content {
+		if b.Type == "tool_result" && b.ToolUseID == id {
+			out = append(out, b.Content)
+		}
+	}
+	return out
 }
 
 func codexDetail(line []byte, id, dir string, d *ToolDetail) (call, result bool) {
@@ -359,6 +511,21 @@ func plain(s string) string {
 		return s
 	}
 	return ansi.ReplaceAllString(s, "")
+}
+
+// cappedLine is where line l of s, an output past outputCap, stands once
+// capOutput has cut its middle: a line cut away (even in part) is the
+// "… more lines …" line.
+func cappedLine(s string, l int) int {
+	head := strings.Count(s[:outputCap/2], "\n")
+	if l < head {
+		return l
+	}
+	tail := strings.Count(s[:len(s)-outputCap/2], "\n")
+	if l > tail {
+		return head + 2 + l - tail
+	}
+	return head + 1
 }
 
 // capOutput keeps a long output's head and tail, as the terminal does.

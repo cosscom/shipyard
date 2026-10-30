@@ -52,6 +52,7 @@ export const historyApi = {
   helperTranscript: (c: Client, box: string, session: string, id: string, since: number) =>
     c.box<TranscriptPage>(box, "GET", `sessions/${s(session)}/subagents/${s(id)}/transcript?since=${since}`),
   helperTool: (c: Client, box: string, session: string, id: string, tool: string) => c.box<ToolDetail>(box, "GET", `sessions/${s(session)}/subagents/${s(id)}/tool/${s(tool)}`),
+  helperToolImage: (c: Client, box: string, session: string, id: string, tool: string, n: number) => c.boxBlob(box, `sessions/${s(session)}/subagents/${s(id)}/tool/${s(tool)}/image/${n}`),
   fork: (c: Client, box: string, session: string, req: { at?: string; text?: string; title?: string; open?: "tab" | "split" }) => c.box<Session>(box, "POST", `sessions/${s(session)}/fork`, req),
   rewind: (c: Client, box: string, session: string, req: { text: string; nth?: number; restore?: "conversation" | "both" | "code" }) =>
     c.box<{ restored: "conversation" | "both" | "code"; text: string }>(box, "POST", `sessions/${s(session)}/rewind`, req),

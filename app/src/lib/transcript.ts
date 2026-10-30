@@ -199,4 +199,16 @@ export interface ToolDetail {
   pending?: boolean;
   // A background shell whose output is still growing.
   live?: boolean;
+  // The pictures the call returned that the box serves, fetched one by one
+  // once the call is opened. Output keeps an "[image]" line for each.
+  images?: ToolImageRef[];
+}
+
+// ToolImageRef is a picture in a call's result: n counts the result's
+// images, the ones not served too; line is where it stands in the output
+// (its "[image]" line, or the "… more lines …" line where it was cut).
+export interface ToolImageRef {
+  n: number;
+  line: number;
+  mediaType: string;
 }

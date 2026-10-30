@@ -1,6 +1,10 @@
 package transcript
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -78,5 +82,93 @@ func TestDetailDropsHugeHunks(t *testing.T) {
 	)
 	if d, _ := Detail("claude", p, "/w", "w1"); d.Hunks != nil {
 		t.Fatalf("want none past the cap, got %d", len(d.Hunks))
+	}
+}
+
+// imageBlock is a picture in a tool's result, as Claude Code keeps it.
+func imageBlock(mediaType string, data []byte) m {
+	return m{"type": "image", "source": m{"type": "base64", "media_type": mediaType, "data": base64.StdEncoding.EncodeToString(data)}}
+}
+
+func TestDetailNamesTheImagesAResultHoldsButNotTheirBytes(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "s.jsonl")
+	png, gif := []byte("\x89PNG\r\n\x1a\nacme-one"), []byte("GIF89a-acme-two")
+	write(t, p,
+		assistant(tool("r1", "Read", m{"file_path": "/tmp/acme-shot.png"})),
+		user([]m{{"type": "tool_result", "tool_use_id": "r1", "content": []m{
+			{"type": "text", "text": "two screenshots"},
+			imageBlock("image/png", png),
+			imageBlock("image/tiff", []byte("II*\x00acme")),
+			imageBlock("image/gif", gif),
+		}}}),
+	)
+	d, err := Detail("claude", p, "/w/shop", "r1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []ToolImage{{N: 0, Line: 1, MediaType: "image/png"}, {N: 2, Line: 3, MediaType: "image/gif"}}; !reflect.DeepEqual(d.Images, want) {
+		t.Fatalf("images %+v, want %+v", d.Images, want)
+	}
+	if d.Output != "two screenshots\n[image]\n[image]\n[image]" {
+		t.Fatalf("output %q", d.Output)
+	}
+	b, _ := json.Marshal(d)
+	if strings.Contains(string(b), base64.StdEncoding.EncodeToString(png)) || strings.Contains(string(b), "base64") {
+		t.Fatalf("the detail carries the image: %s", b)
+	}
+
+	typ, data, err := Image("claude", p, "r1", 0)
+	if err != nil || typ != "image/png" || !bytes.Equal(data, png) {
+		t.Fatalf("image 0: %q %q %v", typ, data, err)
+	}
+	if typ, data, err = Image("claude", p, "r1", 2); err != nil || typ != "image/gif" || !bytes.Equal(data, gif) {
+		t.Fatalf("image 2: %q %q %v", typ, data, err)
+	}
+	for _, c := range []struct {
+		id string
+		n  int
+	}{{"r1", 1}, {"r1", 3}, {"r1", -1}, {"nope", 0}, {"", 0}} {
+		if _, _, err := Image("claude", p, c.id, c.n); !errors.Is(err, ErrNoImage) {
+			t.Fatalf("%s/%d: want ErrNoImage, got %v", c.id, c.n, err)
+		}
+	}
+}
+
+// A picture stands at its own line: never at a text block's line that only
+// reads "[image]", and at the cut when the middle of a long output is left
+// out.
+func TestAToolsImagesStandAtTheirOwnLines(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "s.jsonl")
+	shot := imageBlock("image/png", []byte("\x89PNG acme"))
+	long := strings.Repeat("acme log line\n", 4000)
+	write(t, p,
+		assistant(tool("m1", "mcp__acme__shot", m{"page": "checkout"})),
+		user([]m{{"type": "tool_result", "tool_use_id": "m1", "content": []m{
+			{"type": "text", "text": "how it is written:\n[image]\nthen"},
+			shot,
+		}}}),
+		assistant(tool("m2", "mcp__acme__shots", m{"page": "logs"})),
+		user([]m{{"type": "tool_result", "tool_use_id": "m2", "content": []m{
+			shot, {"type": "text", "text": long}, shot, {"type": "text", "text": long}, shot,
+		}}}),
+	)
+	d, _ := Detail("claude", p, "/w", "m1")
+	if want := []ToolImage{{N: 0, Line: 3, MediaType: "image/png"}}; !reflect.DeepEqual(d.Images, want) {
+		t.Fatalf("images %+v, want %+v", d.Images, want)
+	}
+	if lines := strings.Split(d.Output, "\n"); lines[1] != "[image]" || lines[3] != "[image]" {
+		t.Fatalf("output %q", d.Output)
+	}
+
+	d, _ = Detail("claude", p, "/w", "m2")
+	if !d.Truncated || len(d.Images) != 3 {
+		t.Fatalf("truncated %v, images %+v", d.Truncated, d.Images)
+	}
+	lines := strings.Split(d.Output, "\n")
+	for i, want := range []string{"[image]", "… ", "[image]"} {
+		at := d.Images[i].Line
+		if at >= len(lines) || !strings.HasPrefix(lines[at], want) {
+			t.Fatalf("image %d at line %d of %d: %q", i, at, len(lines), lines[min(at, len(lines)-1)])
+		}
 	}
 }

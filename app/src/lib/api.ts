@@ -325,6 +325,8 @@ export const boxApi = {
   // One file's diff in the session's worktree ("diff" capability).
   diff: (c: Client, box: string, name: string, file: string) => c.box<SessionDiff>(box, "GET", `sessions/${encodeURIComponent(name)}/diff?${new URLSearchParams({ file })}`),
   toolDetail: (c: Client, box: string, name: string, id: string) => c.box<ToolDetail>(box, "GET", `sessions/${encodeURIComponent(name)}/transcript/tool/${encodeURIComponent(id)}`),
+  // A picture a call returned, as the transcript holds it.
+  toolImage: (c: Client, box: string, name: string, id: string, n: number) => c.boxBlob(box, `sessions/${encodeURIComponent(name)}/transcript/tool/${encodeURIComponent(id)}/image/${n}`),
   // waitTurn long-polls until the turn ends (or waits for someone, with
   // until "waiting"), or timeout seconds pass.
   waitTurn: (c: Client, box: string, id: string, timeout: number, until: "end" | "waiting" = "end") =>

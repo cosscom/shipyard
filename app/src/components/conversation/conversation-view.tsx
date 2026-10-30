@@ -12,6 +12,8 @@ import { ON_ITS_WORK } from "@/lib/derive";
 import { errorMessage } from "@/lib/format";
 import type { LineComments } from "@/lib/git/diff-view";
 import { type ToolCall, type ToolDetail, toolSummary, type TranscriptItem } from "@/lib/transcript";
+import { outputParts } from "@/lib/tool-images";
+import { ToolImage } from "@/components/conversation/tool-image";
 import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/conversation/markdown";
 import { HARBOUR_WORDS } from "@/lib/screen-status";
@@ -70,6 +72,8 @@ export interface EditActions {
   load(file: string): Promise<SessionDiff>;
   // One tool call opened up: its full command and output, or exact change.
   tool?(id: string): Promise<ToolDetail>;
+  // The n-th picture a call returned.
+  toolImage?(id: string, n: number): Promise<Blob>;
   comments(file: string): LineComments | undefined;
   review(file: string): void;
 }
@@ -821,6 +825,12 @@ function ToolRow({ c, last, Icon, edits }: { c: ToolCall; last: boolean; Icon: t
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<{ state: "loading" } | { state: "ready"; d: ToolDetail } | { state: "error"; message: string }>();
   const can = !!(c.id && edits?.tool);
+  // Its pictures' loader stays the same while the chat's actions change
+  // (a review comment), so an open picture isn't fetched again.
+  const toolImage = useRef(edits?.toolImage);
+  toolImage.current = edits?.toolImage;
+  const hasImages = !!edits?.toolImage;
+  const image = useMemo(() => (c.id && hasImages ? (n: number) => toolImage.current!(c.id!, n) : undefined), [c.id, hasImages]);
   const ext = c.file ? (c.target.split(".").pop() ?? "") : "";
   const toggle = () => {
     if (!can) return;
@@ -870,7 +880,7 @@ function ToolRow({ c, last, Icon, edits }: { c: ToolCall; last: boolean; Icon: t
             </div>
           )}
           {detail?.state === "error" && <p className="px-3 py-2.5 text-destructive-foreground text-body">Couldn't open this step: {detail.message}</p>}
-          {detail?.state === "ready" && <ToolDetailView d={detail.d} />}
+          {detail?.state === "ready" && <ToolDetailView d={detail.d} image={image} name={c.target} />}
         </div>
       )}
     </li>
@@ -878,8 +888,9 @@ function ToolRow({ c, last, Icon, edits }: { c: ToolCall; last: boolean; Icon: t
 }
 
 // ToolDetailView draws a call the way the terminal does: a command and its
-// output, a search and its matches, an edit's change, a new file.
-export function ToolDetailView({ d }: { d: ToolDetail }) {
+// output, a search and its matches, an edit's change, a new file, and the
+// pictures it returned, fetched with image.
+export function ToolDetailView({ d, image, name }: { d: ToolDetail; image?: (n: number) => Promise<Blob>; name: string }) {
   const edit = d.old != null || (d.new != null && !d.command);
   return (
     <div data-selectable className="font-mono text-mono leading-5 [font-variant-ligatures:none]">
@@ -891,7 +902,13 @@ export function ToolDetailView({ d }: { d: ToolDetail }) {
       )}
       {edit && <EditChange d={d} />}
       {!edit && (d.output ? (
-        <pre className={cn("max-h-80 overflow-auto whitespace-pre-wrap break-all px-3 py-2", d.error && "text-destructive-foreground")}>{plain(d.output)}</pre>
+        outputParts(plain(d.output), image && d.images).map((p, i) =>
+          p.kind === "image" ? (
+            <ToolImage key={`i${p.image.n}`} n={p.image.n} load={image!} name={name} />
+          ) : (
+            <pre key={i} className={cn("max-h-80 overflow-auto whitespace-pre-wrap break-all px-3 py-2", d.error && "text-destructive-foreground")}>{p.text}</pre>
+          ),
+        )
       ) : (
         <p className="px-3 py-2 font-sans text-muted-foreground text-meta">{d.pending ? "Still running…" : "No output."}</p>
       ))}
