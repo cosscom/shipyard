@@ -13,6 +13,7 @@ changed; a first run on a box with years of transcripts may need a few runs
 (it reports `partial`).
 """
 import base64
+import contextlib
 import datetime as dt
 import glob
 import json
@@ -355,6 +356,26 @@ def read_claude_limits(name, d, binary):
         return READ_FAILED
 
 
+@contextlib.contextmanager
+def claude_limits_lock():
+    """One report at a time reads and refreshes the limits, so two at once
+    (the widget and the Usage screen, or two laptops) don't both ask /usage
+    for the same login: the second waits, then finds the first's reading.
+    Without flock (Windows) there is no lock, and at worst a read twice."""
+    try:
+        import fcntl
+    except ImportError:
+        yield
+        return
+    CLAUDE_LIMITS_CACHE.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with open(CLAUDE_LIMITS_CACHE.with_name("claude-limits.lock"), "a") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+
+
 def claude_limits(state=None):
     """Each signed-in Claude login's limits, read with `/usage` at most once
     every CLAUDE_LIMITS_TTL seconds per login, CLAUDE_READERS at a time.
@@ -362,6 +383,11 @@ def claude_limits(state=None):
     binary, logins, auth = state or claude_logins()
     if not binary:
         return []
+    with claude_limits_lock():
+        return read_claude_limits_cached(binary, logins, auth)
+
+
+def read_claude_limits_cached(binary, logins, auth):
     from concurrent.futures import ThreadPoolExecutor
     cache = read_json(CLAUDE_LIMITS_CACHE) or {}
     # Who each login is now: a folder signed in to another account since
@@ -614,6 +640,11 @@ def report(days):
     text = json.dumps(out, separators=(",", ":"))
     while len(text) > MAX_OUT and out["sessions"]:
         out["sessions"] = out["sessions"][: max(0, len(out["sessions"]) * 3 // 4)]
+        out["truncated"] = True
+        text = json.dumps(out, separators=(",", ":"))
+    # Then the limits read longest ago, should a box have that many logins.
+    while len(text) > MAX_OUT and out["limits"]:
+        out["limits"].remove(min(out["limits"], key=lambda l: l["at"]))
         out["truncated"] = True
         text = json.dumps(out, separators=(",", ":"))
     return text

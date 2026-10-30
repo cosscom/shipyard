@@ -10,10 +10,10 @@ upgrades with `berth upgrade BOX`, or by running the
 again.
 
 ## Unreleased
-- **Usage shows Claude Code's plan limits.** The Usage screen and its home
-  widget now show each Claude login's current session, its week and any week
-  for one model, with when each resets: what Claude Code's own `/usage`
-  prints. The box asks `/usage` at most every ten minutes per login, all
+- **Usage shows Claude Code's plan limits.** The Usage screen shows each
+  Claude login's current session, its week and any week for one model, with
+  when each resets: what Claude Code's own `/usage` prints. The home widget
+  shows the most used of them. The box asks `/usage` at most every ten minutes per login, all
   logins four at a time and each for at most 12 seconds, in a way that
   leaves no transcript, starts no MCP server and runs no hooks; if it fails,
   the tokens still show.
@@ -34,7 +34,7 @@ again.
 - **Usage reads boxes with no projects.** A box you haven't added a project
   to yet had its logins and plan limits left out of Usage and the widget. It
   is read too now, in its home folder (`POST /v1/exec` without a location
-  runs there).
+  runs there, on a box with no projects).
 - **A Claude team seat says Claude Team.** Usage → Accounts named a team or
   enterprise seat after the Max-like tier it records ("Claude Max 5x"); it now
   says Claude Team (or Claude Enterprise).

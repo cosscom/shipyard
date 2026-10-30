@@ -29,7 +29,7 @@ const accountsOf = (box: string) =>
     { agent: "codex", id: "default", dir: `${HOME}/.codex`, exists: true, signed_in: true, method: "chatgpt", email: "you@example.com", plan: "pro" },
     { agent: "codex", id: "api", dir: `${HOME}/.berth/accounts/codex/api`, exists: true, signed_in: true, method: "api key", email: null, plan: null },
     ] as MockAccount[]
-  ).filter((a) => box === "devl" || a.id === "default"));
+  ).filter((a) => box === "devl" || a.id === "default" || (a.agent === "claude" && a.id === "work")));
 
 export function usageCall(box: string, method: string, path: string, body: unknown, delay: <T>(v: T) => Promise<T>): Promise<unknown> | undefined {
   if (path !== "env") return undefined;

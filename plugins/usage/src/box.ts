@@ -89,6 +89,8 @@ export interface Account {
   org_type?: string | null;
   name?: string | null;
   org?: string | null;
+  // The organisation's id: one email can sign in to two plans.
+  org_id?: string | null;
   billing?: string | null;
   tier?: string | null;
   method?: string | null;

@@ -27,3 +27,16 @@ test("one login read on two boxes is one row, as most recently read", () => {
   // One login needs no name.
   assert.equal(got[0].label, undefined);
 });
+
+test("two plans of one email, each the default login of its own box, are told apart by box", () => {
+  const accounts = { devl: [account("default", "ana@acme.test")], gpu: [account("default", "ana@acme.test")] };
+  const got = dedupeLimits("claude", [source("devl", [limits("default", "2026-10-14T10:00:00Z", "o-team")]), source("gpu", [limits("default", "2026-10-14T10:00:00Z", "o-max")])], accounts, 7);
+  assert.deepEqual(got.map((l) => l.label).sort(), ["ana@acme.test · default (devl)", "ana@acme.test · default (gpu)"]);
+});
+
+test("a box that listed no accounts still has its login named by the report's email", () => {
+  const read = (at: string): Limits => ({ ...limits("default", at, "o-1"), email: "bo@acme.test" });
+  const got = dedupeLimits("claude", [source("devl", [read("2026-10-14T10:00:00Z")]), source("gpu", [read("2026-10-14T11:00:00Z")])], {}, 7);
+  assert.equal(got.length, 1);
+  assert.deepEqual(got[0].boxes, ["devl", "gpu"]);
+});

@@ -458,15 +458,22 @@ type ExecRequest struct {
 }
 
 // execDir is where an exec runs: the location's (or its worktree's) folder,
-// or with no location the box's home folder, for what reads the box itself
-// rather than a project (the Usage plugin on a box with no projects yet).
-// It grants nothing exec in a project doesn't: the command runs as the same
-// user either way.
+// or, on a box with no projects yet, its home folder: commands that inspect
+// the box itself rather than a project (the Usage plugin) work there too.
+// Once the box has a project, a location must be named: run from the home
+// folder, a command could reach a project without passing its before: gates.
 func (b *Box) execDir(ctx context.Context, location string) (string, error) {
-	if location == "" {
-		return os.UserHomeDir()
+	if location != "" {
+		return b.Locations.Dir(ctx, location)
 	}
-	return b.Locations.Dir(ctx, location)
+	locs, err := b.Locations.List(ctx)
+	if err != nil {
+		return "", err
+	}
+	if len(locs) > 0 {
+		return "", badRequest("name the location to run in: only a box with no projects runs a command without one")
+	}
+	return os.UserHomeDir()
 }
 
 type ExecResult struct {

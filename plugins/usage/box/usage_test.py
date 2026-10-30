@@ -253,6 +253,27 @@ class ClaudeLimitsTest(unittest.TestCase):
         self.by_account()
         self.assertEqual(usage.CLAUDE_LIMITS_CACHE.stat().st_mode & 0o777, 0o600)
 
+    def test_two_reports_at_once_ask_each_login_once(self):
+        # The widget and the Usage screen, or two laptops, at the same time.
+        import threading
+        threads = [threading.Thread(target=usage.claude_limits) for _ in range(3)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        self.assertEqual(len(self.runs()), 2)
+
+    def test_a_report_too_big_for_exec_drops_the_oldest_limits_last(self):
+        import json
+        saved = usage.MAX_OUT
+        usage.MAX_OUT = 600
+        try:
+            out = json.loads(usage.report(1))
+        finally:
+            usage.MAX_OUT = saved
+        self.assertTrue(out["truncated"])
+        self.assertLess(len(out["limits"]), 2)
+
     def test_a_read_is_kept_for_the_ttl(self):
         self.by_account()
         self.by_account()

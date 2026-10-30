@@ -11,6 +11,7 @@ const box = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "plu
 const python = spawnSync("python3", ["--version"]).status === 0;
 
 test("usage.py reads Claude Code's /usage", { skip: !python && "no python3" }, () => {
-  const r = spawnSync("python3", ["-m", "unittest", "-q", "usage_test.py"], { cwd: box, encoding: "utf8" });
+  // A hung run fails the test rather than holding up the whole suite.
+  const r = spawnSync("python3", ["-m", "unittest", "-q", "usage_test.py"], { cwd: box, encoding: "utf8", timeout: 120_000 });
   assert.equal(r.status, 0, r.stderr || r.stdout);
 });

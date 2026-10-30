@@ -173,9 +173,14 @@ export function plan(a: Account | undefined): { label: string; subscription: boo
   return a.plan ? { label: `ChatGPT ${a.plan.charAt(0).toUpperCase()}${a.plan.slice(1)}`, subscription: true } : undefined;
 }
 
-// identity is one login across boxes: its email, or the account on its box
-// when it has none.
-export const identity = (a: Account | undefined, box: string, id: string) => (a?.email ? `${a.agent}:${a.email}` : `${box}:${a?.agent}:${id}`);
+// login is one login across boxes: its email and organisation (one email
+// can sign in to a team seat and a personal plan), or the account on its box
+// when it has no email.
+const login = (agent: Agent | undefined, email: string | null | undefined, org: string | null | undefined, box: string, id: string) =>
+  email ? `${agent}:${email}${org ? `#${org}` : ""}` : `${box}:${agent}:${id}`;
+
+// identity is login for an account a box listed.
+export const identity = (a: Account | undefined, box: string, id: string) => login(a?.agent, a?.email, a?.org_id, box, id);
 
 export interface SharedLimits {
   // Which login it is, unique among them.
@@ -193,10 +198,11 @@ export function dedupeLimits(agent: Agent, sources: Source[], accounts: Record<s
     const from = firstDay(report.today, period);
     for (const l of report.limits.filter((x) => x.agent === agent && x.at.slice(0, 10) >= from)) {
       const a = accounts[box]?.find((x) => x.agent === agent && x.id === l.account);
-      // One email can sign in to two plans (a team seat and a personal
-      // Max): its organisation tells them apart.
-      const k = identity(a, box, l.account) + (l.org ? `#${l.org}` : "");
-      const label = a?.email ?? (l.account === "default" ? box : `${box} · ${l.account}`);
+      // Who it is: the box's account, or what the report says when the box
+      // listed no accounts.
+      const email = a?.email ?? l.email;
+      const k = login(agent, email, a?.org_id ?? l.org, box, l.account);
+      const label = email ?? (l.account === "default" ? box : `${box} · ${l.account}`);
       const seen = out.get(k);
       if (!seen) out.set(k, { key: k, label, boxes: [box], limits: l });
       else {
@@ -206,9 +212,11 @@ export function dedupeLimits(agent: Agent, sources: Source[], accounts: Record<s
     }
   }
   const list = [...out.values()];
-  // Two plans of one email are named by their account too.
-  const twice = list.filter((s) => list.some((o) => o !== s && o.label === s.label));
-  for (const s of twice) s.label = `${s.label} · ${s.limits.account}`;
+  // Two plans of one email are named by their account too, and by their
+  // boxes when that is the same as well (each box's "default").
+  const twins = () => list.filter((s) => list.some((o) => o !== s && o.label === s.label));
+  for (const s of twins()) s.label = `${s.label} · ${s.limits.account}`;
+  for (const s of twins()) s.label = `${s.label} (${s.boxes.join(", ")})`;
   // One login needs no name.
   if (list.length === 1) list[0].label = undefined;
   return list;

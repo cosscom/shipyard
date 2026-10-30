@@ -20,7 +20,7 @@ Each session has **Open** if it is still running in Shipyard, or **Resume** (`cl
 - A login used on several boxes counts once: plans and Codex limits are matched by the email the agent recorded, keeping the newest limits.
 - Each box keeps its own days, in its own time zone.
 
-The numbers come from the files each agent writes on the box. Nothing is estimated or made up.
+The token numbers come from the files each agent writes on the box, and plan limits from the agents themselves (below). Nothing is estimated or made up.
 
 | Agent | Read from | What's in it |
 | --- | --- | --- |
