@@ -3,7 +3,8 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { type ExistingClone, plural } from "@/lib/team";
+import { plural } from "@/lib/format";
+import { type ExistingClone } from "@/lib/team";
 import { cn } from "@/lib/utils";
 
 // Clones the box already has of a repo, found by their origin: a Shipyard

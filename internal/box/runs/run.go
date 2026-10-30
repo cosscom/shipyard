@@ -43,6 +43,9 @@ import (
 //   - handoff: builds a handoff packet for the next start_agent
 //   - pr: Draft, Title, Text (body)
 //   - cleanup: Mode archive-losers
+//   - stop_session: Session, ended as DELETE /v1/sessions does
+//   - archive_worktree: the map item's location, name and path, archived
+//     where it's safe (the stop template)
 type Step struct {
 	ID          string   `json:"id,omitempty"`
 	Kind        string   `json:"kind"`

@@ -22,3 +22,6 @@ export function ago(iso?: string): string {
 export function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
+
+// plural is "1 agent", "3 agents".
+export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;

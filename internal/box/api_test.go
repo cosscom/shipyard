@@ -316,6 +316,59 @@ func TestArchivingAnswersInJSONAndRemovalStopsTheWorktreesSessions(t *testing.T)
 	}
 }
 
+// Asked twice while its archive script runs, a worktree is archived once:
+// the second ask is answered 202 too, and joins the first.
+func TestAWorktreeOnItsWayOutIsNotArchivedTwice(t *testing.T) {
+	t.Setenv("SHELL", "/bin/sh")
+	c, bus := servedBox(t)
+	seen, stop := bus.Subscribe()
+	defer stop()
+	repo := gitRepo(t)
+	count := filepath.Join(t.TempDir(), "archived")
+	call(t, c, "POST", "/v1/locations", "", map[string]string{"name": "cal", "path": repo}, nil)
+	call(t, c, "POST", "/v1/locations/cal/worktrees", "", WorktreeRequest{Name: "billing"}, nil)
+	call(t, c, "PUT", "/v1/locations/cal/scripts", "", map[string]string{"archive": "echo run >> " + shellQuote(count) + "; sleep 1"}, nil)
+	for i := range 2 {
+		var body map[string]string
+		if status := call(t, c, "DELETE", "/v1/locations/cal/worktrees/billing", "", nil, &body); status != 202 {
+			t.Fatalf("ask %d answered %d %v", i+1, status, body)
+		}
+		if i == 0 {
+			// The second ask comes while the first's script runs.
+			waitFor(t, seen, "worktree.archive.started")
+		}
+	}
+	waitFor(t, seen, "worktree.removed")
+	time.Sleep(200 * time.Millisecond)
+	if b, _ := os.ReadFile(count); strings.Count(string(b), "\n") != 1 {
+		t.Fatalf("the archive script ran %d times", strings.Count(string(b), "\n"))
+	}
+}
+
+// A worktree that gained uncommitted work while its archive script runs is
+// refused when asked again, in git's words, rather than answered 202 for
+// an archive that git will then refuse.
+func TestAWorktreeAskedAgainIsCheckedForWorkFirst(t *testing.T) {
+	t.Setenv("SHELL", "/bin/sh")
+	c, bus := servedBox(t)
+	seen, stop := bus.Subscribe()
+	defer stop()
+	repo := gitRepo(t)
+	call(t, c, "POST", "/v1/locations", "", map[string]string{"name": "cal", "path": repo}, nil)
+	var wt Worktree
+	call(t, c, "POST", "/v1/locations/cal/worktrees", "", WorktreeRequest{Name: "billing"}, &wt)
+	call(t, c, "PUT", "/v1/locations/cal/scripts", "", map[string]string{"archive": "sleep 1"}, nil)
+	if status := call(t, c, "DELETE", "/v1/locations/cal/worktrees/billing", "", nil, nil); status != 202 {
+		t.Fatalf("first ask answered %d", status)
+	}
+	waitFor(t, seen, "worktree.archive.started")
+	os.WriteFile(filepath.Join(wt.Path, "notes.txt"), []byte("wip"), 0o600)
+	var body map[string]string
+	if status := call(t, c, "DELETE", "/v1/locations/cal/worktrees/billing", "", nil, &body); status == 202 || !strings.Contains(body["error"], "modified or untracked") {
+		t.Fatalf("asked again with uncommitted work: %d %v", status, body)
+	}
+}
+
 func TestHomeSessionStartsInTheUsersHomeAndNowhereElse(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

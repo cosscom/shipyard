@@ -3,7 +3,8 @@
 // Put it on the bar as its ref: while the bar is up, --berth-bar-lift says
 // how far above the window's bottom edge the bar's top is (and a gap), and
 // the toast viewport (App.tsx) starts no lower than that. The loops panel
-// does the same with --berth-loops-h.
+// and the background-jobs tray do the same with --berth-loops-h and
+// --berth-jobs-h.
 const GAP = 12;
 
 export function liftToasts(el: HTMLElement | null): (() => void) | undefined {

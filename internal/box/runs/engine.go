@@ -19,7 +19,8 @@ import (
 // Host does a run's leaf steps; the box implements it.
 type Host interface {
 	// Leaf does one leaf step: run, check, prompt, wait, start_agent,
-	// headless, notify, webhook, collect, handoff, pr or cleanup.
+	// headless, notify, webhook, collect, handoff, pr, cleanup,
+	// stop_session or archive_worktree.
 	Leaf(ctx context.Context, x *StepCtx) Result
 	// Reenter is asked about a leaf step the journal shows started but not
 	// finished: berthd stopped in the middle of it. ok false runs it again;
@@ -42,6 +43,10 @@ type StepCtx struct {
 	IdemKey    string
 	Vars       map[string]string
 	Candidates []Candidate
+	// Stopping says berthd is stopping, rather than the run being
+	// cancelled: a step that can't finish now answers Cancelled, and the
+	// resumed run does it again.
+	Stopping func() bool
 }
 
 // Result is what a leaf step did.

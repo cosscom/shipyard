@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -130,6 +131,19 @@ type Box struct {
 	// Helpers runs the helper programs plugins bring (helpers.go); nil on a
 	// box without them.
 	Helpers *Helpers
+
+	// dropping is the worktrees on their way out, by path, with whoever
+	// else asked meanwhile (dropWorktree).
+	dropMu   sync.Mutex
+	dropping map[string][]func(error)
+	// lastLook holds a worktree's folder from a removal's last look for
+	// agents until the folder is gone, and a session's while it starts
+	// (startUnseen), so no agent starts unseen in between (lastlook.go).
+	lastLook lookGuard
+	// archiveLine lets a box's stop runs archive one worktree at a time
+	// (archiveTurn).
+	archiveOnce sync.Once
+	archiveLine chan struct{}
 }
 
 func (b *Box) own(path string) {
@@ -584,8 +598,42 @@ func (b *Box) removeWorktree(w http.ResponseWriter, r *http.Request) error {
 // succeeds (async); without one it goes at once. Unless forced, a worktree
 // with uncommitted or untracked files is refused before any of that, in
 // git's words. done, when set, hears how it ended. A review worktree's
-// removal is journaled as review.removed, with why.
+// removal is journaled as review.removed, with why. A worktree already on
+// its way out isn't torn down twice: a second ask (a stop run resumed, a
+// request sent again) is async, and its done hears how the first ends.
 func (b *Box) dropWorktree(from string, loc Location, name, dir, branch string, force bool, reason string, done func(error)) (async bool, err error) {
+	return b.dropWorktreeIf(from, loc, name, dir, branch, force, reason, done, nil)
+}
+
+// dropWorktreeIf is dropWorktree with a last word: keep, when set, is
+// asked right before the folder goes (after the archive script), and an
+// error from it leaves the worktree as it is, done hearing why.
+func (b *Box) dropWorktreeIf(from string, loc Location, name, dir, branch string, force bool, reason string, done func(error), keep func() error) (async bool, err error) {
+	// git refuses a worktree with uncommitted or untracked files unless
+	// forced. Ask before anything is torn down, so an archive script never
+	// runs on work that git will then keep, and before it counts as on its
+	// way out, so a second ask hears the same.
+	if !force && dirtyWorktree(loc.Path, dir) {
+		return false, fmt.Errorf("git worktree remove: '%s' contains modified or untracked files, use --force to delete it", dir)
+	}
+	// What a removal stopped halfway left is finished only when that's
+	// safe (finishRemoval): asked here too, so a refusal tears nothing down.
+	if i := slices.IndexFunc(loc.Worktrees, func(w Worktree) bool { return w.Path == dir && w.Prunable }); i >= 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		_, err := leftoverRefusal(ctx, loc, loc.Worktrees[i], force)
+		cancel()
+		if err != nil {
+			return false, err
+		}
+	}
+	if !b.dropBegin(dir, done) {
+		return true, nil
+	}
+	defer func() {
+		if err != nil {
+			b.dropEnd(dir, err)
+		}
+	}()
 	_, mark := b.Locations.reviewAt(dir)
 	if mark != nil && branch == "" {
 		// A review's branch is Shipyard's own, made for it: it goes too.
@@ -594,16 +642,9 @@ func (b *Box) dropWorktree(from string, loc Location, name, dir, branch string, 
 		}
 	}
 	finish := func(err error) {
+		b.dropEnd(dir, err)
 		if done != nil {
 			done(err)
-		}
-	}
-	// git refuses a worktree with uncommitted or untracked files unless
-	// forced. Ask before anything is torn down, so an archive script never
-	// runs on work that git will then keep.
-	if !force {
-		if dirtyWorktree(dir) {
-			return false, fmt.Errorf("git worktree remove: '%s' contains modified or untracked files, use --force to delete it", dir)
 		}
 	}
 	b.stopServices(loc.Name, name)
@@ -624,14 +665,16 @@ func (b *Box) dropWorktree(from string, loc Location, name, dir, branch string, 
 		}
 	}
 	// A worktree with an archive script is torn down in the background: the
-	// script may take minutes, and removal only follows if it succeeds.
-	if loc.Scripts.Archive != "" {
+	// script may take minutes, and removal only follows if it succeeds. What
+	// a removal stopped halfway left was past its script already, and may
+	// no longer have what the script needs.
+	if loc.Scripts.Archive != "" && !halfRemoved(loc, dir) {
 		go func() {
 			ran := false
 			var removeErr error
 			b.lifecycle(from, "archive", loc, dir, name, loc.Scripts.Archive, func() error {
 				ran = true
-				if removeErr = b.Locations.RemoveWorktree(context.Background(), loc.Name, name, force); removeErr != nil {
+				if removeErr = b.removeAfter(dir, keep, func() error { return b.Locations.RemoveWorktree(context.Background(), loc.Name, name, force) }); removeErr != nil {
 					return removeErr
 				}
 				removed(context.Background())
@@ -644,12 +687,93 @@ func (b *Box) dropWorktree(from string, loc Location, name, dir, branch string, 
 		}()
 		return true, nil
 	}
-	if err := b.Locations.RemoveWorktree(context.Background(), loc.Name, name, force); err != nil {
+	if err := b.removeAfter(dir, keep, func() error { return b.Locations.RemoveWorktree(context.Background(), loc.Name, name, force) }); err != nil {
 		return false, err
 	}
 	removed(context.Background())
 	finish(nil)
 	return false, nil
+}
+
+// halfRemoved says loc's worktree at dir is what a removal stopped halfway
+// left: git has dropped its link.
+func halfRemoved(loc Location, dir string) bool {
+	return slices.ContainsFunc(loc.Worktrees, func(w Worktree) bool { return w.Path == dir && w.Prunable })
+}
+
+// removeAfter removes the worktree at dir with remove once keep, when set,
+// has no objection. No session starts in dir from keep's look until the
+// removal ends, the folder gone or not, so an agent either counts or finds
+// no folder (startUnseen); sessions elsewhere don't wait.
+func (b *Box) removeAfter(dir string, keep func() error, remove func() error) error {
+	if keep == nil {
+		return remove()
+	}
+	defer b.lastLook.remove(dir)()
+	if err := keep(); err != nil {
+		return err
+	}
+	return remove()
+}
+
+// dropBegin marks dir on its way out. When it already is, done waits with
+// the first ask for how it ends, and dropBegin says so with false.
+func (b *Box) dropBegin(dir string, done func(error)) bool {
+	b.dropMu.Lock()
+	defer b.dropMu.Unlock()
+	if b.dropping == nil {
+		b.dropping = map[string][]func(error){}
+	}
+	if waiting, ok := b.dropping[dir]; ok {
+		if done != nil {
+			b.dropping[dir] = append(waiting, done)
+		}
+		return false
+	}
+	b.dropping[dir] = nil
+	return true
+}
+
+// dropEnd says how dir's removal ended to those who asked again meanwhile.
+func (b *Box) dropEnd(dir string, err error) {
+	b.dropMu.Lock()
+	waiting, ok := b.dropping[dir]
+	delete(b.dropping, dir)
+	b.dropMu.Unlock()
+	if !ok {
+		return
+	}
+	for _, w := range waiting {
+		w(err)
+	}
+}
+
+// startUnseen starts a session with start, never while a removal takes
+// its last look for agents (removeAfter): one that waited for it finds its
+// folder gone, or counted.
+func (b *Box) startUnseen(dir string, start func() (Session, error)) (Session, error) {
+	defer b.lastLook.start(dir)()
+	if dir != "" {
+		if _, err := os.Stat(dir); errors.Is(err, os.ErrNotExist) {
+			return Session{}, httpError{http.StatusConflict, fmt.Sprintf("%s is gone: its worktree was archived or removed", dir)}
+		}
+	}
+	return start()
+}
+
+// archiveTurn waits until no other stop run on this box is archiving, as
+// the app's own removals wait their turn on a box (lib/removing.ts inTurn),
+// so archive scripts don't run side by side. release ends the turn; it is
+// safe to call more than once. ctx ending first is an error.
+func (b *Box) archiveTurn(ctx context.Context) (release func(), err error) {
+	b.archiveOnce.Do(func() { b.archiveLine = make(chan struct{}, 1) })
+	select {
+	case b.archiveLine <- struct{}{}:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	var once sync.Once
+	return func() { once.Do(func() { <-b.archiveLine }) }, nil
 }
 
 // stopSessionsIn ends the sessions working in a removed worktree: their

@@ -23,10 +23,11 @@ import { portUrl } from "@/lib/browser-url";
 import { agentOf, worktreeSessions } from "@/lib/derive";
 import { ago, errorMessage } from "@/lib/format";
 import { plainError } from "@/lib/errors";
+import { stopOnBox } from "@/lib/stop-on-box";
 import { scheduleRefresh, useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { isPinned, pinWorktree, unpinWorktree } from "@/lib/pinned-worktrees";
-import { queueRemoval, removeWorktreeOnBox } from "@/lib/remove-worktree";
+import { queueRemoval } from "@/lib/remove-worktree";
 import { addGroup, isShown, refOf, selectWorktree, useWorkspaces, wsKey } from "@/lib/workspaces";
 import { ToneItems } from "@/components/workspace/tab-group";
 import { openWorktreePicker } from "@/components/workspace/worktree-picker";
@@ -404,7 +405,20 @@ export function worktreeActions(box: string, loc: Location, wt: Worktree): Actio
           confirm: "Stop sessions",
           destructive: true,
           run: async () => {
-            for (const s of sessions) await stopSession(box, s.name, true);
+            // A box with runs stops them itself (lib/stop-on-box.ts), so the
+            // laptop sleeping halfway leaves none running.
+            const read = await stopOnBox(box, `Stop everything in ${name}`, { sessions: sessions.map((s) => s.name), worktrees: [] }).catch((err: unknown) => {
+              toastManager.add({ title: "Could not stop the sessions", description: plainError(err), type: "error" });
+              return null;
+            });
+            if (read === null) return;
+            if (!read) {
+              for (const s of sessions) await stopSession(box, s.name, true);
+              return;
+            }
+            scheduleRefresh(box, ["sessions"]);
+            const failed = Object.values(read.rows).filter((r) => r.state === "failed");
+            if (failed.length) toastManager.add({ title: `Could not stop ${failed.length === 1 ? "a session" : `${failed.length} sessions`}`, description: failed[0].message?.replace(/^Failed: /, ""), type: "error" });
           },
         }),
         { destructive: true },
@@ -422,7 +436,10 @@ export function worktreeActions(box: string, loc: Location, wt: Worktree): Actio
 // archiveWorktree asks, then archives a worktree: its sessions and services
 // stop, the repo's archive script runs (on the box, in the background),
 // then its folder goes. Its branch stays, and git refuses to lose
-// uncommitted work, so nothing is lost; Remove is the way to discard.
+// uncommitted work, so nothing is lost; Remove is the way to discard. The
+// dialog closes as soon as it is confirmed; the row says "Archiving…" until
+// the box is done, as a one-row job in the background-jobs tray, and a
+// toast says how it went (lib/remove-worktree.ts).
 export function archiveWorktree(box: string, loc: Location, wt: Worktree) {
   const script = loc.scripts?.archive;
   confirm({
@@ -430,19 +447,7 @@ export function archiveWorktree(box: string, loc: Location, wt: Worktree) {
     description: `${script ? "The repo's archive script runs, then its" : "Its"} folder on ${box} goes and its sessions and services stop. ${wt.branch ? `Branch ${wt.branch} stays, so you can pick it up again.` : ""}`,
     detail: script ? <span className="font-mono">{script}</span> : undefined,
     confirm: "Archive",
-    run: async () => {
-      const client = useStore.getState().client;
-      if (!client) throw new Error("not connected");
-      let res: { archive?: string };
-      try {
-        res = await removeWorktreeOnBox(client, box, loc.name, wt, "archive");
-      } catch (err) {
-        if (/modified|untracked|uncommitted|contains/i.test(errorMessage(err))) throw new Error(`${wt.name} has uncommitted changes, so it was left as it is. Commit them first, or use Remove worktree to discard them.`);
-        throw err;
-      }
-      if (res.archive) toastManager.add({ title: `Archiving ${wt.name}`, description: "Its archive script is running on the box; the worktree goes when it finishes.", type: "info" });
-      else toastManager.add({ title: `Archived ${wt.name}`, description: wt.branch ? `Branch ${wt.branch} is kept.` : box, type: "success" });
-    },
+    run: () => queueRemoval(box, loc.name, wt, { kind: "archive" }),
   });
 }
 

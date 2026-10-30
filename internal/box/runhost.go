@@ -168,6 +168,10 @@ func (h *runHost) Leaf(ctx context.Context, x *runs.StepCtx) runs.Result {
 		return h.pullRequest(ctx, x)
 	case "cleanup":
 		return h.cleanup(ctx, x)
+	case "stop_session":
+		return h.stopSession(ctx, x)
+	case "archive_worktree":
+		return h.archiveWorktree(ctx, x)
 	}
 	return fail(fmt.Errorf("unknown step %q", s.Kind))
 }

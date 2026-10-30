@@ -632,6 +632,7 @@ func TestTemplatesExpand(t *testing.T) {
 		"address-review": {},
 		"attempts":       {"location": "shop", "name": "n", "prompt": "p", "attempts": []any{"claude"}},
 		"exec":           {"command": "make"},
+		"stop":           {"sessions": []any{"a", map[string]any{"session": "b", "label": "shop / fix"}}},
 	}
 	for _, tpl := range Templates() {
 		p, ok := params[tpl.Name]
@@ -649,6 +650,15 @@ func TestTemplatesExpand(t *testing.T) {
 			t.Fatalf("%s says nothing of its token budget", tpl.Name)
 		}
 	}
+	// stop: a name is short for {session}, and with no worktrees nothing
+	// is archived.
+	ex, err := Expand("stop", map[string]any{"sessions": []any{"a", map[string]any{"session": "b", "label": "shop / fix"}}})
+	if err != nil || ex.Title != "Stop 2 agents" || ex.Steps[0].Steps[0].Kind != "stop_session" || string(ex.Steps[1].Items) != "[]" {
+		t.Fatalf("stop expanded to %q %+v (%v)", ex.Title, ex.Steps, err)
+	}
+	if items, _ := Items(ex.Steps[0].Items, nil); len(items) != 2 || items[0]["item.session"] != "a" || items[1]["item.label"] != "shop / fix" {
+		t.Fatalf("stop's items: %v", items)
+	}
 	if _, err := Expand("loop", map[string]any{"session": "s"}); err == nil {
 		t.Fatal("missing check accepted")
 	}
@@ -656,7 +666,7 @@ func TestTemplatesExpand(t *testing.T) {
 		t.Fatal("unknown param accepted")
 	}
 	// A parameter can fill a value, never add a field.
-	ex, err := Expand("loop", map[string]any{"session": `s", "kind": "run`, "check": "x"})
+	ex, err = Expand("loop", map[string]any{"session": `s", "kind": "run`, "check": "x"})
 	if err != nil || ex.Steps[0].Steps[0].Session != `s", "kind": "run` || ex.Steps[0].Steps[0].Kind != "prompt" {
 		t.Fatalf("injection: %+v %v", ex.Steps[0].Steps[0], err)
 	}

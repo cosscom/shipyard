@@ -92,7 +92,7 @@ Each step:
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `id` | string | Optional, unique in the flow. Unnamed steps are `1`, `2`, … |
-| `kind` | string | `run`, `prompt`, `wait`, `start_agent`, `notify` or `webhook`, or a [run](/guides/runs) step: `check`, `loop`, `map`, `join`, `if`, `gate`, `sleep`, `judge`, `headless`, `collect`, `handoff`, `pr`, `cleanup`. |
+| `kind` | string | `run`, `prompt`, `wait`, `start_agent`, `notify` or `webhook`, or a [run](/guides/runs) step: `check`, `loop`, `map`, `join`, `if`, `gate`, `sleep`, `judge`, `headless`, `collect`, `handoff`, `pr`, `cleanup`, `stop_session`, `archive_worktree`. |
 | `when` | string | `success` (default), `failure` or `always`. |
 | `command` | string | `run`: required. Variables reach it as environment variables, [never as code](/guides/automations#how-values-are-filled-in). |
 | `text` | string | `prompt`: required, the prompt. `start_agent`: its first prompt. `notify`: the body. `webhook`: the JSON body (default: every variable). |

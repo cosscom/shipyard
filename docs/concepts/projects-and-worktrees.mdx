@@ -109,7 +109,13 @@ name moves to it.
 When a worktree is created, the repository's **setup** script runs in it (in
 the background, up to 30 minutes, logged on the box); once it succeeds, its
 `autostart` services start. Before one is removed, its services stop and the **archive**
-script runs; if that fails, the worktree stays. Both come from
+script runs; if that fails, the worktree stays. git then has 10 minutes
+to remove the folder (`BERTH_WORKTREE_REMOVE_TIMEOUT` in berthd's
+environment sets another limit). A removal stopped halfway leaves a
+folder git no longer counts as a worktree; archiving it again removes
+what's left, and keeps its branch. It is left as it is when that would
+lose work: unsaved changes in it (Remove worktree discards them), or a
+git repository inside it, which only you can sort out. Both scripts come from
 [`.berth/config.json`](/guides/project-config), a [kit](/guides/kits), or the
 box's own config for the location (`berth location scripts`). A
 repository's own file runs only once it is

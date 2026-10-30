@@ -117,7 +117,7 @@ func (h *runHost) headless(ctx context.Context, x *runs.StepCtx) runs.Result {
 		if err := b.beforeAs(ctx, origOf(x), "session.start", map[string]any{"path": dir, "command": command, "agent": agent, "headless": true}); err != nil {
 			return fail(err)
 		}
-		if _, err := b.Sessions.create(ctx, name, where, dir, command, "", nil, nil, nil); err != nil {
+		if _, err := b.startUnseen(dir, func() (Session, error) { return b.Sessions.create(ctx, name, where, dir, command, "", nil, nil, nil) }); err != nil {
 			return fail(err)
 		}
 		b.Events.Publish(eventAs(b, origOf(x), "session.started", map[string]any{"name": name, "location": where, "path": dir, "agent": agent, "headless": true, "run": x.Run.ID}))

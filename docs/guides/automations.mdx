@@ -221,8 +221,10 @@ Flows can also use every [run](/guides/runs) step kind: `check` (a `run`
 whose failing tail is kept as `{{steps.ID.feedback}}`, at most 3 KB),
 `loop` (`max`, `until`, `steps`), `map` (`items`, `concurrency`, `mode`,
 `steps`), `join`, `if` (`cond`, `steps`, `else`), `gate` (`title`, `text`,
-`timeout`, `on_timeout`), `sleep` (`duration`), `judge`, `headless`, `pr`
-and `cleanup`. Conditions (`if.cond`, `loop.until`) compare variables with
+`timeout`, `on_timeout`), `sleep` (`duration`), `judge`, `headless`, `pr`,
+`cleanup`, `stop_session` (`session`) and `archive_worktree` (a `map`
+item's `location`, `name` and `path`, archived where it's safe, as the
+`stop` template does). Conditions (`if.cond`, `loop.until`) compare variables with
 `==`, `!=`, `<`, `>`, `contains` and `matches`, joined by `&&` and `||`:
 `steps.check.exit_code != 0 && loop.round < 3`. Nothing more: no scripting.
 

@@ -1,0 +1,20 @@
+{
+  "name": "stop",
+  "title": "Stop {{params.count}} agents",
+  "description": "Stop agent sessions on this box a few at a time, then archive the worktrees given, one at a time, where it's safe: never forced and the branch kept, so a worktree with uncommitted changes, or an agent still running in it, is left as it is.",
+  "tokens": "None: nothing is sent to an agent.",
+  "params": {
+    "sessions": {"required": true, "description": "session names, or {session, label, aside}"},
+    "worktrees": {"default": [], "description": "worktrees to archive once the sessions stopped: {location, name, path}"},
+    "concurrency": {"default": 3},
+    "count": {"default": ""}
+  },
+  "steps": [
+    {"id": "stop", "kind": "map", "items": ${sessions}, "concurrency": ${concurrency}, "mode": "all", "steps": [
+      {"id": "session", "kind": "stop_session", "session": "{{item.session}}"}
+    ]},
+    {"id": "archive", "kind": "map", "when": "always", "items": ${worktrees}, "concurrency": 1, "mode": "all", "steps": [
+      {"id": "worktree", "kind": "archive_worktree"}
+    ]}
+  ]
+}

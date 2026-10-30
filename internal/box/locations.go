@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/exec"
@@ -75,6 +76,10 @@ type Worktree struct {
 	// its reason ("initializing" while `git worktree add` runs).
 	Locked     bool   `json:"locked,omitempty"`
 	LockReason string `json:"lock_reason,omitempty"`
+	// Prunable is set when git has dropped the worktree's link: its .git
+	// is gone, as a removal stopped halfway leaves it. What is left of the
+	// folder is no worktree, and removing it finishes the job.
+	Prunable bool `json:"prunable,omitempty"`
 	// Title is the name a person gave the worktree to show in its place
 	// (worktreetitles.go): a label only, its branch and folder keep Name.
 	Title string `json:"title,omitempty"`
@@ -391,52 +396,268 @@ func branchExists(ctx context.Context, repo, ref string) bool {
 	return err == nil
 }
 
+// worktreeRemoveTimeout is how long `git worktree remove` may take: a big
+// worktree on a busy box can take minutes, and one stopped halfway is left
+// partly removed. BERTH_WORKTREE_REMOVE_TIMEOUT (a Go duration) sets
+// another.
+var worktreeRemoveTimeout = removeTimeout(os.Getenv("BERTH_WORKTREE_REMOVE_TIMEOUT"))
+
+func removeTimeout(env string) time.Duration {
+	if d, err := time.ParseDuration(env); err == nil && d > 0 {
+		return d
+	}
+	return 10 * time.Minute
+}
+
 // RemoveWorktree removes a worktree. Git refuses when it has uncommitted
-// changes unless force is set, and that refusal is passed on unchanged.
+// changes unless force is set, and that refusal is passed on unchanged. One
+// git has dropped the link to (a removal stopped halfway) is finished
+// instead (finishRemoval), and so is one whose folder is already gone.
 func (l *Locations) RemoveWorktree(ctx context.Context, location, name string, force bool) error {
 	loc, err := l.Get(ctx, location)
 	if err != nil {
 		return err
 	}
-	for _, w := range loc.Worktrees {
-		if w.Name != name {
-			continue
+	w, ok := Worktree{}, false
+	for _, c := range loc.Worktrees {
+		if c.Name == name {
+			w, ok = c, true
+			break
 		}
-		if w.Main {
-			return errors.New("refusing to remove the repository's main checkout")
+	}
+	if !ok {
+		if w, ok = goneWorktree(ctx, loc, name); !ok {
+			return ErrUnknownWorktree
 		}
-		if w.Locked {
-			if !ownLock(w.LockReason) {
-				return errLocked(loc.Path, w)
-			}
-			if out, err := git(ctx, "-C", loc.Path, "worktree", "unlock", w.Path); err != nil {
-				return fmt.Errorf("git worktree unlock: %s", strings.TrimSpace(string(out)))
-			}
+	}
+	if w.Main {
+		return errors.New("refusing to remove the repository's main checkout")
+	}
+	if w.Locked {
+		if !ownLock(w.LockReason) {
+			return errLocked(loc.Path, w)
 		}
-		args := []string{"-C", loc.Path, "worktree", "remove", w.Path}
-		if force {
-			args = append(args, "--force")
+		if out, err := git(ctx, "-C", loc.Path, "worktree", "unlock", w.Path); err != nil {
+			return gitFailed("git worktree unlock", out, err)
 		}
-		out, err := git(ctx, args...)
-		// git refuses any worktree with a submodule checked out, however
-		// clean, and only --force gets past it. Look for the work git won't,
-		// and force only when there is none to lose.
-		if err != nil && !force && strings.Contains(string(out), "containing submodules") {
-			if why := unsavedWork(ctx, w.Path); why != "" {
-				return httpError{status: http.StatusConflict, msg: fmt.Sprintf("git worktree remove: '%s' %s, use --force to delete it", w.Path, why)}
-			}
-			out, err = git(ctx, append(args, "--force")...)
+	}
+	if w.Prunable {
+		if err := finishRemoval(ctx, loc, w, force); err != nil {
+			return err
 		}
-		if err != nil {
-			return fmt.Errorf("git worktree remove: %s", strings.TrimSpace(string(out)))
+	} else if err := removeLinked(ctx, loc.Path, w, force); err != nil {
+		return err
+	}
+	// A worktree made again under the same name starts without a title.
+	l.forgetTitle(location, w.Path)
+	l.forgetParent(location, w.Path)
+	l.setReview(location, w.Path, nil)
+	return nil
+}
+
+// removeLinked has git remove a worktree it still has the link to.
+func removeLinked(ctx context.Context, repo string, w Worktree, force bool) error {
+	args := []string{"-C", repo, "worktree", "remove", w.Path}
+	if force {
+		args = append(args, "--force")
+	}
+	out, err := gitWithin(ctx, worktreeRemoveTimeout, args...)
+	// git refuses any worktree with a submodule checked out, however
+	// clean, and only --force gets past it. Look for the work git won't,
+	// and force only when there is none to lose.
+	if err != nil && !force && strings.Contains(string(out), "containing submodules") {
+		if why := unsavedWork(ctx, w.Path); why != "" {
+			return httpError{status: http.StatusConflict, msg: fmt.Sprintf("git worktree remove: '%s' %s, use --force to delete it", w.Path, why)}
 		}
-		// A worktree made again under the same name starts without a title.
-		l.forgetTitle(location, w.Path)
-		l.forgetParent(location, w.Path)
-		l.setReview(location, w.Path, nil)
+		out, err = gitWithin(ctx, worktreeRemoveTimeout, append(args, "--force")...)
+	}
+	if err == nil {
 		return nil
 	}
-	return ErrUnknownWorktree
+	err = gitFailed("git worktree remove", out, err)
+	if errors.Is(err, errGitTimedOut) {
+		return fmt.Errorf("%w; the folder may be partly removed, and archiving it again finishes it", err)
+	}
+	return err
+}
+
+// goneWorktree finds a worktree by name that git still has but whose
+// folder is gone, so it isn't listed.
+func goneWorktree(ctx context.Context, loc Location, name string) (Worktree, bool) {
+	out, err := git(ctx, "-C", loc.Path, "worktree", "list", "--porcelain")
+	if err != nil {
+		return Worktree{}, false
+	}
+	for _, w := range parseWorktreeList(out, loc.Path) {
+		if w.Name != name || w.Main || !w.Prunable {
+			continue
+		}
+		if _, err := os.Lstat(w.Path); errors.Is(err, fs.ErrNotExist) {
+			return w, true
+		}
+	}
+	return Worktree{}, false
+}
+
+// finishRemoval removes what is left of a worktree git has dropped the
+// link to: its folder, then git's record of it. Only that one's, where
+// `git worktree prune` would drop every half-removed worktree's record
+// and leave their folders behind with nothing listing them. In that order,
+// so a removal stopped again leaves a record that archiving again finishes,
+// never a folder nothing lists. Unless forced, only when nothing would be
+// lost (leftoverWork). The branch is kept.
+func finishRemoval(ctx context.Context, loc Location, w Worktree, force bool) error {
+	record, err := leftoverRefusal(ctx, loc, w, force)
+	if err != nil {
+		return err
+	}
+	if err := os.RemoveAll(w.Path); err != nil {
+		return fmt.Errorf("removing what was left of %s: %w", w.Path, err)
+	}
+	if err := os.RemoveAll(record); err != nil {
+		return fmt.Errorf("removing git's record of %s: %w", w.Path, err)
+	}
+	return nil
+}
+
+// leftoverRefusal is why finishRemoval would leave what's left of w as it
+// is, or nil with git's record of it, so a removal can ask before anything
+// is torn down.
+func leftoverRefusal(ctx context.Context, loc Location, w Worktree, force bool) (record string, err error) {
+	// Never a folder git still treats as a worktree: git also calls one
+	// prunable when only its own record is broken, with the .git still there.
+	if _, err := os.Lstat(filepath.Join(w.Path, ".git")); !errors.Is(err, fs.ErrNotExist) {
+		return "", fmt.Errorf("git worktree remove: '%s' has a .git that git can't read, so it was left as it is; run `git -C %s worktree repair %s` and try again", w.Path, loc.Path, w.Path)
+	}
+	for _, o := range loc.Worktrees {
+		if o.Path != w.Path && strings.HasPrefix(o.Path, w.Path+string(filepath.Separator)) {
+			return "", fmt.Errorf("git worktree remove: '%s' holds the worktree %s, so it was left as it is", w.Path, o.Path)
+		}
+	}
+	// Nor one with any repository in it, a worktree of another's under an
+	// ignored folder included, which git status here wouldn't see.
+	if inner := gitInside(w.Path); inner != "" {
+		return "", fmt.Errorf("git worktree remove: '%s' has a git repository in it at %s, so it was left as it is", w.Path, inner)
+	}
+	record, err = worktreeRecord(ctx, loc.Path, w.Path)
+	if err != nil {
+		return "", err
+	}
+	if _, err := os.Lstat(w.Path); !force && err == nil {
+		if why := leftoverWork(ctx, record, w.Path); why != "" {
+			return "", httpError{status: http.StatusConflict, msg: fmt.Sprintf("git worktree remove: '%s' %s, use --force to delete it", w.Path, why)}
+		}
+	}
+	return record, nil
+}
+
+// gitInside is the first folder under dir with a .git in it, or "". A
+// walk that fails part way counts as one, so nothing unseen is deleted.
+func gitInside(dir string) string {
+	found := ""
+	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			if p == dir && errors.Is(err, fs.ErrNotExist) {
+				return filepath.SkipAll
+			}
+			return err
+		}
+		if d.Name() == ".git" {
+			found = filepath.Dir(p)
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	if err != nil && found == "" {
+		return dir + " (it could not be read: " + err.Error() + ")"
+	}
+	return found
+}
+
+// leftoverWork says what deleting the folder of a worktree git dropped the
+// link to would lose, or "" for nothing. git is asked about the folder
+// through the worktree's record, which still has its HEAD and index: files
+// a removal stopped halfway already deleted are nothing to lose, since
+// they are in a commit, and ignored ones are what git deletes anyway. A
+// changed, staged or new file is work, as it would be to git worktree
+// remove, and when git can't tell, that counts too. The removal may have
+// deleted .gitignore files before what they ignore (node_modules would
+// then read as new), so those are put back as committed and git is asked
+// again.
+func leftoverWork(ctx context.Context, record, path string) string {
+	changed, ignores, err := leftoverStatus(ctx, record, path)
+	if err == nil && changed && len(ignores) > 0 {
+		args := append([]string{"-C", path, "--git-dir=" + record, "--work-tree=" + path, "checkout-index", "--"}, ignores...)
+		if out, cerr := git(ctx, args...); cerr != nil {
+			err = gitFailed("git checkout-index", out, cerr)
+		} else {
+			changed, _, err = leftoverStatus(ctx, record, path)
+		}
+	}
+	if err != nil {
+		return "could not be checked for changes"
+	}
+	if changed {
+		return "contains modified or untracked files"
+	}
+	return ""
+}
+
+// leftoverStatus is git status of what's left of a worktree: whether
+// anything but a deleted file shows, and the deleted .gitignore files.
+func leftoverStatus(ctx context.Context, record, path string) (changed bool, ignores []string, err error) {
+	out, err := git(ctx, "--no-optional-locks", "--git-dir="+record, "--work-tree="+path, "status", "--porcelain", "-z", "--untracked-files=normal", "--ignore-submodules=none")
+	if err != nil {
+		return false, nil, err
+	}
+	entries := strings.Split(string(out), "\x00")
+	for i := 0; i < len(entries); i++ {
+		e := entries[i]
+		if e == "" {
+			continue
+		}
+		if len(e) < 4 || e[:3] != " D " {
+			changed = true
+			// A rename's entry is followed by its old path.
+			if e[0] == 'R' || e[0] == 'C' {
+				i++
+			}
+			continue
+		}
+		if filepath.Base(e[3:]) == ".gitignore" {
+			ignores = append(ignores, e[3:])
+		}
+	}
+	return changed, ignores, nil
+}
+
+// worktreeRecord is the folder git keeps a linked worktree's record in,
+// under the repository's worktrees/: the one whose gitdir names path.
+func worktreeRecord(ctx context.Context, repo, path string) (string, error) {
+	out, err := git(ctx, "-C", repo, "rev-parse", "--path-format=absolute", "--git-common-dir")
+	if err != nil {
+		return "", gitFailed("git rev-parse", out, err)
+	}
+	dir := filepath.Join(strings.TrimSpace(string(out)), "worktrees")
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		record := filepath.Join(dir, e.Name())
+		b, err := os.ReadFile(filepath.Join(record, "gitdir"))
+		if err != nil {
+			continue
+		}
+		gitdir := strings.TrimSpace(string(b))
+		if !filepath.IsAbs(gitdir) {
+			gitdir = filepath.Join(record, gitdir)
+		}
+		if filepath.Dir(filepath.Clean(gitdir)) == path {
+			return record, nil
+		}
+	}
+	return "", fmt.Errorf("git worktree remove: git lists '%s' but has no record of it under %s, so it was left as it is", path, dir)
 }
 
 func describe(ctx context.Context, s savedLocation) Location {
@@ -486,6 +707,26 @@ func describe(ctx context.Context, s savedLocation) Location {
 // by its directory, with the repository's own "<repo>-" prefix removed, so
 // ~/work/shop-checkout is "checkout" in location "shop".
 func parseWorktrees(out []byte, repo string) []Worktree {
+	all := parseWorktreeList(out, repo)
+	// Worktrees git has lost track of (prunable, e.g. under a cleared /tmp)
+	// are not places anyone can work.
+	live := all[:0]
+	for _, w := range all {
+		if _, err := os.Stat(w.Path); err == nil {
+			// git calls one prunable when its .git is gone, but out may be
+			// older than that (a cached listing), so look afresh.
+			if _, err := os.Lstat(filepath.Join(w.Path, ".git")); !w.Main && errors.Is(err, fs.ErrNotExist) {
+				w.Prunable = true
+			}
+			live = append(live, w)
+		}
+	}
+	return live
+}
+
+// parseWorktreeList is every worktree git has registered, its folder there
+// or not.
+func parseWorktreeList(out []byte, repo string) []Worktree {
 	var all []Worktree
 	var cur *Worktree
 	prefix := filepath.Base(repo) + "-"
@@ -515,17 +756,13 @@ func parseWorktrees(out []byte, repo string) []Worktree {
 			if cur != nil {
 				cur.Locked, cur.LockReason = true, unquoteGit(value)
 			}
+		case "prunable":
+			if cur != nil {
+				cur.Prunable = true
+			}
 		}
 	}
-	// Worktrees git has lost track of (prunable, e.g. under a cleared /tmp)
-	// are not places anyone can work.
-	live := all[:0]
-	for _, w := range all {
-		if _, err := os.Stat(w.Path); err == nil {
-			live = append(live, w)
-		}
-	}
-	return live
+	return all
 }
 
 // unquoteGit reads a value git may have C-quoted (one with a line break or
@@ -540,17 +777,70 @@ func unquoteGit(v string) string {
 }
 
 func git(ctx context.Context, args ...string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	return gitWithin(ctx, 60*time.Second, args...)
+}
+
+// gitWithin is git with its own time limit. An error from running out of
+// it is errGitTimedOut, and one from ctx ending is ctx's.
+func gitWithin(ctx context.Context, limit time.Duration, args ...string) ([]byte, error) {
+	run, cancel := context.WithTimeout(ctx, limit)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd := exec.CommandContext(run, "git", args...)
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
-	return cmd.CombinedOutput()
+	out, err := cmd.CombinedOutput()
+	if err != nil && run.Err() != nil {
+		if ctx.Err() != nil {
+			return out, fmt.Errorf("%w (%v)", ctx.Err(), err)
+		}
+		return out, fmt.Errorf("%w after %s", errGitTimedOut, friendlyDuration(limit))
+	}
+	return out, err
+}
+
+var errGitTimedOut = errors.New("timed out")
+
+func friendlyDuration(d time.Duration) string {
+	if d >= time.Minute && d%time.Minute == 0 {
+		return fmt.Sprintf("%d min", int(d/time.Minute))
+	}
+	return d.String()
+}
+
+// gitFailed says why a git command failed, for a person: git's own words
+// when it said any, else how it ended (timed out, stopped by a signal, or
+// its exit status), so a failure never reads as "git worktree remove:"
+// alone.
+func gitFailed(what string, out []byte, err error) error {
+	if said := strings.TrimSpace(string(out)); said != "" && !errors.Is(err, errGitTimedOut) {
+		return fmt.Errorf("%s: %s", what, said)
+	}
+	var exit *exec.ExitError
+	switch {
+	case errors.Is(err, errGitTimedOut):
+		return fmt.Errorf("%s %w and was stopped", what, err)
+	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		return fmt.Errorf("%s was cancelled (%v)", what, err)
+	case errors.As(err, &exit) && !exit.Exited():
+		return fmt.Errorf("%s was stopped (%v) and said nothing", what, err)
+	case errors.As(err, &exit):
+		return fmt.Errorf("%s failed with no output (%v)", what, err)
+	}
+	return fmt.Errorf("%s: %v", what, err)
 }
 
 // dirtyWorktree says git would refuse to remove dir unless forced: it has
 // uncommitted or untracked files. When git can't tell, it says no, and git's
 // own check at removal decides.
-func dirtyWorktree(dir string) bool {
+func dirtyWorktree(repo, dir string) bool {
+	// No .git: git dropped the link (a removal stopped halfway), and git
+	// status there would answer for whatever repository holds the folder.
+	// Its record in repo answers instead.
+	if _, err := os.Lstat(filepath.Join(dir, ".git")); errors.Is(err, fs.ErrNotExist) {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		record, err := worktreeRecord(ctx, repo, dir)
+		return err == nil && leftoverWork(ctx, record, dir) == "contains modified or untracked files"
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "git", "-C", dir, "status", "--porcelain")
