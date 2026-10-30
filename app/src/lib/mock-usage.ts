@@ -18,7 +18,8 @@ interface MockAccount {
 
 const accounts: Record<string, MockAccount[]> = {};
 // devl has a second login per agent; other boxes sign in with the same
-// default logins, so the screen counts those once.
+// default logins and Claude Code's work login, so the screen counts those
+// once.
 const accountsOf = (box: string) =>
   (accounts[box] ??= (
     [
@@ -90,7 +91,7 @@ function report(box: string) {
     const busy = (weekend ? 0.25 : 0.6 + r()) * (gpu ? 0.35 : 1);
     const rows: [string, string, string, number][] = [
       ["claude", "default", "claude-opus-5-5", 1],
-      ["claude", gpu ? "default" : "work", "claude-sonnet-5-5", 0.5],
+      ["claude", "work", "claude-sonnet-5-5", 0.5],
       ["claude", "default", "claude-haiku-4-5-20251001", 0.08],
       ["codex", "default", "gpt-5.5-codex", 0.45],
     ];

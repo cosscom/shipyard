@@ -263,6 +263,13 @@ class ClaudeLimitsTest(unittest.TestCase):
             t.join()
         self.assertEqual(len(self.runs()), 2)
 
+    def test_a_lock_it_cannot_make_still_reads(self):
+        # A lock file in the way (a folder of that name here) must not cost
+        # the limits.
+        usage.CLAUDE_LIMITS_CACHE.parent.mkdir(parents=True, exist_ok=True)
+        usage.CLAUDE_LIMITS_CACHE.with_name("claude-limits.lock").mkdir()
+        self.assertEqual(sorted(self.by_account()), ["default", "work"])
+
     def test_a_report_too_big_for_exec_drops_the_oldest_limits_last(self):
         import json
         saved = usage.MAX_OUT

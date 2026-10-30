@@ -361,15 +361,22 @@ def claude_limits_lock():
     """One report at a time reads and refreshes the limits, so two at once
     (the widget and the Usage screen, or two laptops) don't both ask /usage
     for the same login: the second waits, then finds the first's reading.
-    Without flock (Windows) there is no lock, and at worst a read twice."""
+    Without one (no flock on Windows, or a lock file it can't make) it reads
+    unlocked: at worst a read twice."""
     try:
         import fcntl
-    except ImportError:
+        CLAUDE_LIMITS_CACHE.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        f = open(CLAUDE_LIMITS_CACHE.with_name("claude-limits.lock"), "a")
+    except (ImportError, OSError):
+        # No lock to be had (a read-only home, say): read unlocked.
         yield
         return
-    CLAUDE_LIMITS_CACHE.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    with open(CLAUDE_LIMITS_CACHE.with_name("claude-limits.lock"), "a") as f:
-        fcntl.flock(f, fcntl.LOCK_EX)
+    with f:
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX)
+        except OSError:
+            yield
+            return
         try:
             yield
         finally:

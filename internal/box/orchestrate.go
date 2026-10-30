@@ -466,11 +466,12 @@ func (b *Box) execDir(ctx context.Context, location string) (string, error) {
 	if location != "" {
 		return b.Locations.Dir(ctx, location)
 	}
-	locs, err := b.Locations.List(ctx)
+	// The saved list: whether there are any, without asking git about each.
+	saved, err := b.Locations.read()
 	if err != nil {
 		return "", err
 	}
-	if len(locs) > 0 {
+	if len(saved) > 0 {
 		return "", badRequest("name the location to run in: only a box with no projects runs a command without one")
 	}
 	return os.UserHomeDir()
