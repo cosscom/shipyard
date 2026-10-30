@@ -79,9 +79,11 @@ if (plugins.length) {
   for (const p of plugins) await page.route(`**/builtin-plugins/${p.id}/index.js`, (r) => r.fulfill({ contentType: "text/javascript", body: p.source }));
 }
 
-const shot = async (label) => {
-  await page.screenshot({ path: join(out, `${label}.png`) });
-  writeFileSync(join(out, `${label}.aria.txt`), redact(await page.locator("body").ariaSnapshot()));
+// shot(label, locator) keeps only that part of the page, for a screen that
+// also shows what stays out of evidence.
+const shot = async (label, part) => {
+  await (part ?? page).screenshot({ path: join(out, `${label}.png`) });
+  writeFileSync(join(out, `${label}.aria.txt`), redact(await (part ?? page.locator("body")).ariaSnapshot()));
   console.log(`  saved ${label}.png`);
 };
 

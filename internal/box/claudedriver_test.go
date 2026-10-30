@@ -200,6 +200,11 @@ for line in sys.stdin:
         out({"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": t, "content": "Your questions have been answered: \"Tea or coffee?\"=\"%s\"." % a}]}, "parent_tool_use_id": None, "uuid": uid()})
         say("You chose " + a + ".")
         result()
+    elif text.startswith("limits "):
+        # The account's plan limits, as Claude Code says them each turn.
+        out({"type": "rate_limit_event", "rate_limit_info": json.loads(text[len("limits "):]), "uuid": uid()})
+        say("Noted.")
+        result()
     elif text == "work":
         out({"type": "stream_event", "event": {"type": "message_start"}, "parent_tool_use_id": None})
         out({"type": "stream_event", "event": {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "Working through it"}}, "parent_tool_use_id": None})
@@ -675,7 +680,9 @@ func TestAStructuredSessionNeverPromptedGoesToItsTerminalAndBack(t *testing.T) {
 	until("the move to its terminal", func() bool {
 		return call(t, c, "POST", "/v1/sessions/"+name+"/switch", "", map[string]string{"to": "terminal"}, &moved) == 200
 	})
-	until("Claude Code's own screen", func() bool { return strings.Contains(screen(), "Claude Code, new 00000000-0000-4000-8000-0000000000c1") })
+	until("Claude Code's own screen", func() bool {
+		return strings.Contains(screen(), "Claude Code, new 00000000-0000-4000-8000-0000000000c1")
+	})
 	if s := screen(); strings.Contains(s, "No conversation found") {
 		t.Fatalf("the terminal couldn't open the conversation:\n%s", s)
 	}
@@ -978,6 +985,189 @@ func TestATurnClaudeStartsByItselfShowsAsWorking(t *testing.T) {
 	for i := range want {
 		if order[i] != want[i] {
 			t.Fatalf("states: %v", order)
+		}
+	}
+}
+
+// Claude Code says each turn how much of its account's plan limits is used;
+// berthd keeps it where the Usage plugin reads it, in a temp HOME here.
+func TestAStructuredSessionRecordsItsAccountsPlanLimits(t *testing.T) {
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("the stand-in Claude needs python3")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("CLAUDE_CONFIG_DIR", "")
+	bin := t.TempDir()
+	os.WriteFile(filepath.Join(bin, "claude"), []byte(fakeStreamClaude), 0o755)
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	account := filepath.Join(home, ".berth", "accounts", "claude", "acme-max")
+	os.MkdirAll(account, 0o700)
+	envFile := filepath.Join(t.TempDir(), "env.json")
+	if err := saveBoxEnv(envFile, BoxEnv{Env: map[string]string{"CLAUDE_CONFIG_DIR": account + "/"}}); err != nil {
+		t.Fatal(err)
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var box *Box
+	c, _ := servedBox(t, func(b *Box) {
+		b.EnvFile = envFile
+		b.ConversationsDir = conversationsDir(t)
+		b.AgentHost = []string{"env", "BERTH_TEST_AGENT_HOST=1", exe}
+		box = b
+	})
+	call(t, c, "POST", "/v1/locations", "", map[string]string{"name": "acme", "path": gitRepo(t)}, nil)
+
+	file := filepath.Join(home, ".berth", "limits", "acme-max.json")
+	read := func(ok func(limitsFile) bool) limitsFile {
+		t.Helper()
+		deadline := time.Now().Add(15 * time.Second)
+		for {
+			var f limitsFile
+			raw, err := os.ReadFile(file)
+			if err == nil && json.Unmarshal(raw, &f) == nil && ok(f) {
+				return f
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("the limits never showed it: %s (%v)", raw, err)
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+	window := func(f limitsFile, name string) limitWindow {
+		var w limitWindow
+		json.Unmarshal(f.Limits[name], &w)
+		return w
+	}
+
+	var sess Session
+	prompt := `limits {"status":"allowed","resetsAt":1793124000,"rateLimitType":"five_hour","unifiedWindows":{"five_hour":{"utilization":0.84,"resetsAt":1793124000,"status":"allowed"},"seven_day":{"utilization":0.29,"resetsAt":1793638800,"status":"allowed"}}}`
+	if status := call(t, c, "POST", "/v1/sessions", "", map[string]any{"location": "acme", "agent": "claude", "driver": "claude", "prompt": prompt}, &sess); status != 200 {
+		t.Fatalf("start: %d", status)
+	}
+	t.Cleanup(func() { call(t, c, "DELETE", "/v1/sessions/"+sess.Name, "", nil, nil) })
+	f := read(func(f limitsFile) bool { return len(f.Limits) == 2 })
+	if f.Account != "acme-max" || f.Dir != account || f.At == "" {
+		t.Fatalf("file = %+v", f)
+	}
+	if w := window(f, "five_hour"); w != (limitWindow{UsedPercentage: 84, ResetsAt: 1793124000}) {
+		t.Fatalf("five_hour = %+v", w)
+	}
+	if w := window(f, "seven_day"); w != (limitWindow{UsedPercentage: 29, ResetsAt: 1793638800}) {
+		t.Fatalf("seven_day = %+v", w)
+	}
+
+	// An event with one window keeps the other; a reset given in
+	// milliseconds is kept in seconds.
+	call(t, c, "POST", "/v1/sessions/"+sess.Name+"/send", "", map[string]any{"text": `limits {"unifiedWindows":{"seven_day":{"utilization":0.31,"resetsAt":1793638800000}}}`, "when": "now"}, nil)
+	f = read(func(f limitsFile) bool { return window(f, "seven_day").UsedPercentage == 31 })
+	if w := window(f, "seven_day"); w.ResetsAt != 1793638800 {
+		t.Fatalf("seven_day = %+v", w)
+	}
+	if w := window(f, "five_hour"); w.UsedPercentage != 84 {
+		t.Fatalf("five_hour went: %s", f.Limits["five_hour"])
+	}
+
+	// Read back from its log (berthd restarted), the conversation says
+	// nothing it said before: the readings in it are old.
+	os.Remove(file)
+	box.claude().forget(sess.Name)
+	var res transcript.Result
+	call(t, c, "GET", "/v1/sessions/"+sess.Name+"/transcript?since=0", "", nil, &res)
+	box.claude().mu.Lock()
+	conv := box.claude().convs[sess.Name]
+	box.claude().mu.Unlock()
+	if conv == nil {
+		t.Fatal("the conversation isn't followed again")
+	}
+	select {
+	case <-conv.caught:
+	case <-time.After(15 * time.Second):
+		t.Fatal("the log was never read back")
+	}
+	time.Sleep(500 * time.Millisecond)
+	if raw, err := os.ReadFile(file); err == nil {
+		t.Fatalf("a replayed reading was written: %s", raw)
+	}
+}
+
+func TestPlanLimitsKeepTheLatestReading(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "limits", "acme.json")
+	at := time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC)
+	both := json.RawMessage(`{"unifiedWindows":{"five_hour":{"utilization":0.5,"resetsAt":1793124000},"seven_day":{"utilization":0.2,"resetsAt":1793638800}}}`)
+	got := func() limitsFile {
+		t.Helper()
+		var f limitsFile
+		raw, err := os.ReadFile(path)
+		if err != nil || json.Unmarshal(raw, &f) != nil {
+			t.Fatalf("read: %v %s", err, raw)
+		}
+		return f
+	}
+	pct := func(f limitsFile, name string) float64 {
+		var w limitWindow
+		json.Unmarshal(f.Limits[name], &w)
+		return w.UsedPercentage
+	}
+
+	if err := writeClaudeLimits(path, "acme", "/x/acme", at, both); err != nil {
+		t.Fatal(err)
+	}
+	if f := got(); f.At != "2026-10-28T12:00:00.000Z" || pct(f, "five_hour") != 50 || pct(f, "seven_day") != 20 {
+		t.Fatalf("written: %+v", f)
+	}
+	// An older reading (another session's, said late) changes nothing.
+	older := json.RawMessage(`{"unifiedWindows":{"five_hour":{"utilization":0.1,"resetsAt":1793124000}}}`)
+	writeClaudeLimits(path, "acme", "/x/acme", at.Add(-time.Minute), older)
+	if f := got(); pct(f, "five_hour") != 50 {
+		t.Fatalf("an older reading was written: %+v", f)
+	}
+	// Nor does one with no windows.
+	writeClaudeLimits(path, "acme", "/x/acme", at.Add(time.Minute), json.RawMessage(`{"status":"allowed"}`))
+	if f := got(); f.At != "2026-10-28T12:00:00.000Z" {
+		t.Fatalf("an empty reading was written: %+v", f)
+	}
+	// Another writer's file (a status line's, with keys of its own and a
+	// time without milliseconds) is read; a later reading replaces it.
+	os.WriteFile(path, []byte(`{"source":"router","at":"2026-10-28T13:00:00Z","limits":{"five_hour":{"used_percentage":70,"resets_at":1793124000},"seven_day":{"used_percentage":40,"resets_at":1793638800}}}`), 0o600)
+	writeClaudeLimits(path, "acme", "/x/acme", at.Add(30*time.Minute), older)
+	if f := got(); pct(f, "five_hour") != 70 {
+		t.Fatalf("a reading older than the file's was written: %+v", f)
+	}
+	writeClaudeLimits(path, "acme", "/x/acme", at.Add(2*time.Hour), older)
+	if f := got(); pct(f, "five_hour") != 10 || pct(f, "seven_day") != 40 {
+		t.Fatalf("after another writer's file: %+v", f)
+	}
+	// A file that isn't one is written afresh.
+	os.WriteFile(path, []byte("{not json"), 0o600)
+	if err := writeClaudeLimits(path, "acme", "/x/acme", at, both); err != nil {
+		t.Fatal(err)
+	}
+	if f := got(); pct(f, "five_hour") != 50 {
+		t.Fatalf("over a broken file: %+v", f)
+	}
+}
+
+func TestAClaudeAccountIsNamedAsTheUsagePluginNamesIt(t *testing.T) {
+	home := "/home/acme"
+	for dir, want := range map[string]string{
+		"":                                       "default",
+		"/home/acme/.claude":                     "default",
+		"/home/acme/.claude/":                    "default",
+		"~/.claude":                              "default",
+		"/home/acme/.berth/accounts/claude/work": "work",
+		"/home/acme/.berth/accounts/claude/work/": "work",
+		"$HOME/.berth/accounts/claude/max":        "max",
+		"/":                                       "",
+		"relative/dir":                            "",
+		"/home/acme/elsewhere/work":               "",
+		"/home/acme/.berth/accounts/claude":       "",
+		"/home/acme/.berth/accounts/codex/work":   "",
+	} {
+		if got := claudeAccountName(home, dir); got != want {
+			t.Errorf("claudeAccountName(%q) = %q, want %q", dir, got, want)
 		}
 	}
 }

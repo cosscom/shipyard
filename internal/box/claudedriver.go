@@ -232,6 +232,10 @@ type claudeConv struct {
 	queue []func()
 	kick  chan struct{}
 	gone  bool
+	// account names the Claude Code account the session runs on, and
+	// accountDir its folder, once its plan limits are first recorded.
+	// Only speak uses them (recordLimits).
+	account, accountDir string
 }
 
 // claudeDriver holds the structured sessions berthd follows.
@@ -394,6 +398,7 @@ type streamLine struct {
 		Error     string          `json:"error"`
 		Response  json.RawMessage `json:"response"`
 	} `json:"response"`
+	RateLimit json.RawMessage `json:"rate_limit_info"`
 }
 
 // apply reads one log entry into what the driver knows; live, it also says
@@ -524,6 +529,14 @@ func (c *claudeConv) apply(e agenthost.Entry, live bool) {
 		say = append(say, func() {
 			c.event(adapters.Waiting, map[string]any{"reason": askReason(r)}, map[string]any{adapters.AskKey: ask})
 		})
+	case "rate_limit_event":
+		// How much of the account's plan limits is used, kept where the
+		// Usage plugin reads it. Said only live, as all of this: a log read
+		// back after a restart holds old readings.
+		if len(l.RateLimit) > 0 {
+			info, at := l.RateLimit, time.UnixMilli(e.At)
+			say = append(say, func() { c.recordLimits(at, info) })
+		}
 	case "control_cancel_request":
 		// Withdrawn: a helper that asked was stopped, or the turn was.
 		if c.drop(l.RequestID) && live {

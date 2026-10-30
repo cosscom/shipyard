@@ -143,10 +143,21 @@ function report(box: string) {
         agent: "codex",
         account: "default",
         at: at(gpu ? 5 : 0.05),
+        day: iso(new Date(at(gpu ? 5 : 0.05))),
         limits: {
           plan_type: "pro",
           primary: { used_percent: 34, window_minutes: 300, resets_at: Math.round(now.getTime() / 1000 + 3 * 3600 + 1200) },
           secondary: { used_percent: 12, window_minutes: 10080, resets_at: Math.round(now.getTime() / 1000 + 4 * 86400) },
+        },
+      },
+      {
+        agent: "claude",
+        account: "default",
+        at: at(gpu ? 3 : 0.02),
+        day: iso(new Date(at(gpu ? 3 : 0.02))),
+        limits: {
+          primary: { used_percent: 18, window_minutes: 300, resets_at: Math.round(now.getTime() / 1000 + 2 * 3600 + 600) },
+          secondary: { used_percent: 41, window_minutes: 10080, resets_at: Math.round(now.getTime() / 1000 + 3 * 86400 + 7200) },
         },
       },
     ],

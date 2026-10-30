@@ -17,12 +17,18 @@
 # HOME stays real: Claude Code needs its sign-in. The box refreshes
 # Claude's hooks in ~ only when they are out of date; `up` stops if it
 # did, so a dev box never changes the real one's hooks unnoticed.
+# VERIFY_BOX_HOME=<dir> gives the box a HOME of its own instead, for what
+# it writes there (the Usage plugin's ~/.berth/limits), and
+# VERIFY_CLAUDE_ACCOUNT=<a signed-in CLAUDE_CONFIG_DIR> links that folder
+# into it as the Claude account "acme-max" (features/usage-limits.md), so
+# no real account's name shows.
 set -euo pipefail
 root=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 # Short: a unix socket's path can't be longer than 108 bytes.
 dir=${VERIFY_BOX_DIR:-/tmp/verify-berthd-box}
 addr=${VERIFY_BOX_ADDR:-127.0.0.1:7544}
 box_env=(BERTH_HOME="$dir/box-home" BERTH_USER_DIR="$dir/box-user" TMUX_TMPDIR="$dir/tmux")
+[[ -n ${VERIFY_BOX_HOME:-} ]] && box_env+=(HOME="$VERIFY_BOX_HOME")
 lap_env=(BERTH_HOME="$dir/lap-home" BERTH_USER_DIR="$dir/lap-user" BERTH_UI_ADDR=127.0.0.1:9378 BERTH_PROXY_ADDR=127.0.0.1:9377)
 box() { env "${box_env[@]}" "$root/bin/berthd" "$@"; }
 lap() { env "${lap_env[@]}" "$root/bin/berth" "$@"; }
@@ -46,6 +52,17 @@ up)
     if ss -ltn | grep -q ":$p "; then echo "port $p is taken: is a dev box up already? ($0 down)" >&2; exit 1; fi
   done
   mkdir -p "$dir"/{box-home,box-user,lap-home,lap-user,tmux} && chmod 700 "$dir/tmux"
+  if [[ -n ${VERIFY_BOX_HOME:-} && -n ${VERIFY_CLAUDE_ACCOUNT:-} ]]; then
+    link=$VERIFY_BOX_HOME/.berth/accounts/claude/acme-max
+    # An agent still running when the last dev box went down writes its
+    # account folder again as it exits: a folder, signed in nowhere.
+    if [[ -e $link && ! -L $link ]]; then
+      echo "$link is a folder, not the link to $VERIFY_CLAUDE_ACCOUNT (a leftover of the last dev box?): remove it first" >&2
+      exit 1
+    fi
+    mkdir -p "$(dirname "$link")"
+    ln -sfn "$VERIFY_CLAUDE_ACCOUNT" "$link"
+  fi
   make -C "$root" build >/dev/null
   serve "$root/bin/berthd"
   if grep -q "updated berth's hooks" "$dir/berthd.log"; then

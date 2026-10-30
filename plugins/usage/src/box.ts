@@ -49,6 +49,8 @@ export interface Limits {
   agent: Agent;
   account: string;
   at: string;
+  // The box's own day at `at`, as the days of its tokens are.
+  day: string;
   limits: { plan_type?: string | null; primary?: Window | null; secondary?: Window | null };
 }
 

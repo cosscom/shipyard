@@ -42,7 +42,7 @@ node .claude/skills/verify-berthd/scripts/drive.mjs <scenario> --port $PORT [--o
 - opens `http://localhost:$PORT/?mock=1` at 1440×900 in dark mode, and waits until the sidebar's `nav-home` is there;
 - refuses every request to the laptop agent's ports (1377-1379), as the e2e fixtures do;
 - serves the scenario's `plugins` as extra built-in plugins (it appends them to `builtin-plugins/index.json` and answers `builtin-plugins/<id>/index.js` with their source), so a plugin API is exercised by a real plugin loaded the way the app loads its own;
-- calls the scenario's `run({ page, shot, step })`, where `shot(name)` saves `<name>.png` and `<name>.aria.txt` (an ARIA snapshot of the body), and `step(text)` logs what is being done;
+- calls the scenario's `run({ page, shot, step })`, where `shot(name)` saves `<name>.png` and `<name>.aria.txt` (an ARIA snapshot of the body; `shot(name, locator)` keeps only that element, for a screen that also shows what stays out of evidence), and `step(text)` logs what is being done;
 - fails (exit 1) on a page error, or a console error the scenario doesn't list in `allowErrors` (regexes), and on any assertion the scenario throws.
 
 A scenario is a module:

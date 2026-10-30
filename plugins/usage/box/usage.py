@@ -25,6 +25,7 @@ import time
 HOME = pathlib.Path.home()
 CACHE = HOME / ".cache" / "berth-usage" / "files.json"
 ACCOUNTS = HOME / ".berth" / "accounts"
+LIMITS = HOME / ".berth" / "limits"
 BUDGET_S = float(os.environ.get("BERTH_USAGE_BUDGET", "45"))
 MAX_OUT = 60_000
 NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
@@ -231,6 +232,33 @@ def codex_file(path):
     return s
 
 
+# Claude Code's windows in Codex's shape: five_hour is the primary, seven_day
+# the secondary.
+CLAUDE_WINDOWS = (("five_hour", "primary", 300), ("seven_day", "secondary", 7 * 24 * 60))
+
+
+def claude_limits():
+    """The plan limits a Claude Code agent last reported, from
+    ~/.berth/limits/<account>.json: {"at": ISO time, "limits": the windows
+    in a status line's rate_limits shape}. berthd writes it from each
+    structured turn, and a status line can too (see the README); without
+    the file there are none."""
+    out = []
+    for name, _ in claude_dirs():
+        o = read_json(LIMITS / f"{name}.json")
+        if not isinstance(o, dict) or not isinstance(o.get("limits"), dict):
+            continue
+        windows = {}
+        for key, slot, minutes in CLAUDE_WINDOWS:
+            w = o["limits"].get(key)
+            if isinstance(w, dict) and isinstance(w.get("used_percentage"), (int, float)) and isinstance(w.get("resets_at"), (int, float)):
+                windows[slot] = {"used_percent": w["used_percentage"], "window_minutes": minutes, "resets_at": int(w["resets_at"])}
+        at = iso(o.get("at") or "")
+        if windows and at:
+            out.append({"agent": "claude", "account": name, "at": at, "day": local_day(at), "limits": windows})
+    return out
+
+
 def report(days):
     started = time.monotonic()
     CACHE.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -307,7 +335,7 @@ def report(days):
                 if m not in row["models"]:
                     row["models"].append(m)
         if s.get("limits") and (account not in limits or s["limits_at"] > limits[account]["at"]):
-            limits[account] = {"agent": agent, "account": account, "at": s["limits_at"], "limits": s["limits"]}
+            limits[account] = {"agent": agent, "account": account, "at": s["limits_at"], "day": local_day(s["limits_at"]), "limits": s["limits"]}
 
     out = {
         "generated": dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -316,7 +344,7 @@ def report(days):
         "columns": ["input", "output", "cache_read", "cache_write"],
         "daily": [[*k, *v] for k, v in sorted(daily.items())],
         "sessions": sorted(sessions.values(), key=lambda r: r["last"] or "", reverse=True),
-        "limits": list(limits.values()),
+        "limits": list(limits.values()) + claude_limits(),
     }
     # Fit exec's output: drop the oldest sessions until it does.
     text = json.dumps(out, separators=(",", ":"))

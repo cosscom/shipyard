@@ -61,6 +61,16 @@ again.
   branch, and asks git again only when the repository changes (or after a
   minute).
 
+- **Claude Code's 5-hour and weekly limits on the Usage screen.** Each
+  turn of a structured Claude Code agent says how much of its account's
+  plan limits is used, and the box now keeps that in
+  `~/.berth/limits/<account>.json`. The Usage screen and the Home widget
+  show it beside Codex's: how much is used, as of when, and when each
+  window resets. An agent in Claude Code's own terminal screen can add
+  its readings from a status line; the plugin's README has the lines.
+  Limits, Codex's too, now count by the box's own day, so a reading just
+  after midnight no longer drops out of Today.
+
 ## v0.3.31
 
 - **Worktrees with submodules can be removed.** git refuses to remove any
