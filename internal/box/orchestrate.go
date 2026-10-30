@@ -457,6 +457,18 @@ type ExecRequest struct {
 	Detach bool `json:"detach,omitempty"`
 }
 
+// execDir is where an exec runs: the location's (or its worktree's) folder,
+// or with no location the box's home folder, for what reads the box itself
+// rather than a project (the Usage plugin on a box with no projects yet).
+// It grants nothing exec in a project doesn't: the command runs as the same
+// user either way.
+func (b *Box) execDir(ctx context.Context, location string) (string, error) {
+	if location == "" {
+		return os.UserHomeDir()
+	}
+	return b.Locations.Dir(ctx, location)
+}
+
 type ExecResult struct {
 	ExitCode int    `json:"exit_code"`
 	Output   string `json:"output"`
@@ -482,7 +494,7 @@ func (b *Box) handleExec(w http.ResponseWriter, r *http.Request) error {
 		}
 		timeout = min(d, time.Hour)
 	}
-	dir, err := b.Locations.Dir(r.Context(), req.Location)
+	dir, err := b.execDir(r.Context(), req.Location)
 	if err != nil {
 		return err
 	}

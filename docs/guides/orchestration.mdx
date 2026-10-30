@@ -15,7 +15,8 @@ the API:
 | Run a check where it works | `berth exec BOX/LOC[/WT] -- COMMAND` | `POST /v1/exec` |
 
 On a box, `berthd` takes the same commands without the `BOX/` prefix, which
-is what agents there use.
+is what agents there use. `POST /v1/exec` without a `location` runs in the
+box's home folder, for what reads the box itself rather than a project.
 
 The patterns below (loop, review, hand-off, broadcast, try several ways) are
 [durable runs](/guides/runs) on boxes that have them: the box executes them

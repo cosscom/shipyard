@@ -24,6 +24,8 @@ const accountsOf = (box: string) =>
     [
     { agent: "claude", id: "default", dir: `${HOME}/.claude`, exists: true, signed_in: true, email: "you@example.com", name: "You", org: null, billing: "stripe_subscription", tier: "default_claude_max_20x" },
     { agent: "claude", id: "work", dir: `${HOME}/.berth/accounts/claude/work`, exists: true, signed_in: true, email: "you@work.example", name: "You", org: "Work", billing: "stripe_subscription", tier: "default_claude_max_5x" },
+    // Its profile is kept but Claude Code lost the login: sign in again.
+    { agent: "claude", id: "lapsed", dir: `${HOME}/.berth/accounts/claude/lapsed`, exists: true, signed_in: false, signed_out: true, email: "you@lapsed.example", name: "You", org: "Lapsed", billing: "stripe_subscription", tier: "default_claude_max_5x" },
     { agent: "codex", id: "default", dir: `${HOME}/.codex`, exists: true, signed_in: true, method: "chatgpt", email: "you@example.com", plan: "pro" },
     { agent: "codex", id: "api", dir: `${HOME}/.berth/accounts/codex/api`, exists: true, signed_in: true, method: "api key", email: null, plan: null },
     ] as MockAccount[]
@@ -140,8 +142,20 @@ function report(box: string) {
     ],
     limits: [
       {
+        agent: "claude",
+        account: "default",
+        email: "you@example.com",
+        at: at(0.02),
+        limits: {
+          primary: { used_percent: 31, window_minutes: 300, resets_at: Math.round(now.getTime() / 1000 + 2 * 3600) },
+          secondary: { used_percent: 64, window_minutes: 10080, resets_at: Math.round(now.getTime() / 1000 + 3 * 86400) },
+          extra: [{ used_percent: 32, window_minutes: 10080, resets_at: Math.round(now.getTime() / 1000 + 3 * 86400), label: "Weekly limit (Fable)" }],
+        },
+      },
+      {
         agent: "codex",
         account: "default",
+        email: "you@example.com",
         at: at(gpu ? 5 : 0.05),
         limits: {
           plan_type: "pro",
@@ -149,6 +163,21 @@ function report(box: string) {
           secondary: { used_percent: 12, window_minutes: 10080, resets_at: Math.round(now.getTime() / 1000 + 4 * 86400) },
         },
       },
+      ...(gpu
+        ? [
+            {
+              agent: "claude" as const,
+              account: "work",
+              email: "you@work.example",
+              at: at(0.1),
+              limits: {
+                primary: { used_percent: 12, window_minutes: 300, resets_at: Math.round(now.getTime() / 1000 + 4 * 3600) },
+                secondary: { used_percent: 41, window_minutes: 10080, resets_at: Math.round(now.getTime() / 1000 + 5 * 86400) },
+              },
+            },
+          ]
+        : []),
     ],
+    signed_out: gpu ? [] : [{ agent: "claude" as const, account: "lapsed", email: "you@lapsed.example", org: null }],
   };
 }

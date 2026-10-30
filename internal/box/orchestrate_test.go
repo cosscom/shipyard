@@ -128,3 +128,24 @@ func TestOneKeyAnswersArePressedNotPasted(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 }
+
+// With no location, exec runs in the box's home folder: what reads the box
+// itself (the Usage plugin) works on a box with no projects yet. A location
+// that isn't there is still refused.
+func TestExecWithoutALocationRunsInTheHomeFolder(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	c, _ := servedBox(t)
+	var ex ExecResult
+	call(t, c, "POST", "/v1/exec", "", ExecRequest{Command: "pwd -P"}, &ex)
+	want, _ := filepath.EvalSymlinks(home)
+	if ex.ExitCode != 0 || strings.TrimSpace(ex.Output) != want {
+		t.Fatalf("exec without a location: %+v, want it in %s", ex, want)
+	}
+	var res struct {
+		Error string `json:"error"`
+	}
+	if st := call(t, c, "POST", "/v1/exec", "", ExecRequest{Location: "nowhere", Command: "true"}, &res); st != 404 {
+		t.Fatalf("an unknown location: %d %+v", st, res)
+	}
+}
