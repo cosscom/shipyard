@@ -1,6 +1,6 @@
 import type { Location } from "@berth/plugin";
 
-import type { Account, Agent, Report, Tokens, UsageSession } from "./box";
+import type { Account, Agent, Limits, Report, Tokens, UsageSession } from "./box";
 
 export type Period = 1 | 7 | 30;
 
@@ -159,6 +159,11 @@ export function ago(iso: string | null): string {
 export function plan(a: Account | undefined): { label: string; subscription: boolean } | undefined {
   if (!a) return undefined;
   if (a.agent === "claude") {
+    // A team or enterprise seat records a Max-like tier of its own
+    // (default_claude_max_5x): its organization says what the plan is.
+    if (a.org_type === "claude_team" || a.org_type === "claude_enterprise") {
+      return { label: a.org_type === "claude_team" ? "Claude Team" : "Claude Enterprise", subscription: true };
+    }
     const t = (a.tier ?? "").toLowerCase();
     const max = /max_(\d+)x/.exec(t);
     const label = max ? `Claude Max ${max[1]}x` : t.includes("pro") ? "Claude Pro" : a.billing === "stripe_subscription" ? "Claude subscription" : a.billing ? a.billing.replace(/_/g, " ") : "Claude";
@@ -166,4 +171,53 @@ export function plan(a: Account | undefined): { label: string; subscription: boo
   }
   if (a.method === "api key") return { label: "OpenAI API key", subscription: false };
   return a.plan ? { label: `ChatGPT ${a.plan.charAt(0).toUpperCase()}${a.plan.slice(1)}`, subscription: true } : undefined;
+}
+
+// login is one login across boxes: its email and organisation (one email
+// can sign in to a team seat and a personal plan), or the account on its box
+// when it has no email.
+const login = (agent: Agent | undefined, email: string | null | undefined, org: string | null | undefined, box: string, id: string) =>
+  email ? `${agent}:${email}${org ? `#${org}` : ""}` : `${box}:${agent}:${id}`;
+
+// identity is login for an account a box listed.
+export const identity = (a: Account | undefined, box: string, id: string) => login(a?.agent, a?.email, a?.org_id, box, id);
+
+export interface SharedLimits {
+  // Which login it is, unique among them.
+  key: string;
+  label?: string;
+  boxes: string[];
+  limits: Limits;
+}
+
+// dedupeLimits keeps the newest limits each login reported.
+// Limits read before the period are left out, as its tokens are.
+export function dedupeLimits(agent: Agent, sources: Source[], accounts: Record<string, Account[] | undefined>, period: Period): SharedLimits[] {
+  const out = new Map<string, SharedLimits>();
+  for (const { box, report } of sources) {
+    const from = firstDay(report.today, period);
+    for (const l of report.limits.filter((x) => x.agent === agent && x.at.slice(0, 10) >= from)) {
+      const a = accounts[box]?.find((x) => x.agent === agent && x.id === l.account);
+      // Who it is: the box's account, or what the report says when the box
+      // listed no accounts.
+      const email = a?.email ?? l.email;
+      const k = login(agent, email, a?.org_id ?? l.org, box, l.account);
+      const label = email ?? (l.account === "default" ? box : `${box} · ${l.account}`);
+      const seen = out.get(k);
+      if (!seen) out.set(k, { key: k, label, boxes: [box], limits: l });
+      else {
+        seen.boxes.push(box);
+        if (l.at > seen.limits.at) seen.limits = l;
+      }
+    }
+  }
+  const list = [...out.values()];
+  // Two plans of one email are named by their account too, and by their
+  // boxes when that is the same as well (each box's "default").
+  const twins = () => list.filter((s) => list.some((o) => o !== s && o.label === s.label));
+  for (const s of twins()) s.label = `${s.label} · ${s.limits.account}`;
+  for (const s of twins()) s.label = `${s.label} (${s.boxes.join(", ")})`;
+  // One login needs no name.
+  if (list.length === 1) list[0].label = undefined;
+  return list;
 }

@@ -10,6 +10,39 @@ upgrades with `berth upgrade BOX`, or by running the
 again.
 
 ## Unreleased
+- **Usage shows Claude Code's plan limits.** The Usage screen shows each
+  Claude login's current session, its week and any week for one model, with
+  when each resets: what Claude Code's own `/usage` prints. The home widget
+  shows the most used of them. The box asks `/usage` at most every ten minutes per login, all
+  logins four at a time and each for at most 12 seconds, in a way that
+  leaves no transcript, starts no MCP server and runs no hooks; if it fails,
+  the tokens still show.
+- **The Agent usage widget shows each plan window once, and whose it is.** A
+  login used on several boxes was listed once per box, pushing the other
+  windows out of the widget; it is now shown once, as most recently read,
+  even when the boxes printed its reset a minute apart. With more than one
+  login of an agent, each row ends with the login's name (such as "Claude
+  Code · 5h · ana"), so two logins with the same numbers no longer look like
+  one shown twice. In the Medium size, a box it couldn't read is said in the
+  week's place rather than cut off below it.
+- **A Claude login that signed itself out says so.** When Claude Code loses
+  an account's login, it keeps the account's profile, so Usage → Accounts
+  went on showing the email and plan as if nothing had happened, and its plan
+  limits just disappeared from the widget. Each login is now checked with
+  Claude Code itself: one it lost shows **Signed out** with **Sign in…**, and
+  the widget names the logins to sign in again.
+- **Usage reads boxes with no projects.** A box you haven't added a project
+  to yet had its logins and plan limits left out of Usage and the widget. It
+  is read too now, in its home folder (`POST /v1/exec` without a location
+  runs there, on a box with no projects).
+- **A Claude team seat says Claude Team.** Usage → Accounts named a team or
+  enterprise seat after the Max-like tier it records ("Claude Max 5x"); it now
+  says Claude Team (or Claude Enterprise).
+- **Two plans on one email both show.** One email signed in to two plans (a
+  team seat and a personal Max) showed as one login in the Agent usage
+  widget, with one plan's numbers and the other's gone. Logins are now told
+  apart by their organisation too, and two that share an email are named by
+  their account ("ana · ana-max").
 - **Quiet projects are grayed out.** On the rail and in the two-column
   sidebar, a project with no agent or shell open in it is grayed out, so
   the ones you're using stand out. Switching to one of those opens New

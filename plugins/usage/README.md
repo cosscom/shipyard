@@ -15,12 +15,12 @@ Each session has **Open** if it is still running in Shipyard, or **Resume** (`cl
 
 **All boxes** is the default; the box picker remembers your last choice.
 
-- Every online box is read at once, and each shows its own state: transcripts read, still reading, or the error. A slow or failing box doesn't hold up the rest. Offline boxes are listed as "not counted (offline)".
+- Every online box is read at once, and each shows its own state: transcripts read, still reading, or the error. A box with no projects yet is read too, in its home folder (a box whose berthd is older than that needs a project). A slow or failing box doesn't hold up the rest. Offline boxes are listed as "not counted (offline)".
 - Agent cards add the boxes up and show each box's share. The daily chart stacks by agent or by box. The model and project tables have a Box column, and sessions from every box are merged newest first, each with its box.
 - A login used on several boxes counts once: plans and Codex limits are matched by the email the agent recorded, keeping the newest limits.
 - Each box keeps its own days, in its own time zone.
 
-The numbers come from the files each agent writes on the box. Nothing is estimated or made up.
+The token numbers come from the files each agent writes on the box, and plan limits from the agents themselves (below). Nothing is estimated or made up.
 
 | Agent | Read from | What's in it |
 | --- | --- | --- |
@@ -29,7 +29,14 @@ The numbers come from the files each agent writes on the box. Nothing is estimat
 
 - **Input** excludes cached input. Cache reads and writes are shown separately; Codex's `input_tokens` includes its cached tokens, so the plugin subtracts them.
 - **Cost** is shown only for Claude Code, and only as Claude Code's own estimate at API list prices. On a subscription (Claude Max or Pro) the screen says the plan covers the use. Codex gets no dollar figure: it records none, and the plugin keeps no price table.
-- **Plan limits** are shown only for Codex, which writes its 5-hour and weekly windows into its transcripts. They show as "as of" the last turn Codex took. A window that has reset since says so instead of showing an old percentage. Claude Code doesn't write its limits anywhere the plugin can read, so it shows none.
+- **Plan limits** come from the agents themselves. A window that has reset since says so instead of showing an old percentage.
+  - **Codex** writes its 5-hour and weekly windows into its transcripts; they show as "as of" the last turn Codex took.
+  - **Claude Code** writes its limits nowhere, but its own `/usage` prints them. For each signed-in account the box runs `claude --print --no-session-persistence --strict-mcp-config --settings '{"disableAllHooks":true}' "/usage"` (with that account's `CLAUDE_CONFIG_DIR`; none for the default) from `~/.cache/berth-usage/claude-usage`, and shows the session, the week and any week scoped to one model.
+    - That flag set asks no trust question, writes no transcript, starts no MCP server and runs no hooks (Shipyard's own would report an agent starting and stopping at every read). It is Claude Code itself running, so it does what the CLI does on any start: one request to Anthropic for the figures, and its own update check or token refresh when they are due.
+    - Each account is read at most every 10 minutes (`BERTH_USAGE_CLAUDE_LIMITS_TTL`, seconds); the widget's 5-minute poll mostly gets the cached figures.
+    - Accounts are read four at a time, each for at most 12 seconds (`BERTH_USAGE_CLAUDE_TIMEOUT`), and a timeout ends whatever Claude Code started. Nothing about the limits can fail the report: a read that doesn't finish keeps the last good one, and the tokens are reported either way. A read that finishes with no limits, or a folder now signed in to another account, drops the old ones.
+    - A login without a subscription prints no limits and shows none. `BERTH_USAGE_CLAUDE_LIMITS=0` turns the reads off.
+    - The approach is [Codenotch](https://github.com/vinzdg/codenotch)'s (MIT).
 
 ### How it runs on the box
 
@@ -55,6 +62,8 @@ A box can have several logins per agent. Each login lives in its own folder:
 - `CODEX_HOME=<dir> codex login --device-auth`.
 
 You finish signing in yourself; the plugin never reads or stores credentials. It shows only the email, plan and sign-in method the agent recorded.
+
+When Claude Code loses a login (a token the server refused), it drops the credentials but keeps the profile, so the folder still names an email and a plan. The plugin asks `claude auth status` for each login (locally, about a tenth of a second) and marks one Claude Code no longer holds **Signed out**, with **Sign in…**. Its old plan limits are dropped and its `/usage` isn't asked. The Agent usage widget says which logins need signing in again.
 
 **Use for new sessions** sets the variable in one of two places:
 

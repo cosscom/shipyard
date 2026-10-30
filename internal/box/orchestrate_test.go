@@ -128,3 +128,31 @@ func TestOneKeyAnswersArePressedNotPasted(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 }
+
+// On a box with no projects, exec without a location runs in the home
+// folder: what inspects the box itself (the Usage plugin) works there. Once
+// the box has a project it is refused, so no command skips a project's
+// before: gates by starting outside it. A location that isn't there is
+// still refused.
+func TestExecWithoutALocationRunsInTheHomeFolder(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	c, _ := servedBox(t)
+	var ex ExecResult
+	call(t, c, "POST", "/v1/exec", "", ExecRequest{Command: "pwd -P"}, &ex)
+	want, _ := filepath.EvalSymlinks(home)
+	if ex.ExitCode != 0 || strings.TrimSpace(ex.Output) != want {
+		t.Fatalf("exec without a location: %+v, want it in %s", ex, want)
+	}
+	var res struct {
+		Error string `json:"error"`
+	}
+	if st := call(t, c, "POST", "/v1/exec", "", ExecRequest{Location: "nowhere", Command: "true"}, &res); st != 404 {
+		t.Fatalf("an unknown location: %d %+v", st, res)
+	}
+	call(t, c, "POST", "/v1/locations", "", map[string]string{"name": "shop", "path": gitRepo(t)}, nil)
+	res.Error = ""
+	if st := call(t, c, "POST", "/v1/exec", "", ExecRequest{Command: "true"}, &res); st != 400 || !strings.Contains(res.Error, "name the location") {
+		t.Fatalf("exec without a location on a box with a project: %d %+v", st, res)
+	}
+}
