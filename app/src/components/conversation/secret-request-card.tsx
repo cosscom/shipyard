@@ -10,10 +10,13 @@ import { boxApi, type SecretExpiry, type SecretRequest } from "@/lib/api";
 import { sessionName } from "@/lib/derive";
 import { plainError } from "@/lib/errors";
 import {
+  busy,
   canDecline,
   canSave,
   cardReducer,
   cardTitle,
+  done,
+  environmentLabel,
   errorLine,
   expiryOptions,
   grantLine,
@@ -55,7 +58,7 @@ export function SecretRequestCard({ box, request, compact }: { box: string; requ
   const grant = grantLine(request);
   const replaced = replacedLine(request);
   const warn = prod && "text-warning-foreground";
-  const inFlight = state.phase === "saving" || state.phase === "declining";
+  const inFlight = busy(state);
   // A refusal shows above the buttons: both brought into view, as the
   // chat doesn't move for it.
   const said = useRef<HTMLDivElement>(null);
@@ -92,7 +95,7 @@ export function SecretRequestCard({ box, request, compact }: { box: string; requ
 
   // Over: the box drops the request, and this line goes with it a moment
   // later. Never the field again.
-  if (state.phase === "saved" || state.phase === "declined") {
+  if (done(state)) {
     const saved = state.phase === "saved";
     return (
       <div data-testid="secret-card" data-state={state.phase} className={cn("cv-in flex min-w-0 items-center gap-2 text-muted-foreground", compact ? "mt-2 text-meta" : "text-desc")}>
@@ -156,7 +159,7 @@ export function SecretRequestCard({ box, request, compact }: { box: string; requ
             <>
               <dt className="text-muted-foreground">Environment</dt>
               <dd data-testid="secret-environment" className={cn("min-w-0", warn, prod && "font-medium")}>
-                {prod ? "Production" : request.environment === "staging" ? "Staging" : request.environment}
+                {environmentLabel(request)}
               </dd>
             </>
           )}

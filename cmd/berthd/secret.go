@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"syscall"
@@ -59,7 +58,9 @@ func secretExec(b boxHome, args []string) error {
 	os.Unsetenv(box.SecretVarsEnv)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	values, failed := b.boxSecrets().ResolveAll(ctx, refs, nil)
+	// One reader for both rounds: a reference in both is read once.
+	secrets := b.boxSecrets()
+	values, failed := secrets.ResolveAll(ctx, refs, nil)
 	rep := box.SecretReport{Location: os.Getenv("BERTH_LOCATION"), Name: os.Getenv("BERTH_WORKTREE_NAME"), Path: os.Getenv("BERTH_WORKTREE_PATH")}
 	for k, v := range values {
 		os.Setenv(k, v)
@@ -79,7 +80,7 @@ func secretExec(b boxHome, args []string) error {
 	for k, ref := range fileRefs {
 		asked[k] = ref
 	}
-	got, bad := b.boxSecrets().ResolveAll(ctx, asked, nil)
+	got, bad := secrets.ResolveAll(ctx, asked, nil)
 	if len(bad) > 0 {
 		var msgs []string
 		for k, err := range bad {
@@ -119,7 +120,7 @@ func (r *refFlags) String() string { return "" }
 
 func (r *refFlags) Set(v string) error {
 	k, ref, ok := strings.Cut(v, "=")
-	if !ok || !envVarName.MatchString(k) {
+	if !ok || !box.ValidEnvName(k) {
 		return fmt.Errorf("%q is not VAR=REF", v)
 	}
 	if err := box.ValidateSecretRef(ref); err != nil {
@@ -131,8 +132,6 @@ func (r *refFlags) Set(v string) error {
 	(*r)[k] = ref
 	return nil
 }
-
-var envVarName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 // secretFileDir is where --file writes: a folder in memory when the box
 // has one, so the value never reaches a disk.
@@ -210,16 +209,11 @@ func reportSecrets(socket string, rep box.SecretReport) {
 func (b boxHome) opSessionFile() string { return filepath.Join(b.dir, "op-session") }
 
 // boxSecrets is how this box reads secrets, outside berthd serve too.
+// Its stores are the secrets saved through secret cards, which berthd
+// serve saves and any process on the box reads.
 func (b boxHome) boxSecrets() *box.Secrets {
 	host, _ := os.Hostname()
-	return &box.Secrets{SessionFile: b.opSessionFile(), Box: host, Stores: b.secretStores()}
-}
-
-// secretStores are the secrets saved through secret cards, which berthd
-// serve saves and any process on the box reads.
-func (b boxHome) secretStores() *box.SecretStores {
-	host, _ := os.Hostname()
-	return &box.SecretStores{Dir: b.dir, Box: host}
+	return &box.Secrets{SessionFile: b.opSessionFile(), Box: host, Stores: &box.SecretStores{Dir: b.dir, Box: host}}
 }
 
 // secretSignin signs the box's op in to 1Password, in the terminal it runs

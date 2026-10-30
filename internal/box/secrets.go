@@ -175,6 +175,13 @@ func (s *Secrets) Forget(ref string) {
 // (OP_SERVICE_ACCOUNT_TOKEN, OP_ACCOUNT) to berthd's own environment. Errors
 // say what went wrong and never contain a value.
 func (s *Secrets) Resolve(ctx context.Context, ref string, opEnv []string, fresh bool) (string, error) {
+	// A saved secret past its expiry is gone, even from memory.
+	if s.Stores != nil && secretProviderOf(ref) != nil {
+		if err := s.Stores.Expired(ref); err != nil {
+			s.Forget(ref)
+			return "", err
+		}
+	}
 	for {
 		s.mu.Lock()
 		if s.cache == nil {

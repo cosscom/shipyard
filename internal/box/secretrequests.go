@@ -90,6 +90,9 @@ type SecretRequests struct {
 	mu     sync.Mutex
 	loaded bool
 	all    []*SecretRequest
+	// saving are the requests a save has claimed: no other save, decline
+	// or timeout settles them while their value is being written.
+	saving map[string]bool
 }
 
 const keepEndedRequests = 24 * time.Hour
@@ -182,26 +185,61 @@ func (s *SecretRequests) Pending() []SecretRequest {
 	return out
 }
 
-// ForSession is the request a session waits on, if any.
-func (s *SecretRequests) ForSession(name string) *SecretRequest {
+// BySession is the request each session waits on.
+func (s *SecretRequests) BySession() map[string]*SecretRequest {
+	out := map[string]*SecretRequest{}
 	for _, r := range s.Pending() {
-		if r.Session == name {
-			return &r
+		if _, ok := out[r.Session]; !ok {
+			out[r.Session] = &r
 		}
 	}
-	return nil
+	return out
 }
 
-// end settles a pending request; false when it was settled already.
-func (s *SecretRequests) end(id, status, ref string) (SecretRequest, bool) {
+// claim takes a pending request for one save, until it ends or is
+// released.
+func (s *SecretRequests) claim(id string) (SecretRequest, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.load()
+	for _, r := range s.all {
+		if r.ID != id {
+			continue
+		}
+		switch {
+		case r.Status != secretPending:
+			return *r, httpError{http.StatusConflict, "this request is " + strings.ReplaceAll(r.Status, "_", " ") + " already"}
+		case s.saving[id]:
+			return *r, httpError{http.StatusConflict, "this request is being saved already"}
+		}
+		if s.saving == nil {
+			s.saving = map[string]bool{}
+		}
+		s.saving[id] = true
+		return *r, nil
+	}
+	return SecretRequest{}, httpError{http.StatusNotFound, "no such secret request"}
+}
+
+// release gives back a claim whose save failed: the request waits again.
+func (s *SecretRequests) release(id string) {
+	s.mu.Lock()
+	delete(s.saving, id)
+	s.mu.Unlock()
+}
+
+// end settles a pending request; false when it was settled already, or
+// is claimed by a save and this isn't that save (claimed).
+func (s *SecretRequests) end(id, status, ref string, claimed bool) (SecretRequest, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.load()
 	for _, r := range s.all {
 		if r.ID == id {
-			if r.Status != secretPending {
+			if r.Status != secretPending || s.saving[id] != claimed {
 				return *r, false
 			}
+			delete(s.saving, id)
 			now := s.now()
 			r.Status, r.Ref, r.Ended = status, ref, &now
 			s.save()
@@ -211,7 +249,8 @@ func (s *SecretRequests) end(id, status, ref string) (SecretRequest, bool) {
 	return SecretRequest{}, false
 }
 
-// expired are the pending requests whose hour is up.
+// expired are the pending requests whose hour is up, but for one being
+// saved.
 func (s *SecretRequests) expired() []string {
 	now := s.now()
 	var ids []string
@@ -405,13 +444,18 @@ func (b *Box) saveSecretRequest(w http.ResponseWriter, r *http.Request) error {
 	case strings.ContainsRune(value, 0):
 		return badRequest("the value holds a NUL character; copy it again")
 	}
-	sr, ok := b.SecretRequests.Get(r.PathValue("id"))
-	if !ok {
-		return httpError{http.StatusNotFound, "no such secret request"}
+	// Claimed until it ends: a decline or the timeout can't settle it while
+	// the value is being written, nor can a second save.
+	sr, err := b.SecretRequests.claim(r.PathValue("id"))
+	if err != nil {
+		return err
 	}
-	if sr.Status != secretPending {
-		return httpError{http.StatusConflict, "this request is " + strings.ReplaceAll(sr.Status, "_", " ") + " already"}
-	}
+	saved := false
+	defer func() {
+		if !saved {
+			b.SecretRequests.release(sr.ID)
+		}
+	}()
 	var expires *time.Time
 	if req.Expires != "" && sr.Environment != "production" {
 		d, ok := secretTTLs[req.Expires]
@@ -430,22 +474,24 @@ func (b *Box) saveSecretRequest(w http.ResponseWriter, r *http.Request) error {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), time.Minute)
 	defer cancel()
-	ref, err := st.Save(ctx, SecretSave{Name: sr.Name, Value: value, Environment: sr.Environment, Location: sr.Location, Grant: sr.Grant})
+	// The store and the index change together, never between the sweep's
+	// look at an expiry and its delete.
+	var ref string
+	err = stores.locked(func() error {
+		var err error
+		ref, err = st.Save(ctx, SecretSave{Name: sr.Name, Value: value, Environment: sr.Environment, Location: sr.Location, Grant: sr.Grant})
+		if err != nil {
+			return httpError{http.StatusBadGateway, err.Error()}
+		}
+		return stores.Index().Put(SecretMeta{Name: sr.Name, Ref: ref, Store: sr.Store, StoreLabel: st.Label(), Where: sr.Where, Environment: sr.Environment, Created: time.Now().UTC(), Expires: expires, Session: sr.Session, Reason: sr.Reason, Location: sr.Location})
+	})
 	value, req.Value = "", ""
 	if err != nil {
-		return httpError{http.StatusBadGateway, err.Error()}
-	}
-	meta := SecretMeta{Name: sr.Name, Ref: ref, Store: sr.Store, StoreLabel: st.Label(), Where: sr.Where, Environment: sr.Environment, Created: time.Now().UTC(), Expires: expires, Session: sr.Session, Reason: sr.Reason, Location: sr.Location}
-	if d, ok := st.(interface{ Detail(string) (string, string) }); ok {
-		if backend, label := d.Detail(ref); label != "" {
-			meta.Backend, meta.StoreLabel = backend, label
-		}
-	}
-	if err := stores.Index().Put(meta); err != nil {
 		return err
 	}
 	b.secrets().Forget(ref)
-	b.endSecretRequest(r, sr.ID, secretSaved, ref)
+	saved = true
+	b.endSecretRequest(r, sr.ID, secretSaved, ref, true)
 	b.publish(r, "secret.saved", map[string]any{"name": sr.Name, "store": sr.Store, "where": sr.Where})
 	writeJSON(w, map[string]string{"ref": ref})
 	return nil
@@ -462,19 +508,23 @@ func (b *Box) declineSecretRequest(w http.ResponseWriter, r *http.Request) error
 	if !ok {
 		return httpError{http.StatusNotFound, "no such secret request"}
 	}
-	if sr.Status != secretPending {
-		return httpError{http.StatusConflict, "this request is " + strings.ReplaceAll(sr.Status, "_", " ") + " already"}
+	if !b.endSecretRequest(r, sr.ID, secretDeclined, "", false) {
+		if now, _ := b.SecretRequests.Get(sr.ID); now.Status != secretPending {
+			return httpError{http.StatusConflict, "this request is " + strings.ReplaceAll(now.Status, "_", " ") + " already"}
+		}
+		return httpError{http.StatusConflict, "this request is being saved"}
 	}
-	b.endSecretRequest(r, sr.ID, secretDeclined, "")
 	writeJSON(w, map[string]bool{"ok": true})
 	return nil
 }
 
 // endSecretRequest settles a request, says so, and tells its session.
-func (b *Box) endSecretRequest(r *http.Request, id, status, ref string) {
-	sr, ok := b.SecretRequests.end(id, status, ref)
+// claimed is a save settling the request it claimed. It says whether it
+// settled it.
+func (b *Box) endSecretRequest(r *http.Request, id, status, ref string, claimed bool) bool {
+	sr, ok := b.SecretRequests.end(id, status, ref, claimed)
 	if !ok {
-		return
+		return false
 	}
 	data := map[string]any{"id": sr.ID, "session": sr.Session, "name": sr.Name, "status": status}
 	if b.Events != nil {
@@ -485,8 +535,9 @@ func (b *Box) endSecretRequest(r *http.Request, id, status, ref string) {
 		b.Events.Publish(e)
 	}
 	if b.Reports != nil {
-		b.Reports.Tell(Report{Key: "secret:" + sr.ID, Parent: sr.Session, Kind: "secret", At: time.Now().UTC(), Status: status, Title: sr.Name, Ref: ref, Session: ""})
+		b.Reports.Tell(Report{Key: "secret:" + sr.ID, Parent: sr.Session, Kind: "secret", At: time.Now().UTC(), Status: status, Title: sr.Name, Ref: ref})
 	}
+	return true
 }
 
 // SweepSecrets times out the requests nobody answered and deletes the
@@ -496,12 +547,13 @@ func (b *Box) SweepSecrets(ctx context.Context) {
 		return
 	}
 	for _, id := range b.SecretRequests.expired() {
-		b.endSecretRequest(nil, id, secretTimedOut, "")
+		b.endSecretRequest(nil, id, secretTimedOut, "", false)
 	}
 	if st := b.secrets().Stores; st != nil {
-		for _, name := range st.Sweep(ctx) {
+		for _, m := range st.Sweep(ctx) {
+			b.secrets().Forget(m.Ref)
 			if b.Events != nil {
-				b.Events.Publish(events.Event{Type: "secret.deleted", Box: b.Name, Data: map[string]any{"name": name, "expired": true}})
+				b.Events.Publish(events.Event{Type: "secret.deleted", Box: b.Name, Data: map[string]any{"name": m.Name, "store": m.Store, "where": m.Where, "expired": true}})
 			}
 		}
 	}
@@ -616,12 +668,28 @@ func (b *Box) listSavedSecrets(w http.ResponseWriter, r *http.Request) error {
 	listed := map[string]bool{}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	for _, pl := range storePlaces(set) {
-		st, err := stores.Open(pl[0], pl[1])
-		var metas []SecretMeta
-		if err == nil {
-			metas, err = st.List(ctx)
-		}
+	// Each store at once: a gcloud takes a second or two to start.
+	places := storePlaces(set)
+	type listing struct {
+		metas []SecretMeta
+		err   error
+	}
+	got := make([]listing, len(places))
+	var wg sync.WaitGroup
+	for i, pl := range places {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			st, err := stores.Open(pl[0], pl[1])
+			if err == nil {
+				got[i].metas, err = st.List(ctx)
+			}
+			got[i].err = err
+		}()
+	}
+	wg.Wait()
+	for i, pl := range places {
+		metas, err := got[i].metas, got[i].err
 		if err != nil {
 			out.Errors = append(out.Errors, SecretStoreErr{Store: pl[0], Where: pl[1], Error: err.Error()})
 			// What the box saved there still shows, from its own record.
@@ -694,10 +762,13 @@ func (b *Box) deleteSavedSecret(w http.ResponseWriter, r *http.Request) error {
 	if meta.Environment == "production" && req.Confirm != meta.Name {
 		return badRequest("%s is a production secret: type its name to delete it", meta.Name)
 	}
-	if err := st.Delete(ctx, req.Ref); err != nil && !errors.Is(err, errSecretNotFound) {
-		return httpError{http.StatusBadGateway, err.Error()}
-	}
-	if err := stores.Index().Remove(req.Ref); err != nil {
+	err = stores.locked(func() error {
+		if err := st.Delete(ctx, req.Ref); err != nil && !errors.Is(err, errSecretNotFound) {
+			return httpError{http.StatusBadGateway, err.Error()}
+		}
+		return stores.Index().Remove(req.Ref)
+	})
+	if err != nil {
 		return err
 	}
 	b.secrets().Forget(req.Ref)

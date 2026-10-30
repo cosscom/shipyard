@@ -34,12 +34,6 @@ func init() {
 			}
 			return ""
 		},
-		RefName: func(ref string) string {
-			if m := gcpRef.FindStringSubmatch(ref); m != nil {
-				return m[2]
-			}
-			return ""
-		},
 		Open: func(env StoreEnv) SecretStore { return &gcpStore{env: env} },
 	})
 }

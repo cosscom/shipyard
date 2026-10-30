@@ -44,6 +44,9 @@ export function pendingSecrets(sessions: Session[] | undefined): SecretRequest[]
 
 export const isProduction = (r: { environment?: string }): boolean => r.environment === "production";
 
+// environmentLabel is an environment as the card and Settings write it.
+export const environmentLabel = (r: { environment?: string }): string => (isProduction(r) ? "Production" : r.environment === "staging" ? "Staging" : (r.environment ?? ""));
+
 // expiryOptions are the card's choices, or none: production is always no
 // expiry, so it has no picker.
 export const expiryOptions = (r: SecretRequest): typeof EXPIRY_OPTIONS | undefined => (isProduction(r) ? undefined : EXPIRY_OPTIONS);

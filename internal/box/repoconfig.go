@@ -15,6 +15,7 @@ import (
 
 	"github.com/cosscom/shipyard/internal/hooks"
 	"github.com/cosscom/shipyard/internal/statefile"
+	"github.com/cosscom/shipyard/internal/wire"
 )
 
 // What a repository asks of every worktree: its own ports, environment,
@@ -88,6 +89,9 @@ func (c RepoConfig) validate() error {
 }
 
 var envName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// ValidEnvName says whether k can be an environment variable's name.
+func ValidEnvName(k string) bool { return envName.MatchString(k) }
 
 // Merge lays local over repo, as a box does with its own config.
 func Merge(repo, local RepoConfig) RepoConfig { return merge(repo, local) }
@@ -510,6 +514,21 @@ func (b *Box) putConfig(w http.ResponseWriter, r *http.Request) error {
 	name := r.PathValue("name")
 	if err := b.before(r, "config.change", map[string]any{"location": name}); err != nil {
 		return err
+	}
+	// Where the project's secrets go is set in Settings → Secrets (PUT
+	// /v1/secrets/settings), from a paired laptop: a config written
+	// without it keeps it, and the box's own socket can't change it.
+	if saved, err := b.Locations.saved(name); err == nil {
+		var had *SecretStoreChoice
+		if saved.Config != nil {
+			had = saved.Config.Secrets
+		}
+		switch {
+		case req.Local.Secrets == nil:
+			req.Local.Secrets = had
+		case wire.IsLocal(r.Context()) && (had == nil || *had != *req.Local.Secrets):
+			return httpError{http.StatusForbidden, "where a project's secrets are saved is set from the Shipyard app, in Settings → Secrets"}
+		}
 	}
 	if err := b.Locations.SetLocalConfig(name, req.Local); err != nil {
 		if err == ErrUnknownLocation {

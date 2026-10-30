@@ -11,6 +11,7 @@ import {
   type CardState,
   cardTitle,
   deleteConfirm,
+  environmentLabel,
   errorLine,
   EXPIRY_OPTIONS,
   expiresLine,
@@ -179,4 +180,10 @@ test("a saved secret's expiry reads in words", () => {
   assert.equal(expiresLine("2026-10-30T09:00:00Z", now), "In 23h");
   assert.equal(expiresLine("2026-11-05T10:00:00Z", now), "In 7d");
   assert.equal(expiresLine("2026-10-29T09:00:00Z", now), "Expired");
+});
+
+test("an environment reads the same on the card and in Settings", () => {
+  assert.equal(environmentLabel({ environment: "production" }), "Production");
+  assert.equal(environmentLabel({ environment: "staging" }), "Staging");
+  assert.equal(environmentLabel({}), "");
 });

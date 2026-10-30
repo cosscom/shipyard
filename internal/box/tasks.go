@@ -402,6 +402,10 @@ func gateOrigin(r *http.Request) string {
 
 // enrich adds what each session's agent is doing, from the turn ledger.
 func (b *Box) enrich(ctx context.Context, all []Session) []Session {
+	var asking map[string]*SecretRequest
+	if b.SecretRequests != nil {
+		asking = b.SecretRequests.BySession()
+	}
 	for i := range all {
 		s := &all[i]
 		if u, ok := b.Sessions.scopeUsage(ctx, *s); ok && !s.Exited {
@@ -467,13 +471,11 @@ func (b *Box) enrich(ctx context.Context, all []Session) []Session {
 		}
 		// A secret request waits on the person like a question does, but
 		// the agent still takes prompts: its answer comes as one.
-		if b.SecretRequests != nil {
-			if sr := b.SecretRequests.ForSession(s.Name); sr != nil {
-				s.SecretRequest = sr
-				if s.AgentState != "waiting" || s.SoftWait {
-					s.AgentState, s.SoftWait, s.StateSince = "waiting", true, sr.Created
-					s.Ask = &Ask{Tool: "SecretRequest", Message: "Asks for the secret " + sr.Name}
-				}
+		if sr := asking[s.Name]; sr != nil {
+			s.SecretRequest = sr
+			if s.AgentState != "waiting" || s.SoftWait {
+				s.AgentState, s.SoftWait, s.StateSince = "waiting", true, sr.Created
+				s.Ask = &Ask{Tool: "SecretRequest", Message: "Asks for the secret " + sr.Name}
 			}
 		}
 	}

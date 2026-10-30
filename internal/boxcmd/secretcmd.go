@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"time"
 
 	"github.com/cosscom/shipyard/internal/box"
 )
@@ -37,21 +36,8 @@ func secretRequest(ctx context.Context, c *box.Client, args []string, out io.Wri
 	if err != nil {
 		return err
 	}
-	if *wait > 90*time.Second {
-		*wait = 90 * time.Second
-	}
-	if sr.Status == "pending" && *wait > 0 {
-		deadline := time.Now().Add(*wait)
-		for sr.Status == "pending" && time.Now().Before(deadline) {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(time.Second):
-			}
-			if now, err := c.SecretRequest(ctx, sr.ID); err == nil {
-				sr = now
-			}
-		}
+	if sr, err = c.AwaitSecretRequest(ctx, sr, *wait); err != nil {
+		return err
 	}
 	if err := show(out, *asJSON, sr, func() {
 		switch sr.Status {

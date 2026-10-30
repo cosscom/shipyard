@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -73,8 +72,6 @@ type StoreEnv struct {
 	Box string
 	// Where is the place in the provider: a GCP project.
 	Where string
-	// Index is the box's own record of what it saved.
-	Index *SecretIndex
 	// Bins overrides the programs a provider runs, by name ("security",
 	// "secret-tool", "gcloud"): tests' fakes.
 	Bins map[string]string
@@ -87,7 +84,22 @@ func (e StoreEnv) bin(name string) (string, error) {
 		}
 		return p, nil
 	}
-	return exec.LookPath(name)
+	if p, err := toolPath(name); err == nil {
+		return p, nil
+	}
+	// Where gcloud and the like install themselves, which a service
+	// manager's PATH may leave out.
+	dirs := []string{"/opt/homebrew/bin", "/usr/local/bin", "/snap/bin"}
+	if home, err := os.UserHomeDir(); err == nil {
+		dirs = append(dirs, filepath.Join(home, "google-cloud-sdk", "bin"))
+	}
+	for _, dir := range dirs {
+		p := filepath.Join(dir, name)
+		if st, err := os.Stat(p); err == nil && !st.IsDir() {
+			return p, nil
+		}
+	}
+	return "", fmt.Errorf("%s is not installed on this box", name)
 }
 
 // secretProvider is one registered provider.
@@ -105,9 +117,7 @@ type secretProvider struct {
 	// WhereOf is the place a reference names, so it resolves without the
 	// settings that saved it.
 	WhereOf func(ref string) string
-	// RefName is the secret's name in a reference.
-	RefName func(ref string) string
-	Open    func(env StoreEnv) SecretStore
+	Open func(env StoreEnv) SecretStore
 }
 
 var (
@@ -178,7 +188,6 @@ type SecretMeta struct {
 	// Where the place in the store (a GCP project).
 	StoreLabel  string     `json:"store_label"`
 	Where       string     `json:"where,omitempty"`
-	Backend     string     `json:"backend,omitempty"`
 	Environment string     `json:"environment,omitempty"`
 	Created     time.Time  `json:"created"`
 	Expires     *time.Time `json:"expires,omitempty"`
@@ -283,6 +292,24 @@ type SecretStores struct {
 
 	once  sync.Once
 	index *SecretIndex
+	// mu keeps a store's write and its index entry together, apart from the
+	// sweep's check and delete.
+	mu sync.Mutex
+}
+
+// locked runs f with the stores' writes held.
+func (s *SecretStores) locked(f func() error) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return f()
+}
+
+// Expired says whether ref is a saved secret past its expiry.
+func (s *SecretStores) Expired(ref string) error {
+	if m, ok := s.Index().Get(ref); ok && m.expired(s.now()) {
+		return fmt.Errorf("%s %w on %s", m.Name, errSecretExpired, m.Expires.Local().Format("2 Jan 15:04"))
+	}
+	return nil
 }
 
 func (s *SecretStores) now() time.Time {
@@ -299,7 +326,7 @@ func (s *SecretStores) Index() *SecretIndex {
 }
 
 func (s *SecretStores) env(where string) StoreEnv {
-	return StoreEnv{Dir: s.Dir, Box: s.Box, Where: where, Index: s.Index(), Bins: s.Bins}
+	return StoreEnv{Dir: s.Dir, Box: s.Box, Where: where, Bins: s.Bins}
 }
 
 // Open is provider id's store at where.
@@ -340,30 +367,37 @@ func (s *SecretStores) Resolve(ctx context.Context, ref string) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	if m, ok := s.Index().Get(ref); ok && m.expired(s.now()) {
-		return "", fmt.Errorf("%s %w on %s", m.Name, errSecretExpired, m.Expires.Local().Format("2 Jan 15:04"))
+	if err := s.Expired(ref); err != nil {
+		return "", err
 	}
 	return st.Resolve(ctx, ref)
 }
 
 // Sweep deletes the saved secrets whose time is up, from their stores and
-// the index. It returns the names it deleted.
-func (s *SecretStores) Sweep(ctx context.Context) []string {
-	now := s.now()
-	var gone []string
+// the index, and returns them. Each is looked at again with writes held,
+// so a replacement saved since is never deleted.
+func (s *SecretStores) Sweep(ctx context.Context) []SecretMeta {
+	var gone []SecretMeta
 	for _, m := range s.Index().All() {
-		if !m.expired(now) {
+		if !m.expired(s.now()) {
 			continue
 		}
-		st, err := s.ForRef(m.Ref)
-		if err == nil {
-			err = st.Delete(ctx, m.Ref)
-		}
-		if err != nil && !errors.Is(err, errSecretNotFound) {
-			continue
-		}
-		s.Index().Remove(m.Ref)
-		gone = append(gone, m.Name)
+		s.locked(func() error {
+			now, ok := s.Index().Get(m.Ref)
+			if !ok || !now.expired(s.now()) {
+				return nil
+			}
+			st, err := s.ForRef(m.Ref)
+			if err == nil {
+				err = st.Delete(ctx, m.Ref)
+			}
+			if err != nil && !errors.Is(err, errSecretNotFound) {
+				return err
+			}
+			s.Index().Remove(m.Ref)
+			gone = append(gone, now)
+			return nil
+		})
 	}
 	return gone
 }

@@ -12,7 +12,7 @@ import { boxApi, type SecretMeta, type SecretSettings, type SecretsList, type Se
 import { useEventLog } from "@/lib/events";
 import { sessionName } from "@/lib/derive";
 import { ago, errorMessage } from "@/lib/format";
-import { deleteConfirm, expiresLine, isProduction, needsTypedName, storeLine } from "@/lib/secret-request";
+import { deleteConfirm, environmentLabel, expiresLine, isProduction, needsTypedName, storeLine } from "@/lib/secret-request";
 import { NONE, useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { Code, SettingsGroup, SettingsPage, SettingsRow } from "@/views/settings/rows";
@@ -107,7 +107,7 @@ function SecretRow({ box, s, onDeleted }: { box: string; s: SecretMeta; onDelete
           <span className="truncate font-mono text-mono text-row">{s.name}</span>
           {s.environment && (
             <Badge variant={prod ? "warning" : "secondary"} size="sm" data-testid="secret-row-environment">
-              {prod ? "Production" : s.environment === "staging" ? "Staging" : s.environment}
+              {environmentLabel(s)}
             </Badge>
           )}
         </div>
@@ -217,7 +217,7 @@ function WhereSaved({ box, stores, settings, onSaved }: { box: string; stores: S
     if (!client) return;
     setBusy(true);
     try {
-      await boxApi.putSecretSettings(client, box, clean(draft));
+      await boxApi.putSecretSettings(client, box, cleared(clean(draft), settings));
       toastManager.add({ type: "success", title: `Saved where ${box} keeps secrets` });
       onSaved();
     } catch (err) {
@@ -252,6 +252,15 @@ function WhereSaved({ box, stores, settings, onSaved }: { box: string; stores: S
       })}
     </SettingsGroup>
   );
+}
+
+// cleared adds an empty choice for each project that had one of its own
+// and is back on the box's default: the box only changes the projects a
+// save names.
+function cleared(out: SecretSettings, was: SecretSettings): SecretSettings {
+  const locations = { ...out.locations };
+  for (const name of Object.keys(was.locations ?? {})) if (!locations[name]) locations[name] = {};
+  return Object.keys(locations).length ? { ...out, locations } : out;
 }
 
 // clean drops a project's empty choice, so "Box default" is no entry, and

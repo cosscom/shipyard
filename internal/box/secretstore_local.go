@@ -44,7 +44,6 @@ func init() {
 		ID: "local", Scheme: "box", Name: "Local",
 		Caps:        StoreCaps{Expiry: true},
 		ValidateRef: validateBoxRef,
-		RefName:     func(ref string) string { return strings.TrimPrefix(ref, "box://") },
 		Open:        func(env StoreEnv) SecretStore { return &localStore{env: env} },
 	})
 }
@@ -72,6 +71,8 @@ const localService = "dev.berth.secrets"
 
 type localStore struct {
 	env StoreEnv
+	// used is the backend the last save went to.
+	used localBackend
 }
 
 func (l *localStore) dir() string { return filepath.Join(l.env.Dir, "secrets") }
@@ -145,17 +146,13 @@ func (l *localStore) backendFor(kind string) (localBackend, error) {
 	return nil, fmt.Errorf("unknown local backend %q", kind)
 }
 
+// Label is where a value goes: the backend the last save used, else the
+// one a save would use now.
 func (l *localStore) Label() string {
-	return backendLabels[l.backend(context.Background()).kind()]
-}
-
-// Detail is the label of the backend that keeps ref.
-func (l *localStore) Detail(ref string) (backend, label string) {
-	r, ok := l.records()[strings.TrimPrefix(ref, "box://")]
-	if !ok {
-		return "", ""
+	if l.used == nil {
+		l.used = l.backend(context.Background())
 	}
-	return r.Backend, backendLabels[r.Backend]
+	return backendLabels[l.used.kind()]
 }
 
 func (l *localStore) Save(ctx context.Context, s SecretSave) (string, error) {
@@ -163,6 +160,7 @@ func (l *localStore) Save(ctx context.Context, s SecretSave) (string, error) {
 		return "", fmt.Errorf("%q is not a secret name", s.Name)
 	}
 	be := l.backend(ctx)
+	l.used = be
 	// A value that moves backend leaves nothing behind in the old one.
 	old, had := l.records()[s.Name]
 	if err := be.put(ctx, s.Name, s.Value); err != nil {
@@ -201,7 +199,7 @@ func (l *localStore) Resolve(ctx context.Context, ref string) (string, error) {
 func (l *localStore) List(ctx context.Context) ([]SecretMeta, error) {
 	var out []SecretMeta
 	for name, r := range l.records() {
-		out = append(out, SecretMeta{Name: name, Ref: "box://" + name, Store: "local", StoreLabel: backendLabels[r.Backend], Backend: r.Backend, Created: r.Created})
+		out = append(out, SecretMeta{Name: name, Ref: "box://" + name, Store: "local", StoreLabel: backendLabels[r.Backend], Created: r.Created})
 	}
 	return out, nil
 }
@@ -320,7 +318,8 @@ func (s *secretServiceBackend) get(ctx context.Context, name string) (string, er
 		}
 		return "", fmt.Errorf("the Secret Service did not give %s: %s", name, stderr)
 	}
-	return out, nil
+	// secret-tool ends what it prints with a newline of its own.
+	return strings.TrimSuffix(out, "\n"), nil
 }
 
 func (s *secretServiceBackend) del(ctx context.Context, name string) error {

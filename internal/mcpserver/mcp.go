@@ -457,17 +457,10 @@ func secretRequest(ctx context.Context, s *Server, a map[string]any) (any, error
 	if err != nil {
 		return nil, err
 	}
-	deadline := time.Now().Add(seconds(a, "wait", 0, 90))
-	for sr.Status == "pending" && time.Now().Before(deadline) {
-		select {
-		case <-ctx.Done():
-			deadline = time.Now()
-			continue
-		case <-time.After(time.Second):
-		}
-		if now, err := s.Box.SecretRequest(ctx, sr.ID); err == nil {
-			sr = now
-		}
+	// The tool's own deadline ending the wait is not an error: the
+	// request stands, and its answer comes as a notification.
+	if now, err := c.AwaitSecretRequest(ctx, sr, seconds(a, "wait", 0, 90)); err == nil || ctx.Err() != nil {
+		sr = now
 	}
 	out := map[string]any{"name": sr.Name, "status": sr.Status}
 	switch sr.Status {

@@ -472,3 +472,93 @@ func TestAThirdProviderPlugsInFromItsOwnFile(t *testing.T) {
 		t.Fatalf("config %+v", cfg.Local.Secrets)
 	}
 }
+
+func TestASaveInProgressCantBeDeclinedOrTimedOut(t *testing.T) {
+	t.Setenv("DBUS_SESSION_BUS_ADDRESS", "")
+	t.Setenv("XDG_RUNTIME_DIR", "")
+	sb := newSecretBed(t, noKeyrings)
+	ctx := context.Background()
+	sr, err := sb.local.RequestSecret(ctx, SecretRequestBody{Name: "ACME_TOKEN", Reason: "deploy"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A save has claimed it and is writing the value.
+	if _, err := sb.bx.SecretRequests.claim(sr.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sb.bx.SecretRequests.claim(sr.ID); err == nil {
+		t.Fatal("a second save claimed it too")
+	}
+	if status := call(t, sb.remote, "POST", "/v1/secrets/requests/"+sr.ID+"/decline", "app", nil, nil); status != 409 {
+		t.Fatalf("a decline during the save: %d", status)
+	}
+	if status := call(t, sb.remote, "POST", "/v1/secrets/requests/"+sr.ID+"/save", "app", map[string]string{"value": "other"}, nil); status != 409 {
+		t.Fatalf("a second save during the first: %d", status)
+	}
+	*sb.clock = sb.clock.Add(2 * time.Hour)
+	sb.bx.SweepSecrets(ctx)
+	if got, _ := sb.local.SecretRequest(ctx, sr.ID); got.Status != "pending" {
+		t.Fatalf("the sweep settled a request being saved: %s", got.Status)
+	}
+	// The save failed and let it go: now the person can decline.
+	sb.bx.SecretRequests.release(sr.ID)
+	if status := call(t, sb.remote, "POST", "/v1/secrets/requests/"+sr.ID+"/decline", "app", nil, nil); status != 200 {
+		t.Fatalf("a decline after: %d", status)
+	}
+	if len(sb.pendingReports("lead")) != 1 {
+		t.Fatalf("reports %+v", sb.pendingReports("lead"))
+	}
+}
+
+func TestOnlyTheAppSetsWhereAProjectsSecretsGo(t *testing.T) {
+	sb := newSecretBed(t, noKeyrings)
+	ctx := context.Background()
+	if status := call(t, sb.remote, "PUT", "/v1/secrets/settings", "app", SecretSettings{Store: "local", Locations: map[string]SecretStoreChoice{"acme": {Store: "gcp", GCPProject: "acme-staging"}}}, nil); status != 200 {
+		t.Fatalf("settings: %d", status)
+	}
+	choice := func() *SecretStoreChoice {
+		cfg, _ := sb.bx.Locations.Config(ctx, "acme")
+		return cfg.Local.Secrets
+	}
+	// The box's own socket can't move them through the project's config.
+	err := sb.local.Call(ctx, http.MethodPut, "/v1/locations/acme/config", map[string]any{"local": RepoConfig{Secrets: &SecretStoreChoice{Store: "gcp", GCPProject: "evil-project"}}}, nil)
+	if err == nil || choice().GCPProject != "acme-staging" {
+		t.Fatalf("an agent moved the project's secrets: %v %+v", err, choice())
+	}
+	// A config written without it, from either side, keeps it.
+	if err := sb.local.Call(ctx, http.MethodPut, "/v1/locations/acme/config", map[string]any{"local": RepoConfig{Ports: 2}}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if status := call(t, sb.remote, "PUT", "/v1/locations/acme/config", "app", map[string]any{"local": RepoConfig{Ports: 3}}, nil); status != 200 {
+		t.Fatalf("config from the app: %d", status)
+	}
+	if c := choice(); c == nil || c.Store != "gcp" || c.GCPProject != "acme-staging" {
+		t.Fatalf("writing the config dropped it: %+v", c)
+	}
+	// Settings clears it.
+	call(t, sb.remote, "PUT", "/v1/secrets/settings", "app", SecretSettings{Store: "local", Locations: map[string]SecretStoreChoice{"acme": {}}}, nil)
+	if c := choice(); c != nil {
+		t.Fatalf("clearing left %+v", c)
+	}
+}
+
+func TestAnExpiredSecretIsGoneFromMemoryToo(t *testing.T) {
+	t.Setenv("DBUS_SESSION_BUS_ADDRESS", "")
+	t.Setenv("XDG_RUNTIME_DIR", "")
+	ctx := context.Background()
+	now := time.Now()
+	stores := testStores(t, noKeyrings)
+	stores.Now = func() time.Time { return now }
+	st, _ := stores.Open("local", "")
+	ref, _ := st.Save(ctx, SecretSave{Name: "ACME_TOKEN", Value: "short-lived"})
+	exp := now.Add(time.Hour)
+	stores.Index().Put(SecretMeta{Name: "ACME_TOKEN", Ref: ref, Store: "local", Created: now, Expires: &exp})
+	s := &Secrets{Stores: stores}
+	if v, err := s.Resolve(ctx, ref, nil, false); err != nil || v != "short-lived" {
+		t.Fatalf("before: %q %v", v, err)
+	}
+	now = now.Add(61 * time.Minute)
+	if _, err := s.Resolve(ctx, ref, nil, false); err == nil {
+		t.Fatal("the cache handed out an expired secret")
+	}
+}

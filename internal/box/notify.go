@@ -31,7 +31,9 @@ import (
 // The watches, the reports not yet delivered and what was already said
 // live in one private file, so a restart loses none of them. Reports are
 // read off the turn ledger and the runs engine, never off a live event, so
-// one missed while berthd was down is still made.
+// one missed while berthd was down is still made. The one exception is
+// the answer to a secret request (secretrequests.go), which is said with
+// Tell when the request ends, and kept in the same file until it is.
 
 // CallerHeader names the agent session that asks for work, from its
 // BERTH_SESSION: the box reports back to it. Only callers on the box's own
@@ -343,7 +345,7 @@ func (n *Notifier) Forget(parent, id string) int {
 		}
 		left := reps[:0]
 		for _, r := range reps {
-			if r.Turn == id || r.Run == id || (r.Kind == "task" && r.Session == id && r.Turn == "") {
+			if r.Turn == id || r.Run == id || (r.Kind == "task" && r.Session == id && r.Turn == "") || r.Key == "secret:"+id {
 				n.markDone(r.Key)
 				continue
 			}

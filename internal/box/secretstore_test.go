@@ -117,7 +117,8 @@ func fakeSecretTool(dir string, args []string) int {
 		if err != nil || name == "" {
 			return 1
 		}
-		os.Stdout.Write(v)
+		// As the real one does, it ends with a newline of its own.
+		os.Stdout.Write(append(v, '\n'))
 		return 0
 	case "store":
 		v, _ := io.ReadAll(os.Stdin)
@@ -333,8 +334,8 @@ func TestTheKeychainGetsTheValueOnStdinNeverAsAnArgument(t *testing.T) {
 	if !strings.Contains(log, "-i\n") {
 		t.Fatalf("security was not run interactively:\n%s", log)
 	}
-	if b, l := st.(*localStore).Detail(ref); b != backendKeychain || l != "Keychain" {
-		t.Fatalf("detail %q %q", b, l)
+	if r := st.(*localStore).records()["ACME_TOKEN"]; r.Backend != backendKeychain || st.Label() != "Keychain" {
+		t.Fatalf("kept in %q, labelled %q", r.Backend, st.Label())
 	}
 	if err := st.Delete(ctx, ref); err != nil {
 		t.Fatal(err)
@@ -409,7 +410,7 @@ func TestExpiredSecretsReadAsGoneAndAreSwept(t *testing.T) {
 	if _, err := stores.Resolve(ctx, "box://SHORT"); err == nil || !errors.Is(err, errSecretExpired) {
 		t.Fatalf("an expired secret resolved: %v", err)
 	}
-	if gone := stores.Sweep(ctx); len(gone) != 1 || gone[0] != "SHORT" {
+	if gone := stores.Sweep(ctx); len(gone) != 1 || gone[0].Name != "SHORT" {
 		t.Fatalf("swept %v", gone)
 	}
 	if _, ok := stores.Index().Get("box://SHORT"); ok {
