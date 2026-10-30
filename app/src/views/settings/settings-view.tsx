@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, BellIcon, BotIcon, CableIcon, FlaskConicalIcon, InfoIcon, KeyboardIcon, LaptopIcon, PaletteIcon, PuzzleIcon, ServerIcon, SlidersHorizontalIcon, SmartphoneIcon, SquareTerminalIcon, WrenchIcon } from "lucide-react";
+import { ArrowLeftIcon, BellIcon, BotIcon, CableIcon, FlaskConicalIcon, InfoIcon, KeyboardIcon, KeyRoundIcon, LaptopIcon, PaletteIcon, PuzzleIcon, ServerIcon, SlidersHorizontalIcon, SmartphoneIcon, SquareTerminalIcon, WrenchIcon } from "lucide-react";
 import { type ComponentType, useEffect } from "react";
 
 import { ink, inkScale } from "@/components/sidebar/ink";
@@ -18,6 +18,7 @@ import { LabsSection } from "@/views/settings/labs-section";
 import { NotificationsSection } from "@/views/settings/notifications-section";
 import { PhoneSection } from "@/views/settings/phone-section";
 import { PluginsSection } from "@/views/settings/plugins-section";
+import { SecretsSection } from "@/views/settings/secrets-section";
 import { ShortcutsSection } from "@/views/settings/shortcuts-section";
 import { TerminalSection } from "@/views/settings/terminal-section";
 
@@ -35,6 +36,7 @@ const SECTIONS: { id: SettingsSectionId; title: string; icon: ComponentType<{ cl
   { id: "phone", title: "Phone", icon: SmartphoneIcon, Component: PhoneSection },
   { id: "agents", title: "Agents", icon: BotIcon, Component: AgentsSection },
   { id: "integrations", title: "Integrations", icon: CableIcon, Component: IntegrationsSection },
+  { id: "secrets", title: "Secrets", icon: KeyRoundIcon, Component: SecretsSection },
   { id: "plugins", title: "Plugins", icon: PuzzleIcon, Component: PluginsSection },
   { id: "shortcuts", title: "Shortcuts", icon: KeyboardIcon, Component: ShortcutsSection },
   { id: "labs", title: "Labs", icon: FlaskConicalIcon, Component: LabsSection },
@@ -46,7 +48,7 @@ const SECTIONS: { id: SettingsSectionId; title: string; icon: ComponentType<{ cl
 // (Labs, Developer, About) sit at the bottom.
 const GROUPS: { title?: string; ids: SettingsSectionId[] }[] = [
   { title: "Shipyard", ids: ["general", "appearance", "notifications", "shortcuts"] },
-  { title: "Agents", ids: ["agents", "terminal", "integrations", "plugins"] },
+  { title: "Agents", ids: ["agents", "terminal", "integrations", "secrets", "plugins"] },
   { title: "Machines", ids: ["boxes", "computers", "phone"] },
 ];
 const BOTTOM: SettingsSectionId[] = ["labs", "developer", "about"];

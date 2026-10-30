@@ -23,6 +23,10 @@ func TestMain(m *testing.M) {
 		}
 		os.Exit(code)
 	}
+	// The secret stores' programs, faked (secretstore_test.go).
+	if os.Getenv("BERTH_TEST_FAKE") != "" && os.Getenv("BERTH_TEST_FAKE_DIR") != "" {
+		os.Exit(fakeProgram())
+	}
 	for k, v := range map[string]string{
 		"GIT_AUTHOR_NAME": "berth test", "GIT_AUTHOR_EMAIL": "test@example.com",
 		"GIT_COMMITTER_NAME": "berth test", "GIT_COMMITTER_EMAIL": "test@example.com",

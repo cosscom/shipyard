@@ -55,7 +55,7 @@ const all: Channels = { centre: true, toast: true, system: true };
 const quietly: Channels = { centre: true, toast: true, system: false };
 
 export const CATEGORIES: CategoryInfo[] = [
-  { id: "waiting", label: "An agent needs you", description: "It asked a question or wants permission.", needs: true, defaults: all },
+  { id: "waiting", label: "An agent needs you", description: "It asked a question, wants permission or asks for a secret.", needs: true, defaults: all },
   { id: "finished", label: "An agent is done", description: "Its turn ended, with or without changes.", needs: false, defaults: all },
   { id: "review", label: "Work is ready for review", description: "An agent left changes in the review inbox.", needs: false, defaults: { centre: true, toast: false, system: false } },
   { id: "flowFailed", label: "An automation failed", description: "A flow run ended with a failed step.", needs: true, defaults: all },
@@ -530,6 +530,10 @@ export function resolveFromEvent(e: BerthEvent) {
     case "secret.resolved":
       resolve((n) => n.category === "secret" && same(n) && n.key === secretKey(e.box, d.location, d.variable));
       return;
+    // A secret request saved, declined or timed out: nobody is asked now.
+    case "secret.request.ended":
+      resolve((n) => n.category === "waiting" && same(n) && n.key === secretRequestKey(e.box, d.id));
+      return;
     case "worktree.removed":
     case "worktree.setup.finished":
       resolve((n) => (n.category === "setupFailed" || (e.type === "worktree.removed" && n.category !== "notify")) && same(n) && (path ? n.path === path : n.project === d.location && n.worktree === d.name));
@@ -540,6 +544,7 @@ export function resolveFromEvent(e: BerthEvent) {
 export const serviceKey = (box?: string, location?: unknown, worktree?: unknown, service?: unknown) => `serviceFailed|${box}|${location}|${worktree}|${service}`;
 export const secretKey = (box?: string, location?: unknown, variable?: unknown) => `secret|${box}|${location ?? ""}|${variable}`;
 export const flowKey = (box?: string, flow?: unknown, scope?: unknown) => `flowFailed|${box}|${scope ?? ""}|${flow}`;
+export const secretRequestKey = (box?: string, id?: unknown) => `waiting|${box}|secret|${id}`;
 
 // A waiting note also clears when the box reports its agent working again,
 // in case the event was missed.

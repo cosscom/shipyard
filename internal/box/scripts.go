@@ -69,6 +69,10 @@ type RepoConfig struct {
 	// fetches it first and fast-forwards the local one (freshbase.go). On
 	// unless a layer says false.
 	KeepMain *bool `json:"keep_main,omitempty"`
+	// Secrets is where this project's secret requests save, over the
+	// box's default (secretstore.go). Only the box's own config sets it,
+	// never a repository's file.
+	Secrets *SecretStoreChoice `json:"secrets,omitempty"`
 }
 
 // ReadRepoConfig reads repo's .berth/config.json; ok is false without one.

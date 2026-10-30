@@ -53,6 +53,9 @@ func writeReport(b *strings.Builder, r Report) {
 			attrs = append(attrs, [2]string{"title", r.Title})
 		}
 	}
+	if r.Kind == "secret" {
+		attrs = append(attrs, [2]string{"title", r.Title}, [2]string{"ref", r.Ref})
+	}
 	if r.Worktree != "" {
 		attrs = append(attrs, [2]string{"worktree", r.Worktree})
 	}
@@ -99,6 +102,9 @@ func writeReport(b *strings.Builder, r Report) {
 
 // reportSummary is the report in one line.
 func reportSummary(r Report) string {
+	if r.Kind == "secret" {
+		return secretSummary(r)
+	}
 	who := firstNonEmpty(r.Worktree, r.Session)
 	if r.Kind == "run" {
 		who = "run " + r.Run + " (" + firstNonEmpty(r.Title, r.Template) + ")"
@@ -130,6 +136,20 @@ func reportSummary(r Report) string {
 		return who + " was interrupted."
 	}
 	return who + ": " + r.Status + "."
+}
+
+// secretSummary is what came of a secret request, for the agent that made
+// it: a reference to use, never the value.
+func secretSummary(r Report) string {
+	switch r.Status {
+	case secretSaved:
+		return fmt.Sprintf("The person saved the secret %s. Its reference is %s: run a command with it as `berthd secret exec --env %s=%s -- COMMAND`, or `--file %s=%s` for a file holding it. Never print the value: a command that prints it puts it in the chat.", r.Title, r.Ref, r.Title, r.Ref, r.Title, r.Ref)
+	case secretDeclined:
+		return fmt.Sprintf("The person declined to give the secret %s. Carry on without it, or ask them what to do.", r.Title)
+	case secretTimedOut:
+		return fmt.Sprintf("Nobody answered the request for the secret %s within an hour. Ask again with berthd secret request if it is still needed, and tell the user.", r.Title)
+	}
+	return "The request for the secret " + r.Title + ": " + r.Status + "."
 }
 
 func changesText(r Report) string {

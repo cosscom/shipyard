@@ -94,6 +94,9 @@ type Box struct {
 	// Secrets resolves secret references in worktree environments; nil
 	// uses a shared one.
 	Secrets *Secrets
+	// SecretRequests keeps agents' asks for a secret (secretrequests.go);
+	// nil on a box without them.
+	SecretRequests *SecretRequests
 	// Socket is the box's local API socket, which programs berthd starts can
 	// report back through.
 	Socket string
@@ -203,6 +206,7 @@ func (b *Box) Mount(s *wire.Server) {
 	route("PUT /v1/env", b.putBoxEnv)
 	route("POST /v1/secrets/test", b.testSecret)
 	route("POST /v1/secrets/report", b.reportSecrets)
+	b.mountSecrets(route)
 	route("GET /v1/locations/{name}/config", b.getConfig)
 	route("PUT /v1/locations/{name}/config", b.putConfig)
 	route("POST /v1/locations/{name}/config/trust", b.trustRepoConfig)

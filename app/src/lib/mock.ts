@@ -8,6 +8,7 @@ import { browserCall, mockScreencast, mockShotSvg, wireBrowserMock } from "@/lib
 import { mockDevtoolsCall } from "@/lib/mock-devtools";
 import { phoneCall } from "@/lib/mock-phone";
 import { turnCheckCall } from "@/lib/mock-turncheck";
+import { secretsCall, seedSecretRequests, wireSecretsMock } from "@/lib/mock-secrets";
 import { worktreesCall } from "@/lib/mock-worktrees";
 import { kitsCall, kitsStream } from "@/lib/mock-kits";
 import { marketplaceCall, marketplaceFile, marketplaceReady, type MockPlugin, seededPlugins } from "@/lib/mock-marketplace";
@@ -255,6 +256,9 @@ if (structuredDemo) {
       },
     } satisfies Partial<Session>);
 }
+// ?secrets: devl's search-perf Claude and gpu's ci-flake Claude wait on
+// secrets they asked for, a staging and a production one (lib/mock-secrets.ts).
+if (new URLSearchParams(location.search).has("secrets")) seedSecretRequests(sessions);
 // ?mock=1&bench=…: far more than the fixtures, for measuring (lib/mock-bench.ts).
 if (BENCH === "fleet") benchFleet({ status, locations, sessions, stats });
 if (BENCH === "chat") seedBenchChats();
@@ -335,6 +339,7 @@ const artifactsMock = () =>
   });
 if (typeof window !== "undefined") (window as unknown as { __art: unknown }).__art = { bump: () => artifactsMock().then((m) => m.bumpArtifacts()), vdiff: () => artifactsMock().then((m) => m.bumpVdiff()) };
 wireBrowserMock(emit);
+wireSecretsMock(sessions, emit);
 wireMockServices({
   sessions: (box) => (sessions[box] ??= []),
   path: (box, loc, wt) => locations[box]?.find((l) => l.name === loc)?.worktrees?.find((w) => w.name === wt)?.path ?? `/home/me/work/${loc}-${wt}`,
@@ -713,6 +718,8 @@ function boxCall(box: string, method: string, path: string, body?: unknown): Pro
   if (phone) return phone;
   const turnCheck = turnCheckCall(box, method, path, body, delay);
   if (turnCheck) return turnCheck;
+  const secrets = secretsCall(box, method, path, body, { sessions, emit, delay });
+  if (secrets) return secrets;
   const usage = usageCall(box, method, path, body, delay);
   if (usage) return usage;
   const wts = worktreesCall(box, method, path, body, { locations, sessions }, emit, delay);

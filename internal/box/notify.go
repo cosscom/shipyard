@@ -31,7 +31,9 @@ import (
 // The watches, the reports not yet delivered and what was already said
 // live in one private file, so a restart loses none of them. Reports are
 // read off the turn ledger and the runs engine, never off a live event, so
-// one missed while berthd was down is still made.
+// one missed while berthd was down is still made. The one exception is
+// the answer to a secret request (secretrequests.go), which is said with
+// Tell when the request ends, and kept in the same file until it is.
 
 // CallerHeader names the agent session that asks for work, from its
 // BERTH_SESSION: the box reports back to it. Only callers on the box's own
@@ -94,6 +96,8 @@ type Report struct {
 	Needs      string `json:"needs,omitempty"`
 	Error      string `json:"error,omitempty"`
 	Transcript string `json:"transcript,omitempty"`
+	// Ref is a saved secret's reference (kind secret).
+	Ref string `json:"ref,omitempty"`
 }
 
 // Limits. A parent hears at most once every MinGap and PerHour times an
@@ -228,6 +232,20 @@ func (n *Notifier) Kick() {
 	}
 }
 
+// Tell queues a report that is not read off a watch (a secret request's
+// answer), to be said once at the parent's next idle.
+func (n *Notifier) Tell(r Report) {
+	n.mu.Lock()
+	n.load()
+	if r.Key != "" && r.Parent != "" && !n.done(r.Key) && !n.pendingKey(r.Key) {
+		n.st.Pending[r.Parent] = append(n.st.Pending[r.Parent], r)
+		n.dirty = true
+		n.save()
+	}
+	n.mu.Unlock()
+	n.Kick()
+}
+
 // Add records a watch. One already kept (the same work for the same
 // parent) is kept as it is. A watch that would make a cycle is refused.
 func (n *Notifier) Add(w Watch) error {
@@ -327,7 +345,7 @@ func (n *Notifier) Forget(parent, id string) int {
 		}
 		left := reps[:0]
 		for _, r := range reps {
-			if r.Turn == id || r.Run == id || (r.Kind == "task" && r.Session == id && r.Turn == "") {
+			if r.Turn == id || r.Run == id || (r.Kind == "task" && r.Session == id && r.Turn == "") || r.Key == "secret:"+id {
 				n.markDone(r.Key)
 				continue
 			}

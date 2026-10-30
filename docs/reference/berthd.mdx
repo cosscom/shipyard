@@ -226,8 +226,9 @@ refuse a helper, and a `before:helper.attach` gate a look in a worktree's
 | Command | What it does |
 | --- | --- |
 | `berthd skills [list\|install\|uninstall] [SKILL...] [--agent claude\|codex\|all] [--target user\|project] [--location LOC] [--commit]` | Teach Claude Code and Codex to use Shipyard |
-| `berthd secret test REF` | Check this box can resolve `op://vault/item/field` or `env://NAME` (prints the value's length, never the value) |
-| `berthd secret exec [--socket PATH] -- PROGRAM [ARGS...]` | Used by sessions and services: resolves secret references, then runs the program. See [secrets](/guides/secrets#how-values-are-handled). |
+| `berthd secret test REF` | Check this box can resolve `op://vault/item/field`, `env://NAME` or `box://NAME` (prints the value's length, never the value) |
+| `berthd secret request NAME --reason WHY [--new] [--store local\|gcp] [--environment staging\|production] [--grant SA_EMAIL] [--ttl 1h\|24h\|7d] [--wait 90s]` | From an agent session: ask the person for a secret through a card in Shipyard. Returns at once; the answer comes as a `<berth-notification>` with a reference. See [secrets](/guides/secrets#when-an-agent-asks-for-a-secret). |
+| `berthd secret exec [--socket PATH] [--env VAR=REF]... [--file VAR=REF]... -- PROGRAM [ARGS...]` | Used by sessions and services: resolves secret references, then runs the program. `--env` and `--file` hand a saved secret to one command, as a variable or a temporary file. See [secrets](/guides/secrets#using-a-saved-secret). |
 | `berthd secret signin [--check]` | Signs the box's `op` in to 1Password in this terminal (`op signin`) and keeps its session for berthd's `op://` reads; a team setup's 1Password step runs it. `--check` asks nothing and exits 0 when berthd can read 1Password now. See [secrets](/guides/secrets#setting-up-1password-on-a-box). |
 | `berthd emit TYPE [key=value...] [--origin TOOL]` | Announce an event, e.g. `deploy.finished` |
 | `berthd events [--json]` | Stream the box's events |

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cosscom/shipyard/internal/box"
 )
@@ -48,6 +49,8 @@ func (f *callerBox) DoWithHeader(ctx context.Context, method, path string, body 
 		w.WriteString(`{"forgot":1}`)
 	case strings.HasPrefix(path, "/v1/runs/"):
 		w.WriteString(`{"id":"r_x","template":"exec","status":"running","steps":[]}`)
+	case path == "/v1/secrets/requests":
+		w.WriteString(`{"id":"sr_1","name":"ACME_TOKEN","session":"lead-claude","store":"local","status":"pending"}`)
 	default:
 		w.WriteHeader(404)
 		w.WriteString(`{"error":"no"}`)
@@ -166,5 +169,29 @@ func TestAnAgentWithoutItsEnvironmentIsFoundByItsProcess(t *testing.T) {
 	rpc(t, s, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"berth_send","arguments":{"session":"shop-fix-claude","text":"go"}}}`)
 	if who, _ := f.callerOf("POST /v1/sessions/"); who != "" {
 		t.Fatalf("named %q outside a session", who)
+	}
+}
+
+// A secret request returns at once with its ID; the answer comes back as a
+// <berth-notification>.
+func TestASecretRequestReturnsAtOnce(t *testing.T) {
+	f := &callerBox{}
+	s := &Server{Box: box.NewClient(f), Caller: "lead-claude"}
+	start := time.Now()
+	res := rpc(t, s, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"berth_secret_request","arguments":{"name":"ACME_TOKEN","reason":"deploy the acme app"}}}`)
+	if time.Since(start) > 2*time.Second {
+		t.Fatalf("it waited %s", time.Since(start))
+	}
+	text := res[0]["result"].(map[string]any)["content"].([]any)[0].(map[string]any)["text"].(string)
+	if !strings.Contains(text, `"request":"sr_1"`) || !strings.Contains(text, `"status":"pending"`) || !strings.Contains(text, `"notify":true`) {
+		t.Fatalf("result %s", text)
+	}
+	if who, ok := f.callerOf("POST /v1/secrets/requests"); !ok || who != "lead-claude" {
+		t.Fatalf("the request named %q (%v)", who, f.calls)
+	}
+	// Without a session it can't be asked.
+	res = rpc(t, &Server{Box: box.NewClient(&callerBox{})}, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"berth_secret_request","arguments":{"name":"ACME_TOKEN","reason":"x"}}}`)
+	if res[0]["result"].(map[string]any)["isError"] != true {
+		t.Fatalf("a request with no session: %v", res[0])
 	}
 }

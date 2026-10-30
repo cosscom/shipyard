@@ -376,6 +376,35 @@ func (c *Client) ReportSecrets(ctx context.Context, r SecretReport) error {
 	return c.call(ctx, http.MethodPost, "/v1/secrets/report", r, nil)
 }
 
+// RequestSecret asks the person for a secret, for the caller's session:
+// the box gives a saved one's reference at once, or a pending request.
+func (c *Client) RequestSecret(ctx context.Context, req SecretRequestBody) (out SecretRequest, err error) {
+	return out, c.call(ctx, http.MethodPost, "/v1/secrets/requests", req, &out)
+}
+
+// SecretRequest is one request as it stands: pending, saved (with its
+// reference), declined or timed out.
+func (c *Client) SecretRequest(ctx context.Context, id string) (out SecretRequest, err error) {
+	return out, c.call(ctx, http.MethodGet, "/v1/secrets/requests/"+url.PathEscape(id), nil, &out)
+}
+
+// AwaitSecretRequest waits up to wait (at most 90 seconds) for a pending
+// request to be answered, and gives it as it then stands.
+func (c *Client) AwaitSecretRequest(ctx context.Context, sr SecretRequest, wait time.Duration) (SecretRequest, error) {
+	deadline := time.Now().Add(min(wait, 90*time.Second))
+	for sr.Status == "pending" && time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return sr, ctx.Err()
+		case <-time.After(time.Second):
+		}
+		if now, err := c.SecretRequest(ctx, sr.ID); err == nil {
+			sr = now
+		}
+	}
+	return sr, nil
+}
+
 func (c *Client) Emit(ctx context.Context, typ string, data map[string]any) error {
 	return c.call(ctx, http.MethodPost, "/v1/events", map[string]any{"type": typ, "data": data}, nil)
 }

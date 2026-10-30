@@ -16,6 +16,7 @@ import { PixelLoader } from "@/components/pixel-loader";
 import { useComposerMenu } from "@/components/conversation/command-menu";
 import { LiveScreen, useLiveScreen } from "@/components/conversation/live-screen";
 import { QuestionsContext } from "@/components/conversation/question-form";
+import { SecretRequestCard } from "@/components/conversation/secret-request-card";
 import { ResumePicker } from "@/components/conversation/resume-picker";
 import { toastError } from "@/components/error-note";
 import { UpgradeBox } from "@/components/upgrade-box";
@@ -45,6 +46,7 @@ import { addComment, type LineComment, pending, removeComment, sendComments, use
 import { githubRepo } from "@/lib/repo-refs";
 import { answerQuestions, atMenu, lastQuestion, type QuestionAnswer } from "@/lib/questions";
 import { permissionChoices } from "@/lib/screen";
+import { SECRET_TOOL, secretRequestOf } from "@/lib/secret-request";
 import { NONE, useStore } from "@/lib/store";
 import { isStructured } from "@/lib/structured";
 import type { TranscriptItem } from "@/lib/transcript";
@@ -95,7 +97,10 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
   // Turn check's wait asks in the agent's last message, which the reply
   // box answers: its screen, at its prompt, holds no question to read.
   const asking = atQuestion(s, state);
-  const ask = useAsk(box, session, !mock && asking, s?.state_since, s?.ask);
+  // A secret it asked for (berthd secret request): its own card, at the
+  // chat's foot, answers it; never Allow or Deny, never the reply box.
+  const secret = state === "exited" ? undefined : secretRequestOf(s);
+  const ask = useAsk(box, session, !mock && asking && !secret, s?.state_since, s?.ask);
   const [answered, setAnswered] = useState<{ at?: string; key: string }>();
   // A form of questions the agent asks (Claude Code's AskUserQuestion),
   // from its record: the chat draws it whole and the box fills it in. stuck
@@ -224,7 +229,8 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
     const decided = answered && answered.at === s?.state_since ? answered.key : undefined;
     // A form of questions draws itself (its question item); one the chat
     // can't read from the record (an older box) only its screen answers.
-    const form = formAsk || !!ask?.form;
+    // A secret it asked for has its own card in the chat's tail, not an item.
+    const form = formAsk || !!ask?.form || !!secret || s?.ask?.tool === SECRET_TOOL;
     if (state === "waiting" && s?.ask?.tool && !form && !formDone) {
       // The agent's hooks said what it asks: show that, with its screen's
       // options matched to Allow, Always allow and Deny.
@@ -237,7 +243,7 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
       out.push({ kind: "ask", id: "live:ask", tool: "Question", detail: s?.ask?.message || ask.detail, choices: ask.choices, decided });
     }
     return out;
-  }, [mock, items, state, parked, s?.state_since, s?.ask, s?.created, startedWith, ask, answered, sent, prompted, onScreen, last, formAsk, formDone, structured, drafts.draft, drafts.status, drafts.supported]);
+  }, [mock, items, state, parked, s?.state_since, s?.ask, s?.created, startedWith, ask, answered, sent, prompted, onScreen, last, formAsk, formDone, structured, drafts.draft, drafts.status, drafts.supported, secret]);
 
   const edits = useMemo<EditActions | undefined>(() => {
     if (!client || (!canDiff && !mock)) return undefined;
@@ -284,7 +290,7 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
     return () => window.clearTimeout(t);
   }, [answered, s?.state_since, state, forWords]);
   const staleNow = !!stale && stale === s?.state_since;
-  const recognised = state === "waiting" && !staleNow && (answerable || (!formAsk && !ask?.form && (ask ? !!ask.choices.length : !!s?.ask?.tool)));
+  const recognised = state === "waiting" && !staleNow && (!!secret || answerable || (!formAsk && !ask?.form && (ask ? !!ask.choices.length : !!s?.ask?.tool)));
   const live = useLiveScreen({ box, session, agent, enabled: visible && !mock && !away && !!s && state !== "exited" && !recognised && !structured, running: state === "running", nudge });
 
   // Claude Code and Codex write their conversation once they start: until
@@ -477,6 +483,7 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
   const untaken = !mock && !structured && !!onShowTerminal && state !== "running" && sent.some((p, i) => now - p.at > 8000 && !taken(items, p, i + 1));
   const tail = (
     <>
+      {secret && <SecretRequestCard key={secret.id} box={box} request={secret} />}
       {queue.items.map((q) => (
         <QueuedBubble key={q.turn} q={q} who={who} onSendNow={() => sendNow(q)} onCancel={() => cancel(q)} />
       ))}
@@ -595,7 +602,7 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
             <QuestionsContext value={{ live: formAsk ? openQ?.tool : undefined, canAnswer: canAnswer && agent === "claude", stuck: stuckNow, submit: submitQuestions }}>
               <FileLinks worktree={worktreeRef}>
                 <RepoRefs repo={repo}>
-                  <ConversationView chat={{ box, session, agent, visible, idle: state !== "running" && state !== "waiting" }} items={shown} onAnswer={answer} edits={edits} who={who} tail={tail} tailSize={queue.items.length + (untaken ? 1 : 0)} />
+                  <ConversationView chat={{ box, session, agent, visible, idle: state !== "running" && state !== "waiting" }} items={shown} onAnswer={answer} edits={edits} who={who} tail={tail} tailSize={queue.items.length + (untaken ? 1 : 0) + (secret ? 1 : 0)} />
                 </RepoRefs>
               </FileLinks>
             </QuestionsContext>
@@ -619,8 +626,8 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
             live={live.show}
             terminal={!!onShowTerminal}
             mode={replyMode(state)}
-            blocked={(asking && menu) || live.show}
-            hint={live.show ? (liveWhy ?? `${who} is showing its own screen: answer it above`) : wantsWords ? `Tell ${who} what to change, then press Enter` : answerable ? `Answer ${who}'s ${openQ?.questions.length === 1 ? "question" : "questions"} above` : undefined}
+            blocked={(asking && menu && !secret) || live.show}
+            hint={live.show ? (liveWhy ?? `${who} is showing its own screen: answer it above`) : secret ? `Give ${secret.name} in the card above, never here` : wantsWords ? `Tell ${who} what to change, then press Enter` : answerable ? `Answer ${who}'s ${openQ?.questions.length === 1 ? "question" : "questions"} above` : undefined}
             actions={actions}
           />
         </div>

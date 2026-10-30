@@ -413,3 +413,23 @@ func TestBrowserTabsFromTheCommandLine(t *testing.T) {
 		t.Fatal("a tab named \"a b\"")
 	}
 }
+
+func TestSecretRequestAsksForTheSessionItRunsIn(t *testing.T) {
+	t.Setenv("BERTH_SESSION", "")
+	rec := &recorder{reply: `{}`}
+	if err := Run(context.Background(), &box.Client{Doer: rec}, []string{"secret", "request", "ACME_TOKEN", "--reason", "deploy"}, io.Discard); err == nil || !strings.Contains(err.Error(), "BERTH_SESSION") {
+		t.Fatalf("outside a session: %v", err)
+	}
+	t.Setenv("BERTH_SESSION", "shop-fix-claude")
+	r, out := run(t, `{"id":"sr_1","name":"ACME_TOKEN","status":"pending"}`, "secret", "request", "ACME_TOKEN", "--reason", "deploy the acme app", "--environment", "staging", "--ttl", "24h", "--new")
+	if r.method != "POST" || r.path != "/v1/secrets/requests" || r.body["name"] != "ACME_TOKEN" || r.body["reason"] != "deploy the acme app" || r.body["environment"] != "staging" || r.body["ttl"] != "24h" || r.body["new"] != true {
+		t.Fatalf("request %s %s %v", r.method, r.path, r.body)
+	}
+	if !strings.Contains(out, "sr_1") || !strings.Contains(out, "<berth-notification>") {
+		t.Fatalf("out = %q", out)
+	}
+	_, out = run(t, `{"name":"ACME_TOKEN","status":"saved","ref":"box://ACME_TOKEN","reused":true}`, "secret", "request", "ACME_TOKEN", "--reason", "x")
+	if !strings.Contains(out, "saved already") || !strings.Contains(out, "berthd secret exec --env ACME_TOKEN=box://ACME_TOKEN") {
+		t.Fatalf("reused: %q", out)
+	}
+}

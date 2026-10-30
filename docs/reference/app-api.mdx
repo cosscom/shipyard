@@ -157,6 +157,14 @@ failed after it went out (the box may have acted on it). The box API:
 | `GET doctor` | `Check[]` |
 | `POST secrets/test` | `{ ref }` → `{ ok, length?, error? }`: resolves a [secret reference](/guides/secrets) on the box now (`op://…` or `env://…`), skipping its cache, and reports whether it could and the value's length, never the value. A malformed reference is `ok: false` with why |
 | `POST secrets/report` | Only on the box's own socket: what `berthd secret exec` resolved for a session or service, which variables resolved and which failed and why, never values |
+| `POST secrets/requests` | Only on the box's own socket, from an agent session (`X-Berth-Caller`): `{ name, reason, new?, store?, environment?, grant?, ttl? }` asks the person for a [secret](/guides/secrets#when-an-agent-asks-for-a-secret). Returns a pending request, or `{ status: "saved", ref, reused: true }` for one saved and unexpired |
+| `GET secrets/requests` | The pending requests. A session waiting on one also carries it as `secret_request`, with `agent_state` `waiting` and `soft_wait` |
+| `GET secrets/requests/{id}` | One request: `pending`, `saved` (with `ref`), `declined` or `timed_out` |
+| `POST secrets/requests/{id}/save` | Refused on the box's own socket: `{ value, expires: "" \| "1h" \| "24h" \| "7d" }` saves the value to the request's store and answers `{ ref }`. The value is never echoed, logged or announced |
+| `POST secrets/requests/{id}/decline` | Refused on the box's own socket: the agent hears it was declined |
+| `GET secrets` | Saved secrets from every configured store, names and metadata only, with the stores, the settings and any store that couldn't be listed |
+| `POST secrets/delete` | Refused on the box's own socket: `{ ref, confirm? }`; a production secret needs its name as `confirm` |
+| `GET secrets/settings`, `PUT secrets/settings` | The box's default store and GCP project, and each project's (kept in the box's own config for the location). `PUT` is refused on the box's own socket |
 | `POST sessions/{name}/send` | `{ text, enter?, when?, force?, idem_key? }` → `{ sent, queued?, duplicate?, turn?, seq?, at }`: types a prompt, or with `when: "idle"` holds it until the agent is idle. With `when`, refused (409) while the agent waits for someone unless `force` ([orchestration](/guides/orchestration#send)) |
 | `GET sessions/{name}/wait?for=finished,waiting&after=TIME&timeout=10m` | `{ state, timed_out, turn? }`: `after` is an RFC 3339 time, placed in the box's journal order; `timeout` a duration, 1s to 1h (default 10m) |
 | `GET sessions/{name}/turns?limit=N` | `Turn[]`, oldest first: the session's last `N` turns (default 20). A wait's `ask` is what the agent asked for, from its hooks: `{ tool?, input?, why?, message? }`, each at most 300 characters (the command or the file's path, never what it would write) |

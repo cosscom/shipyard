@@ -13,7 +13,7 @@ import (
 
 // Report is one piece of work a notification reports on.
 type Report struct {
-	// Kind is task, turn or run.
+	// Kind is task, turn, run or secret.
 	Kind     string `json:"kind"`
 	Session  string `json:"session,omitempty"`
 	Run      string `json:"run,omitempty"`

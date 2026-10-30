@@ -2,6 +2,7 @@ import { HourglassIcon, SquareIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { AgentIcon } from "@/components/agent-glyph";
+import { SecretRequestCard } from "@/components/conversation/secret-request-card";
 import { openOrchestrate, SessionActions } from "@/components/orchestrate/session-actions";
 import { Tip } from "@/components/tip";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { boxApi } from "@/lib/api";
 import { asksIn, chatCard, shownPrompt } from "@/lib/chat-card";
 import { agentOf, atQuestion, ON_ITS_WORK } from "@/lib/derive";
 import { errorMessage } from "@/lib/format";
+import { secretRequestOf } from "@/lib/secret-request";
 import { useStore } from "@/lib/store";
 import { isStructured } from "@/lib/structured";
 import { cn } from "@/lib/utils";
@@ -81,7 +83,9 @@ export function AgentCard({ entry, selecting, selected, onSelect }: { entry: Ses
   }, []);
 
   const open = () => void focusSession(box, session.name);
-  const asking = waiting && choices.length > 0;
+  // A secret it asked for: its card here, in place of what it said.
+  const secret = state === "waiting" ? secretRequestOf(session) : undefined;
+  const asking = waiting && choices.length > 0 && !secret;
   // The question, without the options the chips below already show.
   const lines = asking && !chat ? (tail ?? []).filter((l) => !/^\s*(?:[❯›>]\s*)?\d[.)]\s/.test(l)) : tail;
 
@@ -147,7 +151,8 @@ export function AgentCard({ entry, selecting, selected, onSelect }: { entry: Ses
             “{quote}”
           </div>
         )}
-        {lines && lines.length > 0 && state !== "ready" && (
+        {secret && <SecretRequestCard key={secret.id} compact box={box} request={secret} />}
+        {!secret && lines && lines.length > 0 && state !== "ready" && (
           <div className={cn("mt-2 space-y-px rounded-md bg-muted/50 px-2 py-1.5 font-mono text-tag", state === "waiting" ? "text-foreground/85" : "text-muted-foreground")}>
             {lines.map((l, i) => (
               <div key={i} className="truncate whitespace-pre" title={l}>

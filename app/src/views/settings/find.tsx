@@ -17,6 +17,7 @@ const INDEX: { id: SettingsSectionId; title: string; words: string }[] = [
   { id: "phone", title: "Phone", words: "mobile qr code pairing ntfy push" },
   { id: "agents", title: "Agents", words: "claude code codex models skills turn check cli install permissions bypass ask approvals allow chat" },
   { id: "integrations", title: "Integrations", words: "linear github slack webhooks connect" },
+  { id: "secrets", title: "Secrets", words: "api keys tokens passwords credentials secret manager gcp keychain store expiry delete requests" },
   { id: "plugins", title: "Plugins", words: "marketplace install built in extensions allow" },
   { id: "shortcuts", title: "Shortcuts", words: "keyboard keys bindings hotkeys" },
   { id: "labs", title: "Labs", words: "experiments early harbour conversations diagnostics" },

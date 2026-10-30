@@ -265,11 +265,20 @@ output. That data is only ever text:
 ## Secrets and prompts
 
 - A project's environment can name secrets (`op://…` for 1Password,
-  `env://…` for a variable in berthd's own environment) instead of holding
-  them. Values are read when needed and kept in memory: sessions and
-  services read theirs inside their own process (`berthd secret exec`), so
-  a value is never on a command line. No value is written to disk, a log, an
-  event or the API; see [secrets](/guides/secrets#how-values-are-handled).
+  `env://…` for a variable in berthd's own environment, `box://…` and
+  `gcp://…` for ones saved through a secret card) instead of holding them.
+  Values are read when needed and kept in memory: sessions and services
+  read theirs inside their own process (`berthd secret exec`), so a value is
+  never on a command line. No value is written to a log, an event or the
+  API, and none to disk except into the store a person saved it to (the
+  Keychain, a Secret Service, or the box's encrypted file); see
+  [secrets](/guides/secrets#how-values-are-handled).
+- An agent asks for a secret by name (`berthd secret request`), and the
+  value goes from the app to the box in one call that the box's own socket
+  can't make, so an agent can neither set nor read a value through the API.
+  It gets a reference, and uses it in one command with
+  `berthd secret exec --env`; an agent that deliberately prints it can still
+  see it, as the card says.
 - A prompt typed into a session (`berth session send`, a flow's `prompt`
   step, the phone) never appears in events or logs: `session.sent` carries
   only the session's name, and agent tool hooks forward only identifiers

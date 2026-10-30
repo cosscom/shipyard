@@ -205,7 +205,7 @@ See [orchestration](/guides/orchestration) and
 | Command | What it does |
 | --- | --- |
 | `berth skills BOX [list\|install\|uninstall] [SKILL...] [--agent claude\|codex\|all] [--target user\|project] [--location LOC] [--commit]` | Teach Claude Code and Codex on a box to use Shipyard |
-| `berth secret test BOX REF` | Check a box can resolve `op://vault/item/field` or `env://NAME` (prints the value's length, never the value) |
+| `berth secret test BOX REF` | Check a box can resolve `op://vault/item/field`, `env://NAME` or `box://NAME` (prints the value's length, never the value) |
 | `berth emit TYPE [key=value...]` | Announce an event on this laptop |
 | `berth emit BOX TYPE [key=value...] [--origin TOOL]` | Announce an event on a box |
 
