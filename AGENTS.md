@@ -5,6 +5,7 @@ Shipyard (formerly Berth) runs coding agents on your own machines. This repo has
 - `cmd/berthd`, `internal/box`: the box daemon. It runs agents, terminals and services in its own tmux server.
 - `cmd/berth`, `internal/agent`: the laptop CLI and agent (UI API on 1378, proxy on 1377, phone on 1379).
 - `app/`: the Tauri 2 + React desktop app (coss-ui, 23 themes). `app/e2e` holds the Playwright suite on mock fixtures.
+- `push/`: the push relay at `push.berthd.app` (Vercel), which sends the phone app the notifications its boxes ask for. `cd push && pnpm typecheck && pnpm test && pnpm build`.
 - `docs/`: the docs as MDX, built by `docs-site/` (Fumadocs). `site/` is the landing page and `install.sh`.
 
 **Names:** "Shipyard" is the brand in everything people read. `berth`, `berthd`, `~/.berth`, `BERTH_*`, `berth://`, `dev.berth.app`, `berth.prefs` and the `berth-*` skill ids are identifiers. Don't rename them; a later change will, with migrations.

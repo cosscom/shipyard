@@ -1,0 +1,19 @@
+{
+  "name": "berth-push-relay",
+  "private": true,
+  "description": "Shipyard's push relay: sends a phone app the notifications its boxes ask for. Deployed to push.berthd.app.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test 'test/**/*.test.ts'"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "esbuild": "^0.25.12",
+    "typescript": "~6.0.3"
+  }
+}
