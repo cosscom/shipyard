@@ -1,0 +1,6 @@
+allowBuilds:
+  esbuild: true
+  # Prebuilt binaries; their build scripts aren't needed.
+  "@parcel/watcher": false
+  unrs-resolver: false
+nodeLinker: hoisted

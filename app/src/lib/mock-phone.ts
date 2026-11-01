@@ -18,6 +18,11 @@ export function phoneCall(box: string, method: string, path: string, body: unkno
     const c = (body ?? {}) as PhoneChange;
     if (c.enabled !== undefined) st.enabled = c.enabled;
     if ((st.enabled && !st.token) || c.rotate) st.token = token();
+    // A new code, or access off, forgets the phones; the demo's one phone
+    // comes back with access on, as it would after pairing again.
+    if (c.rotate || !st.enabled) st.push = undefined;
+    else if (c.enabled) st.push = [{ id: "0123456789abcdef0123456789abcdef", name: "Acme iPhone", platform: "ios", added: new Date(Date.now() - 86_400_000).toISOString(), last_ok: new Date(Date.now() - 600_000).toISOString() }];
+    if (c.remove_push) st.push = st.push?.filter((d) => d.id !== c.remove_push);
     if (c.notify) st.notify = c.notify;
     if (c.clear_notify) st.notify = undefined;
     st.url = st.enabled ? `http://${addr[box] ?? "100.64.0.1"}:1379/` : undefined;

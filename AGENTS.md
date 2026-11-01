@@ -6,6 +6,7 @@ Shipyard (formerly Berth) runs coding agents on your own machines. This repo has
 - `cmd/berth`, `internal/agent`: the laptop CLI and agent (UI API on 1378, proxy on 1377, phone on 1379).
 - `app/`: the Tauri 2 + React desktop app (coss-ui, 23 themes). `app/e2e` holds the Playwright suite on mock fixtures.
 - `packages/core`: plain TypeScript shared by `app/` and the phone app (session state, screen and transcript reading, pairing links). Only relative `./x.ts` imports and the plugin SDK's types; no DOM (`check:core`). `app/src/lib/<name>.ts` re-exports it.
+- `mobile/`: the phone app (Expo, iOS first), which talks to boxes' phone API over the tailnet. Its rules are in `mobile/AGENTS.md`; check it with `cd mobile && pnpm typecheck && pnpm test && pnpm export`.
 - `docs/`: the docs as MDX, built by `docs-site/` (Fumadocs). `site/` is the landing page and `install.sh`.
 
 **Names:** "Shipyard" is the brand in everything people read. `berth`, `berthd`, `~/.berth`, `BERTH_*`, `berth://`, `dev.berth.app`, `berth.prefs` and the `berth-*` skill ids are identifiers. Don't rename them; a later change will, with migrations.
