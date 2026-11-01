@@ -457,6 +457,26 @@ type ExecRequest struct {
 	Detach bool `json:"detach,omitempty"`
 }
 
+// execDir is where an exec runs: the location's (or its worktree's) folder,
+// or, on a box with no projects yet, its home folder: commands that inspect
+// the box itself rather than a project (the Usage plugin) work there too.
+// Once the box has a project, a location must be named: run from the home
+// folder, a command could reach a project without passing its before: gates.
+func (b *Box) execDir(ctx context.Context, location string) (string, error) {
+	if location != "" {
+		return b.Locations.Dir(ctx, location)
+	}
+	// The saved list: whether there are any, without asking git about each.
+	saved, err := b.Locations.read()
+	if err != nil {
+		return "", err
+	}
+	if len(saved) > 0 {
+		return "", badRequest("name the location to run in: only a box with no projects runs a command without one")
+	}
+	return os.UserHomeDir()
+}
+
 type ExecResult struct {
 	ExitCode int    `json:"exit_code"`
 	Output   string `json:"output"`
@@ -482,7 +502,7 @@ func (b *Box) handleExec(w http.ResponseWriter, r *http.Request) error {
 		}
 		timeout = min(d, time.Hour)
 	}
-	dir, err := b.Locations.Dir(r.Context(), req.Location)
+	dir, err := b.execDir(r.Context(), req.Location)
 	if err != nil {
 		return err
 	}

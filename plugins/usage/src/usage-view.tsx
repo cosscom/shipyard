@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 
 import type { Account, Agent, Limits, Window } from "./box";
 import { DailyChart, OTHER_BOXES, SERIES, agentSeries, boxColor, boxSeries } from "./chart";
-import { AGENT_NAME, ago, compact, days, firstDay, plan, summarize, total, usd, worktreeOf, type BoxSession, type Period, type Source } from "./data";
+import { AGENT_NAME, ago, compact, days, dedupeLimits, identity, plan, summarize, total, usd, worktreeOf, type BoxSession, type Period, type SharedLimits, type Source } from "./data";
 
 // What the screen knows about one box while reading it.
 export interface BoxState {
@@ -241,7 +241,6 @@ export function BoxChip({ box, allBoxes }: { box: string; allBoxes: string[] }) 
 
 // The same login on two boxes counts once: matched by the email the agent
 // recorded, or else it is its own account on its own box.
-const identity = (a: Account | undefined, box: string, id: string) => (a?.email ? `${a.agent}:${a.email}` : `${box}:${a?.agent}:${id}`);
 
 // usedAccounts: the accounts an agent ran under in these reports, plus each
 // box's default, one per login.
@@ -263,36 +262,6 @@ function usedAccounts(agent: Agent, sources: Source[], accounts: Record<string, 
 
 function claudeAccounts(sources: Source[], accounts: Record<string, Account[] | undefined>) {
   return usedAccounts("claude", sources, accounts).map((u) => u.account);
-}
-
-export interface SharedLimits {
-  label?: string;
-  boxes: string[];
-  limits: Limits;
-}
-
-// dedupeLimits keeps the newest limits Codex saw per login.
-// Limits Codex saw before the period are left out, as its tokens are.
-function dedupeLimits(agent: Agent, sources: Source[], accounts: Record<string, Account[] | undefined>, period: Period): SharedLimits[] {
-  const out = new Map<string, SharedLimits>();
-  for (const { box, report } of sources) {
-    const from = firstDay(report.today, period);
-    for (const l of report.limits.filter((x) => x.agent === agent && x.at.slice(0, 10) >= from)) {
-      const a = accounts[box]?.find((x) => x.agent === agent && x.id === l.account);
-      const k = identity(a, box, l.account);
-      const label = a?.email ?? (l.account === "default" ? box : `${box} · ${l.account}`);
-      const seen = out.get(k);
-      if (!seen) out.set(k, { label, boxes: [box], limits: l });
-      else {
-        seen.boxes.push(box);
-        if (l.at > seen.limits.at) seen.limits = l;
-      }
-    }
-  }
-  const list = [...out.values()];
-  // One login needs no name.
-  if (list.length === 1) list[0].label = undefined;
-  return list;
 }
 
 function AgentTile({
@@ -378,7 +347,7 @@ function AgentTile({
           </p>
         )}
         {limits.map((l) => (
-          <LimitRows key={l.label ?? "one"} shared={l} />
+          <LimitRows key={l.key} shared={l} />
         ))}
       </FramePanel>
     </Frame>
@@ -390,30 +359,33 @@ function windowName(w: Window) {
   return h >= 24 * 6 ? "Weekly limit" : h >= 20 ? "Daily limit" : `${h}-hour limit`;
 }
 
-// LimitRows shows the plan windows Codex itself last reported, and says how
-// old that report is: it only knows what Codex saw on its last turn.
+// LimitRows shows the plan windows the agent itself last reported, and says
+// how old that report is: Codex's is what it saw on its last turn, Claude
+// Code's what its `/usage` said when the box was last read.
 function LimitRows({ shared }: { shared: SharedLimits }) {
   const l = shared.limits;
-  const windows = [l.limits.primary, l.limits.secondary].filter(Boolean) as Window[];
+  const windows = [l.limits.primary, l.limits.secondary, ...(l.limits.extra ?? [])].filter(Boolean) as Window[];
+  const next = l.agent === "codex" ? "Codex reports the new window on its next turn." : "The next read shows the new window.";
   return (
     <div className="space-y-2 border-t pt-3">
       {shared.label && <div className="truncate text-[11px] text-muted-foreground">{shared.label}</div>}
       {windows.map((w, i) => {
-        const reset = new Date(w.resets_at * 1000);
-        const past = reset.getTime() < Date.now();
+        const reset = w.resets_at ? new Date(w.resets_at * 1000) : null;
+        const past = reset !== null && reset.getTime() < Date.now();
+        const name = w.label ?? windowName(w);
         return (
           <div key={i} className="space-y-1">
             <div className="flex items-baseline gap-2 text-xs">
-              <span className="font-medium">{windowName(w)}</span>
+              <span className="font-medium">{name}</span>
               <span className="text-muted-foreground">as of {ago(l.at)}</span>
               <span className="ml-auto tabular-nums">{past ? "reset since" : `${Math.round(w.used_percent)}% used`}</span>
             </div>
             {!past && (
-              <div className="h-1.5 overflow-hidden rounded-full bg-muted" role="meter" aria-valuenow={Math.round(w.used_percent)} aria-valuemin={0} aria-valuemax={100} aria-label={windowName(w)}>
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted" role="meter" aria-valuenow={Math.round(w.used_percent)} aria-valuemin={0} aria-valuemax={100} aria-label={name}>
                 <div className={cn("h-full rounded-full", w.used_percent >= 90 ? "bg-destructive" : w.used_percent >= 70 ? "bg-warning" : "bg-primary/70")} style={{ width: `${Math.min(100, w.used_percent)}%` }} />
               </div>
             )}
-            <div className="text-[11px] text-muted-foreground">{past ? `It reset ${reset.toLocaleDateString()}; Codex reports the new window on its next turn.` : `Resets ${reset.toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" })}`}</div>
+            <div className="text-[11px] text-muted-foreground">{!reset ? "" : past ? `It reset ${reset.toLocaleDateString()}; ${next}` : `Resets ${reset.toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" })}`}</div>
           </div>
         );
       })}

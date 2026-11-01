@@ -192,7 +192,17 @@ export function AccountsView({
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="font-medium text-sm">{a.id === "default" ? "Default" : a.id}</span>
-                          {a.signed_in ? (a.email || !p) && <span className="truncate text-muted-foreground text-sm">{a.email ?? "Signed in"}</span> : <Badge variant="warning" size="sm">Not signed in</Badge>}
+                          {a.signed_in ? (
+                            (a.email || !p) && <span className="truncate text-muted-foreground text-sm">{a.email ?? "Signed in"}</span>
+                          ) : (
+                            <>
+                              {/* Its profile is kept when Claude Code loses the login: say whose it was. */}
+                              {a.signed_out && a.email && <span className="truncate text-muted-foreground text-sm">{a.email}</span>}
+                              <Badge variant="warning" size="sm">
+                                {a.signed_out ? "Signed out" : "Not signed in"}
+                              </Badge>
+                            </>
+                          )}
                           {p && (
                             <Badge variant="outline" size="sm">
                               {p.label}

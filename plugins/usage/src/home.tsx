@@ -1,67 +1,15 @@
 import { type HomeWidgetProps, useBoxes, useWidgetData } from "@berth/plugin";
 import { Tip, WidgetEmpty, WidgetSkeleton, cn } from "@berth/plugin/ui";
 
-import { type Agent, type Report, runScript, where, type Window } from "./box";
-import { AGENT_NAME, compact, days, usd } from "./data";
+import { NoProjects, type Report, runScript, where } from "./box";
+import { AGENT_NAME, compact, usd } from "./data";
+import { summarizeUsage, type UsageSummary } from "./summary.ts";
 
 // The Usage widget on Home: tokens your agents used today and each day of
 // the week, what Claude Code estimates they cost, and how much of a plan's
 // window Codex last saw used. usage.py reads the agents' own records on
 // each box, every 5 minutes while the widget is on screen.
 
-export interface UsageSummary {
-  today: number;
-  // Tokens a day, the last 7 days, oldest first.
-  week: { day: string; tokens: number }[];
-  // Claude Code's own estimate at API prices, for sessions active this week.
-  cost: number;
-  byAgent: { agent: Agent; tokens: number }[];
-  limits: { label: string; used: number; resets: number }[];
-  failed: string[];
-}
-
-const windowName = (w: Window) => {
-  const h = w.window_minutes / 60;
-  return h >= 24 * 6 ? "week" : h >= 20 ? "day" : `${h}h`;
-};
-
-// summarizeUsage adds up the boxes' reports for the widget.
-export function summarizeUsage(reports: { box: string; report: Report }[], failed: string[] = []): UsageSummary {
-  const today = reports.reduce((t, r) => (r.report.today > t ? r.report.today : t), "");
-  const week = today ? days(today, 7).map((day) => ({ day, tokens: 0 })) : [];
-  const at = new Map(week.map((d) => [d.day, d]));
-  const agents = new Map<Agent, number>();
-  let cost = 0;
-  const limits: UsageSummary["limits"] = [];
-  for (const { report } of reports) {
-    for (const [day, agent, , , , ...t] of report.daily) {
-      const n = t[0] + t[1] + t[2] + t[3];
-      const d = at.get(day);
-      if (!d) continue;
-      d.tokens += n;
-      agents.set(agent, (agents.get(agent) ?? 0) + n);
-    }
-    const from = week[0]?.day ?? "";
-    for (const s of report.sessions) if ((s.last ?? "") >= from && s.cost) cost += s.cost;
-    // The newest limits each login reported this week.
-    const newest = new Map<string, (typeof report.limits)[number]>();
-    for (const l of report.limits) {
-      if (l.at.slice(0, 10) < from) continue;
-      const k = `${l.agent}/${l.account}`;
-      if (!newest.has(k) || newest.get(k)!.at < l.at) newest.set(k, l);
-    }
-    for (const l of newest.values())
-      for (const w of [l.limits.primary, l.limits.secondary]) if (w) limits.push({ label: `${AGENT_NAME[l.agent]} · ${windowName(w)}`, used: w.used_percent / 100, resets: w.resets_at * 1000 });
-  }
-  return {
-    today: at.get(today)?.tokens ?? 0,
-    week,
-    cost,
-    byAgent: [...agents.entries()].map(([agent, tokens]) => ({ agent, tokens })).sort((a, b) => b.tokens - a.tokens),
-    limits: limits.filter((l) => l.resets > Date.now()).sort((a, b) => b.used - a.used),
-    failed,
-  };
-}
 
 export function UsageWidget({ berth, size }: HomeWidgetProps) {
   const online = useBoxes()
@@ -75,8 +23,8 @@ export function UsageWidget({ berth, size }: HomeWidgetProps) {
         online.map(async (box) => {
           try {
             return { box, report: await runScript<Report>(berth, box, await where(berth, box), ["report", "7"], "2m") };
-          } catch {
-            failed.push(box);
+          } catch (e) {
+            if (!(e instanceof NoProjects)) failed.push(box);
             return undefined;
           }
         }),
@@ -116,7 +64,7 @@ export function UsageWidget({ berth, size }: HomeWidgetProps) {
       {data.limits.length > 0 && (
         <div className="flex flex-col gap-1.5">
           {data.limits.slice(0, big ? 4 : 1).map((l) => (
-            <div key={l.label} className="flex flex-col gap-0.5">
+            <div key={`${l.label}@${l.resets}`} className="flex flex-col gap-0.5">
               <span className="flex items-baseline gap-2 text-[11px]">
                 <span className="min-w-0 flex-1 truncate">{l.label}</span>
                 <span className="shrink-0 tabular-nums text-muted-foreground">{Math.round(l.used * 100)}%</span>
@@ -128,12 +76,19 @@ export function UsageWidget({ berth, size }: HomeWidgetProps) {
           ))}
         </div>
       )}
-      {size !== "s" && (
+      {/* Medium has room for one line under the limit: which boxes couldn't
+          be read, when some couldn't, matters more than the week. */}
+      {size !== "s" && (big || !data.failed.length) && (
         <p className="truncate text-[11px] text-muted-foreground">
           This week: {data.byAgent.map((a) => `${AGENT_NAME[a.agent]} ${compact(a.tokens)}`).join(" · ") || "no tokens yet"}
         </p>
       )}
       {data.failed.length > 0 && <p className="truncate text-[11px] text-muted-foreground">Couldn't read {data.failed.join(", ")}</p>}
+      {data.signedOut.length > 0 && (
+        <Tip label="Claude Code lost these logins: sign in again in Usage → Accounts">
+          <p className="truncate text-[11px] text-warning-foreground">Signed out: {data.signedOut.join(", ")}</p>
+        </Tip>
+      )}
     </div>
   );
 }
