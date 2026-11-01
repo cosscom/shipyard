@@ -244,6 +244,7 @@ export function ConversationPane({ box, session, agent: remembered, visible, onS
     return {
       load: (file) => boxApi.diff(client, box, session, file),
       tool: (id) => (mock ? mockConversation().then((m) => m.mockToolDetail(id)) : boxApi.toolDetail(client, box, session, id)),
+      toolImage: (id, n) => (mock ? mockConversation().then((m) => m.mockToolImage(id, n)) : boxApi.toolImage(client, box, session, id, n)),
       comments: (file) =>
         reviewKey
           ? {

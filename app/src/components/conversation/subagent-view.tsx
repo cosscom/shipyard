@@ -263,6 +263,7 @@ export function HelperChat({ box, session, h, wide }: { box: string; session: st
         ? {
             load: (file) => boxApi.diff(client, box, session, file),
             tool: (id) => historyApi.helperTool(client, box, session, h.id, id),
+            toolImage: (id, n) => historyApi.helperToolImage(client, box, session, h.id, id, n),
             comments: () => undefined,
             review: () => useStore.getState().setView({ kind: "review" }),
           }

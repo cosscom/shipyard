@@ -130,12 +130,37 @@ test("a tool call opens to what it did", async ({ app }) => {
   const fold = app.chat.getByRole("button", { name: /^Work(ed|ing)/ }).first();
   await fold.click();
   await expect(fold).toHaveAttribute("aria-expanded", "true");
-  const group = app.chat.getByRole("button", { name: /Read 2 files/ });
+  const group = app.chat.getByRole("button", { name: /Read 3 files/ });
   await group.click();
   const call = app.chat.getByRole("button", { name: /Read\s*ts\s*webhook\.ts/ });
   await call.click();
   await expect(call).toHaveAttribute("aria-expanded", "true");
   await expect(app.chat.getByText("export async function handleWebhook(req: Request)")).toBeVisible();
+});
+
+test("a call that returned a picture shows it once opened, and opens it at full size", async ({ app }) => {
+  mockOnly();
+  await app.openWorktree("gpu/shop");
+  const fold = app.chat.getByRole("button", { name: /^Work(ed|ing)/ }).first();
+  await fold.click();
+  await app.chat.getByRole("button", { name: /Read 3 files/ }).click();
+  const call = app.chat.getByRole("button", { name: /^Read\b.*checkout-result\.png$/ });
+  await expect(call).toBeVisible();
+  // Nothing is fetched for a call that stays closed.
+  const asked = () => app.page.evaluate(() => (window as unknown as { __berthToolImages?: string[] }).__berthToolImages ?? []);
+  expect(await asked()).toEqual([]);
+  await call.click();
+  const thumb = app.chat.getByTestId("tool-image");
+  await expect(thumb).toBeVisible();
+  await expect.poll(() => thumb.locator("img").evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(640);
+  expect(await asked()).toEqual(["mock-read-shot/0"]);
+  await expect(app.chat.getByText("[image]", { exact: true })).toHaveCount(0);
+  await thumb.click();
+  const full = app.page.getByTestId("tool-image-full");
+  await expect(full).toBeVisible();
+  await expect.poll(() => full.locator("img").evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(640);
+  await app.page.keyboard.press("Escape");
+  await expect(full).toBeHidden();
 });
 
 test("a form of questions steps through to a review and submits", async ({ app }) => {

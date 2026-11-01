@@ -317,12 +317,18 @@ func serveImage(w http.ResponseWriter, abs, rel string) error {
 	if err != nil {
 		return err
 	}
+	w.Header().Set("ETag", `"`+etagOf(data)+`"`)
+	return writePicture(w, typ, data)
+}
+
+// writePicture sends a picture's bytes as typ, and never as anything a
+// browser would run.
+func writePicture(w http.ResponseWriter, typ string, data []byte) error {
 	h := w.Header()
 	h.Set("Content-Type", typ)
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
-	h.Set("ETag", `"`+etagOf(data)+`"`)
-	_, err = w.Write(data)
+	_, err := w.Write(data)
 	return err
 }
 

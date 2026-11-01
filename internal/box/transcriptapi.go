@@ -127,3 +127,36 @@ func (b *Box) toolDetail(w http.ResponseWriter, r *http.Request) error {
 	writeJSON(w, d)
 	return nil
 }
+
+// toolImage answers GET /v1/sessions/{name}/transcript/tool/{id}/image/{n}:
+// the n-th picture a call returned, as the transcript holds it (not the
+// file it was read from, which may be gone or changed since).
+func (b *Box) toolImage(w http.ResponseWriter, r *http.Request) error {
+	sess, all, err := b.Sessions.getWithAll(r.Context(), r.PathValue("name"))
+	if err != nil {
+		return err
+	}
+	source, path := b.driverFor(sess).Record(r.Context(), sess, all)
+	if path == "" {
+		return httpError{http.StatusNotFound, "this session's conversation can't be read"}
+	}
+	return serveToolImage(w, source, path, r.PathValue("id"), r.PathValue("n"))
+}
+
+// serveToolImage sends a call's picture, decoded from the transcript at
+// path. A call's pictures never change, so the app may keep them.
+func serveToolImage(w http.ResponseWriter, source, path, id, n string) error {
+	i, err := strconv.Atoi(n)
+	if err != nil {
+		i = -1
+	}
+	typ, data, err := transcript.Image(source, path, id, i)
+	if errors.Is(err, transcript.ErrNoImage) {
+		return httpError{http.StatusNotFound, "that step returned no such image"}
+	}
+	if err != nil {
+		return err
+	}
+	w.Header().Set("Cache-Control", "private, max-age=86400, immutable")
+	return writePicture(w, typ, data)
+}

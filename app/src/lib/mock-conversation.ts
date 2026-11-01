@@ -206,7 +206,7 @@ function releaseChat(): TranscriptItem[] {
   const testReport = new URLSearchParams(location.search).get("scene") === "chat-tests";
   return [
     { kind: "user", id: "rq-u1", text: "Plan the release of the checkout fix." },
-    { kind: "tools", id: "rq-t1", verb: "Read", done: true, items: [{ verb: "Read", target: "webhook.ts", file: true, id: "mock-read-1" }, { verb: "Read", target: "createOrder.ts", file: true, id: "mock-read-2" }] },
+    { kind: "tools", id: "rq-t1", verb: "Read", done: true, items: [{ verb: "Read", target: "webhook.ts", file: true, id: "mock-read-1" }, { verb: "Read", target: "createOrder.ts", file: true, id: "mock-read-2" }, { verb: "Read", target: "checkout-result.png", file: true, id: "mock-read-shot" }] },
     { kind: "text", id: "rq-x1", text: RELEASE_PLAN + picture },
     ...(tables ? [{ kind: "text" as const, id: "rq-x2", text: TABLE_REPORT }] : []),
     ...(testReport ? [{ kind: "text" as const, id: "rq-x2", text: TEST_REPORT }] : []),
@@ -396,6 +396,8 @@ const DETAILS: Record<string, ToolDetail> = {
   "mock-read-1": { id: "mock-read-1", name: "Read", file: "apps/web/lib/payments/webhook.ts", output: "     1\timport { createOrder } from \"../checkout/createOrder\";\n     2\timport { verify } from \"./signature\";\n     3\t\n     4\texport async function handleWebhook(req: Request) {\n     5\t  const event = await verify(req);\n     6\t  return createOrder(event.data);\n     7\t}" },
   "mock-read-2": { id: "mock-read-2", name: "Read", file: "apps/web/lib/checkout/createOrder.ts", output: "     1\texport async function createOrder(data: OrderInput) {\n     2\t  const charge = await payments.charge(data.amount);\n     3\t  return db.order.create({ data: { ...data, chargeId: charge.id } });\n     4\t}" },
   "mock-read-3": { id: "mock-read-3", name: "Read", file: "apps/web/lib/payments/payments.test.ts", output: "     1\tdescribe(\"webhook\", () => {\n     2\t  test(\"creates an order\", async () => { … });\n     3\t});" },
+  // A screenshot outside the worktree: its picture comes from the record.
+  "mock-read-shot": { id: "mock-read-shot", name: "Read", file: "/tmp/acme/checkout-result.png", output: "[image]", images: [{ n: 0, line: 0, mediaType: "image/png" }] },
   "mock-search-1": { id: "mock-search-1", name: "Grep", pattern: "idempotencyKey", output: "apps/web/lib/payments/stripe.ts:41:  idempotencyKey: event.id,\napps/web/lib/payments/types.ts:12:  idempotencyKey?: string;" },
   "mock-search-2": { id: "mock-search-2", name: "Grep", pattern: "retryWebhook", output: "No matches found" },
   "mock-run-1": { id: "mock-run-1", name: "Bash", command: "pnpm test payments", output: " ✓ webhook › creates an order (12 ms)\n ✓ webhook › returns the same order for a repeated event (9 ms)\n ✓ webhook › stops after five retries (4 ms)\n\n Test Files  1 passed (1)\n      Tests  3 passed (3)\n   Duration  1.21s" },
@@ -530,6 +532,41 @@ const DETAILS: Record<string, ToolDetail> = {
 
 // The demo's change to a file, for its uncommitted diff to agree with it.
 export const mockToolDetailSync = (file: string): ToolDetail | undefined => Object.values(DETAILS).find((d) => d.file === file && d.hunks);
+
+// The pictures the demo's calls returned: a checkout page, drawn. Each
+// fetch is noted in window.__berthToolImages, so a test can tell one wasn't
+// made before its call was opened.
+export const mockToolImage = async (id: string, n: number): Promise<Blob> => {
+  const asked = window as unknown as { __berthToolImages?: string[] };
+  (asked.__berthToolImages ??= []).push(`${id}/${n}`);
+  await wait(150);
+  if (!DETAILS[id]?.images?.some((i) => i.n === n)) throw new Error("That picture isn't in the demo.");
+  const canvas = document.createElement("canvas");
+  canvas.width = 640;
+  canvas.height = 400;
+  const g = canvas.getContext("2d")!;
+  g.fillStyle = "#f8fafc";
+  g.fillRect(0, 0, 640, 400);
+  g.fillStyle = "#0f172a";
+  g.fillRect(0, 0, 640, 56);
+  g.fillStyle = "#ffffff";
+  g.font = "bold 22px sans-serif";
+  g.fillText("acme shop", 24, 36);
+  g.fillStyle = "#16a34a";
+  g.beginPath();
+  g.arc(320, 170, 44, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = "#0f172a";
+  g.font = "bold 26px sans-serif";
+  g.textAlign = "center";
+  g.fillText("Order confirmed", 320, 260);
+  g.font = "18px sans-serif";
+  g.fillStyle = "#475569";
+  g.fillText("Order #1042 · 3 items · $84.00", 320, 292);
+  const blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, "image/png"));
+  if (!blob) throw new Error("The demo couldn't draw its picture.");
+  return blob;
+};
 
 export const mockToolDetail = async (id: string): Promise<ToolDetail> => {
   await wait(250);

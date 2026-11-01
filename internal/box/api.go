@@ -223,6 +223,7 @@ func (b *Box) Mount(s *wire.Server) {
 	route("GET /v1/sessions/{name}/draft", b.draft)
 	route("GET /v1/sessions/{name}/transcript", b.transcript)
 	route("GET /v1/sessions/{name}/transcript/tool/{id}", b.toolDetail)
+	route("GET /v1/sessions/{name}/transcript/tool/{id}/image/{n}", b.toolImage)
 	route("POST /v1/sessions/{name}/attachments", b.sessionAttachment)
 	route("POST /v1/sessions/{name}/send", b.sendToSession)
 	route("POST /v1/sessions/{name}/keys", b.sessionKeys)

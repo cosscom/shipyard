@@ -87,10 +87,12 @@ const shot = async (label) => {
 
 // call(path, init) is the laptop agent's API as the app calls it (a box's
 // own under /v1/boxes/<box>/api/), for a live scenario to read a change's
-// effect on the box.
-const call = async (path, init = {}) => {
+// effect on the box. init.raw answers with the body's bytes and type
+// instead of its JSON.
+const call = async (path, { raw, ...init } = {}) => {
   const res = await fetch(`${agent}${path}`, { ...init, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...init.headers } });
   if (!res.ok) throw new Error(redact(`${init.method ?? "GET"} ${path}: ${res.status} ${await res.text()}`));
+  if (raw) return { type: res.headers.get("content-type"), bytes: Buffer.from(await res.arrayBuffer()) };
   return res.json();
 };
 

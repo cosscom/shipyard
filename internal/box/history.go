@@ -24,6 +24,7 @@ func (b *Box) mountHistory(route func(string, func(http.ResponseWriter, *http.Re
 	route("GET /v1/sessions/{name}/subagents", b.listHelpers)
 	route("GET /v1/sessions/{name}/subagents/{id}/transcript", b.helperTranscript)
 	route("GET /v1/sessions/{name}/subagents/{id}/tool/{tool}", b.helperTool)
+	route("GET /v1/sessions/{name}/subagents/{id}/tool/{tool}/image/{n}", b.helperToolImage)
 	route("POST /v1/sessions/{name}/fork", b.forkSession)
 	route("POST /v1/sessions/{name}/rewind", b.rewindSession)
 }
@@ -142,6 +143,16 @@ func (b *Box) helperTool(w http.ResponseWriter, r *http.Request) error {
 	}
 	writeJSON(w, d)
 	return nil
+}
+
+// helperToolImage answers GET …/subagents/{id}/tool/{tool}/image/{n}: a
+// picture one of a helper's calls returned.
+func (b *Box) helperToolImage(w http.ResponseWriter, r *http.Request) error {
+	_, hp, err := b.helperFile(r)
+	if err != nil {
+		return err
+	}
+	return serveToolImage(w, "claude", hp, r.PathValue("tool"), r.PathValue("n"))
 }
 
 // ForkRequest starts a new session that goes on from a point in this one.
