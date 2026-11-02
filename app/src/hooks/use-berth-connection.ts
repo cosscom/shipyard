@@ -5,7 +5,7 @@ import { endpoint, httpClient, type Client } from "@/lib/api";
 import { handleEvent } from "@/lib/events";
 import { errorMessage } from "@/lib/format";
 import { useStore } from "@/lib/store";
-import { loadNav } from "@/lib/nav";
+import { loadNav, retryNav } from "@/lib/nav";
 import { loadNotifications } from "@/lib/notifications";
 import { loadProjects } from "@/lib/project-groups";
 import { reloadKits } from "@/views/kits/kits-store";
@@ -59,7 +59,16 @@ export function useBerthConnection() {
       void loadNotifications();
       // Project menus show each project's kit status.
       void reloadKits();
-      client.events(handleEvent, () => void refreshAll(), abort.signal);
+      // A reconnect also tries the sidebar's layout again, if it didn't load
+      // (the agent restarting as the app starts).
+      client.events(
+        handleEvent,
+        () => {
+          void refreshAll();
+          void retryNav();
+        },
+        abort.signal,
+      );
       // The backstop: events say what changed, so this only catches what
       // one missed. Not while the window is hidden; coming back refreshes.
       poll = window.setInterval(() => !document.hidden && void refreshAll(), BACKSTOP);

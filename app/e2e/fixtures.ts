@@ -13,7 +13,7 @@ import { type BrowserContext, expect, type Locator, type Page, test as base } fr
 //
 // Stable hooks, so tests never click text that moves: data-testid where
 // nothing else was stable (worktree-row with data-worktree="box/name",
-// nav-<id>, nav-more, nav-badge, pane with data-pane-kind, chat, chat-item with data-kind,
+// nav-<id>, nav-more, nav-badge, nav-customize, nav-not-loaded, pane with data-pane-kind, chat, chat-item with data-kind,
 // composer, question-form, queued-reply, artifacts-chip/-popover,
 // attachment-chip, panel with data-panel, browser-pane with data-mode,
 // chat-background, header-picture with data-picture, header-picture-settings, settings-nav-<id>, settings-<id>, theme-option with

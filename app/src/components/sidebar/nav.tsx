@@ -30,7 +30,7 @@ import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@/compone
 import { Sheet, SheetDescription, SheetFooter, SheetHeader, SheetPanel, SheetPopup, SheetTitle } from "@/components/ui/sheet";
 import { SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 import { useAgentCounts } from "@/hooks/use-agent-counts";
-import { arrange, type NavList, navActions, useNav } from "@/lib/nav";
+import { arrange, NAV_NOT_LOADED, type NavList, navActions, navReady, useNav } from "@/lib/nav";
 import { type NavBadge, readNavBadge } from "@/lib/nav-badge";
 import { platformKeys } from "@/lib/platform";
 import { usePrefs } from "@/lib/prefs";
@@ -293,6 +293,7 @@ function NavRow({ item, list, index, ids }: { item: NavItem; list: NavList; inde
 // MoreItems is More's places as menu items, then a way to rearrange them.
 // The sidebar, the rail and zen's switcher share it.
 export function MoreItems({ more }: { more: NavItem[] }) {
+  const loaded = useNav((s) => s.loaded);
   return (
     <>
       {more.map((n) => (
@@ -303,10 +304,15 @@ export function MoreItems({ more }: { more: NavItem[] }) {
         </MenuItem>
       ))}
       {more.length > 0 && <MenuSeparator />}
-      <MenuItem onClick={() => openCustomize()}>
+      <MenuItem data-testid="nav-customize" disabled={!loaded} onClick={() => openCustomize()}>
         <SlidersHorizontalIcon />
         Customize sidebar…
       </MenuItem>
+      {!loaded && (
+        <p data-testid="nav-not-loaded" className="max-w-52 px-2 pb-1.5 text-meta text-muted-foreground">
+          {NAV_NOT_LOADED}
+        </p>
+      )}
     </>
   );
 }
@@ -382,7 +388,7 @@ export function Nav({ lead, extra }: { lead?: ReactNode; extra?: ReactNode } = {
 // The Customize sheet: every place, in its three lists, with drag handles
 // and buttons, and a way back to the defaults.
 const useCustomize = create<{ open: boolean }>()(() => ({ open: false }));
-export const openCustomize = () => useCustomize.setState({ open: true });
+export const openCustomize = () => navReady() && useCustomize.setState({ open: true });
 
 export function CustomizeSidebarSheet() {
   const open = useCustomize((s) => s.open);
