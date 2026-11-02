@@ -144,6 +144,8 @@ events.
 | `helper.installed` | `plugin`, `name`, `version`: a [plugin's helper](/guides/plugins#give-a-plugin-a-helper) was installed on the box and turned on |
 | `helper.removed` | `plugin`, `purged`, `attached`: one was stopped and removed, with its data when `purged`; `attached` counts the running services that still point at it. Not announced when nothing of the helper was on the box |
 | `phone.changed` | `enabled` |
+| `phone.push.added` | `name`, `platform`: a phone app asked to be notified (`origin: "phone"`) |
+| `phone.push.removed` | `name`, `platform`: a phone app is no longer notified: removed from the phone or a laptop, forgotten with a new code, or `reason: "gone"` when the push relay said it no longer takes notifications |
 | `turncheck.changed` | `enabled`, `provider`, `url`, `model`, `key` (a reference, or empty), `key_pasted`, `key_removed`; never a key's value |
 | `box.upgraded` | `build` |
 | `pairing.invited` | `for`, `by`, `expires`: a paired laptop (`by`, as `laptop:<name>`) asked for a pairing code for another computer (`berth invite`); never the code |
@@ -219,6 +221,7 @@ exits non-zero refuses it with what it printed. Gates in a laptop's
 | `before:integrations.install` | `tool` |
 | `before:config.change` | `location`, `flows`, `env` or `guard`: what is about to change |
 | `before:phone.change` | |
+| `before:phone.push` | `id`, `name`, `platform`, `from: "phone"`: a phone app asking to be notified |
 | `before:turncheck.change` | the same as `turncheck.changed` |
 | `before:location.remove` | `location` |
 | `before:hooks.change` | |

@@ -1,0 +1,127 @@
+---
+title: The phone API
+description: What a box serves phones on its tailnet address, port 1379, for the web phone app and the Shipyard phone app.
+---
+
+Each box with [phone access](/guides/phone) on serves a small API for phones
+on its tailnet address, port 1379, beside the web phone app. It is a
+different listener from the box's own API, and offers only what is below.
+
+## Transport
+
+- **Address.** `http://<tailnet address>:1379`, plain HTTP inside
+  WireGuard. The `Host` must be the box's tailnet address, a `*.ts.net`
+  name, or its own short name, with the port.
+- **Token.** Every request carries `Authorization: Bearer <token>`, the box's
+  phone token from the pairing link. Ten wrong tokens in a minute from one
+  address answer 429 until the minute is up.
+- **CORS.** Pages served from tailnet addresses and `*.ts.net` may read it
+  (another box's web phone app); the token is always a header, never a
+  cookie.
+- **Errors.** A failed request answers `{ "error": "…" }`, for people.
+
+## Version 1
+
+| Route | Answers |
+| --- | --- |
+| `GET /phone/v1/info` | `{ box, version, capabilities }`. Version 1 boxes answer `version: 1` and no capabilities |
+| `GET /phone/v1/sessions` | the box's sessions, as `GET /v1/sessions` lists them, each with its `worktree_title` |
+| `GET /phone/v1/sessions/{name}/screen?history=N` | `{ screen }`, with up to 2000 lines above it |
+| `POST /phone/v1/sessions/{name}/send` | `{ text, enter? }` types a prompt (Enter after it unless `enter: false`) |
+| `POST /phone/v1/sessions/{name}/keys` | `{ key }` presses one of `enter`, `escape`, `interrupt` (Ctrl-C), `up`, `down`, `tab`, `1`–`9`, `y`, `n` |
+| `GET /phone/v1/runs` | up to 30 active and 10 finished [runs](/guides/runs) |
+| `GET /phone/v1/runs/{id}` | a run in outline: its steps with the first line of each output, without its variables, parameters, trigger or flow |
+| `POST /phone/v1/runs/{id}/gates/{step}/decide` | `{ approve, pick? }` decides the gate a run waits at |
+| `POST /phone/v1/runs/{id}/cancel` | cancels a run |
+
+Sends and key presses go through `before:session.send` with `from: "phone"`.
+
+## Version 2
+
+A box whose `info` answers `version: 2` adds these, and lists them in
+`capabilities`: `transcript`, `events`, `push` and `interrupt`. The phone app
+reads every box at version 1 the way the web phone app does.
+
+### `GET /phone/v1/sessions/{name}/transcript?since=N&gen=G`
+
+The agent's recent conversation, read from its own record like the desktop
+app's chat, as `{ source, items, next, gen?, reset?, start?, truncated?, last?, reason?, record? }`.
+Ask again from `next`, with `gen`; an answer with `reset` is the whole window
+again, from `start` (see the [app's API](/reference/app-api)).
+
+Items are the chat's kinds `user`, `text`, `tools`, `edit`, `crew`,
+`command`, `notice`, `question`, `report`, `agent-message` and `ping`, each
+with only these fields:
+
+| Kind | Fields |
+| --- | --- |
+| every item | `kind`, `id`, `off`, `midTurn` |
+| `user`, `text` | `text` |
+| `tools` | `verb`, `done`, `items: [{ verb, target, file }]` |
+| `edit` | `file` (in the worktree), `added`, `removed` |
+| `crew` | `names` |
+| `command` | `command`, `args`, `markdown`, `error`, and `text` cut to 2 KB |
+| `notice` | `notice`, `level`, `resets`, `text` |
+| `question` | `questions: [{ question, header, multi, options: [{ label, description }] }]`, `answers`, `done`, `error` |
+| `report` | `report: { kind, session, run, title, worktree, branch, status, duration, files, added, removed, summary, answer, needs }` |
+| `agent-message`, `ping` | `msg: { from: { name, kind }, intent, status, title, summary, body, repeat, at, answered }` |
+
+`record` is a short hash of the record read: when it changes, the agent began
+another conversation. With nothing to read (`source: "none"`), `reason` says
+so without naming folders. Older pages (`?before=`) and a tool call's details
+are not offered.
+
+### `GET /phone/v1/events?since=SEQ`
+
+The box's events a phone hears, as NDJSON, one event a line, with a blank
+line every 25 seconds to keep the connection open. With `since`, it first
+replays those after `SEQ`, at most the last 500. At most 16 streams are open
+on a box (429 past that), and a new code or phone access turned off ends
+them all.
+
+Each event is `{ seq, type, time, box, data }`, with only these types and
+fields:
+
+| Type | `data` |
+| --- | --- |
+| `agent.ready`, `agent.started`, `agent.waiting`, `agent.finished`, `agent.exited` | `session`, `agent`, `reason`, `status` |
+| `session.started`, `session.stopped`, `session.renamed`, `session.sent`, `session.queued` | `name` |
+| `transcript.changed` | `session` |
+| `run.created`, `run.queued`, `run.started`, `run.resumed`, `run.step`, `run.gate`, `run.gate_decided`, `run.finished` | `run`, `status`, `title`, `step`, `step_status`, `gate_title`, `approve` |
+
+### `POST /phone/v1/push`
+
+`{ id, name?, platform, key, on? }` asks the box to notify a phone:
+
+- `id`: the app's install id, 32 hex characters. The same id again
+  replaces that phone's entry.
+- `name`: up to 40 characters, shown in Settings → Phone.
+- `platform`: `ios` or `android`.
+- `key`: the key the [push relay](/guides/phone#notifications-through-the-push-relay)
+  gave the app.
+- `on`: `waiting` (the default) and `finished`.
+
+It answers `{ registered: true }`, after `before:phone.push`. A box notifies
+at most 10 phones; another takes the place of the one registered longest ago.
+The relay is chosen by a paired laptop (`PUT /v1/phone` with `relay`), never
+here.
+
+### `DELETE /phone/v1/push/{id}`
+
+Stops notifying the phone with that install id: `{ removed }`.
+
+### `POST /phone/v1/sessions/{name}/interrupt`
+
+Stops the agent the way its session can: Esc in its terminal, or its own
+interrupt for an agent run without one. It goes through
+`before:session.send` with `from: "phone"` and `key: "escape"`, and answers
+`{ sent, stopped }`.
+
+## For a laptop
+
+A paired laptop reads and changes phone access over the box's own API:
+`GET /v1/phone` and `PUT /v1/phone { enabled?, rotate?, notify?, clear_notify?, remove_push?, relay? }`.
+Its answer lists the phones in `push` (`id`, `name`, `platform`, `on`,
+`added`, `last_ok`, `last_error`), never their keys. `rotate` and turning
+access off forget every phone; `relay` must be `https`, and `""` goes back
+to `https://push.berthd.app`.

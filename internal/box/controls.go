@@ -88,16 +88,33 @@ var (
 // Claude Code's hooks say nothing when a turn is interrupted, so without
 // this the session would read as working until its next prompt.
 func (b *Box) interruptSession(w http.ResponseWriter, r *http.Request) error {
-	name := r.PathValue("name")
-	sess, err := b.Sessions.Get(r.Context(), name)
+	stopped, err := b.interrupt(r, r.PathValue("name"), "")
 	if err != nil {
 		return err
 	}
-	if sess.Exited {
-		return ErrSessionExited
+	writeJSON(w, map[string]bool{"sent": true, "stopped": stopped})
+	return nil
+}
+
+// interrupt stops a session's agent the way its driver can (Esc, or its
+// own interrupt for one without a terminal), through the send gate as a
+// key would. from names a caller the gate can't tell by its origin: the
+// phone.
+func (b *Box) interrupt(r *http.Request, name, from string) (bool, error) {
+	sess, err := b.Sessions.Get(r.Context(), name)
+	if err != nil {
+		return false, err
 	}
-	if err := b.before(r, "session.send", map[string]any{"name": name, "key": "escape"}); err != nil {
-		return err
+	if sess.Exited {
+		return false, ErrSessionExited
+	}
+	gate := map[string]any{"name": name, "key": "escape"}
+	who := origin(r)
+	if from != "" {
+		gate["from"], who = from, from
+	}
+	if err := b.before(r, "session.send", gate); err != nil {
+		return false, err
 	}
 	var st SessionState
 	if b.Turns != nil {
@@ -105,15 +122,14 @@ func (b *Box) interruptSession(w http.ResponseWriter, r *http.Request) error {
 	}
 	stopped, err := b.driverFor(sess).Interrupt(r.Context(), sess)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if stopped && b.Turns != nil && (st.State == "running" || st.State == "waiting") {
-		b.Events.Publish(events.Event{Type: adapters.Finished, Box: b.Name, Origin: origin(r), Data: map[string]any{
+		b.Events.Publish(events.Event{Type: adapters.Finished, Box: b.Name, Origin: who, Data: map[string]any{
 			"session": name, "path": sess.Dir, "agent": controlAgent(sess), "source": "interrupt", "status": "interrupted",
 		}})
 	}
-	writeJSON(w, map[string]bool{"sent": true, "stopped": stopped})
-	return nil
+	return stopped, nil
 }
 
 func lastLines(s string, n int) string {
