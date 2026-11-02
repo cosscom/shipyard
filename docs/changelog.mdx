@@ -10,6 +10,14 @@ upgrades with `berth upgrade BOX`, or by running the
 again.
 
 ## Unreleased
+- **Your sidebar layout survives a restart.** When the app started while
+  its agent on this computer was restarting (as after an update), the
+  sidebar fell back to the default layout for that launch, and any change
+  then saved the default over yours. The app now keeps asking until your
+  layout arrives, and **Customize sidebar…** waits until it has, saying so.
+  A pinned plugin that is off or still loading also keeps its place when
+  you change something else, and a change that fails to save no longer
+  undoes one you made after it.
 - **Quiet projects are grayed out.** On the rail and in the two-column
   sidebar, a project with no agent or shell open in it is grayed out, so
   the ones you're using stand out. Switching to one of those opens New

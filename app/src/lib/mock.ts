@@ -323,6 +323,19 @@ function saveHooks(machine: string, hooks: Hook[]): Promise<HooksFile> {
 // /v1/app documents, as the laptop agent keeps them. Projects start with a
 // Work section so sections show.
 const appDocs: Record<string, unknown> = fresh ? {} : { projects: { projects: [{ id: "acme/shop", section: "Work", default_box: "devl" }, { id: "me/notes", section: "Work" }], sections: ["Work", "Personal"] } };
+// The sidebar's layout outlives a reload, as the agent's file does: kept in
+// this tab's session storage. ?failapp=sidebar fails reads and writes of
+// that document, as an agent that is restarting does, until
+// window.__mockApp.recover("sidebar"); __mockApp.doc("sidebar") is what is
+// stored.
+const KEPT_SIDEBAR = "berth.mock.app.sidebar";
+const keptSidebar = sessionStorage.getItem(KEPT_SIDEBAR);
+if (keptSidebar) appDocs.sidebar = JSON.parse(keptSidebar);
+const failingDocs = new Set(new URLSearchParams(location.search).getAll("failapp"));
+(window as unknown as { __mockApp: unknown }).__mockApp = {
+  recover: (key: string) => failingDocs.delete(key),
+  doc: (key: string) => appDocs[key] ?? null,
+};
 
 const listeners = new Set<(e: BerthEvent) => void>();
 const emit = (e: Omit<BerthEvent, "time">) => listeners.forEach((l) => l({ ...e, time: new Date().toISOString() }));
@@ -1438,9 +1451,11 @@ function mockAgent(): Client {
       if (method === "PUT" && path === "/v1/hooks") return saveHooks("laptop", (body as { hooks: Hook[] }).hooks) as Promise<T>;
       // The app's own documents (/v1/app/<key>), such as project groups.
       const app = /^\/v1\/app\/([a-z0-9-]+)$/.exec(path);
+      if (app && failingDocs.has(app[1])) return Promise.reject(new ApiError("the Shipyard agent is restarting (mock)", 503));
       if (app && method === "GET") return delay(appDocs[app[1]] ?? null) as Promise<T>;
       if (app && method === "PUT") {
         appDocs[app[1]] = structuredClone(body);
+        if (app[1] === "sidebar") sessionStorage.setItem(KEPT_SIDEBAR, JSON.stringify(body));
         return delay(body) as Promise<T>;
       }
       // A file on "this Mac" goes up as an attachment, as the agent does.
