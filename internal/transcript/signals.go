@@ -586,8 +586,8 @@ func endState(code int) string {
 var (
 	jobNoteRe = regexp.MustCompile(`(?s)<task-notification>(.*?)</task-notification>`)
 	// "Background command "X" completed (exit code 0)", "… failed with
-	// exit code 3".
-	exitCodeRe = regexp.MustCompile(`exit code (-?\d+)`)
+	// exit code 3": the code it ends with, not text in the command.
+	exitCodeRe = regexp.MustCompile(`exit code (-?\d+)\)?\s*$`)
 )
 
 // jobNote reads a background shell's notification: "<task-id>…</task-id>
@@ -738,15 +738,20 @@ var outputFile = regexp.MustCompile(`Output is being written to: (\S+?\.output)\
 // settle reads the end of each running shell's output file: Claude Code
 // ends it with "[exited with code N]" when the shell exits, which can be
 // long before a notification says so (a busy agent is told only when its
-// turn ends).
+// turn ends). Until one does, the end is the file's to take back: a shell
+// that printed the line itself and went on runs again.
 func (s *signals) settle() {
 	for i := range s.Background {
 		j := &s.Background[i]
-		if j.State != "running" || j.out == "" {
+		if j.out == "" || (j.State != "running" && !j.fromFile) {
 			continue
 		}
-		if code, at, ok := exited(j.out); ok {
+		code, at, ok := exited(j.out)
+		switch {
+		case ok:
 			j.State, j.Until, j.Exit, j.fromFile = endState(code), at, &code, true
+		case j.fromFile:
+			j.State, j.Until, j.Exit, j.fromFile = "running", 0, nil, false
 		}
 	}
 }
@@ -783,10 +788,14 @@ func exited(path string) (code int, at int64, ok bool) {
 }
 
 // taskFile opens a background task's output file: only a regular .output
-// file in a tasks folder is read.
+// file in a tasks folder is read. It is looked at before it is opened, as
+// opening a pipe would wait for a writer, and the reader with it.
 func taskFile(path string) (*os.File, os.FileInfo) {
 	p := filepath.Clean(path)
 	if !filepath.IsAbs(p) || filepath.Ext(p) != ".output" || filepath.Base(filepath.Dir(p)) != "tasks" {
+		return nil, nil
+	}
+	if st, err := os.Stat(p); err != nil || !st.Mode().IsRegular() {
 		return nil, nil
 	}
 	f, err := os.Open(p)

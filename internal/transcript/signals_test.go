@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -311,5 +312,68 @@ func TestCodexSignals(t *testing.T) {
 	}
 	if got := notices(r.Items); len(got) != 1 || got[0] != "interrupted:Interrupted" {
 		t.Fatalf("notices = %v (items %s)", got, kinds(r.Items))
+	}
+}
+
+// A shell's exit code is the one its notification ends with, not text in
+// its command that reads like one.
+func TestAShellsExitCodeIsTheNotificationsOwn(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "s.jsonl")
+	write(t, p,
+		assistant(tool("e1", "Bash", m{"command": "echo 'exit code 3'", "description": "Say exit code 3", "run_in_background": true})),
+		user([]m{{"type": "tool_result", "tool_use_id": "e1", "content": "Command running in background with ID: be1. Output is being written to: /gone/tasks/be1.output."}}),
+		m{"type": "attachment", "attachment": m{"type": "queued_command", "prompt": "<task-notification>\n<task-id>be1</task-id>\n<tool-use-id>e1</tool-use-id>\n<status>completed</status>\n<summary>Background command \"echo 'exit code 3'\" completed (exit code 0)</summary>\n</task-notification>"}},
+	)
+	bg := read(t, "claude", p).Signals.Background
+	if len(bg) != 1 || bg[0].State != "done" || bg[0].Exit == nil || *bg[0].Exit != 0 {
+		t.Fatalf("background = %+v", bg)
+	}
+}
+
+// A shell that prints the line itself and goes on is running again once it
+// prints more; and a pipe where its output file should be is never opened,
+// so it can't hold up the reader.
+func TestAShellsOutputFileOnlyEndsItWhileItSaysSo(t *testing.T) {
+	dir := t.TempDir()
+	tasks := filepath.Join(dir, "tasks")
+	os.MkdirAll(tasks, 0o755)
+	p := filepath.Join(dir, "s.jsonl")
+	for _, s := range [][2]string{{"liar", "bliar"}, {"pipe", "bpipe"}} {
+		write(t, p,
+			assistant(tool(s[0], "Bash", m{"command": "x", "description": s[0], "run_in_background": true})),
+			user([]m{{"type": "tool_result", "tool_use_id": s[0], "content": "Command running in background with ID: " + s[1] + ". Output is being written to: " + filepath.Join(tasks, s[1]+".output") + "."}}),
+		)
+	}
+	if err := syscall.Mkfifo(filepath.Join(tasks, "bpipe.output"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	liar := filepath.Join(tasks, "bliar.output")
+	os.WriteFile(liar, []byte("[exited with code 0]\n"), 0o644)
+	r := NewReader()
+	states := func() map[string]string {
+		t.Helper()
+		done := make(chan Result, 1)
+		go func() {
+			res, _ := r.Read("claude", p, "/w", 0)
+			done <- res
+		}()
+		select {
+		case res := <-done:
+			out := map[string]string{}
+			for _, j := range res.Signals.Background {
+				out[j.Tool] = j.State
+			}
+			return out
+		case <-time.After(5 * time.Second):
+			t.Fatal("reading the conversation waited on a pipe")
+			return nil
+		}
+	}
+	if s := states(); s["liar"] != "done" || s["pipe"] != "running" {
+		t.Fatalf("while its file ends with the line: %v", s)
+	}
+	os.WriteFile(liar, []byte("[exited with code 0]\nand on it goes\n"), 0o644)
+	if s := states(); s["liar"] != "running" {
+		t.Fatalf("once it printed more: %v", s)
 	}
 }
