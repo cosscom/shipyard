@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -108,6 +109,9 @@ type SessionState struct {
 	// SoftWait is a wait turn check read into a finished turn: its last
 	// message asks something, and nothing on its screen waits for a key.
 	SoftWait bool `json:"soft_wait,omitempty"`
+	// sub and dir are for sub-states; sub is read through Box.subStateOf.
+	sub *subMark
+	dir string
 }
 
 func (t Turn) open() bool {
@@ -194,11 +198,26 @@ type sessTrack struct {
 	// shows as idle, and takes prompts as finished too.
 	Unfinished bool `json:"unfinished,omitempty"`
 	Parked     bool `json:"parked,omitempty"`
+	// Sub is what is known about the wait for sub-states (substates.go):
+	// it lasts as long as the wait does, and clears on the next state.
+	Sub *subMark `json:"sub,omitempty"`
 
 	inbox []inboxItem
 	// screen polling, owned by the poller
 	lastScreen string
 	sameFor    int
+}
+
+// subMark is one wait, for sub-states. From is the Seq that began it: a late
+// answer about an earlier wait is told by it. Reason and Form say what kind of
+// wait it is, ID where it was placed, and Settled that placing it is over,
+// placed or not.
+type subMark struct {
+	From    int64  `json:"from"`
+	Reason  string `json:"reason,omitempty"`
+	Form    bool   `json:"form,omitempty"`
+	ID      string `json:"id,omitempty"`
+	Settled bool   `json:"settled,omitempty"`
 }
 
 type inboxItem struct {
@@ -416,6 +435,10 @@ func (t *Turns) newTurn(s *sessTrack, state, origin string) *Turn {
 
 func (s *sessTrack) set(state string, e events.Event) {
 	s.State, s.Since, s.Seq, s.SoftWait, s.Unfinished, s.Parked = state, e.Time, e.Seq, false, false, false
+	// What is known about a wait lasts as long as the wait.
+	if state != "waiting" {
+		s.Sub = nil
+	}
 }
 
 func (s *sessTrack) end(tr *Turn, state string, e events.Event) {
@@ -459,7 +482,30 @@ func (t *Turns) Observe(e events.Event) {
 		t.sent(e)
 	case adapters.Ready, adapters.Started, adapters.Waiting, adapters.Finished, adapters.Exited:
 		t.agentEvent(e)
+	case adapters.SubState:
+		t.subStateEvent(e)
 	}
+}
+
+// subStateEvent places a waiting session, or says it couldn't be placed. It
+// counts only for the wait it was about, and leaves the state and its time
+// alone: moving between sub-states is not a new wait.
+func (t *Turns) subStateEvent(e events.Event) {
+	s, ambiguous := t.resolve(e)
+	if s == nil || ambiguous || s.State != adapters.StateWaiting {
+		return
+	}
+	seq := seqOf(e.Data["seq"])
+	// A wait from before this box kept sub-states has no mark: it is told by
+	// the event that began it.
+	if s.Sub == nil && seq != 0 && s.Seq == seq {
+		s.Sub = &subMark{From: seq}
+	}
+	if s.Sub == nil || s.Sub.From != seq {
+		return
+	}
+	s.Sub.ID, s.Sub.Settled = str(e.Data, "sub_state"), true
+	t.bump()
 }
 
 // track finds or starts a session's record. born, when known, is when the
@@ -804,7 +850,18 @@ func (t *Turns) agentEvent(e events.Event) {
 			}
 			s.set("waiting", e)
 			s.SoftWait = true
+			s.Sub = &subMark{From: e.Seq, ID: str(e.Data, "sub_state"), Settled: true}
 			break
+		}
+		// A wait already on (a form's request and then its notification)
+		// stays the one wait, and keeps what is known about it.
+		if s.State != "waiting" || s.SoftWait || s.Sub == nil {
+			s.Sub = &subMark{From: e.Seq}
+		}
+		if reason := str(e.Data, "reason"); reason == "question" {
+			s.Sub.Form = true
+		} else if s.Sub.Reason == "" || source == "" {
+			s.Sub.Reason = reason
 		}
 		if cur != nil {
 			if cur.State != "waiting" {
@@ -973,7 +1030,11 @@ func (t *Turns) Track(sess Session) SessionState {
 }
 
 func (s *sessTrack) snapshot() SessionState {
-	out := SessionState{Session: s.Name, Agent: s.Agent, State: s.State, Since: s.Since, Seq: s.Seq, Fidelity: s.Fidelity, AgentSessionID: s.AgentSessionID, Queued: len(s.inbox), Unfinished: s.Unfinished, Parked: s.Parked, SoftWait: s.State == "waiting" && s.SoftWait}
+	out := SessionState{Session: s.Name, Agent: s.Agent, State: s.State, Since: s.Since, Seq: s.Seq, Fidelity: s.Fidelity, AgentSessionID: s.AgentSessionID, Queued: len(s.inbox), Unfinished: s.Unfinished, Parked: s.Parked, SoftWait: s.State == "waiting" && s.SoftWait, dir: s.Dir}
+	if s.Sub != nil {
+		sub := *s.Sub
+		out.sub = &sub
+	}
 	if tr := s.current(); tr != nil {
 		out.Turn = tr.ID
 		if n := len(tr.Waits); tr.State == "waiting" && n > 0 && tr.Waits[n-1].End.IsZero() && tr.Waits[n-1].Ask != nil {
@@ -1005,6 +1066,21 @@ func (t *Turns) State(name string) (SessionState, bool) {
 		return SessionState{}, false
 	}
 	return s.snapshot(), true
+}
+
+// Waiting is every session that waits now.
+func (t *Turns) Waiting() []SessionState {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.init()
+	var out []SessionState
+	for _, s := range t.sess {
+		if s.State == adapters.StateWaiting {
+			out = append(out, s.snapshot())
+		}
+	}
+	slices.SortFunc(out, func(a, b SessionState) int { return a.Since.Compare(b.Since) })
+	return out
 }
 
 // DirState is the last state reported from a directory, for agents berth

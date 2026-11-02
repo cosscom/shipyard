@@ -40,6 +40,10 @@ type Session struct {
 	Agent      string    `json:"agent,omitempty"`
 	AgentState string    `json:"agent_state,omitempty"`
 	StateSince time.Time `json:"state_since,omitzero"`
+	// AgentSubState is which sub-state of Needs you a waiting agent is in
+	// (substates.go), when the box has a set and could place it. It adds to
+	// agent_state, which stays "waiting".
+	AgentSubState string `json:"agent_sub_state,omitempty"`
 	// Preset is the agent preset the session was started with, which berth
 	// keeps (@berth_agent) so a wrapped command is still known as an agent.
 	Preset string `json:"preset,omitempty"`

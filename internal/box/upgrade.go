@@ -49,6 +49,11 @@ type Info struct {
 	// AgentDefaults is how agents start when what starts them names no
 	// driver, on a box with "agents.defaults".
 	AgentDefaults *AgentDefaults `json:"agent_defaults,omitempty"`
+	// SubStatesRevision and SubStatesStamp say which edit of the box's
+	// sub-states it holds, once it has had any, so the app knows when to read
+	// them again. Two edits in one millisecond differ only by the stamp.
+	SubStatesRevision int64  `json:"substates_revision,omitempty"`
+	SubStatesStamp    string `json:"substates_stamp,omitempty"`
 }
 
 // BuildID identifies a daemon build by its bytes.
@@ -127,6 +132,8 @@ func (b *Box) handleInfo(w http.ResponseWriter, r *http.Request) error {
 		d := b.AgentDefaults.Get()
 		i.AgentDefaults = &d
 	}
+	subStates := b.SubStates.current()
+	i.SubStatesRevision, i.SubStatesStamp = subStates.Revision, subStates.Stamp
 	i.Adapters = map[string]adapters.Caps{}
 	for _, a := range adapters.All() {
 		i.Adapters[a.Name] = a.Caps
@@ -164,6 +171,11 @@ func (b *Box) Capabilities() []string {
 		// controls: POST .../keys, .../interrupt and .../mode, GET
 		// .../controls (controls.go).
 		caps = append(caps, "turns", "queue", "ask", "controls")
+	}
+	// substates: GET and PUT /v1/substates, sessions say agent_sub_state
+	// (substates.go).
+	if b.SubStates != nil {
+		caps = append(caps, "substates")
 	}
 	// draft: GET .../draft, the reply Claude Code is writing, read from its
 	// screen (draft.go); and transcript.changed when a shown chat's

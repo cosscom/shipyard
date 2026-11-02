@@ -8,11 +8,16 @@ import "strings"
 
 // Signal is what an agent event says happened in its turn.
 const (
-	Ready    = "agent.ready"    // at its prompt, nothing asked yet
-	Started  = "agent.started"  // working on a prompt
-	Waiting  = "agent.waiting"  // needs someone: a permission or a question
-	Finished = "agent.finished" // its turn ended
-	Exited   = "agent.exited"   // the agent itself stopped
+	Ready   = "agent.ready"   // at its prompt, nothing asked yet
+	Started = "agent.started" // working on a prompt
+	Waiting = "agent.waiting" // needs someone: a permission or a question
+	// SubState says which sub-state of Needs you a waiting session belongs
+	// in, when that is known after its agent.waiting (a question form's).
+	SubState = "agent.substate"
+	// StateWaiting is the agent state a sub-state goes under.
+	StateWaiting = "waiting"
+	Finished     = "agent.finished" // its turn ended
+	Exited       = "agent.exited"   // the agent itself stopped
 )
 
 // Caps is what an adapter can tell. An agent without Started has its turn

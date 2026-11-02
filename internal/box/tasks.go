@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/cosscom/shipyard/internal/events"
 	"github.com/cosscom/shipyard/internal/wire"
@@ -444,6 +445,7 @@ func (b *Box) enrich(ctx context.Context, all []Session) []Session {
 			s.Queued, s.Unfinished, s.Parked = st.Queued, st.Unfinished && s.AgentState == "finished", st.Parked && s.AgentState == "finished"
 			if s.AgentState == "waiting" {
 				s.Ask, s.SoftWait = st.Ask, st.SoftWait
+				s.AgentSubState = b.subStateOf(st, time.Now())
 				var choices []AskChoice
 				switch s.Driver {
 				case DriverClaude:

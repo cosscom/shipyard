@@ -56,6 +56,7 @@ func checkedBox(t *testing.T, enabled bool, prompt, reply string, answer http.Ha
 		// The test's Jev is on loopback, which the box's owner must allow.
 		b.Flows = &Flows{AllowOutbound: []string{"127.0.0.1"}}
 		b.TurnCheck = &TurnCheck{Path: filepath.Join(t.TempDir(), "turncheck.json"), settle: 10 * time.Millisecond, timeout: 300 * time.Millisecond}
+		b.SubStates = &SubStates{Path: filepath.Join(t.TempDir(), "substates.json")}
 		bx = b
 	})
 	bx.TurnCheck.save(TurnCheckConfig{Enabled: enabled, Provider: ProviderGateway, Key: "env://BERTH_TEST_JEV_KEY", Model: "typesafe-ai/jev"})
@@ -612,7 +613,13 @@ type recordedTurnCheck struct {
 // the gateway instead and records the answer; tests never do otherwise.
 func replayTurnCheck(t *testing.T, name string, turn turnFixture) (request []byte, answer http.HandlerFunc) {
 	t.Helper()
-	request, err := json.Marshal(jevRequest(TurnCheckConfig{Provider: ProviderGateway, Model: "typesafe-ai/jev"}, turn.title, turn.prompt, turn.reply))
+	return replayRequest(t, name, jevRequest(TurnCheckConfig{Provider: ProviderGateway, Model: "typesafe-ai/jev"}, turn.title, turn.prompt, turn.reply))
+}
+
+// replayRequest is a recorded answer to this exact request.
+func replayRequest(t *testing.T, name string, ask map[string]any) (request []byte, answer http.HandlerFunc) {
+	t.Helper()
+	request, err := json.Marshal(ask)
 	if err != nil {
 		t.Fatal(err)
 	}

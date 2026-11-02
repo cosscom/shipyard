@@ -44,7 +44,17 @@ berthd agents                    # agent CLIs this box can start
 ```
 
 `agent_state` is `idle` (at its prompt), `running`, `waiting` (needs a human)
-or `finished` (done with its turn).
+or `finished` (done with its turn). On a box with sub-states of Needs you, a
+waiting agent may also say `agent_sub_state`; it is still `waiting`, so treat it
+the same.
+
+```sh
+berthd substates --json          # the Needs you columns, if any; none by default
+berthd substates add --name N --description D     # also: edit ID, remove ID, order ID..., preset, clear
+```
+
+Change them only when the user asks: they are the user's board, and an edit
+spreads to all their boxes.
 
 ## Make work
 

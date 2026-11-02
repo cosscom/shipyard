@@ -46,7 +46,9 @@ teardown; use hooks for reactions to other events.
 `worktree.archive.{started,finished,failed}`, `task.created`,
 `session.started`, `session.stopped`, `session.sent`,
 `agent.ready` (idle at its prompt), `agent.started`, `agent.waiting` (needs a
-human), `agent.finished`, `service.started`, `service.stopped`,
+human; `$BERTH_SUB_STATE` names its Needs you column when known), `agent.substate`
+(a question form was placed in a column, after its `agent.waiting`; no new wait),
+`agent.finished`, `substates.changed`, `service.started`, `service.stopped`,
 `exec.finished`, `preview.open`, `location.added`, `location.removed`, `config.changed`,
 `share.started`, `share.stopped`, and on the laptop `box.connected`,
 `box.disconnected`, `forward.*`.

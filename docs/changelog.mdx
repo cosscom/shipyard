@@ -10,6 +10,15 @@ upgrades with `berth upgrade BOX`, or by running the
 again.
 
 ## Unreleased
+- **Needs you can split into columns of your own.** Turn on the preset in
+  Settings → Agents to see **Needs a decision** and **Needs you to act** on the
+  Agent Dashboard, or write your own, up to 6. Turn check sorts waiting agents by
+  your descriptions, and what it can't place sits in the first column, marked
+  "not sorted". It's off by default, and nothing changes until you turn it on.
+  With it on and turn check on, a question form's text also goes to turn check's
+  provider, with anything like a secret taken out. Agents can manage the columns
+  too, with `berthd substates` and MCP. Agents already waiting when you turn it
+  on are sorted then too, and the "not sorted" tag shows on every card style.
 - **Quiet projects are grayed out.** On the rail and in the two-column
   sidebar, a project with no agent or shell open in it is grayed out, so
   the ones you're using stand out. Switching to one of those opens New

@@ -1,5 +1,5 @@
 import { HourglassIcon, SquareIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import { AgentIcon } from "@/components/agent-glyph";
 import { openOrchestrate, SessionActions } from "@/components/orchestrate/session-actions";
@@ -54,7 +54,8 @@ export function duration(ms: number): string {
 // AgentCard is one agent on the board: where it works, how long it has been
 // in its state, the last thing it said, and what you can do about it. While
 // the board is selecting (or with ⌘ or ⇧ held), a click picks it instead.
-export function AgentCard({ entry, selecting, selected, onSelect }: { entry: SessionEntry; selecting?: boolean; selected?: boolean; onSelect?(): void }) {
+// children are lines of the board's own under where it works.
+export function AgentCard({ entry, children, selecting, selected, onSelect }: { entry: SessionEntry; children?: ReactNode; selecting?: boolean; selected?: boolean; onSelect?(): void }) {
   const { box, session, state } = entry;
   const locations = useStore((s) => s.boxes[box]?.locations);
   const sessions = useStore((s) => s.boxes[box]?.sessions);
@@ -142,6 +143,7 @@ export function AgentCard({ entry, selecting, selected, onSelect }: { entry: Ses
             </div>
           </Tip>
         )}
+        {children && <div className="mt-1 pl-5.5 text-meta text-muted-foreground">{children}</div>}
         {quote && (
           <div className="mt-1 truncate pl-5.5 text-meta text-foreground/70 italic" title={quote}>
             “{quote}”

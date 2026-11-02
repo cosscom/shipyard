@@ -195,6 +195,7 @@ failed after it went out (the box may have acted on it). The box API:
 | `ANY helpers/{plugin}/api/{path}` | The helper's own API, relayed: `{path}`, the query and the body reach it as they were sent, and its answer comes back as it is, a stream included. The request reaches the helper as one from the box itself: its `Host` is the helper's loopback address, and `Origin`, `Referer`, `Cookie` and `Authorization` are removed. 409 `helper_off` when the helper is not running; 502 `helper_unreachable` when it did not answer. One answer does not come back as the helper wrote it: its own 401. On the connection between the laptop and a box a 401 means the box no longer trusts the laptop, so the agent asks the box, and when the box still answers it the helper's refusal comes back as 401 `unauthorized` in the agent's words (a helper that asks for a token refuses a box whose `berthd` is from before it sent one) |
 | `GET phone`, `PUT phone` | the [phone companion](/guides/phone) |
 | `GET turncheck`, `PUT turncheck` | `{ enabled, provider, key, url?, model?, key_set }`: [turn check](/concepts/sessions-and-agents#agent-state). `provider` is `gateway` (Jev on AI Gateway), `openai` (OpenAI's Decisions API) or `laya` (a server of your own at `url`), with no default. `key` is a secret reference (`op://…` or `env://NAME`), never a value; `key_set` says a key is kept for the chosen provider. PUT also takes `key_value`, a pasted key kept on the box for that provider and never answered, or `remove_key`. Turning it on needs a provider; `gateway` and `openai` also a `model` and a key, `laya` a `url`. `url` is only for `laya` and must be http or https; a key with `laya` is refused, and a reference set for one provider is dropped when the provider changes. A paired laptop's only: 403 on the box's own socket |
+| `GET substates`, `PUT substates`, `POST substates`, `POST substates/preset`, `PATCH substates/{id}`, `DELETE substates/{id}` | `{ states: [{ id, name, description, parent }], revision?, stamp?, changed_by?, change?, changed_at? }`: the [sub-states of Needs you](/concepts/sessions-and-agents#sub-states-of-needs-you), on a box with the `substates` capability. At most 6; a name up to 40 characters, a description up to 300; `parent` is `waiting`, the only one taken for now. `PUT` with a list is an edit, which the box stamps. `PUT` with a `revision` spreads a stamped set: paired laptops only, kept only if newer. Open to a box's own agents, unlike `turncheck` |
 | `GET events?since=SEQ&max=N`, `POST events` | the box's event stream as NDJSON, and announcing one (`{ type, data? }`). Events carry `seq`, their number in the box's journal; with `since`, the stream first replays what the journal holds after it (at most `max`, default 5000) |
 | `GET worktrees?location=L` | every worktree's git status |
 | `GET locations/{name}/worktrees/{wt}/log?limit=N` | the worktree's commits |
@@ -230,7 +231,10 @@ agent that [turn check](/concepts/sessions-and-agents#agent-state) read as
 unfinished carries `unfinished: true` (something still runs; shown as
 Working) or `parked: true` (it waits on a reply or a later time; shown as
 Idle); a `waiting` one it read as asking in its last message carries
-`soft_wait: true` (no `ask`: the reply box answers it). `driver`
+`soft_wait: true` (no `ask`: the reply box answers it). A `waiting` one on
+a box with [sub-states](/concepts/sessions-and-agents#sub-states-of-needs-you)
+may carry `agent_sub_state`, the one it is in; with none, it couldn't be
+placed. `GET info` says `substates_revision` and `substates_stamp` once the box has had a set. `driver`
 says how the box reaches the agent: `terminal` (its own screen in tmux) for
 every agent but a structured one, or `claude` (Claude Code driven through
 its stream); boxes that say it list `driver` in `capabilities`. `POST
