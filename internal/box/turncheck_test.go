@@ -56,6 +56,7 @@ func checkedBox(t *testing.T, enabled bool, prompt, reply string, answer http.Ha
 		// The test's Jev is on loopback, which the box's owner must allow.
 		b.Flows = &Flows{AllowOutbound: []string{"127.0.0.1"}}
 		b.TurnCheck = &TurnCheck{Path: filepath.Join(t.TempDir(), "turncheck.json"), settle: 10 * time.Millisecond, timeout: 300 * time.Millisecond}
+		b.SubStates = &SubStates{Path: filepath.Join(t.TempDir(), "substates.json")}
 		bx = b
 	})
 	bx.TurnCheck.save(TurnCheckConfig{Enabled: enabled, Provider: ProviderGateway, Key: "env://BERTH_TEST_JEV_KEY", Model: "typesafe-ai/jev"})

@@ -25,6 +25,7 @@ import { ViewHeader } from "@/views/view-header";
 import { sessionWord } from "@/lib/state-model";
 import { placeSession } from "@/lib/substates";
 import { useSubStateSet } from "@/lib/substates-sync";
+import { NotSorted } from "@/views/dashboard/not-sorted";
 
 interface Column {
   state: SessionState;
@@ -240,7 +241,7 @@ export function DashboardView() {
                         <AgentCard
                           key={`${e.box}/${e.session.name}:${e.state}`}
                           entry={e}
-                          notSorted={!!c.sub && place(e)?.unsorted}
+                          children={c.sub && place(e)?.unsorted ? <NotSorted /> : null}
                           selecting={!!picked}
                           selected={picked?.has(keyOf(e))}
                           onSelect={() => pick([keyOf(e)], !picked?.has(keyOf(e)))}

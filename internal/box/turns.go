@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -491,7 +492,16 @@ func (t *Turns) Observe(e events.Event) {
 // alone: moving between sub-states is not a new wait.
 func (t *Turns) subStateEvent(e events.Event) {
 	s, ambiguous := t.resolve(e)
-	if s == nil || ambiguous || s.State != adapters.StateWaiting || s.Sub == nil || s.Sub.From != seqOf(e.Data["seq"]) {
+	if s == nil || ambiguous || s.State != adapters.StateWaiting {
+		return
+	}
+	seq := seqOf(e.Data["seq"])
+	// A wait from before this box kept sub-states has no mark: it is told by
+	// the event that began it.
+	if s.Sub == nil && seq != 0 && s.Seq == seq {
+		s.Sub = &subMark{From: seq}
+	}
+	if s.Sub == nil || s.Sub.From != seq {
 		return
 	}
 	s.Sub.ID, s.Sub.Settled = str(e.Data, "sub_state"), true
@@ -1056,6 +1066,21 @@ func (t *Turns) State(name string) (SessionState, bool) {
 		return SessionState{}, false
 	}
 	return s.snapshot(), true
+}
+
+// Waiting is every session that waits now.
+func (t *Turns) Waiting() []SessionState {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.init()
+	var out []SessionState
+	for _, s := range t.sess {
+		if s.State == adapters.StateWaiting {
+			out = append(out, s.snapshot())
+		}
+	}
+	slices.SortFunc(out, func(a, b SessionState) int { return a.Since.Compare(b.Since) })
+	return out
 }
 
 // DirState is the last state reported from a directory, for agents berth

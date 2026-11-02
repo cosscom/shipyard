@@ -298,8 +298,9 @@ output. That data is only ever text:
   none.
 - With [sub-states of Needs you](/concepts/sessions-and-agents#sub-states-of-needs-you)
   set and turn check on, two more things go to that provider, redacted the same
-  way: a question form's text and options, and the sub-states' descriptions,
-  sent as untrusted data. The answer counts only if it names one of your
+  way: a question form's text and options, the last message of an agent that
+  was already waiting when the set or turn check was turned on, and the
+  sub-states' descriptions, sent as untrusted data. The answer counts only if it names one of your
   sub-states, and it can't change whether an agent is in Needs you. An agent on
   the box may edit the sub-states over its socket, with limits on each write, a
   `before:` hook and an event. That route carries no provider and no key, and

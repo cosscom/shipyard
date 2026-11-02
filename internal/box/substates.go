@@ -462,7 +462,7 @@ func (c *TurnCheck) placeForm(ctx context.Context, b *Box, name string, seq int6
 	if !ok || st.State != adapters.StateWaiting || st.sub == nil || st.sub.From != seq || !formWait(st) {
 		return
 	}
-	id, why := c.askAboutForm(ctx, b, name, st)
+	id, why := c.askAboutWait(ctx, b, name, st)
 	if why != "" && c.Log != nil {
 		c.Log.Printf("turn check: %s's form is not sorted: %s", name, why)
 	}
@@ -478,9 +478,10 @@ func (c *TurnCheck) placeForm(ctx context.Context, b *Box, name string, seq int6
 	b.Events.Publish(events.Event{Type: adapters.SubState, Box: b.Name, Origin: "turncheck", Data: data})
 }
 
-// askAboutForm is the sub-state a form belongs in, or why it couldn't be
-// placed. The reason never holds what was sent or answered.
-func (c *TurnCheck) askAboutForm(ctx context.Context, b *Box, name string, st SessionState) (id, why string) {
+// askAboutWait is the sub-state a wait belongs in, or why it couldn't be
+// placed: a form by its words, any other by the agent's last message. The
+// reason never holds what was sent or answered.
+func (c *TurnCheck) askAboutWait(ctx context.Context, b *Box, name string, st SessionState) (id, why string) {
 	sess, err := b.Sessions.Get(ctx, name)
 	if err != nil {
 		return "", "the session is gone"
@@ -493,9 +494,13 @@ func (c *TurnCheck) askAboutForm(ctx context.Context, b *Box, name string, st Se
 	if path != "" {
 		page, _ = transcript.Before(agent, path, sess.Dir, 0, 60)
 	}
-	form := formText(page.Items, st.Ask)
-	if form == "" {
-		return "", "the form's question could not be read"
+	var words string
+	if formWait(st) {
+		if words = formText(page.Items, st.Ask); words == "" {
+			return "", "the form's question could not be read"
+		}
+	} else if words = lastAnswer(page.Items); words == "" {
+		return "", "its last message could not be read"
 	}
 	c.mu.Lock()
 	cfg := c.load()
@@ -512,11 +517,58 @@ func (c *TurnCheck) askAboutForm(ctx context.Context, b *Box, name string, st Se
 	if prompt == "" && path != "" {
 		prompt = earlierPrompt(agent, path, sess.Dir, page)
 	}
-	objective, prompt, form, err := redactedTurn(sess.Title, prompt, form)
+	objective, prompt, words, err := redactedTurn(sess.Title, prompt, words)
 	if err != nil {
 		return "", err.Error()
 	}
-	return c.askSubState(ctx, b, cfg, key, objective, prompt, form)
+	return c.askSubState(ctx, b, cfg, key, objective, prompt, words)
+}
+
+// sortOpenWaits places the waits already open that read as not placed: those
+// begun before a set was turned on or changed, or before turn check was. One
+// request at a time, and only with a set and turn check on. retry takes
+// again the waits already tried and not placed; at the box's start it is
+// false, so a restart asks about each wait once.
+func (c *TurnCheck) sortOpenWaits(ctx context.Context, b *Box, retry bool) {
+	if len(b.SubStates.current().States) == 0 || !c.load().Enabled {
+		return
+	}
+	for _, st := range b.Turns.Waiting() {
+		if ctx.Err() != nil {
+			return
+		}
+		now := time.Now()
+		// A young wait is still the normal path's: its form's answer, or
+		// the end of turn's, is on the way.
+		if !c.placesForms(st.Agent) || b.subStateOf(st, now) != "" || now.Sub(st.Since) < c.formWindow() {
+			continue
+		}
+		if st.sub != nil && st.sub.Settled && st.sub.ID == "" && !retry {
+			continue
+		}
+		// An unmarked permission prompt goes to the default by rule, as a
+		// marked one does.
+		if st.sub == nil && st.Ask != nil && st.Ask.Tool != "" && !formTools[st.Ask.Tool] {
+			continue
+		}
+		from := st.Seq
+		if st.sub != nil {
+			from = st.sub.From
+		}
+		id, why := c.askAboutWait(ctx, b, st.Session, st)
+		if why != "" && c.Log != nil {
+			c.Log.Printf("turn check: %s's open wait is not sorted: %s", st.Session, why)
+		}
+		// The wait ended or moved on meanwhile; the ledger checks again.
+		if now, ok := b.Turns.State(st.Session); !ok || now.State != adapters.StateWaiting || now.Seq != st.Seq {
+			continue
+		}
+		data := map[string]any{"session": st.Session, "path": st.dir, "agent": st.Agent, "source": "turncheck", "seq": from, "sub_state": id}
+		if why != "" {
+			data["why"] = why
+		}
+		b.Events.Publish(events.Event{Type: adapters.SubState, Box: b.Name, Origin: "turncheck", Data: data})
+	}
 }
 
 // askSubState asks which sub-state these words belong in, or says why it

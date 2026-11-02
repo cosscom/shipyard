@@ -6,11 +6,11 @@ The Agent Dashboard (`app/src/views/dashboard/dashboard-view.tsx`) has four colu
 
 - `columns`: the four columns and their counts, with no set. The grid wraps on a narrow window.
 - `preset`: Settings → Agents → **Needs you columns** → **Use Needs a decision and Needs you to act**. The board then has both, amber, with their own counts.
-- `not-sorted`: a waiting agent with no sub-state, or one the set doesn't have, sits in the first column with a small **Not sorted** tag (`data-testid=not-sorted`). `placeSession` decides, unit tested in `app/src/lib/substates.test.ts`.
+- `not-sorted`: a waiting agent with no sub-state, or one the set doesn't have, sits in the first column with a small **Not sorted** tag (`data-testid=not-sorted`). The board passes the tag to the card as a line of its own (`children`), so any card style that takes children shows it. `placeSession` decides, unit tested in `app/src/lib/substates.test.ts`.
 - `editor`: add, rename, move up and down, remove, then Save. Nothing half made saves. At most 6. Removing all restores Needs you.
 - `warnings`: an older box ("runs an older berthd"), a box with turn check off, and who changed what last.
 - `spread`: an edit on one box reaches the others through the app (`lib/substates-sync.ts`), gated on the `substates` capability. A box keeps only a newer stamped set.
-- `placing`: end of turn: the verdict's request as ever, then with a waiting verdict a second one for the sub-state, so descriptions never reach the verdict. A form: one request on its words, default until the answer, then `agent.substate`. A permission prompt: the default by rule, no request, no tag.
+- `placing`: end of turn: the verdict's request as ever, then with a waiting verdict a second one for the sub-state, so descriptions never reach the verdict. A form: one request on its words, default until the answer, then `agent.substate`. A permission prompt: the default by rule, no request, no tag. Waits already open when the set or turn check changes, or that the box never tried before it started, are sorted then, one request each (`sortOpenWaits`, `TestWaitsOpenBeforeASetAreSortedWhenItIsTurnedOn`): a form by its words, any other wait by the agent's last message.
 - `surfaces`: the field reads the same through `GET sessions`, `berthd sessions --json` and MCP's `berth_sessions` (`sub_state`). Edits work over `/v1/substates`, `berthd substates` and MCP's `berth_substates`, including from a box's own agent; `/v1/turncheck` stays closed to it.
 
 ## How to get to it (user POV)
