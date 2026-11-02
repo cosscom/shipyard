@@ -81,6 +81,7 @@ signs in with its own. See [team setup](/guides/team-setup).
 | --- | --- |
 | `berth review OWNER/NAME#N [--box BOX] [--as EMAIL] [--path /x] [--yes] [--json]` | The review sheet: the PR, its author and the exact head commit, the box, what will run there and which keys it gets, and what in the PR changes setup. Then asks, and makes the worktree at that commit (`--yes` doesn't ask; `--json` prints the sheet and makes nothing). `--as` and `--path` [open it logged in](/guides/review-a-pr#opening-logged-in-at-a-page) as one of the project's dev users, at a page, and print that address. Also takes a `berth://review` link |
 | `berth review link OWNER/NAME#N [--as EMAIL] [--path /x]` | Print the PR's review link, to paste in its description or a chat |
+| `berth substates BOX [list] [--json]`, `… add --name N --description D [--id ID]`, `… edit ID [--name N] [--description D]`, `… remove ID`, `… order ID...`, `… preset`, `… clear` | The [sub-states of Needs you](/concepts/sessions-and-agents#sub-states-of-needs-you) on BOX (`berthd substates …` on the box itself). The app spreads an edit to your other boxes |
 | `berth reviews BOX [--idle-days N] [--json]` | The reviews on BOX; `--idle-days` sets how long one may sit unused before it is cleaned up (`0`: never) |
 
 Who may be reviewed is read from GitHub with this laptop's `gh`, as you. See

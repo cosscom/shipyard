@@ -1,0 +1,67 @@
+{
+  "request_sha256": "0a9f3482cf2b42a576b74354a28f12c324cfaf4ff23a298bfc94060075db4276",
+  "answer": {
+    "answers": {
+      "needs": {
+        "type": "choice",
+        "choice": "decision",
+        "probabilities": {
+          "act": 0,
+          "decision": 1
+        },
+        "confidence": 1
+      }
+    },
+    "model": "typesafe-ai/jev",
+    "providerMetadata": {
+      "typesafe": {
+        "confidence": {
+          "needs": 1
+        }
+      },
+      "gateway": {
+        "routing": {
+          "originalModelId": "typesafe-ai/jev",
+          "resolvedProvider": "typesafe-ai",
+          "fallbacksAvailable": [
+            "digitalocean"
+          ],
+          "planningReasoning": "System credentials planned for: typesafe-ai, digitalocean. Disallow prompt training requested: all 2 attempts disallow prompt training",
+          "canonicalSlug": "typesafe-ai/jev",
+          "finalProvider": "typesafe-ai",
+          "modelAttemptCount": 1,
+          "modelAttempts": [
+            {
+              "canonicalSlug": "typesafe-ai/jev",
+              "success": true,
+              "providerAttemptCount": 1,
+              "providerAttempts": [
+                {
+                  "provider": "typesafe-ai",
+                  "credentialType": "system",
+                  "success": true,
+                  "startTime": 1793609087667,
+                  "endTime": 1793609087819,
+                  "statusCode": 200
+                }
+              ]
+            }
+          ],
+          "totalProviderAttemptCount": 1
+        },
+        "cost": "0.00002184",
+        "marketCost": "0.00002184",
+        "surchargeCost": "0",
+        "gatewayCost": "0.00002184",
+        "inferenceCost": "0.00002184",
+        "inputInferenceCost": "0.00002184",
+        "outputInferenceCost": "0",
+        "generationId": "gen_01M6DPXEMQSA5B4WBS6R9WYSKG"
+      }
+    },
+    "usage": {
+      "inputTokens": 520,
+      "outputTokens": 31
+    }
+  }
+}

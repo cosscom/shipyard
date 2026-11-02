@@ -44,6 +44,7 @@ and dashes.
 | `agent.ready` | `path`, `agent`, `session` (when the hook knows it) and the tool's own id (below): a new agent at its prompt. After a finished turn [turn check](/concepts/sessions-and-agents#agent-state) judged unfinished but not waiting on you, with `source: "turncheck"`, `choice` and `seq`: the session stays `finished`, with `unfinished: true` for `choice: "working"` (something still runs) or `parked: true` for `choice: "parked"` (it waits on a reply or a later time); neither notifies |
 | `agent.started` | the same, with `signal`: `prompt` (working on a prompt) or `tool` (working again after an approval or an answer). For an agent that cannot say it started, Shipyard sends it at the send, with `source: "send"` and `turn` |
 | `agent.waiting` | the same, with `reason` (`permission`, `question`): needs you. Codex's async question box adds `question_box: "async"`: its turn can end before the answer, and the session keeps waiting until you prompt again. At a startup question Shipyard sends it itself, with `reason: "startup question"`; after a finished turn [turn check](/concepts/sessions-and-agents#agent-state) judged to need you, with `reason: "turn check"`, `source: "turncheck"` and the model's `choice` (`needs_input` or `blocked`) |
+| `agent.substate` | `session`, `path`, `agent`, `seq` (the wait it is about), `sub_state`, and `why` when it couldn't be placed: where a question form goes among the [sub-states of Needs you](/concepts/sessions-and-agents#sub-states-of-needs-you), after its `agent.waiting`. It starts no new wait and notifies no one. `agent.waiting` itself carries `sub_state` once that is known (turn check's verdict, a permission prompt's default), or `sub_state_why` |
 | `agent.finished` | the same: done with its turn; `status: "error"` when it ended on a failure |
 | `agent.exited` | the same: the agent itself quit |
 | `task.created` | `location`, `name`, `path`, `branch`, `session`, `agent`, `from_session` |
@@ -145,6 +146,7 @@ events.
 | `helper.removed` | `plugin`, `purged`, `attached`: one was stopped and removed, with its data when `purged`; `attached` counts the running services that still point at it. Not announced when nothing of the helper was on the box |
 | `phone.changed` | `enabled` |
 | `turncheck.changed` | `enabled`, `provider`, `url`, `model`, `key` (a reference, or empty), `key_pasted`, `key_removed`; never a key's value |
+| `substates.changed` | `revision`, `change` (what happened, in words), `changed_by`, `count` |
 | `box.upgraded` | `build` |
 | `pairing.invited` | `for`, `by`, `expires`: a paired laptop (`by`, as `laptop:<name>`) asked for a pairing code for another computer (`berth invite`); never the code |
 | `client.paired` | `name`, `fingerprint`: a laptop paired with the box |
@@ -220,6 +222,7 @@ exits non-zero refuses it with what it printed. Gates in a laptop's
 | `before:config.change` | `location`, `flows`, `env` or `guard`: what is about to change |
 | `before:phone.change` | |
 | `before:turncheck.change` | the same as `turncheck.changed` |
+| `before:substates.change` | `change`, `changed_by`, `states`: the whole list as it would be |
 | `before:location.remove` | `location` |
 | `before:hooks.change` | |
 | `before:session.attach` | `name` |

@@ -25,6 +25,7 @@ import { NONE, useStore } from "@/lib/store";
 import { layaPlaceholder, type TurnCheckChange, type TurnCheckConfig, type TurnCheckProvider, type TurnCheckStatus, turnCheckApi, turnCheckProviders, turnCheckReady } from "@/lib/turncheck";
 import { Segmented } from "@/views/settings/controls";
 import { Code, SettingsGroup, SettingsPage, SettingsRow } from "@/views/settings/rows";
+import { SubStatesSection } from "@/views/settings/substates-section";
 
 // How to put each built-in agent on a box's PATH.
 const INSTALL: Record<string, string> = {
@@ -129,6 +130,7 @@ export function AgentsSection() {
       )}
 
       {online.length > 0 && <TurnCheck boxes={online.map((b) => b.name)} />}
+      {online.length > 0 && <SubStatesSection boxes={online.map((b) => b.name)} />}
 
       {shownSkills && (
         <section>

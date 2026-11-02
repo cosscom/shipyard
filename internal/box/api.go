@@ -91,6 +91,8 @@ type Box struct {
 	// TurnCheck, when turned on, asks Jev whether a finished turn needs
 	// you (turncheck.go).
 	TurnCheck *TurnCheck
+	// SubStates keeps the optional sub-states of Needs you (substates.go).
+	SubStates *SubStates
 	// Secrets resolves secret references in worktree environments; nil
 	// uses a shared one.
 	Secrets *Secrets
@@ -195,6 +197,12 @@ func (b *Box) Mount(s *wire.Server) {
 	route("PUT /v1/phone", b.putPhone)
 	route("GET /v1/turncheck", b.getTurnCheck)
 	route("PUT /v1/turncheck", b.putTurnCheck)
+	route("GET /v1/substates", b.getSubStates)
+	route("PUT /v1/substates", b.putSubStates)
+	route("POST /v1/substates", b.postSubState)
+	route("POST /v1/substates/preset", b.postSubStatePreset)
+	route("PATCH /v1/substates/{id}", b.patchSubState)
+	route("DELETE /v1/substates/{id}", b.deleteSubState)
 	route("GET /v1/kits", b.listKits)
 	route("PUT /v1/locations/{name}/kit", b.putKit)
 	route("POST /v1/locations/{name}/team-kit", b.postTeamKit)
@@ -1231,6 +1239,11 @@ func (b *Box) agentEvent(ctx context.Context, origin, typ string, data, private 
 	// agents use tools constantly: keep them out of the journal.
 	if b.Turns != nil && b.Turns.Redundant(typ, data) {
 		return
+	}
+	if typ == adapters.Waiting {
+		if id := b.subStateForEvent(data, private); id != "" {
+			data["sub_state"] = id
+		}
 	}
 	b.Events.Publish(events.Event{Type: typ, Box: b.Name, Origin: origin, Data: data})
 	if title, _ := private["title"].(string); title != "" && typ == adapters.Started && b.Turns != nil {

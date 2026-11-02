@@ -53,6 +53,7 @@ var usageSections = []struct {
 	{"Agent sessions", [][2]string{
 		{"%[1]s sessions%[3]s [--json]", "List sessions"},
 		{"%[1]s agents%[3]s [--json]", "Agent CLIs this box can start"},
+		{"%[1]s substates%[3]s [list] [--json] | add --name N --description D [--id ID] | edit ID [--name N] [--description D] | remove ID | order ID... | preset | clear", "The sub-states of Needs you: columns turn check places a waiting\nagent in by their descriptions. None by default; the first is the\ndefault; the app spreads an edit to your other boxes"},
 		{"%[1]s task new %[2]sLOC/NAME [--agent ID] [--prompt TEXT] [--title T] [--open split|tab] [--branch B] [--base REF] [--no-notify] [-- COMMAND...]", "A worktree with an agent (or COMMAND) running in it; run from\nan agent, it hears back when the first turn ends"},
 		{"%[1]s session new %[2]sLOC[/WORKTREE] [--name N] [--agent ID [--prompt TEXT]] [--title T] [--open split|tab] [-- COMMAND...]", "Start an agent or COMMAND (default: a shell) there"},
 		{"%[1]s session rename %[2]sNAME [TITLE]", "Name a session's work (no TITLE clears it; a prompt names an untitled one)"},
@@ -191,6 +192,7 @@ var Commands = map[string]int{
 	"runs":   1, "run": 2, "flow": 2, "browser": 2, "shots": 2,
 	"artifact": 2,
 	"reviews":  1, "review-button": 1, "login": 2,
+	"substates": 1,
 }
 
 // Run executes args, which start with the command words, against c.
@@ -264,6 +266,8 @@ func Run(ctx context.Context, c *box.Client, args []string, out io.Writer) error
 		return shotsCmd(ctx, c, strings.TrimPrefix(cmd, "shots "), rest, out)
 	case "reviews":
 		return reviewsCmd(ctx, c, rest, out)
+	case "substates":
+		return substatesCmd(ctx, c, rest, out)
 	case "review-button":
 		return reviewButtonCmd(ctx, c, rest, out)
 	case "login users":

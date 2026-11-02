@@ -208,6 +208,10 @@ func (c *TurnCheck) Run(ctx context.Context, b *Box) {
 		if err != nil {
 			return
 		}
+		if e.Type == adapters.Waiting {
+			c.watchForm(ctx, b, e)
+			continue
+		}
 		if e.Type != adapters.Finished {
 			continue
 		}
@@ -262,43 +266,17 @@ func (c *TurnCheck) check(ctx context.Context, b *Box, name string, seq int64) e
 	if !cfg.Enabled {
 		return nil
 	}
-	// A key, pasted or a reference, goes only to the provider it is for,
-	// at that provider's own URL. Settings refuses a reference with a
-	// server of your own; the file may still say so.
-	var key string
-	switch {
-	case cfg.Provider == ProviderLaya:
-		if cfg.Key != "" {
-			return errors.New("a key goes only to AI Gateway or OpenAI, and a server of your own is set")
-		}
-		if cfg.URL == "" {
-			return errors.New("no server is set")
-		}
-	case keyed(cfg.Provider):
-		if cfg.Model == "" {
-			return errors.New("no model is chosen")
-		}
-		if cfg.Key != "" {
-			if key, err = b.secrets().Resolve(ctx, cfg.Key, LoadOpEnv(b.EnvFile), false); err != nil {
-				return fmt.Errorf("the key: %w", err)
-			}
-		} else if key = stored; key == "" {
-			return errors.New("no key is set")
-		}
-	default:
-		return errors.New("no provider is chosen")
+	key, err := c.keyFor(ctx, b, cfg, stored)
+	if err != nil {
+		return err
 	}
 	prompt := lastPrompt(page.Items)
 	if prompt == "" {
 		prompt = earlierPrompt(agent, path, sess.Dir, page)
 	}
-	// What looks like a secret is taken out before anything is cut, so a
-	// secret cut in two is never half sent.
-	objective := clipRunes(RedactSecrets(sess.Title), turnCheckTitleLimit)
-	prompt = clipRunes(RedactSecrets(prompt), turnCheckPromptLimit)
-	reply = tail(RedactSecrets(reply), turnCheckReplyLimit)
-	if what := LooksLikeSecret([]byte(objective + "\n" + prompt + "\n" + reply)); what != "" {
-		return fmt.Errorf("the turn still holds %s", what)
+	objective, prompt, reply, err := redactedTurn(sess.Title, prompt, reply)
+	if err != nil {
+		return err
 	}
 	choice, p, err := c.ask(ctx, b, cfg, key, objective, prompt, reply)
 	if err != nil {
@@ -317,10 +295,81 @@ func (c *TurnCheck) check(ctx context.Context, b *Box, name string, seq int64) e
 	if st, ok := b.Turns.State(name); !ok || st.State != "finished" || st.Seq != seq {
 		return nil
 	}
-	b.Events.Publish(events.Event{Type: verdict, Box: b.Name, Origin: "turncheck", Data: map[string]any{
-		"session": name, "path": sess.Dir, "agent": agent, "reason": "turn check", "source": "turncheck", "choice": choice, "seq": seq,
-	}})
+	data := map[string]any{"session": name, "path": sess.Dir, "agent": agent, "reason": "turn check", "source": "turncheck", "choice": choice, "seq": seq}
+	// With a set, a second request picks its sub-state, on the same words. The
+	// verdict's request never holds the set's descriptions, so they can't
+	// touch it, and this can only say which column.
+	if verdict == adapters.Waiting && len(b.SubStates.current().States) > 0 {
+		sub, why := c.askSubState(ctx, b, cfg, key, objective, prompt, reply)
+		if sub != "" {
+			data["sub_state"] = sub
+		} else {
+			data["sub_state_why"] = why
+		}
+		if st, ok := b.Turns.State(name); !ok || st.State != "finished" || st.Seq != seq {
+			return nil
+		}
+	}
+	b.Events.Publish(events.Event{Type: verdict, Box: b.Name, Origin: "turncheck", Data: data})
 	return nil
+}
+
+// keyFor is the key for cfg's provider, or why a check can't go ahead. A key,
+// pasted or a reference, goes only to the provider it is for, at that
+// provider's own URL. Settings refuses a reference with a server of your own;
+// the file may still say so.
+func (c *TurnCheck) keyFor(ctx context.Context, b *Box, cfg TurnCheckConfig, stored string) (string, error) {
+	switch {
+	case cfg.Provider == ProviderLaya:
+		if cfg.Key != "" {
+			return "", errors.New("a key goes only to AI Gateway or OpenAI, and a server of your own is set")
+		}
+		if cfg.URL == "" {
+			return "", errors.New("no server is set")
+		}
+		return "", nil
+	case keyed(cfg.Provider):
+		if cfg.Model == "" {
+			return "", errors.New("no model is chosen")
+		}
+		if cfg.Key != "" {
+			key, err := b.secrets().Resolve(ctx, cfg.Key, LoadOpEnv(b.EnvFile), false)
+			if err != nil {
+				return "", fmt.Errorf("the key: %w", err)
+			}
+			return key, nil
+		}
+		if stored == "" {
+			return "", errors.New("no key is set")
+		}
+		return stored, nil
+	}
+	return "", errors.New("no provider is chosen")
+}
+
+// watchForm starts placing a question form, once per wait and only with a set
+// and turn check on, so nothing is sent otherwise.
+func (c *TurnCheck) watchForm(ctx context.Context, b *Box, e events.Event) {
+	if str(e.Data, "source") != "" || len(b.SubStates.current().States) == 0 || !c.load().Enabled {
+		return
+	}
+	name := b.Turns.SessionOf(e.Data)
+	if st, ok := b.Turns.State(name); ok && st.sub != nil && st.sub.From == e.Seq {
+		go c.placeForm(ctx, b, name, e.Seq)
+	}
+}
+
+// redactedTurn is what a check sends about a turn. What looks like a secret
+// is taken out before anything is cut, so a secret cut in two is never half
+// sent, and a turn that still holds one isn't sent.
+func redactedTurn(title, prompt, reply string) (string, string, string, error) {
+	objective := clipRunes(RedactSecrets(title), turnCheckTitleLimit)
+	prompt = clipRunes(RedactSecrets(prompt), turnCheckPromptLimit)
+	reply = tail(RedactSecrets(reply), turnCheckReplyLimit)
+	if what := LooksLikeSecret([]byte(objective + "\n" + prompt + "\n" + reply)); what != "" {
+		return "", "", "", fmt.Errorf("the turn still holds %s", what)
+	}
+	return objective, prompt, reply, nil
 }
 
 // lastPrompt is the last prompt in items, as the transcript keeps it (its
@@ -377,29 +426,43 @@ func itemOffset(id string) (int64, bool) {
 // ask sends the turn to the provider cfg names and returns its choice and
 // how sure it is. Errors never contain what was sent or answered.
 func (c *TurnCheck) ask(ctx context.Context, b *Box, cfg TurnCheckConfig, key, objective, prompt, reply string) (string, float64, error) {
-	var (
-		to   string
-		ask  map[string]any
-		read func([]byte) (string, float64, error)
-	)
+	ask, read := providerRequest(cfg, objective, prompt, reply)
+	answer, err := c.post(ctx, b, cfg, key, ask)
+	if err != nil {
+		return "", 0, err
+	}
+	return read(answer)
+}
+
+// providerRequest is the turn as cfg's provider takes it, and how its answer
+// reads.
+func providerRequest(cfg TurnCheckConfig, objective, prompt, reply string) (map[string]any, func([]byte) (string, float64, error)) {
+	if cfg.Provider == ProviderOpenAI {
+		return decisionsRequest(cfg.Model, objective, prompt, reply), decisionsVerdict
+	}
+	return jevRequest(cfg, objective, prompt, reply), jevVerdict
+}
+
+// post sends a request to cfg's provider and returns its answer. Errors never
+// contain what was sent or answered.
+func (c *TurnCheck) post(ctx context.Context, b *Box, cfg TurnCheckConfig, key string, ask map[string]any) ([]byte, error) {
+	to := cfg.URL
 	switch cfg.Provider {
 	case ProviderOpenAI:
-		to, ask, read = decisionsURL, decisionsRequest(cfg.Model, objective, prompt, reply), decisionsVerdict
+		to = decisionsURL
 	case ProviderGateway:
-		to, ask, read = jevURL, jevRequest(cfg, objective, prompt, reply), jevVerdict
-	default:
-		to, ask, read = cfg.URL, jevRequest(cfg, objective, prompt, reply), jevVerdict
+		to = jevURL
 	}
 	body, err := json.Marshal(ask)
 	if err != nil {
-		return "", 0, err
+		return nil, err
 	}
 	timeout := orDefault(c.timeout, turnCheckTimeout)
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, to, bytes.NewReader(body))
 	if err != nil {
-		return "", 0, err
+		return nil, err
 	}
 	client := b.outboundPolicy().client(timeout)
 	if key != "" {
@@ -411,19 +474,19 @@ func (c *TurnCheck) ask(ctx context.Context, b *Box, cfg TurnCheckConfig, key, o
 	resp, err := client.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
-			return "", 0, errors.New("the server did not answer in time")
+			return nil, errors.New("the server did not answer in time")
 		}
-		return "", 0, errors.New("the server could not be reached")
+		return nil, errors.New("the server could not be reached")
 	}
 	defer resp.Body.Close()
 	answer, err := io.ReadAll(io.LimitReader(resp.Body, maxJevAnswer))
 	if err != nil {
-		return "", 0, errors.New("the answer could not be read")
+		return nil, errors.New("the answer could not be read")
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", 0, fmt.Errorf("the server answered %s", resp.Status)
+		return nil, fmt.Errorf("the server answered %s", resp.Status)
 	}
-	return read(answer)
+	return answer, nil
 }
 
 // jevRequest is the turn as Jev's request, for AI Gateway and for Laya.
@@ -467,6 +530,19 @@ func decisionsRequest(model, objective, prompt, reply string) map[string]any {
 // decisionsVerdict reads the status answer of OpenAI's Decisions API: its
 // choice, and the probability it gave that choice.
 func decisionsVerdict(answer []byte) (string, float64, error) {
+	typ, choice, p, ok := decisionsQuestion(answer, "status")
+	if ok && typ == "refusal" {
+		return "", 0, errors.New("the model refused to answer")
+	}
+	if _, known := jevCriteria[choice]; !ok || typ != "choice" || !known || p < 0 || p > 1 {
+		return "", 0, errors.New("the answer is not a decision")
+	}
+	return choice, p, nil
+}
+
+// decisionsQuestion reads one question's answer from the Decisions API: its
+// type, its choice, and the probability of that choice (-1 if it gave none).
+func decisionsQuestion(answer []byte, name string) (typ, choice string, p float64, ok bool) {
 	var doc struct {
 		Answers []struct {
 			Type          string `json:"type"`
@@ -479,48 +555,52 @@ func decisionsVerdict(answer []byte) (string, float64, error) {
 		} `json:"answers"`
 	}
 	if json.Unmarshal(answer, &doc) != nil {
-		return "", 0, errors.New("the answer is not a decision")
+		return "", "", 0, false
 	}
 	for _, a := range doc.Answers {
-		if a.Name != "status" {
+		if a.Name != name {
 			continue
 		}
-		if a.Type == "refusal" {
-			return "", 0, errors.New("the model refused to answer")
-		}
-		if _, known := jevCriteria[a.Choice]; a.Type != "choice" || !known {
-			break
-		}
-		for _, p := range a.Probabilities {
-			if p.Value == a.Choice && p.Probability >= 0 && p.Probability <= 1 {
-				return a.Choice, p.Probability, nil
+		p = -1
+		for _, o := range a.Probabilities {
+			if o.Value == a.Choice {
+				p = o.Probability
+				break
 			}
 		}
-		break
+		return a.Type, a.Choice, p, true
 	}
-	return "", 0, errors.New("the answer is not a decision")
+	return "", "", 0, false
 }
 
 // jevVerdict reads answers.status: its choice, and the probability of that
 // choice.
 func jevVerdict(answer []byte) (string, float64, error) {
+	choice, p, ok := jevQuestion(answer, "status")
+	if _, known := jevCriteria[choice]; !ok || !known || p < 0 || p > 1 {
+		return "", 0, errors.New("the answer is not Jev's")
+	}
+	return choice, p, nil
+}
+
+// jevQuestion reads one question's answer in Jev's shape: its choice and the
+// probability of that choice.
+func jevQuestion(answer []byte, name string) (choice string, p float64, ok bool) {
 	var doc struct {
-		Answers struct {
-			Status struct {
-				Choice        string             `json:"choice"`
-				Probabilities map[string]float64 `json:"probabilities"`
-			} `json:"status"`
-		} `json:"answers"`
+		Answers map[string]json.RawMessage `json:"answers"`
 	}
 	if json.Unmarshal(answer, &doc) != nil {
-		return "", 0, errors.New("the answer is not Jev's")
+		return "", 0, false
 	}
-	st := doc.Answers.Status
-	p, ok := st.Probabilities[st.Choice]
-	if _, known := jevCriteria[st.Choice]; !known || !ok || p < 0 || p > 1 {
-		return "", 0, errors.New("the answer is not Jev's")
+	var q struct {
+		Choice        string             `json:"choice"`
+		Probabilities map[string]float64 `json:"probabilities"`
 	}
-	return st.Choice, p, nil
+	if raw, found := doc.Answers[name]; !found || json.Unmarshal(raw, &q) != nil {
+		return "", 0, false
+	}
+	p, ok = q.Probabilities[q.Choice]
+	return q.Choice, p, ok
 }
 
 // getTurnCheck and putTurnCheck are for paired laptops only: an agent on

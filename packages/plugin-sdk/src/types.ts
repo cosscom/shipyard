@@ -189,6 +189,9 @@ export interface Session {
   agent_state?: AgentState;
   // When agent_state last changed.
   state_since?: string;
+  // Which sub-state of Needs you a waiting agent is in, on a box with a set
+  // and when it could be placed. agent_state stays "waiting".
+  agent_sub_state?: string;
   // The agent preset the session was started with, when berth started it
   // with one (kept even when the command wraps the agent).
   preset?: string;

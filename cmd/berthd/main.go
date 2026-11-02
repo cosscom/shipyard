@@ -386,6 +386,7 @@ func serve(b boxHome, args []string) error {
 		Guard:            &box.Guard{Path: filepath.Join(userDir, "guard.json")},
 		Invites:          &box.Invites{Address: func() string { return pairAddress(b) }, TTL: defaultTTL},
 		TurnCheck:        &box.TurnCheck{Path: filepath.Join(userDir, "turncheck.json"), KeyPath: filepath.Join(b.dir, "turncheck.key"), Log: logger},
+		SubStates:        &box.SubStates{Path: filepath.Join(userDir, "substates.json")},
 		Update: &box.SelfUpdate{
 			Executable:    exe,
 			Fingerprint:   id.Fingerprint().String(),

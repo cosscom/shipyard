@@ -193,6 +193,49 @@ progress, and anything that waits on you is **Needs you**. Anything else (done, 
 sure, a failed request, no answer in 10 seconds, or you prompting again
 first) leaves it **Done**; no other model is asked.
 
+### Sub-states of Needs you
+
+Needs you mixes asks that want an answer with asks that send you off to do
+something. You can split it into columns of your own, each with a name and a
+description: Settings → Agents → **Needs you columns** has a one-click preset
+(**Needs a decision** and **Needs you to act**) and an editor, up to 6, the
+first being the default. They are off by default, and with none set the board,
+the API and turn check's requests are exactly as without them.
+
+`agent_state` doesn't change: an agent in a sub-state is `waiting`, and sends,
+waits, notifications and plugins treat it as they always did. An optional
+`agent_sub_state` says which one. Only the board shows them; the sidebar, the
+status bar and notifications keep saying Needs you.
+
+- **At the end of a turn**, with turn check's verdict `needs_input` or `blocked`,
+  a second request on the same words picks a sub-state. The verdict alone says
+  whether the agent is in Needs you, and its request never holds your
+  descriptions, so they can't move an agent in or out.
+- **A question form** (Claude Code's AskUserQuestion, Codex's question box) gets
+  one request on its text. The card shows in the default and moves when the
+  answer arrives, within 10 seconds. This sends the form's words to turn check's
+  provider, only with sub-states set and turn check on, with what looks like a
+  secret taken out as for a turn. Its place reaches clients as `agent.substate`,
+  never a second `agent.waiting`, so you aren't told twice.
+- **A permission prompt** goes to the default by rule, with no request and no tag.
+
+What can't be placed sits in the default with a small **Not sorted** tag, and
+never drops off the board: turn check off, no provider, an agent it doesn't read
+(anything but Claude Code and Codex), no answer in time, an answer under 65%
+sure or not one of your sub-states, a refusal, a leftover secret, or an older
+box. So does a sub-state just removed or not synced yet. Moving between
+sub-states keeps `state_since`, so the oldest wait stays on top. Agents already
+waiting aren't sorted again when you change the set.
+
+Each box keeps its own copy, stamped with a revision, in `substates.json`. The
+app spreads the newest edit to every box it can reach, including boxes that come
+back or are added later, and a box keeps only what is newer than it holds, so
+two laptops can't flip it. An agent may edit the set too, unlike the rest of turn
+check, with `berthd substates` or the `berth_substates` tool: names and
+descriptions only, never a provider or a key. A `before:substates.change` hook
+can refuse an edit, `substates.changed` announces it, and Settings shows who
+changed what last. Removing every sub-state restores the one column at once.
+
 Settings → Agents, which only a paired laptop can change, keeps a key per
 provider on the box, readable by you alone, and sends each only to its own
 provider; a [secret reference](/guides/secrets) (`op://…`, or `env://NAME`

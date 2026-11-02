@@ -1,4 +1,4 @@
-import { HourglassIcon, SquareIcon } from "lucide-react";
+import { CircleDashedIcon, HourglassIcon, SquareIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { AgentIcon } from "@/components/agent-glyph";
@@ -54,7 +54,7 @@ export function duration(ms: number): string {
 // AgentCard is one agent on the board: where it works, how long it has been
 // in its state, the last thing it said, and what you can do about it. While
 // the board is selecting (or with ⌘ or ⇧ held), a click picks it instead.
-export function AgentCard({ entry, selecting, selected, onSelect }: { entry: SessionEntry; selecting?: boolean; selected?: boolean; onSelect?(): void }) {
+export function AgentCard({ entry, notSorted, selecting, selected, onSelect }: { entry: SessionEntry; notSorted?: boolean; selecting?: boolean; selected?: boolean; onSelect?(): void }) {
   const { box, session, state } = entry;
   const locations = useStore((s) => s.boxes[box]?.locations);
   const sessions = useStore((s) => s.boxes[box]?.sessions);
@@ -139,6 +139,15 @@ export function AgentCard({ entry, selecting, selected, onSelect }: { entry: Ses
             <div className="mt-1 flex w-fit items-center gap-1 pl-5.5 text-meta text-muted-foreground">
               <HourglassIcon className="size-3" aria-hidden />
               Parked: waiting on a reply or a later time
+            </div>
+          </Tip>
+        )}
+        {/* Under sub-states: it couldn't be placed, so it sits in the default. */}
+        {notSorted && (
+          <Tip label="Turn check couldn't place this one, so it sits in the first column. It may be off on this box, or not cover this agent, or not have been sure.">
+            <div data-testid="not-sorted" className="mt-1 flex w-fit items-center gap-1 pl-5.5 text-meta text-muted-foreground">
+              <CircleDashedIcon className="size-3" aria-hidden />
+              Not sorted
             </div>
           </Tip>
         )}

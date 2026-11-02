@@ -33,6 +33,9 @@ const refreshes: [prefix: string, parts: BoxPart[]][] = [
   ["review.", ["locations"]],
   // Agent CLIs added or found on the box: the agents it offers.
   ["agents.", ["info"]],
+  // The sub-states changed: their revision says to read them again, and a
+  // waiting agent may read as another now.
+  ["substates.", ["info", "sessions"]],
 ];
 
 // The most recent events, newest first, for the Automations view.

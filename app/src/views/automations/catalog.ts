@@ -21,6 +21,7 @@ const worktree = ["location", "name", "path", "branch"];
 
 export const CATALOG: CatalogEntry[] = [
   { on: "agent.waiting", label: "Agent needs you", where: "box", fields: [...agent, "reason"], hint: "A permission, a question, or a startup prompt." },
+  { on: "agent.substate", label: "Agent placed in a sub-state", where: "box", fields: [...agent, "sub_state", "why"], hint: "A question form sorted into a Needs you column, or couldn't be. No new wait: agent.waiting isn't sent again." },
   { on: "agent.finished", label: "Agent finished", where: "box", fields: agent, hint: "Done with its turn." },
   { on: "agent.started", label: "Agent started working", where: "box", fields: agent },
   { on: "agent.ready", label: "Agent ready", where: "box", fields: agent, hint: "A new agent sitting at its prompt." },

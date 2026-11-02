@@ -213,7 +213,7 @@ JSON:
 
 | Tool | Returns |
 | --- | --- |
-| `berth_sessions` | name, agent, state, turn, where |
+| `berth_sessions` | name, agent, state, turn, where, and `sub_state` on a box with sub-states |
 | `berth_screen` | the last lines (at most 60) |
 | `berth_task_new` | the new session and worktree |
 | `berth_send` | the turn (held until the agent is idle, by default) |
@@ -221,6 +221,7 @@ JSON:
 | `berth_exec` | a detached run; with `wait` (at most 90 s) its exit code and failing tail |
 | `berth_run_start`, `berth_run_get`, `berth_run_cancel` | a run, in brief |
 | `berth_attempts` | an attempts run |
+| `berth_substates` | the [sub-states of Needs you](/concepts/sessions-and-agents#sub-states-of-needs-you); `action`: `list`, `add`, `edit`, `remove`, `order`, `preset` or `clear` |
 
 Agents can start and follow runs but not decide their gates: those are a
 person's.

@@ -612,7 +612,13 @@ type recordedTurnCheck struct {
 // the gateway instead and records the answer; tests never do otherwise.
 func replayTurnCheck(t *testing.T, name string, turn turnFixture) (request []byte, answer http.HandlerFunc) {
 	t.Helper()
-	request, err := json.Marshal(jevRequest(TurnCheckConfig{Provider: ProviderGateway, Model: "typesafe-ai/jev"}, turn.title, turn.prompt, turn.reply))
+	return replayRequest(t, name, jevRequest(TurnCheckConfig{Provider: ProviderGateway, Model: "typesafe-ai/jev"}, turn.title, turn.prompt, turn.reply))
+}
+
+// replayRequest is a recorded answer to this exact request.
+func replayRequest(t *testing.T, name string, ask map[string]any) (request []byte, answer http.HandlerFunc) {
+	t.Helper()
+	request, err := json.Marshal(ask)
 	if err != nil {
 		t.Fatal(err)
 	}

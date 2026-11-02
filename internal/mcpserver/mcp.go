@@ -141,6 +141,7 @@ var Tools = []Tool{
 	{Name: "berth_exec", Description: "Run a command in a worktree as a detached run; with wait (at most 90 s) return its result if done, else the run, which reports back (a <berth-notification>) when it ends.", InputSchema: obj(with(map[string]any{"location": str("location or location/worktree"), "command": str("shell command"), "wait": num("seconds to wait, at most 90 (default 0)")}), "location", "command"), call: execTool},
 	{Name: "berth_run_start", Description: "Start a durable run from a template (loop, review, handoff, broadcast, attempts, fix-ci, address-review). Returns the run ID." + told, InputSchema: obj(with(map[string]any{"template": str("template name"), "params": map[string]any{"type": "object", "description": "template parameters"}, "idem": str("idempotency key")}), "template", "params"), call: runStart},
 	{Name: "berth_run_get", Description: "A run's status, its open gate, current step and attempts, in brief.", InputSchema: obj(map[string]any{"run": str("run ID")}, "run"), call: runGet},
+	{Name: "berth_substates", Description: "List or edit the sub-states of Needs you: dashboard columns turn check places a waiting agent in by their descriptions. None by default; the first is the default. Actions: list (default), add, edit, remove, order, preset, clear.", InputSchema: obj(map[string]any{"action": str("list, add, edit, remove, order, preset or clear"), "id": str("the sub-state's ID (edit, remove; optional for add)"), "name": str("its name, at most 40 characters (add, edit)"), "description": str("what it means, at most 300 characters (add, edit)"), "ids": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "all IDs in the new order (order)"}}), call: subStates},
 	{Name: "berth_run_cancel", Description: "Cancel a run.", InputSchema: obj(map[string]any{"run": str("run ID")}, "run"), call: runCancel},
 	{Name: "berth_attempts", Description: "Try one task N ways: each agent in its own worktree, verified by check, judged, then a person picks. Returns the run ID." + told, InputSchema: obj(with(map[string]any{"location": str("location"), "name": str("worktree name prefix"), "prompt": str("the task"), "agents": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "agent per attempt, e.g. [\"claude\",\"codex\"]"}, "check": str("command that must pass")}), "location", "name", "prompt", "agents"), call: attempts},
 }
@@ -269,15 +270,86 @@ func sessions(ctx context.Context, s *Server, a map[string]any) (any, error) {
 		State string `json:"state,omitempty"`
 		Turn  string `json:"turn,omitempty"`
 		Where string `json:"where,omitempty"`
+		// Sub is which sub-state of Needs you it is in, on a box with a set.
+		Sub string `json:"sub_state,omitempty"`
 	}
 	out := []row{}
 	for _, x := range all {
 		if x.Exited {
 			continue
 		}
-		out = append(out, row{x.Name, x.Agent, x.AgentState, x.Turn, x.Location})
+		out = append(out, row{x.Name, x.Agent, x.AgentState, x.Turn, x.Location, x.AgentSubState})
 	}
 	return out, nil
+}
+
+// subStates lists or edits the box's sub-states. An edit is stamped by the box
+// and names the caller, for Settings to show who made it; the app spreads it.
+func subStates(ctx context.Context, s *Server, a map[string]any) (any, error) {
+	c := s.Box
+	if who := s.caller(ctx); who != "" {
+		c = c.WithCaller(who)
+	}
+	var (
+		set box.SubStateSet
+		err error
+	)
+	switch action := arg(a, "action"); action {
+	case "", "list":
+		set, err = c.SubStates(ctx)
+	case "add":
+		if err := need(a, "name", "description"); err != nil {
+			return nil, err
+		}
+		set, err = c.AddSubState(ctx, box.SubState{ID: arg(a, "id"), Name: arg(a, "name"), Description: arg(a, "description")})
+	case "edit":
+		if err := need(a, "id"); err != nil {
+			return nil, err
+		}
+		given := func(k string) *string {
+			if v, ok := a[k].(string); ok {
+				return &v
+			}
+			return nil
+		}
+		name, description := given("name"), given("description")
+		if name == nil && description == nil {
+			return nil, errors.New("name or description is required")
+		}
+		set, err = c.EditSubState(ctx, arg(a, "id"), name, description)
+	case "remove":
+		if err := need(a, "id"); err != nil {
+			return nil, err
+		}
+		set, err = c.RemoveSubState(ctx, arg(a, "id"))
+	case "order":
+		raw, _ := a["ids"].([]any)
+		ids := make([]string, 0, len(raw))
+		for _, x := range raw {
+			id, _ := x.(string)
+			ids = append(ids, id)
+		}
+		set, err = c.OrderSubStates(ctx, ids)
+	case "preset":
+		set, err = c.UseSubStatePreset(ctx)
+	case "clear":
+		set, err = c.ClearSubStates(ctx)
+	default:
+		return nil, fmt.Errorf("unknown action %q", action)
+	}
+	if err != nil {
+		return nil, err
+	}
+	type row struct {
+		ID          string `json:"id"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	}
+	rows := make([]row, 0, len(set.States))
+	for _, st := range set.States {
+		rows = append(rows, row{st.ID, st.Name, st.Description})
+	}
+	return map[string]any{"states": rows, "revision": set.Revision}, nil
 }
 
 func screen(ctx context.Context, s *Server, a map[string]any) (any, error) {

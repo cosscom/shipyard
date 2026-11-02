@@ -23,11 +23,15 @@ import { ColumnMenu, openStop, StopDialog } from "@/views/dashboard/stop";
 import { openAddBox } from "@/views/onboarding/add-box-dialog";
 import { ViewHeader } from "@/views/view-header";
 import { sessionWord } from "@/lib/state-model";
+import { placeSession } from "@/lib/substates";
+import { useSubStateSet } from "@/lib/substates-sync";
 
 interface Column {
   state: SessionState;
   title: string;
   empty: string;
+  // A sub-state of Needs you: its ID, for the agents placed in it.
+  sub?: string;
 }
 
 const COLUMNS: Column[] = [
@@ -57,6 +61,11 @@ export function DashboardView() {
   const [hidden, setHidden] = useState<string[]>(() => load("berth.dashboard.hiddenBoxes", []));
   const [showRest, setShowRest] = useState(false);
   const shownBoxes = shownOf(boxNames, hidden);
+  // With sub-states, one amber column each takes Needs you's place, in their
+  // order. Without any, the board is as it always was.
+  const subStates = useSubStateSet()?.states;
+  const place = (e: SessionEntry) => (subStates?.length ? placeSession(e.session, subStates) : undefined);
+  const columns = useMemo(() => (subStates?.length ? [...subStates.map((s): Column => ({ state: "waiting", sub: s.id, title: s.name, empty: `Nothing under ${s.name}.` })), ...COLUMNS.filter((c) => c.state !== "waiting")] : COLUMNS), [subStates]);
   const visible = all.filter((e) => shownBoxes.includes(e.box));
   const rest = visible.filter((e) => !COLUMNS.some((c) => c.state === e.state));
   const agents = all.filter((e) => COLUMNS.some((c) => c.state === e.state));
@@ -199,10 +208,10 @@ export function DashboardView() {
       ) : (
         <div ref={board} data-testid="dashboard-board" onScroll={(e) => (scrolled = e.currentTarget.scrollTop)} className="min-h-0 flex-1 overflow-y-auto">
           <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] items-start gap-x-4 gap-y-6 px-page pt-4 pb-6">
-            {COLUMNS.map((c) => {
-              const items = visible.filter((e) => e.state === c.state).sort((a, b) => sinceOf(a) - sinceOf(b));
+            {columns.map((c) => {
+              const items = visible.filter((e) => e.state === c.state && (!c.sub || place(e)?.column === c.sub)).sort((a, b) => sinceOf(a) - sinceOf(b));
               return (
-                <section key={c.state} aria-label={c.title} className="min-w-0">
+                <section key={c.sub ?? c.state} aria-label={c.title} className="min-w-0">
                   <header className="mb-2 flex min-h-5 items-center gap-2 px-0.5">
                     <StateGlyph state={c.state} />
                     <h2 className="text-section">{c.title}</h2>
@@ -231,6 +240,7 @@ export function DashboardView() {
                         <AgentCard
                           key={`${e.box}/${e.session.name}:${e.state}`}
                           entry={e}
+                          notSorted={!!c.sub && place(e)?.unsorted}
                           selecting={!!picked}
                           selected={picked?.has(keyOf(e))}
                           onSelect={() => pick([keyOf(e)], !picked?.has(keyOf(e)))}

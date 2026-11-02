@@ -7,6 +7,7 @@ import { mockRequirements } from "@/lib/mock-requirements";
 import { browserCall, mockScreencast, mockShotSvg, wireBrowserMock } from "@/lib/mock-browser";
 import { mockDevtoolsCall } from "@/lib/mock-devtools";
 import { phoneCall } from "@/lib/mock-phone";
+import { mockSubStated, subStatesCall, subStatesEdit } from "@/lib/mock-substates";
 import { turnCheckCall } from "@/lib/mock-turncheck";
 import { worktreesCall } from "@/lib/mock-worktrees";
 import { kitsCall, kitsStream } from "@/lib/mock-kits";
@@ -713,6 +714,8 @@ function boxCall(box: string, method: string, path: string, body?: unknown): Pro
   if (phone) return phone;
   const turnCheck = turnCheckCall(box, method, path, body, delay);
   if (turnCheck) return turnCheck;
+  const subStates = subStatesCall(box, method, path, body, (type, data) => emit({ type, box, origin: "berth", data }), delay);
+  if (subStates) return subStates;
   const usage = usageCall(box, method, path, body, delay);
   if (usage) return usage;
   const wts = worktreesCall(box, method, path, body, { locations, sessions }, emit, delay);
@@ -736,7 +739,7 @@ function boxCall(box: string, method: string, path: string, body?: unknown): Pro
   }
   const key = `${method} ${path}`;
   if (key === "GET locations") return delay(locations[box] ?? []);
-  if (key === "GET sessions") return delay(sessions[box] ?? []);
+  if (key === "GET sessions") return delay(mockSubStated(box, sessions[box] ?? []));
   if (key === "GET stats") return delay(stats[box]);
   if (key === "GET services") return delay(services[box] ?? []);
   const svc = /^locations\/([^/]+)\/worktrees\/([^/]+)\/services(?:\/([^/]+)(?:\/(start|stop|restart|log))?)?$/.exec(path);
@@ -787,7 +790,8 @@ function boxCall(box: string, method: string, path: string, body?: unknown): Pro
       home: HOME,
       // gpu runs an older berthd (mockBuilds): it can't keep worktree names,
       // and its agent browser has no tabs.
-      capabilities: ["diff", "turns", "queue", "ask", "answer", "journal", "runs", "exec.detach", "browser", "browser.devtools", "titles", "sample", "service.terminal", "session.home", "agents.install", "artifacts", "processes", ...(box === "gpu" ? [] : ["worktree.titles", "agents.paths", "browser.tabs"]), ...(structuredDemo ? ["driver.claude", "conversations", "sessions.past"] : [])],
+      ...subStatesEdit(box),
+      capabilities: [...(box === "gpu" ? [] : ["substates"]), "diff", "turns", "queue", "ask", "answer", "journal", "runs", "exec.detach", "browser", "browser.devtools", "titles", "sample", "service.terminal", "session.home", "agents.install", "artifacts", "processes", ...(box === "gpu" ? [] : ["worktree.titles", "agents.paths", "browser.tabs"]), ...(structuredDemo ? ["driver.claude", "conversations", "sessions.past"] : [])],
       // Claude Code from npm under nvm, as the person's shell finds it;
       // Codex from Shipyard's own installer.
       agent_paths: [

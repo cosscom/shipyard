@@ -60,7 +60,8 @@ This comes from Shipyard, not from the user: news of agent work you started. …
 - It is a status report, not the user speaking. Act on it: review the
   change, bring the branch back, start the next step, or tell the user.
   `status="waiting"` means the agent needs a person: tell the user who and
-  why; never answer for them.
+  why; never answer for them. An `agent_sub_state` on a session only says which
+  Needs you column it is in: it is still waiting.
 - `--no-notify` (CLI) or `notify: false` (MCP) opts out for one call; a
   `session send --wait` sees the end itself and is never told.
 - It only works from inside an agent session (`$BERTH_SESSION` set). Never
