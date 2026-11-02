@@ -30,7 +30,9 @@ The Agent Dashboard (`app/src/views/dashboard/dashboard-view.tsx`) has four colu
   .claude/skills/verify-berthd/scripts/sub-states-box.sh down
   ```
 
-  An agent's edit over MCP shows in Settings with who made it and spreads to `devr`; a real turn that asks for a choice lands in `decision`; a real form reads `decision → act`, with one `agent.waiting` and one `agent.substate`; the field agrees on the API, the CLI and MCP; clearing the set restores four columns on both boxes. The gateway key comes from `VERIFY_TURNCHECK_KEY_FILE` (default the box's own `turncheck.key`) and goes over stdin, never a command line.
+  `dashboard-sub-states-open-waits` (after a fresh `up`, since it starts from no set) has the Claude ask for a key with no set, waits past the form window, turns on the preset in Settings, and checks the wait lands in Needs you to act, untagged, with one `agent.substate` and no second `agent.waiting`.
+
+  In `dashboard-sub-states-live`, an agent's edit over MCP shows in Settings with who made it and spreads to `devr`; a real turn that asks for a choice lands in `decision`; a real form reads `decision → act`, with one `agent.waiting` and one `agent.substate`; the field agrees on the API, the CLI and MCP; clearing the set restores four columns on both boxes. The gateway key comes from `VERIFY_TURNCHECK_KEY_FILE` (default the box's own `turncheck.key`) and goes over stdin, never a command line.
 - The classifier: `go test ./internal/box -run TestSubStateReplays` replays recorded gateway answers (`testdata/turncheck/substate-*.json`). Re-record with `BERTH_TURNCHECK_RECORD_KEY_FILE=<key file>`, then grep the fixtures for the key.
 
 ## Gotchas
