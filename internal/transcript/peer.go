@@ -352,7 +352,7 @@ const (
 // become messages. The same message delivered twice (a queued_command, then
 // its line) shows once.
 func (c *conv) userTurn(s string, o *Origin, how int, at int64) {
-	helperDone(c, s, at)
+	c.taskNotified(s, at)
 	for _, k := range classify(c, s, o) {
 		switch k.kind {
 		case "user":

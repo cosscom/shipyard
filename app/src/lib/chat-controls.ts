@@ -31,6 +31,8 @@ export interface ChatJob {
   state: "starting" | "running" | "done" | "failed" | "stopped";
   since: number;
   until?: number;
+  // A shell's exit code, once it has ended and the box says.
+  exit?: number;
 }
 
 export interface ChatSignals {
@@ -229,7 +231,8 @@ function mockSignals(session: string): ChatSignals {
       busy && !st.stopped[session]
         ? [
             { tool: "mock-bg-1", task: "b7k2", kind: "shell", command: "pnpm dev --port 3000", label: "Start the dev server", state: "running", since: t - 7 * 60_000 },
-            { tool: "mock-bg-2", task: "b7k3", kind: "shell", command: "pnpm test --watch payments", label: "Watch the payment tests", state: "done", since: t - 4 * 60_000, until: t - 60_000 },
+            { tool: "mock-bg-2", task: "b7k3", kind: "shell", command: "pnpm test --watch payments", label: "Watch the payment tests", state: "done", since: t - 4 * 60_000, until: t - 60_000, exit: 0 },
+            { tool: "mock-bg-3", task: "b7k4", kind: "shell", command: "pnpm lint", label: "Lint the checkout package", state: "failed", since: t - 3 * 60_000, until: t - 150_000, exit: 3 },
           ]
         : [],
   };

@@ -1,6 +1,7 @@
 package transcript
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -144,6 +145,50 @@ func TestAHelperIsBackWhenTheStreamSaysSo(t *testing.T) {
 	}
 }
 
+// A structured session's stream says a background shell ended only in a
+// task_notification line of its own: Claude is told in a prompt only if it
+// is idle then, so most shells never get one in the log.
+func TestABackgroundShellEndsWhenTheStreamSaysSo(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "log.jsonl")
+	out := filepath.Join(dir, "gone", "tasks")
+	shell := func(seq int, at int64, id, task, cmd string) []string {
+		return []string{
+			fmt.Sprintf(`{"seq":%d,"at":%d,"dir":"out","data":{"type":"assistant","message":{"id":"m%d","role":"assistant","content":[{"type":"tool_use","id":"%s","name":"Bash","input":{"command":"%s","description":"%s","run_in_background":true}}]}}}`, seq, at, seq, id, cmd, cmd),
+			fmt.Sprintf(`{"seq":%d,"at":%d,"dir":"out","data":{"type":"system","subtype":"task_started","task_id":"%s","tool_use_id":"%s","is_backgrounded":true,"task_type":"local_bash"}}`, seq+1, at, task, id),
+			fmt.Sprintf(`{"seq":%d,"at":%d,"dir":"out","data":{"type":"user","message":{"role":"user","content":[{"tool_use_id":"%s","type":"tool_result","content":"Command running in background with ID: %s. Output is being written to: %s/%s.output. You will be notified when it completes."}]}}}`, seq+2, at+100, id, task, out, task),
+		}
+	}
+	lines := []string{`{"seq":1,"at":1792200000000,"dir":"out","data":{"type":"user","message":{"role":"user","content":"Build it, and lint it"}}}`}
+	lines = append(lines, shell(2, 1792200001000, "toolu_build", "bq1build", "pnpm build")...)
+	lines = append(lines, shell(5, 1792200002000, "toolu_lint", "bq2lint", "pnpm lint")...)
+	lines = append(lines,
+		`{"seq":8,"at":1792200030000,"dir":"out","data":{"type":"system","subtype":"task_updated","task_id":"bq1build","patch":{"status":"completed","end_time":1792200030000}}}`,
+		`{"seq":9,"at":1792200030000,"dir":"out","data":{"type":"system","subtype":"task_notification","task_id":"bq1build","tool_use_id":"toolu_build","status":"completed","output_file":"`+out+`/bq1build.output","summary":"Background command \"pnpm build\" completed (exit code 0)"}}`,
+		`{"seq":10,"at":1792200040000,"dir":"out","data":{"type":"system","subtype":"task_notification","task_id":"bq2lint","tool_use_id":"toolu_lint","status":"failed","output_file":"`+out+`/bq2lint.output","summary":"Background command \"pnpm lint\" failed with exit code 3"}}`,
+	)
+	jobs := func(n int) []Job {
+		t.Helper()
+		os.WriteFile(path, []byte(strings.Join(lines[:n], "\n")+"\n"), 0o644)
+		res, err := NewReader().Read(SourceClaudeHost, path, "/home/dev/acme", 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res.Signals.Background
+	}
+	if bg := jobs(7); len(bg) != 2 || bg[0].State != "running" || bg[1].State != "running" {
+		t.Fatalf("while they run: %+v", bg)
+	}
+	bg := jobs(9)
+	if bg[0].State != "done" || bg[0].Until != 1792200030000 || bg[0].Exit == nil || *bg[0].Exit != 0 || bg[1].State != "running" {
+		t.Fatalf("once the stream says the build ended: %+v", bg)
+	}
+	bg = jobs(10)
+	if bg[1].State != "failed" || bg[1].Until != 1792200040000 || bg[1].Exit == nil || *bg[1].Exit != 3 {
+		t.Fatalf("once the stream says the lint failed: %+v", bg)
+	}
+}
+
 func TestAnEditInAStructuredSessionsLogKeepsItsLineNumbers(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "events.jsonl")
 	hunk := []Hunk{{OldStart: 12, OldLines: 1, NewStart: 12, NewLines: 1, Lines: []string{"-old", "+new"}}}
@@ -238,4 +283,35 @@ func TestAQuestionStaysOpenWhileItsHelpersWorkOn(t *testing.T) {
 		t.Fatalf("read afresh, the first item is %+v", afresh.Items[0])
 	}
 	open("read afresh", afresh.Items)
+}
+
+// berthd writes the stream's lines with Go's JSON, which escapes "<" (as
+// backslash-u003c): a notification Claude is told as a prompt reads as one
+// in that log too.
+func TestAShellsNotificationInTheLogsOwnEscapingEndsIt(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "log.jsonl")
+	note := "<task-notification>\n<task-id>bw1</task-id>\n<tool-use-id>toolu_wait</tool-use-id>\n<status>completed</status>\n<summary>Background command \"sleep 60\" completed (exit code 0)</summary>\n</task-notification>"
+	entries := []m{
+		{"seq": 1, "at": 1792200000000, "dir": "out", "data": m{"type": "user", "message": m{"role": "user", "content": "Wait a bit"}}},
+		{"seq": 2, "at": 1792200001000, "dir": "out", "data": m{"type": "assistant", "message": m{"id": "m1", "role": "assistant", "content": []m{tool("toolu_wait", "Bash", m{"command": "sleep 60", "run_in_background": true})}}}},
+		{"seq": 3, "at": 1792200001100, "dir": "out", "data": m{"type": "user", "message": m{"role": "user", "content": []m{{"tool_use_id": "toolu_wait", "type": "tool_result", "content": "Command running in background with ID: bw1. Output is being written to: /gone/tasks/bw1.output."}}}}},
+		{"seq": 4, "at": 1792200061000, "dir": "out", "data": m{"type": "user", "message": m{"role": "user", "content": note}, "parent_tool_use_id": nil, "timestamp": "2026-10-04T12:01:01Z", "isReplay": true, "origin": m{"kind": "task-notification", "producer": "session-task"}}},
+	}
+	var lines []string
+	for _, e := range entries {
+		b, _ := json.Marshal(e)
+		lines = append(lines, string(b))
+	}
+	if strings.Contains(lines[3], "<") {
+		t.Fatal("json.Marshal no longer escapes <, as berthd's log does")
+	}
+	os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o644)
+	res, err := NewReader().Read(SourceClaudeHost, path, "/home/dev/acme", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bg := res.Signals.Background
+	if len(bg) != 1 || bg[0].State != "done" || bg[0].Exit == nil || *bg[0].Exit != 0 {
+		t.Fatalf("background = %+v", bg)
+	}
 }

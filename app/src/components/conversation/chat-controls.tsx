@@ -31,6 +31,7 @@ import { toastManager } from "@/components/ui/toast";
 import { isMock } from "@/hooks/use-berth-connection";
 import { agentPresets } from "@/lib/actions";
 import type { LaunchFailure } from "@/lib/api";
+import { backgroundLabel, isRunning, jobBadge, jobTook } from "@/lib/background-work";
 import {
   type ChatJob,
   type ChatSignals,
@@ -494,8 +495,6 @@ function Ring({ pct }: { pct: number }) {
 
 // --- Background work ---
 
-const RECENT = 5 * 60_000;
-
 function BackgroundChip({ box, session, jobs, who }: { box: string; session: string; jobs?: ChatJob[]; who: string }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -503,19 +502,15 @@ function BackgroundChip({ box, session, jobs, who }: { box: string; session: str
     return () => window.clearInterval(t);
   }, []);
   const list = jobs ?? [];
-  const running = list.filter((j) => j.state === "running" || j.state === "starting");
-  const recent = list.filter((j) => j.until && now - j.until < RECENT);
-  if (!running.length && !recent.length) return null;
-  const shells = running.filter((j) => j.kind === "shell").length;
-  const label = running.length
-    ? `${running.length} ${shells === running.length ? (running.length === 1 ? "shell" : "shells") : running.length === 1 ? "task" : "tasks"} running`
-    : `${recent.length} finished`;
+  const label = backgroundLabel(list, now);
+  if (!label) return null;
+  const running = list.some(isRunning);
   return (
     <Popover>
-      <PopoverTrigger render={<button type="button" className={cn(chip, running.length && "text-foreground/85")} aria-label={`Background work: ${label}`} />}>
+      <PopoverTrigger render={<button type="button" className={cn(chip, running && "text-foreground/85")} aria-label={`Background work: ${label}`} />}>
         <span className="relative flex size-2 items-center justify-center" aria-hidden>
-          {running.length > 0 && <span className="absolute inline-flex size-full animate-ping rounded-full bg-success/50" />}
-          <span className={cn("relative inline-flex size-1.5 rounded-full", running.length ? "bg-success" : "bg-muted-foreground/50")} />
+          {running && <span className="absolute inline-flex size-full animate-ping rounded-full bg-success/50" />}
+          <span className={cn("relative inline-flex size-1.5 rounded-full", running ? "bg-success" : "bg-muted-foreground/50")} />
         </span>
         {label}
       </PopoverTrigger>
@@ -535,7 +530,7 @@ function JobRow({ box, session, job, now }: { box: string; session: string; job:
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<ToolDetail>();
   const [error, setError] = useState<string>();
-  const live = job.state === "running" || job.state === "starting";
+  const live = isRunning(job);
   useEffect(() => {
     if (!open) return;
     let alive = true;
@@ -555,7 +550,7 @@ function JobRow({ box, session, job, now }: { box: string; session: string; job:
     if (pre.current) pre.current.scrollTop = pre.current.scrollHeight;
   }, [detail?.output]);
   const Icon = job.kind === "monitor" ? EyeIcon : TerminalIcon;
-  const took = fmtDur((job.until ?? now) - job.since);
+  const took = jobTook(job, now);
   return (
     <div className="rounded-md">
       <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="flex w-full min-w-0 items-center gap-2 rounded-md px-1.5 py-1.5 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">
@@ -565,7 +560,9 @@ function JobRow({ box, session, job, now }: { box: string; session: string; job:
           {job.label && <span className="block truncate font-mono text-mono text-muted-foreground">{job.command}</span>}
         </span>
         <State job={job} />
-        <span className="w-12 shrink-0 text-right text-muted-foreground text-meta tabular-nums">{took}</span>
+        <span className="w-12 shrink-0 text-right text-muted-foreground text-meta tabular-nums" data-testid="job-took">
+          {took}
+        </span>
         <ChevronDownIcon className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
       {open && (
@@ -588,29 +585,19 @@ function JobRow({ box, session, job, now }: { box: string; session: string; job:
   );
 }
 
-function State({ job }: { job: ChatJob }) {
-  switch (job.state) {
-    case "running":
-    case "starting":
-      return <span className="shrink-0 rounded-full bg-success/12 px-1.5 py-px text-tag text-success-foreground">Running</span>;
-    case "done":
-      return (
-        <span className="flex shrink-0 items-center gap-1 text-tag text-muted-foreground">
-          <CheckIcon className="size-3 text-success" />
-          Done
-        </span>
-      );
-    case "failed":
-      return <span className="shrink-0 text-tag text-destructive-foreground">Failed</span>;
-    default:
-      return <span className="shrink-0 text-tag text-muted-foreground">Stopped</span>;
-  }
-}
+const badge = {
+  running: "rounded-full bg-success/12 px-1.5 py-px text-success-foreground",
+  done: "flex items-center gap-1 rounded-full bg-muted px-1.5 py-px text-muted-foreground",
+  failed: "rounded-full bg-destructive/12 px-1.5 py-px text-destructive-foreground",
+  stopped: "text-muted-foreground",
+};
 
-function fmtDur(ms: number) {
-  const s = Math.max(0, Math.round(ms / 1000));
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m`;
-  return `${Math.floor(m / 60)}h ${m % 60}m`;
+function State({ job }: { job: ChatJob }) {
+  const { text, tone } = jobBadge(job);
+  return (
+    <span data-testid="job-state" className={cn("shrink-0 text-tag", badge[tone])}>
+      {tone === "done" && <CheckIcon className="size-3" />}
+      {text}
+    </span>
+  );
 }
