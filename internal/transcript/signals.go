@@ -65,6 +65,13 @@ type Job struct {
 	State   string `json:"state"`
 	Since   int64  `json:"since"`
 	Until   int64  `json:"until,omitempty"`
+	// Exit is a shell's exit code, once it has ended and says.
+	Exit *int `json:"exit,omitempty"`
+
+	// out is a shell's output file; fromFile is set while its end is only
+	// what that file's last line said (a notification has the last word).
+	out      string
+	fromFile bool
 }
 
 type Retry struct {
@@ -196,8 +203,10 @@ type claudeExtra struct {
 // synthetic reply).
 func claudeSignals(c *conv, typ string, x *claudeExtra, b []byte, at int64) bool {
 	// A tool's result or a prompt is read only when it holds what the
-	// signals want: most are long and say nothing about the agent.
-	if typ == "user" && !bytes.Contains(b, []byte(`"permissionMode"`)) && !bytes.Contains(b, []byte("[Request interrupted by user")) && !bytes.Contains(b, []byte("<task-notification>")) {
+	// signals want: most are long and say nothing about the agent. The
+	// notification's tag is looked for without its "<", which a structured
+	// session's log (berthd agent-host, Go's JSON) holds escaped.
+	if typ == "user" && !bytes.Contains(b, []byte(`"permissionMode"`)) && !bytes.Contains(b, []byte("[Request interrupted by user")) && !bytes.Contains(b, []byte("task-notification")) {
 		return false
 	}
 	if x == nil {
@@ -322,8 +331,6 @@ func claudeAttachment(c *conv, raw json.RawMessage, at int64) {
 		c.notice("hook", "warning", msg, 0)
 	case "hook_stopped_continuation":
 		c.notice("hook", "warning", firstNonEmpty(a.HookName, "A hook")+" hook stopped the turn: "+strings.TrimSpace(contentText(a.Content)), 0)
-	case "queued_command":
-		c.jobNote(a.Prompt, at)
 	}
 }
 
@@ -414,7 +421,7 @@ func claudeToolSignal(c *conv, bl claudeBlock, at int64) bool {
 		id := firstNonEmpty(str("shell_id"), str("task_id"), str("bash_id"), str("id"))
 		for _, j := range c.sig.Background {
 			if j.Task == id && j.State == "running" {
-				c.jobEnd(j.Tool, "stopped", at)
+				c.jobEnd(j.Tool, "stopped", at, nil)
 			}
 		}
 		return false
@@ -474,6 +481,9 @@ func claudeResultSignal(c *conv, toolID, text string, at int64) {
 	if j := c.job(toolID); j != nil && j.State == "starting" {
 		if m := startedJob.FindStringSubmatch(text); m != nil {
 			j.Task, j.State = m[1], "running"
+			if o := outputFile.FindStringSubmatch(text); o != nil && j.Kind == "shell" {
+				j.out = o[1]
+			}
 		} else {
 			// It never started: an error, or a refusal.
 			j.State, j.Until = "failed", at
@@ -544,13 +554,41 @@ func (c *conv) jobStart(j Job) {
 	}
 }
 
-func (c *conv) jobEnd(tool, state string, at int64) {
-	if j := c.job(tool); j != nil && (j.State == "running" || j.State == "starting") {
-		j.State, j.Until = state, at
+// jobEnd ends a job, with its exit code when known: else a shell's output
+// file says it, if its last line does by now.
+func (c *conv) jobEnd(tool, state string, at int64, exit *int) {
+	j := c.job(tool)
+	if j == nil || !(j.State == "running" || j.State == "starting" || j.fromFile) {
+		return
+	}
+	if !j.fromFile || state != j.State {
+		j.Until = at
+	}
+	j.State, j.fromFile = state, false
+	if exit == nil && j.out != "" && state != "stopped" {
+		if code, _, ok := exited(j.out); ok {
+			exit = &code
+		}
+	}
+	if exit != nil {
+		j.Exit = exit
 	}
 }
 
-var jobNoteRe = regexp.MustCompile(`(?s)<task-notification>(.*?)</task-notification>`)
+// endState is how a shell that exited with code ended.
+func endState(code int) string {
+	if code != 0 {
+		return "failed"
+	}
+	return "done"
+}
+
+var (
+	jobNoteRe = regexp.MustCompile(`(?s)<task-notification>(.*?)</task-notification>`)
+	// "Background command "X" completed (exit code 0)", "… failed with
+	// exit code 3".
+	exitCodeRe = regexp.MustCompile(`exit code (-?\d+)`)
+)
 
 // jobNote reads a background shell's notification: "<task-id>…</task-id>
 // <tool-use-id>…</tool-use-id> <status>completed</status>".
@@ -578,10 +616,16 @@ func (c *conv) jobNote(s string, at int64) {
 		case "stopped", "killed", "cancelled":
 			state = "stopped"
 		}
+		var exit *int
+		if e := exitCodeRe.FindStringSubmatch(tag(m[1], "summary")); e != nil && state != "stopped" {
+			if n, err := strconv.Atoi(e[1]); err == nil {
+				exit, state = &n, endState(n)
+			}
+		}
 		tool, task := tag(m[1], "tool-use-id"), tag(m[1], "task-id")
 		for _, j := range c.sig.Background {
 			if (tool != "" && j.Tool == tool) || (task != "" && j.Task == task) {
-				c.jobEnd(j.Tool, state, at)
+				c.jobEnd(j.Tool, state, at, exit)
 			}
 		}
 	}
@@ -691,6 +735,72 @@ func codexPlan(c *conv, args string) {
 
 var outputFile = regexp.MustCompile(`Output is being written to: (\S+?\.output)\b`)
 
+// settle reads the end of each running shell's output file: Claude Code
+// ends it with "[exited with code N]" when the shell exits, which can be
+// long before a notification says so (a busy agent is told only when its
+// turn ends).
+func (s *signals) settle() {
+	for i := range s.Background {
+		j := &s.Background[i]
+		if j.State != "running" || j.out == "" {
+			continue
+		}
+		if code, at, ok := exited(j.out); ok {
+			j.State, j.Until, j.Exit, j.fromFile = endState(code), at, &code, true
+		}
+	}
+}
+
+var exitedLine = regexp.MustCompile(`^\[exited with code (-?\d+)\]$`)
+
+// exited reads a shell's output file for its last line: its exit code and
+// when it was written, if that line says it exited.
+func exited(path string) (code int, at int64, ok bool) {
+	f, st := taskFile(path)
+	if f == nil {
+		return 0, 0, false
+	}
+	defer f.Close()
+	const tail = 256
+	start := max(st.Size()-tail, 0)
+	b := make([]byte, st.Size()-start)
+	if _, err := f.ReadAt(b, start); err != nil && err != io.EOF {
+		return 0, 0, false
+	}
+	text := strings.TrimRight(string(b), " \t\r\n")
+	if i := strings.LastIndexByte(text, '\n'); i >= 0 {
+		text = text[i+1:]
+	}
+	m := exitedLine.FindStringSubmatch(strings.TrimSpace(text))
+	if m == nil {
+		return 0, 0, false
+	}
+	code, err := strconv.Atoi(m[1])
+	if err != nil {
+		return 0, 0, false
+	}
+	return code, st.ModTime().UnixMilli(), true
+}
+
+// taskFile opens a background task's output file: only a regular .output
+// file in a tasks folder is read.
+func taskFile(path string) (*os.File, os.FileInfo) {
+	p := filepath.Clean(path)
+	if !filepath.IsAbs(p) || filepath.Ext(p) != ".output" || filepath.Base(filepath.Dir(p)) != "tasks" {
+		return nil, nil
+	}
+	f, err := os.Open(p)
+	if err != nil {
+		return nil, nil
+	}
+	st, err := f.Stat()
+	if err != nil || !st.Mode().IsRegular() {
+		f.Close()
+		return nil, nil
+	}
+	return f, st
+}
+
 // liveOutput reads a background shell's output file, named in its tool
 // result, so its details show what it has printed so far rather than "Command
 // running in background". Only a .output file in a tasks folder is read,
@@ -700,19 +810,11 @@ func liveOutput(d *ToolDetail) {
 	if m == nil {
 		return
 	}
-	p := filepath.Clean(m[1])
-	if !filepath.IsAbs(p) || filepath.Base(filepath.Dir(p)) != "tasks" {
-		return
-	}
-	f, err := os.Open(p)
-	if err != nil {
+	f, st := taskFile(m[1])
+	if f == nil {
 		return
 	}
 	defer f.Close()
-	st, err := f.Stat()
-	if err != nil || !st.Mode().IsRegular() {
-		return
-	}
 	const tail = 16 << 10
 	start := max(st.Size()-tail, 0)
 	if _, err := f.Seek(start, io.SeekStart); err != nil {

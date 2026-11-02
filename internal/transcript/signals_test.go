@@ -3,8 +3,10 @@ package transcript
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 // The shapes below are Claude Code's and Codex's own, as they write them
@@ -201,6 +203,85 @@ func TestClaudeBackground(t *testing.T) {
 	bg = read(t, "claude", p).Signals.Background
 	if bg[0].State != "done" || bg[1].State != "stopped" {
 		t.Fatalf("background after = %+v", bg)
+	}
+}
+
+// A shell's output file ends with "[exited with code N]" when it ends: the
+// shell reads as ended from that, though no notification says so yet.
+func TestAShellEndsWhenItsOutputSaysItExited(t *testing.T) {
+	dir := t.TempDir()
+	tasks := filepath.Join(dir, "tasks")
+	os.MkdirAll(tasks, 0o755)
+	p := filepath.Join(dir, "s.jsonl")
+	bg := func(id, task string) []any {
+		return []any{
+			assistant(tool(id, "Bash", m{"command": "make " + id, "description": "Make " + id, "run_in_background": true})),
+			user([]m{{"type": "tool_result", "tool_use_id": id, "content": "Command running in background with ID: " + task + ". Output is being written to: " + filepath.Join(tasks, task+".output") + ". You will be notified when it completes."}}),
+		}
+	}
+	var lines []any
+	lines = append(lines, user("Make them all"))
+	for _, s := range [][2]string{{"ok", "bok"}, {"bad", "bbad"}, {"mid", "bmid"}, {"none", "bnone"}, {"told", "btold"}} {
+		lines = append(lines, bg(s[0], s[1])...)
+	}
+	// A monitor whose output reads the same is a monitor still.
+	lines = append(lines,
+		assistant(tool("mon", "Monitor", m{"command": "tail -f x.log", "description": "watch the log"})),
+		user([]m{{"type": "tool_result", "tool_use_id": "mon", "content": "Monitor started (task bmon). Output is being written to: " + filepath.Join(tasks, "bmon.output")}}),
+	)
+	write(t, p, lines...)
+	ended := time.Now().Add(-time.Minute).Truncate(time.Millisecond)
+	put := func(task, text string) {
+		f := filepath.Join(tasks, task+".output")
+		os.WriteFile(f, []byte(text), 0o644)
+		os.Chtimes(f, ended, ended)
+	}
+	put("bok", "built\n\n[exited with code 0]\n")
+	put("bbad", "lint: 3 problems\n[exited with code 3]\n\n")
+	put("bmid", "it printed [exited with code 0]\n[exited with code 0]\nand went on\n")
+	put("btold", "done\n[exited with code 0]\n")
+	put("bmon", "[exited with code 0]\n")
+	// "bnone" has no output file.
+	r := NewReader()
+	res, err := r.Read("claude", p, "/w", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]Job{}
+	for _, j := range res.Signals.Background {
+		got[j.Tool] = j
+	}
+	exit := func(j Job) string {
+		if j.Exit == nil {
+			return "-"
+		}
+		return strconv.Itoa(*j.Exit)
+	}
+	for _, c := range []struct{ tool, state, exit string }{{"ok", "done", "0"}, {"bad", "failed", "3"}, {"mid", "running", "-"}, {"none", "running", "-"}, {"mon", "running", "-"}} {
+		if j := got[c.tool]; j.State != c.state || exit(j) != c.exit {
+			t.Errorf("%s = %s exit %s, want %s exit %s", c.tool, j.State, exit(j), c.state, c.exit)
+		}
+	}
+	if j := got["ok"]; j.Until != ended.UnixMilli() {
+		t.Errorf("ok ended at %d, want the file's time %d", j.Until, ended.UnixMilli())
+	}
+	// A notification, when one comes, has the last word.
+	write(t, p, m{"type": "attachment", "attachment": m{"type": "queued_command", "prompt": "<task-notification>\n<task-id>btold</task-id>\n<tool-use-id>told</tool-use-id>\n<status>killed</status>\n<summary>Background command \"Make told\" was stopped</summary>\n</task-notification>"}})
+	// The same reader, followed: "mid" ends later, with no new line in the
+	// transcript.
+	put("bmid", "it printed [exited with code 0]\nand ended\n[exited with code 0]\n")
+	res, err = r.Read("claude", p, "/w", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, j := range res.Signals.Background {
+		got[j.Tool] = j
+	}
+	if j := got["told"]; j.State != "stopped" {
+		t.Errorf("told = %s after its notification, want stopped", j.State)
+	}
+	if j := got["mid"]; j.State != "done" || exit(j) != "0" {
+		t.Errorf("mid = %s exit %s once its output says it exited, want done exit 0", j.State, exit(j))
 	}
 }
 

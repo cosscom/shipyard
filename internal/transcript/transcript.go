@@ -549,6 +549,7 @@ func (r *Reader) Follow(source, path, dir string, since int, gen string) (Result
 	out.Items = append(c.artifactsSince(from, since), c.items[from-c.base:]...)
 	out.Artifacts = c.artifacts()
 	out.Crew = append([]CrewMember{}, c.crew...)
+	c.sig.settle()
 	out.Signals = c.sig.snapshot()
 	return out, nil
 }

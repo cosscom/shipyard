@@ -10,6 +10,12 @@ upgrades with `berth upgrade BOX`, or by running the
 again.
 
 ## Unreleased
+- **Background shells end in the chat.** A shell Claude left running in
+  the background stayed "Running" in the chat's panel, its timer growing,
+  long after it had exited, and the chip kept counting it. A chat agent's
+  shells were never marked ended at all. Now a shell shows `Done · exit 0`
+  or `Failed · exit 3` within seconds of exiting, with how long it took,
+  and the chip counts only what is still running.
 - **Quiet projects are grayed out.** On the rail and in the two-column
   sidebar, a project with no agent or shell open in it is grayed out, so
   the ones you're using stand out. Switching to one of those opens New

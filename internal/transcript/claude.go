@@ -167,7 +167,7 @@ func (claudeParser) line(c *conv, b []byte) {
 		return
 	}
 	if l.Type == "queue-operation" && l.Operation == "enqueue" {
-		helperDone(c, l.Content, at)
+		c.taskNotified(l.Content, at)
 		return
 	}
 	if l.Type == "attachment" && len(l.Attachment) > 0 {
@@ -432,6 +432,13 @@ func resultText(raw json.RawMessage) string {
 var agentIDRe = regexp.MustCompile(`agentId: ([a-z0-9]+)`)
 
 var taskNote = regexp.MustCompile(`(?s)<task-notification>.*?<tool-use-id>([^<]+)</tool-use-id>.*?<status>([^<]+)</status>`)
+
+// taskNotified reads a <task-notification>, in whichever shape Claude Code
+// wrote it: a helper is back, or a background shell ended.
+func (c *conv) taskNotified(s string, at int64) {
+	helperDone(c, s, at)
+	c.jobNote(s, at)
+}
 
 // helperDone reads a background helper's notification, "<task-notification>
 // … <tool-use-id>X</tool-use-id> <status>completed</status>", and marks
