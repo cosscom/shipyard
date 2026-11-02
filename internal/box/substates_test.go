@@ -915,3 +915,44 @@ func TestAWaitFromBeforeSubStatesCanBePlaced(t *testing.T) {
 		t.Fatalf("waiting: %+v", w)
 	}
 }
+
+// A wait still inside its form window when the set is turned on is looked
+// at again once the window has passed, with nothing else changing.
+func TestAWaitTooYoungForThePassIsSortedLater(t *testing.T) {
+	b, bus, sess, calls := checkedBox(t, true, "Set up the deploy", "I need you to add the deploy key in the host's settings page.", jevSorts("", 0, "act", 0.9))
+	b.TurnCheck.timeout = 50 * time.Millisecond
+	hook(bus, adapters.Started, sess.Name, sess.Dir, "claude", "signal", "prompt")
+	hook(bus, adapters.Waiting, sess.Name, sess.Dir, "claude", "reason", "notification")
+	if err := localBox(t, b).Call(context.Background(), "POST", "/v1/substates/preset", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case c := <-calls:
+		t.Fatalf("asked inside its window: %v", c.body)
+	case <-time.After(b.TurnCheck.formWindow() / 2):
+	}
+	waitCall(t, calls)
+	waitSubState(t, b, sess, "act")
+}
+
+// A form from before the box kept sub-states has no mark: it is still read
+// as a form, by its questions, not by the agent's last message.
+func TestAnUnmarkedFormIsSortedByItsQuestions(t *testing.T) {
+	b, _, sess, calls := checkedBox(t, true, "Do it", "Earlier I ran the tests.", jevSorts("", 0, "act", 0.9))
+	b.TurnCheck.timeout = 50 * time.Millisecond
+	ctx := context.Background()
+	b.agentEvent(ctx, "claude", adapters.Started, map[string]any{"session": sess.Name, "path": sess.Dir, "agent": "claude", "signal": "prompt"}, nil)
+	b.agentEvent(ctx, "claude", adapters.Waiting, map[string]any{"session": sess.Name, "path": sess.Dir, "agent": "claude", "reason": "permission"}, map[string]any{adapters.AskKey: map[string]any{"tool": "AskUserQuestion", "input": "Please create the API key in the provider's dashboard and store it."}})
+	b.Turns.mu.Lock()
+	b.Turns.sess[sess.Name].Sub = nil
+	b.Turns.mu.Unlock()
+	keptPreset(t, b)
+	time.Sleep(b.TurnCheck.formWindow() + 50*time.Millisecond)
+	b.TurnCheck.sortOpenWaits(ctx, b, false)
+	c := waitCall(t, calls)
+	state, _ := c.body["state"].(map[string]any)
+	if sent, _ := state["agent_response"].(string); !strings.Contains(sent, "create the API key") || strings.Contains(sent, "ran the tests") {
+		t.Fatalf("sent %q", sent)
+	}
+	waitSubState(t, b, sess, "act")
+}

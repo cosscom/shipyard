@@ -203,24 +203,23 @@ func (c *TurnCheck) Run(ctx context.Context, b *Box) {
 	}
 	cur := b.Events.SubscribeFrom(-1).Named("turncheck")
 	defer cur.Close()
-	// Waits already open are sorted once the box has settled, and again when
-	// the set or turn check changes: one pass at a time, a change during a
-	// pass makes one more.
+	// Waits already open are sorted once the box has settled, again when the
+	// set or turn check changes, and once a wait too young for a pass is old
+	// enough: one pass at a time, a change during a pass makes one more.
 	kick := make(chan bool, 1)
 	go func() {
-		retry := false
-		select {
-		case <-time.After(orDefault(c.settle, notifySettle)):
-		case retry = <-kick:
-		case <-ctx.Done():
-			return
-		}
+		later := time.NewTimer(orDefault(c.settle, notifySettle))
+		defer later.Stop()
 		for {
-			c.sortOpenWaits(ctx, b, retry)
+			retry := false
 			select {
+			case <-later.C:
 			case retry = <-kick:
 			case <-ctx.Done():
 				return
+			}
+			if next := c.sortOpenWaits(ctx, b, retry); next > 0 {
+				later.Reset(next)
 			}
 		}
 	}()

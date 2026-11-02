@@ -432,9 +432,11 @@ func (b *Box) subStateOf(st SessionState, now time.Time) string {
 // Claude Code's terminal asks about AskUserQuestion.
 var formTools = map[string]bool{"AskUserQuestion": true, "request_user_input": true, "request_user_input_async": true}
 
-// formWait says whether a session waits on a question form, not a permission.
+// formWait says whether a session waits on a question form, not a permission:
+// by its mark, or by the tool it asks with, which a wait from before the box
+// kept sub-states has too.
 func formWait(st SessionState) bool {
-	return st.sub != nil && (st.sub.Form || (st.Ask != nil && formTools[st.Ask.Tool]))
+	return (st.sub != nil && st.sub.Form) || (st.Ask != nil && formTools[st.Ask.Tool])
 }
 
 // placesForms says whether this box asks about a form from agent.
@@ -524,23 +526,45 @@ func (c *TurnCheck) askAboutWait(ctx context.Context, b *Box, name string, st Se
 	return c.askSubState(ctx, b, cfg, key, objective, prompt, words)
 }
 
+// waitFrom is the Seq that began a session's wait: its mark's, or for a wait
+// from before the box kept sub-states, its state's.
+func waitFrom(st SessionState) int64 {
+	if st.sub != nil {
+		return st.sub.From
+	}
+	return st.Seq
+}
+
 // sortOpenWaits places the waits already open that read as not placed: those
 // begun before a set was turned on or changed, or before turn check was. One
 // request at a time, and only with a set and turn check on. retry takes
 // again the waits already tried and not placed; at the box's start it is
-// false, so a restart asks about each wait once.
-func (c *TurnCheck) sortOpenWaits(ctx context.Context, b *Box, retry bool) {
+// false, so a restart asks about each wait once. A wait too young to take
+// yet says when to look again: next, or 0 for never.
+func (c *TurnCheck) sortOpenWaits(ctx context.Context, b *Box, retry bool) (next time.Duration) {
 	if len(b.SubStates.current().States) == 0 || !c.load().Enabled {
-		return
+		return 0
 	}
+	window := c.formWindow()
 	for _, st := range b.Turns.Waiting() {
 		if ctx.Err() != nil {
-			return
+			return 0
+		}
+		if !c.placesForms(st.Agent) {
+			continue
 		}
 		now := time.Now()
-		// A young wait is still the normal path's: its form's answer, or
-		// the end of turn's, is on the way.
-		if !c.placesForms(st.Agent) || b.subStateOf(st, now) != "" || now.Sub(st.Since) < c.formWindow() {
+		// A young wait may still be the normal path's: its form's answer is
+		// on the way. Whether it was is clear once its window has passed.
+		if age := now.Sub(st.Since); age < window {
+			if st.sub == nil || st.sub.ID == "" {
+				if d := window - age + 100*time.Millisecond; next == 0 || d < next {
+					next = d
+				}
+			}
+			continue
+		}
+		if b.subStateOf(st, now) != "" {
 			continue
 		}
 		if st.sub != nil && st.sub.Settled && st.sub.ID == "" && !retry {
@@ -551,16 +575,13 @@ func (c *TurnCheck) sortOpenWaits(ctx context.Context, b *Box, retry bool) {
 		if st.sub == nil && st.Ask != nil && st.Ask.Tool != "" && !formTools[st.Ask.Tool] {
 			continue
 		}
-		from := st.Seq
-		if st.sub != nil {
-			from = st.sub.From
-		}
+		from := waitFrom(st)
 		id, why := c.askAboutWait(ctx, b, st.Session, st)
 		if why != "" && c.Log != nil {
 			c.Log.Printf("turn check: %s's open wait is not sorted: %s", st.Session, why)
 		}
 		// The wait ended or moved on meanwhile; the ledger checks again.
-		if now, ok := b.Turns.State(st.Session); !ok || now.State != adapters.StateWaiting || now.Seq != st.Seq {
+		if cur, ok := b.Turns.State(st.Session); !ok || cur.State != adapters.StateWaiting || waitFrom(cur) != from {
 			continue
 		}
 		data := map[string]any{"session": st.Session, "path": st.dir, "agent": st.Agent, "source": "turncheck", "seq": from, "sub_state": id}
@@ -569,6 +590,7 @@ func (c *TurnCheck) sortOpenWaits(ctx context.Context, b *Box, retry bool) {
 		}
 		b.Events.Publish(events.Event{Type: adapters.SubState, Box: b.Name, Origin: "turncheck", Data: data})
 	}
+	return next
 }
 
 // askSubState asks which sub-state these words belong in, or says why it
