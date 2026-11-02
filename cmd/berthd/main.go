@@ -395,6 +395,11 @@ func serve(b boxHome, args []string) error {
 	// Plugins' helpers run as berthd's own children: started before it
 	// serves anything, so the first service finds them up, and stopped
 	// with it. A new build taking over starts them again itself.
+	// What agents it didn't start last said, by folder, is from before it
+	// stopped (a reboot, often): nothing still running there is exited.
+	if n := bx.SettleAgentStates(); n > 0 {
+		logger.Printf("settled %d agent states left from before berthd started", n)
+	}
 	bx.Helpers = &box.Helpers{Dir: filepath.Join(b.dir, "helpers"), Box: hostname, Logf: logger.Printf}
 	// Terminals' tmux clients end and are waited for before the exec: the
 	// new build couldn't wait for them (the sessions keep running).

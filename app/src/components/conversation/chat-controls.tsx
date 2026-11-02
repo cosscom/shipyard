@@ -30,6 +30,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { isMock } from "@/hooks/use-berth-connection";
 import { agentPresets } from "@/lib/actions";
+import type { LaunchFailure } from "@/lib/api";
 import {
   type ChatJob,
   type ChatSignals,
@@ -123,7 +124,8 @@ export function ChatControls({ box, session, agent, state, asking, stateSince, d
   // Teammates who wrote to the agent join its crew.
   const teammates = useMemo(() => teammatesOf(items), [items]);
   const usage = useStore((s) => s.boxes[box]?.sessions?.find((x) => x.name === session)?.usage);
-  const docked = useDockedNotices({ box, session, dir, state, ended, items, screenLimit: controls?.limit, memory: ended ? undefined : memoryNote(usage) });
+  const launch = useStore((s) => s.boxes[box]?.sessions?.find((x) => x.name === session)?.failed);
+  const docked = useDockedNotices({ box, session, dir, state, ended, items, screenLimit: controls?.limit, memory: ended ? undefined : memoryNote(usage), launch: ended ? launch : undefined, who });
   // The pages the agent published stay listed after it has ended.
   const pages = useArtifacts(box, session).length;
   const made = useSessionArt(box, session).length;
@@ -179,9 +181,10 @@ export function ChatControls({ box, session, agent, state, asking, stateSince, d
 
 // useDockedNotices finds what the transcript can't say: a turn that ended
 // in an error (Claude's StopFailure hook), an agent whose program ended
-// while it worked, a usage limit on its screen. Each shows above the reply
-// box until the conversation moves on.
-function useDockedNotices({ box, session, dir, state, ended, items, screenLimit, memory }: { box: string; session: string; dir?: string; state?: string; ended: boolean; items?: { kind: string; id: string; notice?: string }[]; screenLimit?: string; memory?: string }): NoticeItem[] {
+// while it worked, or that exited as it was started again, a usage limit on
+// its screen. Each shows above the reply box until the conversation moves
+// on.
+function useDockedNotices({ box, session, dir, state, ended, items, screenLimit, memory, launch, who }: { box: string; session: string; dir?: string; state?: string; ended: boolean; items?: { kind: string; id: string; notice?: string }[]; screenLimit?: string; memory?: string; launch?: LaunchFailure; who: string }): NoticeItem[] {
   // The last state seen while the pane was open, to tell an agent that
   // ended mid-work from one that was closed when it was done.
   const last = useRef<string | undefined>(undefined);
@@ -204,7 +207,8 @@ function useDockedNotices({ box, session, dir, state, ended, items, screenLimit,
     while (from > 0 && list[from - 1].kind !== "user") from--;
     const since = list.slice(from);
     const said = (kinds: string[]) => since.some((it) => it.kind === "notice" && kinds.includes(it.notice ?? ""));
-    if (ended && diedWorking) out.push({ kind: "notice", id: "dock:exited", notice: "exited", level: "error", text: "Its program ended while it was working. Its terminal may show why." });
+    if (launch) out.push({ kind: "notice", id: "dock:launch", notice: "exited", level: "error", text: `${who} exited as it started (code ${launch.code})${launch.error ? `: ${launch.error}` : "."}` });
+    else if (ended && diedWorking) out.push({ kind: "notice", id: "dock:exited", notice: "exited", level: "error", text: "Its program ended while it was working. Its terminal may show why." });
     else if (!ended && state === "finished" && failed?.data?.status === "error" && !said(["api_error", "limit", "rate_limit", "auth", "billing", "interrupted"]))
       out.push({ kind: "notice", id: "dock:stopfailure", notice: "stop_failure", level: "error", text: "Its turn stopped on an API error. Its terminal shows the details." });
     if (!ended && screenLimit && !said(["limit", "rate_limit"])) out.push({ kind: "notice", id: "dock:limit", notice: "limit", level: "warning", text: screenLimit });
@@ -212,7 +216,7 @@ function useDockedNotices({ box, session, dir, state, ended, items, screenLimit,
     // slows them down there; nothing is stopped.
     if (memory) out.push({ kind: "notice", id: "dock:memory", notice: "memory", level: "warning", text: `This session is ${memory}. Near it the box slows the session down rather than stopping anything. The limit is in Settings › Boxes.` });
     return out;
-  }, [items, ended, diedWorking, state, failed, screenLimit, memory]);
+  }, [items, ended, diedWorking, state, failed, screenLimit, memory, launch, who]);
 }
 
 function Retrying({ r }: { r: NonNullable<ChatSignals["retrying"]> }) {

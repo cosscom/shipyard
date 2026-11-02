@@ -33,7 +33,9 @@ The agent serves the app on `http://127.0.0.1:1378`.
   `not_found`, `session_exited` (the session's program has ended, so it takes
   no input), `session_exists`, `agent_waiting` (sending now would answer its
   question), `refused` (a `before:` hook said no), `unsupported`, `tmux_missing`,
-  `git_failed`, `command_failed`, `too_many`, `bad_request` and `internal`,
+  `git_failed`, `command_failed`, `agent_failed` (an agent started again
+  exited as it started; the message ends with what it wrote to its stderr),
+  `too_many`, `bad_request` and `internal`,
   and for [plugins' helpers](#boxes) `helper_off`, `helper_invalid`,
   `helper_mismatch`, `helper_missing`, `helper_unreachable` and
   `helper_no_attach`. The
@@ -246,11 +248,15 @@ Claude Code's own terminal (`claude --resume`) and back, answering the
 Boxes that take it list `driver.switch`. A structured conversation outlives
 its session: `GET conversations?path=P` lists those that worked in `P`,
 newest first (`{ id, agent, location?, dir, session?, live?,
-agent_session_id?, mode?, title?, created, updated? }`); `POST
-conversations/{id}/resume` carries one on, in its session (started again if
-it ended) or a new one, answering the `Session`; `POST
+agent_session_id?, mode?, title?, created, updated?, failed? }`); `live` is
+its own session's host answering, never another agent in the same folder.
+`POST conversations/{id}/resume` carries one on, in its session (started
+again if it ended) or a new one, answering the `Session`; `POST
 sessions/{name}/resume` starts an ended structured session again on its own
-record. Boxes that take them list `conversations`. `GET
+record. Either starts the agent from what the box keeps of the conversation,
+with `--resume`. One that exits as it starts answers 409 `agent_failed`, and
+the conversation (and the session it ended in) gets `failed: { at, code,
+error? }` until a start comes up. Boxes that take them list `conversations`. `GET
 sessions/{name}/past` lists the agent's own past conversations in a
 structured session's folder (`{ agent, sessions: [{ id, title?, updated?,
 current?, session? }], note? }`: `current` is the one it runs, `session`

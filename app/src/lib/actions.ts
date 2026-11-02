@@ -114,12 +114,13 @@ export async function startSession(command: string, target: Target = { kind: "ta
 }
 
 // resumeConversation carries a structured agent's conversation on in a tab
-// of its worktree: in its own session when that still runs (or only
-// ended), else in a new one.
-export async function resumeConversation(box: string, conv: Conversation, worktree: string): Promise<string | undefined> {
+// of its worktree (or the pane target names): in its own session when that
+// still runs (or only ended), else in a new one. The box starts its agent
+// from what it keeps of the conversation, with --resume.
+export async function resumeConversation(box: string, conv: Pick<Conversation, "id" | "agent">, worktree: string, target: Target = { kind: "tab" }): Promise<string | undefined> {
   const client = useStore.getState().client;
   if (!client) return;
-  const at = place({ kind: "starting", label: agentLabel(conv.agent) }, { kind: "tab" }, worktree);
+  const at = place({ kind: "starting", label: agentLabel(conv.agent) }, target, worktree);
   if (!at) return;
   try {
     const s = await boxApi.resumeConversation(client, box, conv.id);

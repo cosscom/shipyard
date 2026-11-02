@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -1029,6 +1030,39 @@ func (t *Turns) DirState(path string) (state string, at time.Time, ok bool) {
 	}
 	st, ok := t.dirs[path]
 	return st.State, st.At, ok
+}
+
+// Settle, as berthd starts, ends what the ledger kept of agents it didn't
+// start that nothing runs any more. A folder's state of running, waiting
+// or idle with no agent working there (working says, by folder) is exited:
+// a reboot, or an agent killed with no hook to say so, leaves them behind.
+// A folder that is gone, or that no agent has reported from in
+// agentStateTTL, is forgotten. A nil working is a box that can't list its
+// processes (macOS has no /proc): there, no state is taken for ended. It
+// returns how many it changed.
+func (t *Turns) Settle(working func(dir string) bool, now time.Time) int {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.init()
+	t.load()
+	n := 0
+	for d, st := range t.dirs {
+		if _, err := os.Stat(d); errors.Is(err, os.ErrNotExist) || now.Sub(st.At) > agentStateTTL {
+			delete(t.dirs, d)
+			n++
+			continue
+		}
+		if working != nil && (st.State == "running" || st.State == "waiting" || st.State == "idle") && !working(d) {
+			// Its time stays: a session started here later must not take
+			// this state as its own (track).
+			t.dirs[d] = dirState{"exited", st.At}
+			n++
+		}
+	}
+	if n > 0 {
+		t.markDirty()
+	}
+	return n
 }
 
 // Exited records that a session's program has ended.

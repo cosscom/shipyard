@@ -239,6 +239,17 @@ export interface Session {
   // the session down; nothing is stopped.
   scope?: string;
   usage?: { memory: number; memory_high?: number; cpu_s: number; cpu_percent?: number; processes?: number; near_limit?: boolean; throttled?: number; scoped?: boolean };
+  // Set on a structured session that ended because its agent, started
+  // again, exited as it started.
+  failed?: LaunchFailure;
+}
+
+// An agent started again that exited as it started: when, its exit code,
+// and the end of what it wrote to its stderr.
+export interface LaunchFailure {
+  at: string;
+  code: number;
+  error?: string;
 }
 
 // A waiting agent's request, from its hooks rather than its screen: the
@@ -261,6 +272,9 @@ export interface Conversation {
   title?: string;
   created: string;
   updated?: string;
+  // Set when its agent, started again, exited as it started; the next start
+  // that comes up clears it.
+  failed?: LaunchFailure;
 }
 
 // One of a structured agent's own conversations in a session's folder,

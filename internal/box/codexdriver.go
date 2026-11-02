@@ -216,7 +216,11 @@ func (c *codexConv) follow() {
 		c.mu.Unlock()
 		if done && !hostAlive(c.sock) {
 			// Its last word was its end, and no host has started since. (A
-			// host started again listens a moment before it says so.)
+			// host started again listens a moment before it says so.) Let
+			// go, so it is followed again when next asked for (as Claude's).
+			c.mu.Lock()
+			c.following = false
+			c.mu.Unlock()
 			return
 		}
 		err := agenthost.Attach(context.Background(), c.sock, from, func(e agenthost.Entry) error {

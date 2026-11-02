@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 import type { Session } from "@berth/plugin";
 
-import { allOnItsWork, chatState, firstPrompt, offBoard, onItsWork, replyMode, restartCommand, sessionState } from "./derive.ts";
+import { allOnItsWork, chatState, conversationOf, firstPrompt, offBoard, onItsWork, replyMode, restartCommand, sessionState } from "./derive.ts";
 
 test("a finished turn turn check read as working is on its work, a live turn is not", () => {
   const s = { name: "a", dir: "/w", created: "2026-10-12T10:00:00Z", attached: 0, exited: false, agent: "claude", agent_state: "finished", unfinished: true } as Session;
@@ -39,6 +39,20 @@ next line'` }), `it's "done"\nnext line`);
   assert.equal(firstPrompt(undefined), undefined);
   // What restartCommand drops is the same prompt.
   assert.equal(restartCommand("claude --model haiku 'fix it'"), "claude --model haiku");
+});
+
+// A structured agent runs under berthd's agent host. Its command ends with
+// Claude's own flags, not a prompt: cut as one, it lost "stdio" and Claude
+// refused to start ("option '--permission-prompt-tool <tool>' argument
+// missing"). It is never run again as it was; its conversation carries on.
+test("a structured agent's command names its conversation and is never cut", () => {
+  const host =
+    "'/home/me/.local/bin/berthd' 'agent-host' --dir '/home/me/.config/berth/box/conversations/tnjr2z-928a12c0f481' --socket '/tmp/berth-1000/tnjr2z-928a12c0f481.sock' -- claude '-p' '--permission-mode' 'default' '--permission-prompt-tool' 'stdio'";
+  assert.equal(conversationOf(host), "tnjr2z-928a12c0f481");
+  assert.equal(restartCommand(host), undefined);
+  assert.equal(firstPrompt({ preset: "claude", command: host }), undefined);
+  assert.equal(conversationOf("claude --resume 0d1e 'go on'"), undefined);
+  assert.equal(conversationOf(undefined), undefined);
 });
 
 test("a session is off the board when its location, on its box, is hidden", () => {

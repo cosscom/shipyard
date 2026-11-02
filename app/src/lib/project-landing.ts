@@ -1,8 +1,9 @@
 // Where switching to another project in the sidebar lands
 // (components/sidebar/columns.tsx and rail-layout.tsx): on the agent in it
 // that worked last, so you are back where its work is; with none working or
-// waiting on you, on the worktree of it you were in last. Pure, so it is
-// tested on its own (project-landing.test.ts).
+// waiting on you, on the worktree of it you were in last; and with nothing
+// open in it at all (inUse), on a new task too. Pure, so it is tested on
+// its own (project-landing.test.ts).
 
 import type { Location, Session, Stats, Worktree } from "@/lib/api";
 
@@ -33,6 +34,17 @@ export function landingAgent(places: readonly LandingPlace[]): { box: string; se
     }
   }
   return best && { box: best.box, session: best.session };
+}
+
+// inUse says whether a project has a session open in any of its
+// worktrees: an agent, at work, idle or done, or a shell. One that ended
+// and a service's terminal don't count. A project without one is grayed
+// out in the sidebar, and switching to it opens a new task.
+export function inUse(places: readonly Pick<LandingPlace, "loc" | "sessions">[]): boolean {
+  return places.some((p) => {
+    const paths = new Set((p.loc.worktrees ?? []).map((w) => w.path));
+    return p.sessions.some((s) => !s.exited && !s.service && paths.has(s.dir));
+  });
 }
 
 // landingWorktree is where switching to a project with no agent at work

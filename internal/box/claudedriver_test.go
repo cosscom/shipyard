@@ -68,6 +68,9 @@ func conversationsDir(t *testing.T) string {
 const fakeStreamClaude = `#!/usr/bin/env python3
 import json, os, re, sys
 S = "00000000-0000-4000-8000-0000000000c1"
+# Several in one test: each new conversation an id of its own.
+if os.environ.get("FAKE_CLAUDE_UNIQUE"):
+    S = "00000000-0000-4000-8000-%012d" % os.getpid()
 def transcript(sid):
     d = os.path.join(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"), "projects", re.sub(r"[^A-Za-z0-9]", "-", os.getcwd()))
     os.makedirs(d, exist_ok=True)

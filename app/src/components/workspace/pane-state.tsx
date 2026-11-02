@@ -3,8 +3,8 @@ import { RotateCwIcon, ServerIcon } from "lucide-react";
 import { Scene } from "@/components/art/scenes";
 import { Tip } from "@/components/tip";
 import { Button } from "@/components/ui/button";
-import { resumeSession, startSession } from "@/lib/actions";
-import { agentLabel, restartCommand } from "@/lib/derive";
+import { resumeConversation, resumeSession, startSession } from "@/lib/actions";
+import { agentLabel, conversationOf, restartCommand } from "@/lib/derive";
 import { retryLine } from "@/lib/net";
 import { tryNow, useAway } from "@/lib/reconnect";
 import { useStore } from "@/lib/store";
@@ -35,8 +35,14 @@ export function SessionEnded({ box, session, agent, command, wsKey, tab, pane, o
   const ref = useWorkspaces((s) => s.spaces[wsKey]?.ref);
   const label = agent ? agentLabel(agent) : "Shell";
   const named = useTitleAt(ref?.box, ref?.path);
-  // A structured agent's conversation carries on, rather than a new one.
-  const resumable = useStore((st) => !!st.boxes[box]?.sessions?.find((x) => x.name === session)?.switch);
+  // A structured agent's conversation carries on, rather than a new one:
+  // in its session, or, with the session gone (a reboot), from what the box
+  // keeps of it. Its command is never run again: it isn't one to type.
+  const listed = useStore((st) => st.boxes[box]?.sessions?.find((x) => x.name === session));
+  const resumable = !!listed?.switch;
+  const conv = conversationOf(command);
+  // Started again, it exited as it started: why, in its own words.
+  const failed = listed?.failed;
   const where = ref ? (named ?? (ref.main ? ref.location : ref.worktree)) : undefined;
   return (
     <PaneState
@@ -44,23 +50,35 @@ export function SessionEnded({ box, session, agent, command, wsKey, tab, pane, o
       title={
         // Named as its tab named it; the session's id is for the curious.
         <Tip label={`${session} on ${box}`}>
-          <p className="text-row">{agent ? `${label} has ended` : "The shell has ended"}</p>
+          <p className="text-row">{failed ? `${label} couldn't start` : agent ? `${label} has ended` : "The shell has ended"}</p>
         </Tip>
       }
       detail={
-        <p className="flex min-w-0 items-center justify-center gap-1.5">
-          <span className="shrink-0">{where ? `${where} on ${box}` : `on ${box}`}</span>
-          {command && (
-            <>
-              <span className="text-muted-foreground/48">·</span>
-              <code className="min-w-0 truncate font-mono text-meta text-foreground/72">{command}</code>
-            </>
+        <>
+          <p className="flex min-w-0 items-center justify-center gap-1.5">
+            <span className="shrink-0">{where ? `${where} on ${box}` : `on ${box}`}</span>
+            {command && !conv && (
+              <>
+                <span className="text-muted-foreground/48">·</span>
+                <code className="min-w-0 truncate font-mono text-meta text-foreground/72">{command}</code>
+              </>
+            )}
+          </p>
+          {failed && (
+            <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap rounded-md border bg-muted/40 p-2 text-left font-mono text-meta text-foreground/80">
+              {failed.error || `It exited with code ${failed.code}.`}
+            </pre>
           )}
-        </p>
+        </>
       }
     >
       {resumable ? (
         <Button size="sm" onClick={() => void resumeSession(box, session)}>
+          <RotateCwIcon />
+          Resume the conversation
+        </Button>
+      ) : conv ? (
+        <Button size="sm" onClick={() => void resumeConversation(box, { id: conv, agent: agent ?? "claude" }, wsKey, { kind: "replace", tab, pane })}>
           <RotateCwIcon />
           Resume the conversation
         </Button>

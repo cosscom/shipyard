@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 import type { Location, Session } from "@berth/plugin";
 
-import { landingAgent, landingWorktree } from "./project-landing.ts";
+import { inUse, landingAgent, landingWorktree } from "./project-landing.ts";
 
 const loc = { name: "shop", path: "/src/shop", repo: true, scripts: {}, worktrees: [{ path: "/src/shop", main: true }, { path: "/wt/shop-a" }, { path: "/wt/shop-b" }] } as unknown as Location;
 
@@ -74,4 +74,15 @@ test("never visited, on the main checkout on the home box", () => {
   assert.equal(to?.box, "studio");
   assert.equal(to?.wt.path, "/src/shop");
   assert.equal(landingWorktree([], () => undefined), undefined);
+});
+
+test("an idle or done agent, or a shell, keeps a project in use; one ended, a service or one elsewhere doesn't", () => {
+  const inUseWith = (s: Session) => inUse([{ loc, sessions: [s] }]);
+  assert.equal(inUseWith(agent("idle", "/wt/shop-a", { agent_state: "idle" })), true);
+  assert.equal(inUseWith(agent("done", "/wt/shop-a", { agent_state: "finished" })), true);
+  assert.equal(inUseWith(agent("shell", "/src/shop", { agent: undefined, command: "zsh" })), true);
+  assert.equal(inUseWith(agent("gone", "/wt/shop-b", { exited: true })), false);
+  assert.equal(inUseWith(agent("web", "/wt/shop-b", { agent: undefined, service: "web" })), false);
+  assert.equal(inUseWith(agent("other", "/wt/notes-a", { agent_state: "running" })), false);
+  assert.equal(inUse([]), false);
 });

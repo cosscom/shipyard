@@ -25,9 +25,9 @@ import { armDrag, useTabDrag } from "@/components/workspace/tab-drag";
 import { TerminalView } from "@/components/workspace/terminal-view";
 import { openWorktreePicker } from "@/components/workspace/worktree-picker";
 import { useLabel, useTone, WtChip } from "@/components/workspace/worktree-tone";
-import { agentPresets, closePane, openBrowserAt, openPreviewAt, resumeSession, startAgent, startSession } from "@/lib/actions";
+import { agentPresets, closePane, openBrowserAt, openPreviewAt, resumeConversation, resumeSession, startAgent, startSession } from "@/lib/actions";
 import { boxApi } from "@/lib/api";
-import { agentLabel, agentOf, restartCommand, sessionAgent, sessionName, sessionState } from "@/lib/derive";
+import { agentLabel, agentOf, conversationOf, restartCommand, sessionAgent, sessionName, sessionState } from "@/lib/derive";
 import { nameFromKey } from "@/lib/groups";
 import { type Leaf, leaves, paneWorktree } from "@/lib/layout";
 import { PaneContext } from "@/lib/pane-context";
@@ -146,11 +146,14 @@ export function Pane({ wsKey, tab, pane, visible, focused, split, mixed, compare
           {c.kind === "terminal" && view === "conversation" && (
             <div className="absolute inset-0 z-10 flex flex-col">
               <CrashProbe session={c.session} />
-              <ConversationPane box={c.box} session={c.session} agent={c.agent} visible={visible} onStartAgain={() =>
-                  useStore.getState().boxes[c.box]?.sessions?.find((x) => x.name === c.session)?.switch
-                    ? void resumeSession(c.box, c.session)
-                    : void startSession(restartCommand(c.command) ?? c.agent ?? "", { kind: "replace", tab, pane: pane.id }, c.agent ? agentLabel(c.agent) : "Agent")
-                } onShowTerminal={terminal ? () => showTerminal(wsKey, tab, pane) : undefined} />
+              <ConversationPane box={c.box} session={c.session} agent={c.agent} visible={visible} onStartAgain={() => {
+                  const conv = conversationOf(c.command);
+                  if (useStore.getState().boxes[c.box]?.sessions?.find((x) => x.name === c.session)?.switch) void resumeSession(c.box, c.session);
+                  // Its session gone (a reboot), a structured agent's
+                  // conversation carries on: never its command, run again.
+                  else if (conv) void resumeConversation(c.box, { id: conv, agent: c.agent ?? "claude" }, owner, { kind: "replace", tab, pane: pane.id });
+                  else void startSession(restartCommand(c.command) ?? c.agent ?? "", { kind: "replace", tab, pane: pane.id }, c.agent ? agentLabel(c.agent) : "Agent");
+                }} onShowTerminal={terminal ? () => showTerminal(wsKey, tab, pane) : undefined} />
             </div>
           )}
           {c.kind === "browser" && (

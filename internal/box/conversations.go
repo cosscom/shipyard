@@ -45,6 +45,9 @@ type Conversation struct {
 	Title   string    `json:"title,omitempty"`
 	Created time.Time `json:"created"`
 	Updated time.Time `json:"updated,omitzero"`
+	// Failed is set when its agent, started again, exited as it started
+	// (relaunch.go); the next start that comes up clears it.
+	Failed *LaunchFailure `json:"failed,omitempty"`
 }
 
 const metaName = "meta.json"
@@ -118,7 +121,7 @@ func (b *Box) listConversations(w http.ResponseWriter, r *http.Request) error {
 	live := map[string]string{}
 	if sessions, err := b.Sessions.List(r.Context()); err == nil {
 		for _, s := range sessions {
-			if s.conv != "" && !s.Exited {
+			if conversationRunning(s) {
 				live[s.conv] = s.Name
 			}
 		}
@@ -180,7 +183,7 @@ func (b *Box) resumeSession(w http.ResponseWriter, r *http.Request) error {
 	if sess.conv == "" {
 		return httpError{http.StatusConflict, name + " isn't a structured session: start its agent again instead"}
 	}
-	if !sess.Exited && req.AgentSessionID == "" {
+	if req.AgentSessionID == "" && conversationRunning(sess) {
 		return httpError{http.StatusConflict, name + " is still running"}
 	}
 	if err := b.before(r, "session.start", map[string]any{"name": name, "location": sess.Location, "path": sess.Dir, "resume": true}); err != nil {
@@ -225,12 +228,17 @@ func (b *Box) resumeInPlace(r *http.Request, sess Session, sid string) error {
 	}
 	l.labels[labelHandoff] = ""
 	b.forgetConversation(sess.Name)
+	from := logEnd(sess.conv)
 	if err := b.respawnAgent(ctx, sess, l.command, l.env, l.labels); err != nil {
 		return err
 	}
 	noteResumed(sess.conv, sess.Name)
-	// Back when it listens, so what is sent next reaches it.
-	awaitHost(sess.sock, 15*time.Second)
+	// Back when it is up, so what is sent next reaches it; or failed, and
+	// said so rather than left to look resumable.
+	if f := awaitStart(sess.conv, sess.sock, from, 15*time.Second); f != nil {
+		noteFailed(sess.conv, f)
+		return launchFailed(l.agent, f)
+	}
 	if live, err := b.Sessions.Get(ctx, sess.Name); err == nil {
 		b.startStructured(origin(r), gateOrigin(r), live, "")
 	}
@@ -300,10 +308,24 @@ func (b *Box) resumeConversation(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	s, err := b.carryOnConversation(r, dir)
+	if err != nil {
+		return err
+	}
+	b.announceOpen(r, s, req.Open)
+	writeJSON(w, s)
+	return nil
+}
+
+// carryOnConversation is the session the conversation in dir runs in: the
+// one it runs in now, the one it ended in started again, or a new one when
+// that is gone (after a reboot, say). Its agent starts as berthd launches
+// it, from its meta.json: its preset's command, its flags and --resume.
+func (b *Box) carryOnConversation(r *http.Request, dir string) (Session, error) {
 	conv, _ := readConversation(dir)
 	sessions, err := b.Sessions.List(r.Context())
 	if err != nil {
-		return err
+		return Session{}, err
 	}
 	for _, s := range sessions {
 		if s.conv != dir {
@@ -316,44 +338,49 @@ func (b *Box) resumeConversation(w http.ResponseWriter, r *http.Request) error {
 				err = b.resumeInPlace(r, s, "")
 			}
 			if err != nil {
-				return err
+				return Session{}, err
 			}
 			if s, err = b.Sessions.Get(r.Context(), s.Name); err != nil {
-				return err
+				return Session{}, err
 			}
 		}
-		s = b.enrich(r.Context(), []Session{s})[0]
-		b.announceOpen(r, s, req.Open)
-		writeJSON(w, s)
-		return nil
+		return b.enrich(r.Context(), []Session{s})[0], nil
 	}
 	if st, err := os.Stat(conv.Dir); err != nil || !st.IsDir() {
-		return httpError{http.StatusGone, "the folder it worked in, " + conv.Dir + ", is gone"}
+		return Session{}, httpError{http.StatusGone, "the folder it worked in, " + conv.Dir + ", is gone"}
 	}
 	sid := conversationSession(dir)
 	if sid == "" && conv.Agent == "claude" {
-		return httpError{http.StatusConflict, "berthd doesn't know which Claude conversation this is"}
+		return Session{}, httpError{http.StatusConflict, "berthd doesn't know which Claude conversation this is"}
 	}
 	sock, err := hostSocket(filepath.Base(dir))
 	if err != nil {
-		return err
+		return Session{}, err
 	}
 	l, err := b.relaunch(r.Context(), conv.Location, dir, sock, sid, conv.Mode)
 	if err != nil {
-		return err
+		return Session{}, err
 	}
 	name := defaultSessionName(firstNonEmpty(conv.Location, filepath.Base(conv.Dir)), firstNonEmpty(conv.Agent, "claude"))
+	from := logEnd(dir)
 	sess, err := b.startStructuredSession(r, name, conv.Location, conv.Dir, firstNonEmpty(conv.Agent, "claude"), l, "")
 	if err != nil {
-		return err
+		return Session{}, err
+	}
+	if f := awaitStart(dir, sock, from, 15*time.Second); f != nil {
+		// Its session ended with it: nothing is left running, and the
+		// conversation says why it didn't start.
+		noteFailed(dir, f)
+		if b.Sessions.Kill(r.Context(), sess.Name) == nil {
+			b.publish(r, "session.stopped", map[string]any{"name": sess.Name})
+		}
+		return Session{}, launchFailed(l.agent, f)
 	}
 	if conv.Title != "" {
 		b.nameAfter(r.Context(), sess.Name, conv.Title)
 		sess.Title = conv.Title
 	}
-	b.announceOpen(r, sess, req.Open)
-	writeJSON(w, sess)
-	return nil
+	return sess, nil
 }
 
 // noteStarted keeps what a new structured conversation is.
@@ -375,12 +402,13 @@ func noteStarted(l structuredLaunch, location, cwd, session, prompt string) {
 		if c.Title == "" && strings.TrimSpace(prompt) != "" {
 			c.Title = adapters.Clip(adapters.Title(prompt), adapters.TitleMax)
 		}
+		c.Failed = nil
 	})
 }
 
 // noteResumed marks a conversation as running in session now.
 func noteResumed(dir, session string) {
 	noteConversation(dir, func(c *Conversation) {
-		c.Session, c.Updated = session, time.Now().UTC()
+		c.Session, c.Updated, c.Failed = session, time.Now().UTC(), nil
 	})
 }

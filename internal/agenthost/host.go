@@ -101,7 +101,7 @@ func Run(ctx context.Context, o Options) (int, error) {
 		return 127, err
 	}
 	h := &host{log: log, stdin: stdin, pid: cmd.Process.Pid, grace: o.StopGrace, render: o.Render, exited: make(chan struct{})}
-	h.note(Entry{Dir: "host", Event: "started", PID: h.pid, Text: strings.Join(o.Command, " ")})
+	h.note(Entry{Dir: "host", Event: "started", PID: h.pid, Text: strings.Join(o.Command, " "), Argv: o.Command})
 
 	var reading sync.WaitGroup
 	reading.Add(2)

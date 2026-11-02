@@ -321,7 +321,13 @@ func (c *claudeConv) follow() {
 		c.mu.Unlock()
 		if done && !hostAlive(c.sock) {
 			// Its last word was its end, and no host has started since. (A
-			// host started again listens a moment before it says so.)
+			// host started again listens a moment before it says so.) Let
+			// go, so it is followed again when next asked for: a session
+			// started again on this log is asked for before its host
+			// listens, and would otherwise never be followed.
+			c.mu.Lock()
+			c.following = false
+			c.mu.Unlock()
 			return
 		}
 		err := agenthost.Attach(context.Background(), c.sock, from, func(e agenthost.Entry) error {

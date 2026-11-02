@@ -23,6 +23,8 @@ import (
 //	browser_blocked  the box's browser can't start its sandbox (browsersandbox.go)
 //	git_failed       git refused; the message carries git's words
 //	command_failed   a program the box ran failed
+//	agent_failed     an agent started again exited as it started (409); the
+//	                 message carries what it wrote to its stderr
 //	too_many         slow down and try again
 //	file_changed     a write named a version of the file that is no longer
 //	                 there (412); the answer carries the file as it is now
@@ -47,6 +49,7 @@ const (
 	CodeBrowserBlock  = "browser_blocked"
 	CodeGitFailed     = "git_failed"
 	CodeCommandFailed = "command_failed"
+	CodeAgentFailed   = "agent_failed"
 	CodeTooMany       = "too_many"
 	CodeBadRequest    = "bad_request"
 	CodeInternal      = "internal"
@@ -64,9 +67,12 @@ var errTmuxMissing = errors.New("tmux is not installed on this box")
 func codeFor(err error) string {
 	var he httpError
 	var rc reviewCode
+	var af agentFailed
 	switch {
 	case errors.As(err, &rc):
 		return rc.code
+	case errors.As(err, &af):
+		return CodeAgentFailed
 	case errors.Is(err, ErrSessionExited):
 		return CodeSessionExited
 	case errors.Is(err, ErrSessionExists):

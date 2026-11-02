@@ -200,16 +200,26 @@ export const agentLabel = (a: string) => labels[a] ?? a.charAt(0).toUpperCase() 
 // restartCommand is how to start an agent again: its command without the
 // first prompt it was given (berth adds it last, shell-quoted, after
 // --prompt or -i for the agents that take one), so starting again doesn't
-// run the old task a second time.
+// run the old task a second time. A structured agent's command (berthd's
+// agent host) has no prompt in it, and is never run again as it was: its
+// conversation is carried on instead (conversationOf).
 export function restartCommand(command?: string): string | undefined {
-  if (!command) return command;
+  if (!command || conversationOf(command)) return undefined;
   return command.replace(/(?:\s+(?:--prompt|-i))?\s+'(?:[^']|'\\'')*'\s*$/, "");
+}
+
+// conversationOf is the structured conversation a session's command runs
+// berthd's agent host for (its --dir is the conversation's folder), or
+// undefined for any other command.
+export function conversationOf(command?: string): string | undefined {
+  const m = command && /'agent-host'.*?\s--dir\s+'([^']+)'/.exec(command);
+  return m ? m[1].split("/").filter(Boolean).pop() : undefined;
 }
 
 // firstPrompt is that prompt, unquoted, for a session Shipyard started with
 // an agent preset (whose command it wrote); undefined for anything else.
 export function firstPrompt(s?: Pick<Session, "command" | "preset">): string | undefined {
-  if (!s?.preset || !s.command) return undefined;
+  if (!s?.preset || !s.command || conversationOf(s.command)) return undefined;
   const m = s.command.match(/\s'((?:[^']|'\\'')*)'\s*$/);
   return m ? m[1].replaceAll("'\\''", "'") : undefined;
 }

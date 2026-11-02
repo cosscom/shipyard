@@ -79,6 +79,8 @@ export function explain(err: unknown, ctx: { box?: string } = {}): Explained {
   // An agent whose program has ended.
   if (code === "session_exited" || /pane has exited|pane is dead|program has ended|session has exited/i.test(raw))
     return out("The agent has ended", "Its program closed, so it can't take a message. Start it again to carry on.", "start-again");
+  // An agent started again that exited at once: its own words say why.
+  if (code === "agent_failed" || /exited as it started \(code -?\d+\)/.test(raw)) return out("It couldn't start again", "It exited as soon as it started. Details has what it said.");
   if (code === "agent_waiting" || /is waiting for someone to answer it/.test(raw))
     return out("It's waiting for an answer", "Answer its question first, so a message doesn't pick an option by accident.", "show-terminal");
   // The box runs a berthd too old for what was asked.
@@ -156,7 +158,7 @@ const detailsByMessage = new Map<string, string>();
 // plainError is explain's one sentence, for an error shown inline.
 export function plainError(err: unknown, ctx?: { box?: string }): string {
   const e = explain(err, ctx);
-  const text = e.message === "Details has git's own words." || e.message === "Details has what it said." ? `${e.title}. ${e.message}` : e.message;
+  const text = e.message === "Details has git's own words." || e.message === "Details has what it said." || e.message === "It exited as soon as it started. Details has what it said." ? `${e.title}. ${e.message}` : e.message;
   if (e.details) {
     detailsByMessage.delete(text);
     detailsByMessage.set(text, e.details);

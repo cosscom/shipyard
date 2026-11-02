@@ -290,8 +290,10 @@ func (b *Box) acpPast(ctx context.Context, sess Session) ([]PastSession, string)
 	return out, ""
 }
 
-// runningAgentSessions are the agents' conversations that live structured
-// sessions other than but run now, by the agent's id for each.
+// runningAgentSessions are the agents' conversations that structured
+// sessions other than but run now, by the agent's id for each: each by its
+// own session's host, never by the folder it works in, where other agents
+// run conversations of their own.
 func (b *Box) runningAgentSessions(ctx context.Context, but string) map[string]string {
 	out := map[string]string{}
 	sessions, err := b.Sessions.List(ctx)
@@ -299,7 +301,7 @@ func (b *Box) runningAgentSessions(ctx context.Context, but string) map[string]s
 		return out
 	}
 	for _, s := range sessions {
-		if s.Name == but || s.conv == "" || s.Exited {
+		if s.Name == but || !conversationRunning(s) {
 			continue
 		}
 		if sid := conversationSession(s.conv); sid != "" {
@@ -361,11 +363,15 @@ func (b *Box) carryOn(r *http.Request, sess Session, sid string) error {
 	}
 	l.labels[labelHandoff] = ""
 	b.forgetConversation(sess.Name)
+	from := logEnd(dir)
 	if err := b.respawnAgent(ctx, sess, l.command, l.env, l.labels); err != nil {
 		return fail(err)
 	}
 	noteResumed(dir, sess.Name)
-	awaitHost(sock, 15*time.Second)
+	if f := awaitStart(dir, sock, from, 15*time.Second); f != nil {
+		noteFailed(dir, f)
+		return launchFailed(l.agent, f)
+	}
 	if live, err := b.Sessions.Get(ctx, sess.Name); err == nil {
 		b.startStructured(origin(r), gateOrigin(r), live, "")
 	}

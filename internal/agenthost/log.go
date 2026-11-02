@@ -37,11 +37,15 @@ type Entry struct {
 	Data json.RawMessage `json:"data,omitempty"`
 	// Text is a line that isn't JSON, or what a host entry says.
 	Text string `json:"text,omitempty"`
-	// Event is a host entry's kind: "started" (PID set) or "exited" (Code
-	// set; -1 when the agent was killed by a signal).
+	// Event is a host entry's kind: "started" (PID and Argv set) or
+	// "exited" (Code set; -1 when the agent was killed by a signal).
 	Event string `json:"event,omitempty"`
 	PID   int    `json:"pid,omitempty"`
 	Code  *int   `json:"code,omitempty"`
+	// Argv is the agent's command as it was run, word for word: Text joins
+	// it with spaces, which can't tell an argument with a space in it, or
+	// an empty one, from the words around it.
+	Argv []string `json:"argv,omitempty"`
 }
 
 // LogName and SocketName are the files a host keeps in its folder.

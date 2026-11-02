@@ -85,6 +85,10 @@ type Session struct {
 	// the session list.
 	Scope string     `json:"scope,omitempty"`
 	Usage *ProcUsage `json:"usage,omitempty"`
+	// Failed is set on a structured session that ended because its agent,
+	// started again, exited as it started: how, and what it wrote to its
+	// stderr (relaunch.go).
+	Failed *LaunchFailure `json:"failed,omitempty"`
 
 	// commandFile is where the session's command is kept, when it is;
 	// panePID the process its pane runs.

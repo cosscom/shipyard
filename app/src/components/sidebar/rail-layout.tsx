@@ -5,7 +5,7 @@ import { useShallow } from "zustand/react/shallow";
 import { NotificationBell } from "@/components/notifications/notification-center";
 import { ContextRow, DotsMenu, projectGroupActions } from "@/components/sidebar/actions";
 import { BackForward } from "@/components/sidebar/back-forward";
-import { switchTo, usePicked } from "@/components/sidebar/columns";
+import { switchTo, useIdle, usePicked } from "@/components/sidebar/columns";
 import { ink, inkScale } from "@/components/sidebar/ink";
 import { MoreItems, type NavItem, useArrangedNav } from "@/components/sidebar/nav";
 import { AwayWord, PlaceTip, ProjectTreeRows, RowButton, type SidebarPrefs, summary, useProjectTree } from "@/components/sidebar/projects";
@@ -281,10 +281,12 @@ function useTileState(p: Project): { state?: SessionState; waiting: number; runn
 // ProjectTile is a project on the rail: its avatar on a tile. The picked
 // one sits on a raised tile with a bar at the rail's edge; a dot at its
 // corner is amber while an agent in it needs you, blue while one works.
+// One with no session open in it (useIdle) is grayed out until pointed at.
 // Its menu is the project's, as on its header.
 const ProjectTile = memo(function ProjectTile({ project: p, selected, shared, folded }: { project: Project; selected: boolean; shared: boolean; folded: boolean }) {
   const { state, waiting, running } = useTileState(p);
   const online = p.members.some((m) => m.box.state === "online");
+  const idle = useIdle(p.members);
   const what = [waiting ? `${waiting} ${waiting === 1 ? "needs" : "need"} you` : "", running ? `${running} working` : "", online ? "" : awayText(p.members[0].box)].filter(Boolean);
   return (
     <ContextRow items={() => projectGroupActions(p)} className="relative flex w-full shrink-0 justify-center rounded-none data-popup-open:bg-transparent">
@@ -294,11 +296,13 @@ const ProjectTile = memo(function ProjectTile({ project: p, selected, shared, fo
           data-testid="rail-project"
           data-project={p.name}
           data-state={state}
+          data-idle={idle || undefined}
           aria-label={what.length ? `${p.name}, ${what.join(", ")}` : p.name}
           aria-current={selected ? "true" : undefined}
           // Folded away, a tile opens the sheet again on its project. Switching
           // to it from another lands on its agent that worked last, or the
-          // worktree of it you were in last (switchTo).
+          // worktree of it you were in last, with a new task on top when
+          // nothing is open in it (switchTo).
           onClick={() => {
             usePrefs.setState({ sidebarPick: p.id, tasksFolded: false, ...(folded ? { sidebarCollapsed: false } : {}) });
             if (!selected) switchTo(p.members, p.members.find((m) => m.box.name === p.defaultBox) ?? p.members[0]);
@@ -307,6 +311,7 @@ const ProjectTile = memo(function ProjectTile({ project: p, selected, shared, fo
             "relative flex size-9 items-center justify-center rounded-[10px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
             selected ? "border border-sidebar-border bg-background shadow-xs" : "hover:bg-sidebar-accent",
             !online && "opacity-55",
+            idle && !selected && "opacity-60 grayscale transition-[opacity,filter,background-color] hover:opacity-100 hover:grayscale-0 focus-visible:opacity-100 focus-visible:grayscale-0",
           )}
         >
           <Avatar project={p} />

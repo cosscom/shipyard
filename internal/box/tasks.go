@@ -427,6 +427,11 @@ func (b *Box) enrich(ctx context.Context, all []Session) []Session {
 			if b.Turns != nil {
 				b.Turns.Exited(s.Name)
 			}
+			if s.conv != "" {
+				if c, ok := readConversation(s.conv); ok {
+					s.Failed = c.Failed
+				}
+			}
 			continue
 		}
 		s.AgentState = "running"
