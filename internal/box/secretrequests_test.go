@@ -24,6 +24,7 @@ type secretBed struct {
 	remote *wire.Client
 	local  *Client
 	state  string
+	agent  string
 	clock  *time.Time
 	mu     sync.Mutex
 	seen   []events.Event
@@ -55,6 +56,7 @@ func newSecretBed(t *testing.T, bins map[string]string) *secretBed {
 	bin := t.TempDir()
 	fake := filepath.Join(bin, "claude")
 	os.WriteFile(fake, []byte("#!/bin/sh\nexec cat\n"), 0o755)
+	sb.agent = fake
 	for _, name := range []string{"lead", "shell"} {
 		cmd := fake
 		if name == "shell" {
@@ -560,5 +562,213 @@ func TestAnExpiredSecretIsGoneFromMemoryToo(t *testing.T) {
 	now = now.Add(61 * time.Minute)
 	if _, err := s.Resolve(ctx, ref, nil, false); err == nil {
 		t.Fatal("the cache handed out an expired secret")
+	}
+}
+
+// inWorktree is a client for an agent in worktree name of project acme, as
+// most agents are: its session is at acme/name.
+func (sb *secretBed) inWorktree(t *testing.T, name string) *Client {
+	t.Helper()
+	if status := call(t, sb.remote, "POST", "/v1/locations/acme/worktrees", "", map[string]string{"name": name}, nil); status != 200 {
+		t.Fatalf("worktree: %d", status)
+	}
+	session := name + "-agent"
+	if status := call(t, sb.remote, "POST", "/v1/sessions", "", map[string]string{"location": "acme/" + name, "name": session, "command": sb.agent}, nil); status != 200 {
+		t.Fatalf("session: %d", status)
+	}
+	t.Cleanup(func() { sb.bx.Sessions.Kill(context.Background(), session) })
+	return sb.local.WithCaller(session)
+}
+
+func TestAProjectsOwnStoreCountsForAgentsInItsWorktrees(t *testing.T) {
+	registerAcmeVault(t)
+	sb := newSecretBed(t, noKeyrings)
+	call(t, sb.remote, "PUT", "/v1/secrets/settings", "app", SecretSettings{Store: "local", Locations: map[string]SecretStoreChoice{"acme": {Store: "acmevault"}}}, nil)
+	sr, err := sb.inWorktree(t, "fix").RequestSecret(context.Background(), SecretRequestBody{Name: "ACME_TOKEN", Reason: "deploy"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sr.Store != "acmevault" || sr.Location != "acme" {
+		t.Fatalf("an agent in a worktree got store %q, project %q", sr.Store, sr.Location)
+	}
+}
+
+func TestANameTemplateSaysWhatTheStoreCallsASecret(t *testing.T) {
+	for _, c := range []struct{ template, want string }{
+		{"", "FRONT_API_KEY"},
+		{"{NAME}", "FRONT_API_KEY"},
+		{"{NAME}_{SERVICE}_{ENV}", "FRONT_API_KEY_SHOP_BULK_EDITOR_PRODUCTION"},
+		{"{name}-{service}-{env}", "front-api-key-shop-bulk-editor-production"},
+		{"acme_{NAME}", "acme_FRONT_API_KEY"},
+	} {
+		if got := secretID(c.template, "FRONT_API_KEY", "shop-bulk-editor", "production"); got != c.want {
+			t.Errorf("%q gave %q, want %q", c.template, got, c.want)
+		}
+	}
+	for _, bad := range []string{"{SERVICE}", "{NAME}_{OTHER}", "{NAME}/x", "{NAME} x"} {
+		if (SecretStoreChoice{NameTemplate: bad}).validate() == nil {
+			t.Errorf("template %q was taken", bad)
+		}
+	}
+	if (SecretStoreChoice{Service: "a b"}).validate() == nil {
+		t.Error("a service with a space was taken")
+	}
+}
+
+func TestSecretsGoWhereThePersonPicksUnderTheTemplatesName(t *testing.T) {
+	bins, dir := fakeBins(t, "gcloud")
+	bins["security"], bins["secret-tool"] = noKeyrings["security"], noKeyrings["secret-tool"]
+	sb := newSecretBed(t, bins)
+	ctx := context.Background()
+	settings := SecretSettings{Store: "gcp", GCPProject: "acme-staging", GCPPrivateProject: "acme-private", NameTemplate: "{NAME}_{SERVICE}_{ENV}"}
+	if status := call(t, sb.remote, "PUT", "/v1/secrets/settings", "app", settings, nil); status != 200 {
+		t.Fatalf("settings: %d", status)
+	}
+	agent := sb.inWorktree(t, "fix")
+
+	// The agent asks for the plain name; the store calls it by the template.
+	sr, err := agent.RequestSecret(ctx, SecretRequestBody{Name: "FRONT_KEY", Reason: "deploy", Environment: "staging"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sr.Name != "FRONT_KEY" || sr.SecretID != "FRONT_KEY_ACME_STAGING" || sr.Where != "acme-staging" || sr.PrivateWhere != "acme-private" || strings.Join(sr.WhereOptions, ",") != "acme-staging,acme-private" {
+		t.Fatalf("request %+v", sr)
+	}
+	// A place the box doesn't save to is refused, and nothing is saved.
+	if status := call(t, sb.remote, "POST", "/v1/secrets/requests/"+sr.ID+"/save", "app", map[string]string{"value": "v", "where": "acme-elsewhere"}, nil); status != 400 {
+		t.Fatalf("an unknown project: %d", status)
+	}
+	if len(readFakeGCP(dir)) != 0 {
+		t.Fatalf("it saved: %+v", readFakeGCP(dir))
+	}
+	var saved map[string]string
+	if status := call(t, sb.remote, "POST", "/v1/secrets/requests/"+sr.ID+"/save", "app", map[string]string{"value": "v1"}, &saved); status != 200 || saved["ref"] != "gcp://projects/acme-staging/secrets/FRONT_KEY_ACME_STAGING" {
+		t.Fatalf("save: %d %v", status, saved)
+	}
+	if _, ok := readFakeGCP(dir)["FRONT_KEY_ACME_STAGING"]; !ok {
+		t.Fatalf("store %+v", readFakeGCP(dir))
+	}
+	// The same name is the same secret; another environment is another one.
+	again, err := agent.RequestSecret(ctx, SecretRequestBody{Name: "FRONT_KEY", Reason: "again", Environment: "staging"})
+	if err != nil || !again.Reused || again.Ref != saved["ref"] {
+		t.Fatalf("reuse: %+v %v", again, err)
+	}
+	prod, err := agent.RequestSecret(ctx, SecretRequestBody{Name: "FRONT_KEY", Reason: "release", Environment: "production"})
+	if err != nil || prod.Reused || prod.SecretID != "FRONT_KEY_ACME_PRODUCTION" {
+		t.Fatalf("production: %+v %v", prod, err)
+	}
+	// With no environment, one the template needs reads as staging, and
+	// the card says so.
+	plain, err := agent.RequestSecret(ctx, SecretRequestBody{Name: "PLAIN_KEY", Reason: "x"})
+	if err != nil || plain.Environment != "staging" || plain.SecretID != "PLAIN_KEY_ACME_STAGING" {
+		t.Fatalf("no environment: %+v %v", plain, err)
+	}
+
+	// Picked on the card: the private project, and the agent's reference.
+	private, err := agent.RequestSecret(ctx, SecretRequestBody{Name: "MY_KEY", Reason: "mine", Environment: "staging"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status := call(t, sb.remote, "POST", "/v1/secrets/requests/"+private.ID+"/save", "app", map[string]string{"value": "v2", "where": "acme-private"}, &saved); status != 200 || saved["ref"] != "gcp://projects/acme-private/secrets/MY_KEY_ACME_STAGING" {
+		t.Fatalf("private save: %d %v", status, saved)
+	}
+	if log := argvLog(t, dir); !strings.Contains(log, "secrets versions add MY_KEY_ACME_STAGING --data-file=- --project=acme-private") {
+		t.Fatalf("gcloud ran:\n%s", log)
+	}
+	// Asked for again, it is found there, with no second card.
+	mine, err := agent.RequestSecret(ctx, SecretRequestBody{Name: "MY_KEY", Reason: "mine again", Environment: "staging"})
+	if err != nil || !mine.Reused || mine.Ref != saved["ref"] || mine.Where != "acme-private" {
+		t.Fatalf("private reuse: %+v %v", mine, err)
+	}
+	// A replacement goes where the old one is.
+	repl, err := agent.RequestSecret(ctx, SecretRequestBody{Name: "MY_KEY", Reason: "rotate", Environment: "staging", New: true})
+	if err != nil || repl.Where != "acme-private" || repl.WhereOptions[0] != "acme-private" {
+		t.Fatalf("replacement: %+v %v", repl, err)
+	}
+	// Settings lists the private project's secrets too, by the asked name.
+	var list SavedSecrets
+	call(t, sb.remote, "GET", "/v1/secrets", "", nil, &list)
+	found := false
+	for _, m := range list.Secrets {
+		found = found || (m.Name == "MY_KEY" && m.ID == "MY_KEY_ACME_STAGING" && m.Where == "acme-private")
+	}
+	if !found || list.Settings.GCPPrivateProject != "acme-private" || list.Settings.NameTemplate != "{NAME}_{SERVICE}_{ENV}" {
+		t.Fatalf("list %+v", list)
+	}
+	// A project's service name is its own.
+	call(t, sb.remote, "PUT", "/v1/secrets/settings", "app", SecretSettings{Store: "gcp", GCPProject: "acme-staging", NameTemplate: "{NAME}_{SERVICE}_{ENV}", Locations: map[string]SecretStoreChoice{"acme": {Service: "shop-api"}}}, nil)
+	named, err := agent.RequestSecret(ctx, SecretRequestBody{Name: "OTHER_KEY", Reason: "x", Environment: "production"})
+	if err != nil || named.SecretID != "OTHER_KEY_SHOP_API_PRODUCTION" {
+		t.Fatalf("service: %+v %v", named, err)
+	}
+	// The box's socket can't move the template either.
+	if err := sb.local.Call(ctx, http.MethodPut, "/v1/locations/acme/config", map[string]any{"local": RepoConfig{Secrets: &SecretStoreChoice{NameTemplate: "{NAME}_X"}}}, nil); err == nil {
+		t.Fatal("an agent changed the project's name template")
+	}
+}
+
+func TestASecretSentElsewhereIsOnlyItsProjectsAndEnvironments(t *testing.T) {
+	bins, _ := fakeBins(t, "gcloud")
+	bins["security"], bins["secret-tool"] = noKeyrings["security"], noKeyrings["secret-tool"]
+	sb := newSecretBed(t, bins)
+	ctx := context.Background()
+	call(t, sb.remote, "POST", "/v1/locations", "", map[string]string{"name": "other", "path": gitRepo(t)}, nil)
+	call(t, sb.remote, "PUT", "/v1/secrets/settings", "app", SecretSettings{Store: "gcp", GCPProject: "acme-staging", GCPPrivateProject: "acme-private", Locations: map[string]SecretStoreChoice{"other": {Store: "gcp", GCPProject: "acme-other"}}}, nil)
+	if status := call(t, sb.remote, "POST", "/v1/sessions", "", map[string]string{"location": "other", "name": "theirs", "command": sb.agent}, nil); status != 200 {
+		t.Fatalf("session: %d", status)
+	}
+	t.Cleanup(func() { sb.bx.Sessions.Kill(context.Background(), "theirs") })
+	theirs := sb.local.WithCaller("theirs")
+	ask := func(c *Client, b SecretRequestBody) SecretRequest {
+		t.Helper()
+		b.Name, b.Reason = "API_KEY", "x"
+		sr, err := c.RequestSecret(ctx, b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return sr
+	}
+	save := func(sr SecretRequest, where string) string {
+		t.Helper()
+		var saved map[string]string
+		if status := call(t, sb.remote, "POST", "/v1/secrets/requests/"+sr.ID+"/save", "app", map[string]string{"value": "v", "where": where}, &saved); status != 200 {
+			t.Fatalf("save to %s: %d", where, status)
+		}
+		return saved["ref"]
+	}
+
+	// This project sends its staging key to the private project.
+	mine := save(ask(sb.local, SecretRequestBody{Environment: "staging"}), "acme-private")
+	if mine != "gcp://projects/acme-private/secrets/API_KEY" {
+		t.Fatalf("ref %s", mine)
+	}
+	// Another project asking for that name gets a card, not this one's key.
+	if got := ask(theirs, SecretRequestBody{Environment: "staging"}); got.Reused || got.Status != "pending" || got.Where != "acme-other" {
+		t.Fatalf("another project: %+v", got)
+	}
+	// So does production, here.
+	if got := ask(sb.local, SecretRequestBody{Environment: "production"}); got.Reused || got.Where != "acme-staging" {
+		t.Fatalf("another environment: %+v", got)
+	}
+	// This project in staging finds it, and a replacement goes there.
+	if got := ask(sb.local, SecretRequestBody{Environment: "staging"}); !got.Reused || got.Ref != mine {
+		t.Fatalf("reuse: %+v", got)
+	}
+
+	// The same holds for any project the card offers, not just the private
+	// one: here, the other project's. The requests above stop waiting first.
+	for _, r := range sb.bx.SecretRequests.Pending() {
+		sb.bx.endSecretRequest(nil, r.ID, secretDeclined, "", false)
+	}
+	third := ask(sb.local, SecretRequestBody{Environment: "production"})
+	if strings.Join(third.WhereOptions, ",") != "acme-staging,acme-private,acme-other" {
+		t.Fatalf("options %v", third.WhereOptions)
+	}
+	ref := save(third, "acme-other")
+	if got := ask(sb.local, SecretRequestBody{Environment: "production"}); !got.Reused || got.Ref != ref {
+		t.Fatalf("reuse after a third project: %+v", got)
+	}
+	if got := ask(sb.local, SecretRequestBody{Environment: "production", New: true}); !got.Replace || got.Where != "acme-other" {
+		t.Fatalf("rotation after a third project: %+v", got)
 	}
 }

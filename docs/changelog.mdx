@@ -25,7 +25,9 @@ again.
   `berthd secret exec --env` or `--file`. Saved secrets live in the
   Keychain on a Mac, a Secret Service or an encrypted file on Linux, or
   Google Cloud Secret Manager, and Settings → Secrets lists and deletes
-  them. [Secrets](/guides/secrets#when-an-agent-asks-for-a-secret)
+  them. In GCP, a name template gives secrets your own naming, such as
+  `FRONT_KEY_SHOP_API_STAGING`, and the card lets you send one to a private
+  project. [Secrets](/guides/secrets#when-an-agent-asks-for-a-secret)
 - **Agents come back after a reboot.** Starting a chat agent again after
   its box restarted ran its old command with its last word cut off, so
   Claude refused to start ("argument missing") and the tab only said it had

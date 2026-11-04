@@ -4,7 +4,7 @@ The secrets agents asked for and the person saved, per online box, and where eac
 
 - **The list**: each secret's name, its environment (Production in the warning colour), where it is (`store_label · where`), when it expires ("never" for production), when it was saved, and who asked (the session's work, as the box still has it) and why. A store the box couldn't list (`errors`, a GCP project it has no access to) says so in red.
 - **Delete**: asks first. A production secret wants its name typed exactly before Delete enables, and sends it as `confirm`; a staging one needs only the confirm. The list reads again on `secret.saved` and `secret.deleted`, from anywhere.
-- **Where it saves them**: the box's default store (from `stores`) and, for GCP, its project; and per project (each of the box's locations) its own store and project, or "Box default". One Save per box sends `PUT secrets/settings`.
+- **Where it saves them**: the box's default store (from `stores`) and, for GCP, its project; and per project (each of the box's locations) its own store and project, or "Box default". Where GCP is on offer: the box's private project (the card also offers it), its name template (`{NAME}_{SERVICE}_{ENV}`), and each project's own template and service name while that project saves to GCP. One Save per box sends `PUT secrets/settings`. A row saved under a template says "Saved as ID".
 - Find a setting answers to "api token", "keys", "credentials", "secret manager"; ⌘K has it too.
 
 ## Sub-features

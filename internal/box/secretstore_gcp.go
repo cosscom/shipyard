@@ -25,7 +25,7 @@ import (
 func init() {
 	registerSecretStore(&secretProvider{
 		ID: "gcp", Scheme: "gcp", Name: "GCP Secret Manager",
-		Caps:        StoreCaps{Expiry: true, Labels: true, Grant: true},
+		Caps:        StoreCaps{Expiry: true, Labels: true, Grant: true, Template: true},
 		NeedsWhere:  true,
 		ValidateRef: validateGCPRef,
 		WhereOf: func(ref string) string {
@@ -141,12 +141,16 @@ func (g *gcpStore) Save(ctx context.Context, s SecretSave) (string, error) {
 	if !secretName.MatchString(s.Name) {
 		return "", fmt.Errorf("%q is not a secret name", s.Name)
 	}
+	id := firstNonEmptyStr(s.ID, s.Name)
+	if !secretIDPattern.MatchString(id) {
+		return "", fmt.Errorf("%q can't be a Secret Manager name", id)
+	}
 	if s.Grant != "" {
 		if err := ValidateServiceAccount(s.Grant); err != nil {
 			return "", err
 		}
 	}
-	existing, err := g.describe(ctx, s.Name)
+	existing, err := g.describe(ctx, id)
 	switch {
 	case errors.Is(err, errSecretNotFound):
 		env := firstNonEmptyStr(s.Environment, "staging")
@@ -157,23 +161,23 @@ func (g *gcpStore) Save(ctx context.Context, s SecretSave) (string, error) {
 		if l := gcpLabel(g.env.Box); l != "" {
 			labels = append(labels, "shipyard-box="+l)
 		}
-		if _, err := g.gcloud(ctx, "secretmanager.secrets.create", "", "secrets", "create", s.Name, "--replication-policy=automatic", "--labels="+strings.Join(labels, ",")); err != nil {
+		if _, err := g.gcloud(ctx, "secretmanager.secrets.create", "", "secrets", "create", id, "--replication-policy=automatic", "--labels="+strings.Join(labels, ",")); err != nil {
 			return "", err
 		}
 	case err != nil:
 		return "", err
 	case !existing.ours():
-		return "", fmt.Errorf("project %s already has a secret called %s that Shipyard didn't make (it has no shipyard label), so it was left alone: pick another name, or label it shipyard=true to let Shipyard add versions", g.env.Where, s.Name)
+		return "", fmt.Errorf("project %s already has a secret called %s that Shipyard didn't make (it has no shipyard label), so it was left alone: pick another name, or label it shipyard=true to let Shipyard add versions", g.env.Where, id)
 	}
-	if _, err := g.gcloud(ctx, "secretmanager.versions.add", s.Value, "secrets", "versions", "add", s.Name, "--data-file=-"); err != nil {
+	if _, err := g.gcloud(ctx, "secretmanager.versions.add", s.Value, "secrets", "versions", "add", id, "--data-file=-"); err != nil {
 		return "", err
 	}
 	if s.Grant != "" {
-		if _, err := g.gcloud(ctx, "secretmanager.secrets.setIamPolicy", "", "secrets", "add-iam-policy-binding", s.Name, "--member=serviceAccount:"+s.Grant, "--role=roles/secretmanager.secretAccessor"); err != nil {
-			return "", fmt.Errorf("saved %s, but could not grant %s: %w", s.Name, s.Grant, err)
+		if _, err := g.gcloud(ctx, "secretmanager.secrets.setIamPolicy", "", "secrets", "add-iam-policy-binding", id, "--member=serviceAccount:"+s.Grant, "--role=roles/secretmanager.secretAccessor"); err != nil {
+			return "", fmt.Errorf("saved %s, but could not grant %s: %w", id, s.Grant, err)
 		}
 	}
-	return g.ref(s.Name), nil
+	return g.ref(id), nil
 }
 
 func (g *gcpStore) Resolve(ctx context.Context, ref string) (string, error) {
@@ -204,7 +208,7 @@ func (g *gcpStore) List(ctx context.Context) ([]SecretMeta, error) {
 			continue
 		}
 		id := s.Name[strings.LastIndex(s.Name, "/")+1:]
-		metas = append(metas, SecretMeta{Name: id, Ref: g.ref(id), Store: "gcp", StoreLabel: g.Label(), Where: g.env.Where, Environment: s.Labels["shipyard-environment"], Location: s.Labels["shipyard-location"], Created: s.CreateTime})
+		metas = append(metas, SecretMeta{Name: id, ID: id, Ref: g.ref(id), Store: "gcp", StoreLabel: g.Label(), Where: g.env.Where, Environment: s.Labels["shipyard-environment"], Location: s.Labels["shipyard-location"], Created: s.CreateTime})
 	}
 	return metas, nil
 }

@@ -1,5 +1,5 @@
 import { KeyRoundIcon, Trash2Icon } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 
 import { SimpleSelect } from "@/components/simple-select";
 import { Badge } from "@/components/ui/badge";
@@ -98,7 +98,7 @@ function SecretRow({ box, s, onDeleted }: { box: string; s: SecretMeta; onDelete
   const asker = s.session ? sessions?.find((x) => x.name === s.session) : undefined;
   const who = asker ? sessionName(asker, { sessions, agent: true }) : (s.session ?? "an agent");
   const prod = isProduction(s);
-  const facts = [storeLine(s), `Expires: ${expiresLine(s.expires).toLowerCase()}`, s.created ? `Saved ${ago(s.created)}` : undefined].filter(Boolean).join(" · ");
+  const facts = [storeLine(s), s.id && s.id !== s.name ? `Saved as ${s.id}` : undefined, `Expires: ${expiresLine(s.expires).toLowerCase()}`, s.created ? `Saved ${ago(s.created)}` : undefined].filter(Boolean).join(" · ");
   return (
     <div data-testid="secret-row" data-name={s.name} data-environment={s.environment} className="flex min-h-14 items-center gap-6 py-3.5">
       <div className="min-w-0 flex-1">
@@ -210,7 +210,7 @@ function WhereSaved({ box, stores, settings, onSaved }: { box: string; stores: S
   const dirty = JSON.stringify(clean(draft)) !== JSON.stringify(clean(settings));
   const options = stores.map((s) => ({ value: s.id, label: s.label }));
   const gcp = (id?: string) => id === "gcp";
-  const setLocation = (name: string, patch: { store?: string; gcp_project?: string }) =>
+  const setLocation = (name: string, patch: { store?: string; gcp_project?: string; name_template?: string; service?: string }) =>
     setDraft((d) => ({ ...d, locations: { ...d.locations, [name]: { ...d.locations?.[name], ...patch } } }));
 
   const save = async () => {
@@ -241,13 +241,31 @@ function WhereSaved({ box, stores, settings, onSaved }: { box: string; stores: S
         {gcp(draft.store) && <Input size="sm" className="w-44 font-mono text-mono" value={draft.gcp_project ?? ""} onChange={(e) => setDraft((d) => ({ ...d, gcp_project: e.target.value }))} placeholder="GCP project" aria-label={`GCP project on ${box}`} />}
         <SimpleSelect size="sm" className="w-48" options={options} value={draft.store} onChange={(v) => setDraft((d) => ({ ...d, store: v }))} aria-label={`Default store on ${box}`} />
       </SettingsRow>
+      {stores.some((s) => gcp(s.id)) && (
+        <>
+          <SettingsRow label="Private project" description="A GCP project the card also offers, for what others shouldn't reach. Agents on this box can still use what's saved there.">
+            <Input size="sm" className="w-48 font-mono text-mono" value={draft.gcp_private_project ?? ""} onChange={(e) => setDraft((d) => ({ ...d, gcp_private_project: e.target.value }))} placeholder="GCP project" aria-label={`Private GCP project on ${box}`} />
+          </SettingsRow>
+          <SettingsRow label="Secret names" description="What GCP calls a secret; agents keep using the name they asked for. {NAME}_{SERVICE}_{ENV} gives FRONT_KEY_SHOP_API_STAGING, {name}-{service}-{env} gives front-key-shop-api-staging.">
+            <Input size="sm" className="w-48 font-mono text-mono" value={draft.name_template ?? ""} onChange={(e) => setDraft((d) => ({ ...d, name_template: e.target.value }))} placeholder="{NAME}" aria-label={`Name template on ${box}`} />
+          </SettingsRow>
+        </>
+      )}
       {(locations ?? []).map((l) => {
         const own = draft.locations?.[l.name];
         return (
-          <SettingsRow key={l.name} label={l.name} description={own?.store ? undefined : "The box's default"}>
-            {gcp(own?.store) && <Input size="sm" className="w-44 font-mono text-mono" value={own?.gcp_project ?? ""} onChange={(e) => setLocation(l.name, { gcp_project: e.target.value })} placeholder="GCP project" aria-label={`GCP project for ${l.name} on ${box}`} />}
-            <SimpleSelect size="sm" className="w-48" options={[{ value: BOX_DEFAULT, label: "Box default" }, ...options]} value={own?.store ?? BOX_DEFAULT} onChange={(v) => setLocation(l.name, { store: v || undefined, gcp_project: gcp(v) ? own?.gcp_project : undefined })} aria-label={`Store for ${l.name} on ${box}`} />
-          </SettingsRow>
+          <Fragment key={l.name}>
+            <SettingsRow label={l.name} description={own?.store ? undefined : "The box's default"}>
+              {gcp(own?.store) && <Input size="sm" className="w-44 font-mono text-mono" value={own?.gcp_project ?? ""} onChange={(e) => setLocation(l.name, { gcp_project: e.target.value })} placeholder="GCP project" aria-label={`GCP project for ${l.name} on ${box}`} />}
+              <SimpleSelect size="sm" className="w-48" options={[{ value: BOX_DEFAULT, label: "Box default" }, ...options]} value={own?.store ?? BOX_DEFAULT} onChange={(v) => setLocation(l.name, { store: v || undefined, gcp_project: gcp(v) ? own?.gcp_project : undefined })} aria-label={`Store for ${l.name} on ${box}`} />
+            </SettingsRow>
+            {gcp(own?.store || draft.store) && (
+              <SettingsRow label={`${l.name}: secret names`} description="Its own template and service name, over the box's and its own name.">
+                <Input size="sm" className="w-44 font-mono text-mono" value={own?.name_template ?? ""} onChange={(e) => setLocation(l.name, { name_template: e.target.value })} placeholder={draft.name_template || "{NAME}"} aria-label={`Name template for ${l.name} on ${box}`} />
+                <Input size="sm" className="w-48 font-mono text-mono" value={own?.service ?? ""} onChange={(e) => setLocation(l.name, { service: e.target.value })} placeholder={l.name} aria-label={`Service name for ${l.name} on ${box}`} />
+              </SettingsRow>
+            )}
+          </Fragment>
         );
       })}
     </SettingsGroup>
@@ -268,11 +286,17 @@ function cleared(out: SecretSettings, was: SecretSettings): SecretSettings {
 function clean(s: SecretSettings): SecretSettings {
   const locations: NonNullable<SecretSettings["locations"]> = {};
   for (const [name, l] of Object.entries(s.locations ?? {})) {
-    if (!l?.store) continue;
-    locations[name] = l.store === "gcp" && l.gcp_project?.trim() ? { store: l.store, gcp_project: l.gcp_project.trim() } : { store: l.store };
+    const own: NonNullable<SecretSettings["locations"]>[string] = {};
+    if (l?.store) own.store = l.store;
+    if (l?.store === "gcp" && l.gcp_project?.trim()) own.gcp_project = l.gcp_project.trim();
+    if (l?.name_template?.trim()) own.name_template = l.name_template.trim();
+    if (l?.service?.trim()) own.service = l.service.trim();
+    if (Object.keys(own).length) locations[name] = own;
   }
   const out: SecretSettings = { store: s.store };
   if (s.store === "gcp" && s.gcp_project?.trim()) out.gcp_project = s.gcp_project.trim();
+  if (s.gcp_private_project?.trim()) out.gcp_private_project = s.gcp_private_project.trim();
+  if (s.name_template?.trim()) out.name_template = s.name_template.trim();
   if (Object.keys(locations).length) out.locations = locations;
   return out;
 }

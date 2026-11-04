@@ -344,8 +344,9 @@ export const boxApi = {
   // saveSecret hands the person's value to the box in this one request,
   // which stores it and answers with its reference: the value is never
   // kept, queued or sent again from here (lib/secret-request.ts).
-  saveSecret: (c: Client, box: string, id: string, value: string, expires: SecretExpiry) =>
-    c.box<{ ref: string }>(box, "POST", `secrets/requests/${encodeURIComponent(id)}/save`, { value, expires }),
+  // where is the place the person picked, when not the request's own.
+  saveSecret: (c: Client, box: string, id: string, value: string, expires: SecretExpiry, where?: string) =>
+    c.box<{ ref: string }>(box, "POST", `secrets/requests/${encodeURIComponent(id)}/save`, where ? { value, expires, where } : { value, expires }),
   declineSecret: (c: Client, box: string, id: string) => c.box<{ ok: true }>(box, "POST", `secrets/requests/${encodeURIComponent(id)}/decline`),
   // The secrets saved through requests: names and where they are, never a
   // value.
@@ -374,6 +375,13 @@ export interface SecretRequest {
   store: string;
   store_label: string;
   where?: string;
+  // The places the person may send it to instead, the request's own first,
+  // and the one set aside as private.
+  where_options?: string[];
+  private_where?: string;
+  // What the store will call it, when a name template makes that differ
+  // from the name the agent uses.
+  secret_id?: string;
   environment?: "staging" | "production";
   // A service account the save grants read access to this one secret.
   grant?: string;
@@ -390,6 +398,8 @@ export interface SecretRequest {
 // A saved secret as Settings › Secrets lists it: never its value.
 export interface SecretMeta {
   name: string;
+  // What the store calls it, when a name template made that differ.
+  id?: string;
   ref: string;
   store: string;
   store_label: string;
@@ -405,14 +415,17 @@ export interface SecretMeta {
 export interface SecretStore {
   id: string;
   label: string;
-  caps: { expiry: boolean; labels: boolean; grant: boolean };
+  caps: { expiry: boolean; labels: boolean; grant: boolean; template?: boolean };
 }
 
-// Where a box saves secrets: its default store, and a project's own.
+// Where a box saves secrets: its default store, a private project the card
+// also offers, what shared stores call a secret, and a project's own.
 export interface SecretSettings {
   store: string;
   gcp_project?: string;
-  locations?: Record<string, { store?: string; gcp_project?: string }>;
+  gcp_private_project?: string;
+  name_template?: string;
+  locations?: Record<string, { store?: string; gcp_project?: string; name_template?: string; service?: string }>;
 }
 
 export interface SecretsList {

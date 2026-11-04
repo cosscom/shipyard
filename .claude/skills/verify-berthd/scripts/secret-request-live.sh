@@ -92,7 +92,9 @@ echo "4. the sentinel is nowhere it must not be"
 # folder; the structured host's log and every state file of the box and
 # the laptop agent are under $dir, the encrypted store too (sealed, so it
 # holds no plaintext either).
-proj=$HOME/.claude/projects/$(sed 's#[/.]#-#g' <<<"$dir/acme-shop")
+proj=${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/$(sed 's#[/.]#-#g' <<<"$dir/acme-shop")
+# A grep of the wrong folder finds nothing too: it must be the agent's.
+grep -rqF "secret request $name" "$proj" 2>/dev/null || fail "the agent's transcript isn't under $proj, so a grep there proves nothing"
 hits=0
 for where in "$dir" "$proj"; do
   [[ -e $where ]] || continue

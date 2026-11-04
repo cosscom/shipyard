@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -61,9 +62,16 @@ type SecretRequest struct {
 	// project).
 	Store       string `json:"store"`
 	StoreLabel  string `json:"store_label"`
-	Where       string `json:"where,omitempty"`
-	Environment string `json:"environment,omitempty"`
-	Grant       string `json:"grant,omitempty"`
+	Where string `json:"where,omitempty"`
+	// WhereOptions are the places the person may send it to instead, the
+	// request's own first; PrivateWhere is the one among them set aside as
+	// private. SecretID is what the store will call it, when a name
+	// template makes that differ from Name.
+	WhereOptions []string `json:"where_options,omitempty"`
+	PrivateWhere string   `json:"private_where,omitempty"`
+	SecretID     string   `json:"secret_id,omitempty"`
+	Environment  string   `json:"environment,omitempty"`
+	Grant        string   `json:"grant,omitempty"`
 	// TTL is the lifetime the agent suggests; the card preselects it.
 	TTL string `json:"ttl,omitempty"`
 	// Replace is a request for a new value over one saved before, at
@@ -355,10 +363,28 @@ func (b *Box) createSecretRequest(w http.ResponseWriter, r *http.Request) error 
 			return badRequest("a production secret doesn't expire: leave out the ttl")
 		}
 	}
-	id, where := Choose(req.Store, b.projectChoice(sess.Location), stores.BoxSettings())
+	// A session in a worktree is at project/worktree.
+	project, _, _ := strings.Cut(sess.Location, "/")
+	own, boxChoice := b.projectChoice(project), stores.BoxSettings()
+	id, where := Choose(req.Store, own, boxChoice)
 	st, err := stores.Open(id, where)
 	if err != nil {
 		return badRequest("%v", err)
+	}
+	storeID := req.Name
+	if secretProviderByID(id).Caps.Template {
+		template := firstNonEmptyStr(own.NameTemplate, boxChoice.NameTemplate)
+		service := firstNonEmptyStr(own.Service, project)
+		if templateNeeds(template, "service") && service == "" {
+			return badRequest("the name template needs a service, and this session is in no project")
+		}
+		if templateNeeds(template, "env") && req.Environment == "" {
+			req.Environment = "staging"
+		}
+		storeID = secretID(template, req.Name, service, req.Environment)
+		if !secretIDPattern.MatchString(storeID) {
+			return badRequest("%q can't be a secret's name in the %s store", storeID, id)
+		}
 	}
 	if req.Grant != "" {
 		if !secretProviderByID(id).Caps.Grant {
@@ -371,20 +397,36 @@ func (b *Box) createSecretRequest(w http.ResponseWriter, r *http.Request) error 
 	// One saved and unexpired is given at once, with no card.
 	var prev *SecretMeta
 	now := time.Now()
+	private := boxChoice.privateFor(id)
+	offered := b.whereOptions(id, where)
 	for _, m := range stores.Index().All() {
-		if m.Name == req.Name && m.Store == id && m.Where == where && !m.expired(now) {
+		if m.Name != req.Name || m.Store != id || firstNonEmptyStr(m.ID, m.Name) != storeID || m.expired(now) {
+			continue
+		}
+		// The project this request saves to is the same secret for anyone.
+		// One the person sent elsewhere on a card is only this project's,
+		// in this environment: it's no one else's to be handed.
+		if m.Where == where || (prev == nil && slices.Contains(offered, m.Where) && m.Location == project && m.Environment == req.Environment) {
 			m := m
 			prev = &m
 		}
 	}
 	if prev != nil && !req.New {
-		writeJSON(w, SecretRequest{Name: req.Name, Session: caller, Store: id, StoreLabel: prev.StoreLabel, Where: where, Status: secretSaved, Ref: prev.Ref, Reused: true})
+		writeJSON(w, SecretRequest{Name: req.Name, Session: caller, Store: id, StoreLabel: prev.StoreLabel, Where: prev.Where, Status: secretSaved, Ref: prev.Ref, Reused: true})
 		return nil
 	}
-	sr := SecretRequest{Name: req.Name, Reason: req.Reason, Session: caller, Location: sess.Location, Store: id, StoreLabel: st.Label(), Where: where, Environment: req.Environment, Grant: req.Grant, TTL: req.TTL, Replace: req.New && prev != nil}
+	sr := SecretRequest{Name: req.Name, Reason: req.Reason, Session: caller, Location: project, Store: id, StoreLabel: st.Label(), Where: where, Environment: req.Environment, Grant: req.Grant, TTL: req.TTL, Replace: req.New && prev != nil}
 	if sr.Replace {
+		// A replacement goes where the old one is.
 		created := prev.Created
-		sr.ReplacedAt = &created
+		sr.ReplacedAt, sr.Where = &created, prev.Where
+	}
+	sr.PrivateWhere = private
+	if opts := b.whereOptions(id, sr.Where); len(opts) > 1 {
+		sr.WhereOptions = opts
+	}
+	if storeID != req.Name {
+		sr.SecretID = storeID
 	}
 	sr, made := b.SecretRequests.add(sr)
 	if made {
@@ -430,6 +472,9 @@ func (b *Box) saveSecretRequest(w http.ResponseWriter, r *http.Request) error {
 	var req struct {
 		Value   string `json:"value"`
 		Expires string `json:"expires"`
+		// Where is the place the person picked on the card, one the box
+		// saves to; empty is the request's.
+		Where string `json:"where"`
 	}
 	if err := decodeLimit(r, &req, maxSecretValue+4<<10); err != nil {
 		return err
@@ -468,7 +513,14 @@ func (b *Box) saveSecretRequest(w http.ResponseWriter, r *http.Request) error {
 		t := time.Now().UTC().Add(d)
 		expires = &t
 	}
-	st, err := stores.Open(sr.Store, sr.Where)
+	where := sr.Where
+	if req.Where != "" && req.Where != sr.Where {
+		if !slices.Contains(b.whereOptions(sr.Store, sr.Where), req.Where) {
+			return badRequest("%s isn't a place this box saves to: add it in Settings → Secrets", req.Where)
+		}
+		where = req.Where
+	}
+	st, err := stores.Open(sr.Store, where)
 	if err != nil {
 		return badRequest("%v", err)
 	}
@@ -479,11 +531,11 @@ func (b *Box) saveSecretRequest(w http.ResponseWriter, r *http.Request) error {
 	var ref string
 	err = stores.locked(func() error {
 		var err error
-		ref, err = st.Save(ctx, SecretSave{Name: sr.Name, Value: value, Environment: sr.Environment, Location: sr.Location, Grant: sr.Grant})
+		ref, err = st.Save(ctx, SecretSave{Name: sr.Name, ID: sr.SecretID, Value: value, Environment: sr.Environment, Location: sr.Location, Grant: sr.Grant})
 		if err != nil {
 			return httpError{http.StatusBadGateway, err.Error()}
 		}
-		return stores.Index().Put(SecretMeta{Name: sr.Name, Ref: ref, Store: sr.Store, StoreLabel: st.Label(), Where: sr.Where, Environment: sr.Environment, Created: time.Now().UTC(), Expires: expires, Session: sr.Session, Reason: sr.Reason, Location: sr.Location})
+		return stores.Index().Put(SecretMeta{Name: sr.Name, ID: sr.SecretID, Ref: ref, Store: sr.Store, StoreLabel: st.Label(), Where: where, Environment: sr.Environment, Created: time.Now().UTC(), Expires: expires, Session: sr.Session, Reason: sr.Reason, Location: sr.Location})
 	})
 	value, req.Value = "", ""
 	if err != nil {
@@ -492,7 +544,7 @@ func (b *Box) saveSecretRequest(w http.ResponseWriter, r *http.Request) error {
 	b.secrets().Forget(ref)
 	saved = true
 	b.endSecretRequest(r, sr.ID, secretSaved, ref, true)
-	b.publish(r, "secret.saved", map[string]any{"name": sr.Name, "store": sr.Store, "where": sr.Where})
+	b.publish(r, "secret.saved", map[string]any{"name": sr.Name, "store": sr.Store, "where": where})
 	writeJSON(w, map[string]string{"ref": ref})
 	return nil
 }
@@ -598,7 +650,7 @@ type SecretStoreErr struct {
 func (b *Box) secretSettings() SecretSettings {
 	stores := b.secrets().Stores
 	def := stores.BoxSettings()
-	out := SecretSettings{Store: def.Store, GCPProject: def.GCPProject, Locations: map[string]SecretStoreChoice{}}
+	out := SecretSettings{Store: def.Store, GCPProject: def.GCPProject, GCPPrivateProject: def.GCPPrivateProject, NameTemplate: def.NameTemplate, Locations: map[string]SecretStoreChoice{}}
 	if b.Locations != nil {
 		if all, err := b.Locations.read(); err == nil {
 			for _, l := range all {
@@ -634,6 +686,7 @@ func storePlaces(set SecretSettings) [][2]string {
 	boxDefault := SecretStoreChoice{Store: set.Store, GCPProject: set.GCPProject}
 	for _, id := range secretProviderIDs() {
 		add(id, boxDefault)
+		add(id, SecretStoreChoice{GCPProject: set.GCPPrivateProject})
 		names := make([]string, 0, len(set.Locations))
 		for n := range set.Locations {
 			names = append(names, n)
@@ -645,6 +698,21 @@ func storePlaces(set SecretSettings) [][2]string {
 				c.GCPProject = set.GCPProject
 			}
 			add(id, c)
+		}
+	}
+	return out
+}
+
+// whereOptions are the places a save to store id may go: first, then the
+// others the box or a project names.
+func (b *Box) whereOptions(id, first string) []string {
+	out := []string{}
+	if first != "" {
+		out = append(out, first)
+	}
+	for _, pl := range storePlaces(b.secretSettings()) {
+		if pl[0] == id && pl[1] != "" && !slices.Contains(out, pl[1]) {
+			out = append(out, pl[1])
 		}
 	}
 	return out
@@ -797,7 +865,7 @@ func (b *Box) putSecretSettings(w http.ResponseWriter, r *http.Request) error {
 	if err := decode(r, &req); err != nil {
 		return err
 	}
-	boxChoice := SecretStoreChoice{Store: firstNonEmptyStr(req.Store, "local"), GCPProject: strings.TrimSpace(req.GCPProject)}
+	boxChoice := SecretStoreChoice{Store: firstNonEmptyStr(req.Store, "local"), GCPProject: strings.TrimSpace(req.GCPProject), GCPPrivateProject: strings.TrimSpace(req.GCPPrivateProject), NameTemplate: strings.TrimSpace(req.NameTemplate)}
 	if err := boxChoice.validate(); err != nil {
 		return badRequest("%v", err)
 	}
@@ -815,7 +883,7 @@ func (b *Box) putSecretSettings(w http.ResponseWriter, r *http.Request) error {
 			return fmt.Errorf("%s: %w", name, err)
 		}
 		local := cfg.Local
-		if c.Store == "" && c.GCPProject == "" {
+		if c == (SecretStoreChoice{}) {
 			local.Secrets = nil
 		} else {
 			cc := c

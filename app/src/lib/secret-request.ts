@@ -64,6 +64,17 @@ export const sentExpiry = (r: SecretRequest, chosen: SecretExpiry): SecretExpiry
 // storeLine says where the value goes: "GCP Secret Manager · acme-staging".
 export const storeLine = (r: { store_label: string; store: string; where?: string }): string => [r.store_label || r.store, r.where].filter(Boolean).join(" · ");
 
+// whereChoices are the places the card offers, when there is a choice: the
+// request's own first, the private one marked so.
+export function whereChoices(r: SecretRequest): { value: string; label: string }[] | undefined {
+  const all = r.where_options ?? [];
+  if (all.length < 2) return undefined;
+  return all.map((w) => ({ value: w, label: w === r.private_where ? `${w} (private)` : w }));
+}
+
+// sentWhere is what goes to the box: nothing for the request's own place.
+export const sentWhere = (r: SecretRequest, chosen: string): string | undefined => (chosen && chosen !== r.where ? chosen : undefined);
+
 export const grantLine = (r: SecretRequest): string | undefined => (r.grant ? `Grants ${r.grant} read access to this one secret` : undefined);
 
 export const cardTitle = (r: SecretRequest): string => (r.replace ? `Replace ${r.name}` : r.name);

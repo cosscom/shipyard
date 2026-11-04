@@ -4,7 +4,9 @@ import { ApiError, type BerthEvent, type SecretExpiry, type SecretMeta, type Sec
 // with ?secrets, two agents waiting on secrets they asked for (berthd
 // secret request): devl's search-perf Claude wants a staging token in the
 // box's encrypted file, gpu's ci-flake Claude a production one in GCP
-// Secret Manager, with a service account granted read access.
+// Secret Manager, with a service account granted read access, and its
+// judge-v2 Claude a staging one under the box's name template, with a
+// choice of project.
 //
 // A save is answered as a box would, with a reference; the value is never
 // kept. window.__secretSaves records that a save happened (box, request,
@@ -23,7 +25,7 @@ const stores: Record<string, SecretStore[]> = { devl: [LOCAL, GCP], gpu: [LOCAL,
 
 const settings: Record<string, SecretSettings> = {
   devl: { store: "local" },
-  gpu: { store: "gcp", gcp_project: "acme-staging", locations: { evals: { store: "local" } } },
+  gpu: { store: "gcp", gcp_project: "acme-staging", gcp_private_project: "acme-private", name_template: "{NAME}_{SERVICE}_{ENV}", locations: { evals: { store: "local" } } },
 };
 
 const saved: Record<string, SecretMeta[]> = {
@@ -64,6 +66,19 @@ export function seedSecretRequests(sessions: Record<string, Session[]>) {
     store_label: "Encrypted file",
     environment: "staging",
     ttl: "24h",
+  });
+  put("gpu", "judge-v2-claude", {
+    id: "sr-acme-front",
+    name: "ACME_FRONT_KEY",
+    reason: "Compare the judge's picks with the Front stock levels",
+    location: "evals",
+    store: "gcp",
+    store_label: "GCP Secret Manager",
+    where: "acme-staging",
+    where_options: ["acme-staging", "acme-private"],
+    private_where: "acme-private",
+    secret_id: "ACME_FRONT_KEY_EVALS_STAGING",
+    environment: "staging",
   });
   put("gpu", "ci-flake-claude", {
     id: "sr-acme-ledger",
@@ -119,16 +134,17 @@ export function secretsCall(box: string, method: string, path: string, body: unk
       endRequest(ctx, box, s, r, "declined");
       return delay({ ok: true });
     }
-    const req = (body ?? {}) as { value?: string; expires?: SecretExpiry };
+    const req = (body ?? {}) as { value?: string; expires?: SecretExpiry; where?: string };
     if (!req.value) return Promise.reject(new ApiError("a secret needs a value", 400));
     if (req.value.includes("denied")) return new Promise((_, reject) => setTimeout(() => reject(new ApiError(`missing permission secretmanager.secrets.create on project ${r.where ?? "acme-staging"}`, 403)), 300));
     const expires = r.environment === "production" ? "" : (req.expires ?? "");
-    const w = window as unknown as { __secretSaves?: { box: string; id: string; expires: string }[] };
-    (w.__secretSaves ??= []).push({ box, id: r.id, expires });
-    const ref = r.store === "gcp" ? `gcp://projects/${r.where}/secrets/${r.name}` : `box://${r.name}`;
+    const where = req.where ?? r.where;
+    const w = window as unknown as { __secretSaves?: { box: string; id: string; expires: string; where?: string }[] };
+    (w.__secretSaves ??= []).push({ box, id: r.id, expires, where });
+    const ref = r.store === "gcp" ? `gcp://projects/${where}/secrets/${r.secret_id ?? r.name}` : `box://${r.name}`;
     const hours = { "": 0, "1h": 1, "24h": 24, "7d": 168 }[expires];
     const list = (saved[box] ??= []).filter((m) => m.name !== r.name || m.store !== r.store);
-    list.unshift({ name: r.name, ref, store: r.store, store_label: r.store_label, where: r.where, environment: r.environment, created: new Date().toISOString(), expires: hours ? minutes(hours * 60) : undefined, session: s.name, location: r.location, reason: r.reason });
+    list.unshift({ name: r.name, id: r.secret_id, ref, store: r.store, store_label: r.store_label, where, environment: r.environment, created: new Date().toISOString(), expires: hours ? minutes(hours * 60) : undefined, session: s.name, location: r.location, reason: r.reason });
     saved[box] = list;
     // As a box answers: after a moment, the request ends and the agent goes on.
     return new Promise((resolve) =>

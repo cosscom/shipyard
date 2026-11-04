@@ -46,7 +46,7 @@ export async function run({ page, shot, step, expect }) {
   const board = page.getByTestId("dashboard-board");
   await expect(board).toBeVisible();
   const boardCards = board.getByTestId("secret-card");
-  await expect(boardCards).toHaveCount(2);
+  await expect(boardCards).toHaveCount(3);
   const boardStaging = board.locator("[data-testid=secret-card][data-secret-id=sr-acme-token]");
   await expect(boardStaging.getByTestId("secret-name")).toHaveText("ACME_TOKEN");
   await expect(boardStaging.getByTestId("secret-input")).toHaveAttribute("type", "password");
@@ -151,6 +151,26 @@ export async function run({ page, shot, step, expect }) {
   await expect(chat.getByTestId("secret-card")).toHaveCount(0);
   expect(await leftovers(page, REFUSED)).toEqual([]);
   await shot("7-declined");
+
+  step("open gpu/judge-v2's chat: GCP under the box's name template, with the private project on offer");
+  await open("gpu/judge-v2");
+  const picked = chat.getByTestId("secret-card");
+  await expect(picked.getByTestId("secret-name")).toHaveText("ACME_FRONT_KEY");
+  await expect(picked.getByTestId("secret-id")).toHaveText("ACME_FRONT_KEY_EVALS_STAGING");
+  const project = picked.getByRole("combobox", { name: "Project for ACME_FRONT_KEY" });
+  await expect(project).toHaveText("acme-staging");
+  await project.click();
+  await page.getByRole("option", { name: "acme-private (private)" }).click();
+  await expect(project).toHaveText("acme-private (private)");
+  await picked.scrollIntoViewIfNeeded();
+  await shot("8-project-picker");
+
+  step("Save securely: it goes to the project picked, under the template's name, and the agent gets that reference");
+  await picked.getByTestId("secret-input").fill("acme-private-value-2860");
+  await picked.getByTestId("secret-save").click();
+  await expect.poll(async () => (await saves()).find((s) => s.id === "sr-acme-front")?.where).toBe("acme-private");
+  await expect(chat.getByTestId("secret-card")).toHaveCount(0);
+  expect(await leftovers(page, "acme-private-value-2860")).toEqual([]);
 
   step("the board again: no secret card left");
   await page.keyboard.press("Meta+j");

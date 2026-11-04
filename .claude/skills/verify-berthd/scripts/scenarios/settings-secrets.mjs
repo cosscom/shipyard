@@ -44,13 +44,16 @@ export async function run({ page, shot, step, expect }) {
 
   step("where gpu saves them: its default store and GCP project, and evals' own store");
   await expect(gpu.getByRole("combobox", { name: "Default store on gpu" })).toHaveText("GCP Secret Manager");
-  await expect(gpu.getByRole("textbox", { name: "GCP project on gpu" })).toHaveValue("acme-staging");
+  await expect(gpu.getByRole("textbox", { name: "GCP project on gpu", exact: true })).toHaveValue("acme-staging");
+  await expect(gpu.getByRole("textbox", { name: "Private GCP project on gpu" })).toHaveValue("acme-private");
+  await expect(gpu.getByRole("textbox", { name: "Name template on gpu" })).toHaveValue("{NAME}_{SERVICE}_{ENV}");
   await expect(gpu.getByRole("combobox", { name: "Store for evals on gpu" })).toHaveText("Encrypted file");
   await expect(gpu.getByRole("combobox", { name: "Store for shop on gpu" })).toHaveText("Box default");
   step("give shop its own GCP project, and save");
   await gpu.getByRole("combobox", { name: "Store for shop on gpu" }).click();
   await page.getByRole("option", { name: "GCP Secret Manager" }).click();
   await gpu.getByRole("textbox", { name: "GCP project for shop on gpu" }).fill("acme-shop");
+  await gpu.getByRole("textbox", { name: "Service name for shop on gpu" }).fill("shop-api");
   await gpu.getByTestId("secrets-settings-save-gpu").click();
   await expect(page.getByText("Saved where gpu keeps secrets")).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.__berthCalls["PUT gpu/secrets/settings"] ?? 0)).toBe(1);

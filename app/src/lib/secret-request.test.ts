@@ -22,6 +22,8 @@ import {
   initialExpiry,
   pendingSecrets,
   replacedLine,
+  sentWhere,
+  whereChoices,
   secretRequestOf,
   sentExpiry,
   storeLine,
@@ -186,4 +188,21 @@ test("an environment reads the same on the card and in Settings", () => {
   assert.equal(environmentLabel({ environment: "production" }), "Production");
   assert.equal(environmentLabel({ environment: "staging" }), "Staging");
   assert.equal(environmentLabel({}), "");
+});
+
+test("the card offers a choice of place only when there is one, the private one marked", () => {
+  const r = { where: "acme-staging", where_options: ["acme-staging", "acme-private"], private_where: "acme-private" } as SecretRequest;
+  assert.deepEqual(whereChoices(r), [
+    { value: "acme-staging", label: "acme-staging" },
+    { value: "acme-private", label: "acme-private (private)" },
+  ]);
+  assert.equal(whereChoices({ where: "acme-staging", where_options: ["acme-staging"] } as SecretRequest), undefined);
+  assert.equal(whereChoices({ where: "acme-staging" } as SecretRequest), undefined);
+});
+
+test("only a place the person changed goes to the box", () => {
+  const r = { where: "acme-staging" } as SecretRequest;
+  assert.equal(sentWhere(r, "acme-staging"), undefined);
+  assert.equal(sentWhere(r, "acme-private"), "acme-private");
+  assert.equal(sentWhere({} as SecretRequest, ""), undefined);
 });

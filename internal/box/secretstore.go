@@ -45,7 +45,10 @@ type SecretStore interface {
 
 // SecretSave is one value to keep, and what it is for.
 type SecretSave struct {
-	Name        string
+	Name string
+	// ID is the secret's name in the store, when a name template makes it
+	// differ from Name (StoreCaps.Template); empty is Name.
+	ID          string
 	Value       string
 	Environment string
 	Location    string
@@ -63,6 +66,9 @@ type StoreCaps struct {
 	Labels bool `json:"labels"`
 	// Grant: the store can give one service account access to one secret.
 	Grant bool `json:"grant"`
+	// Template: the store's names are shared with other things, so a name
+	// template says what a secret is called there.
+	Template bool `json:"template"`
 }
 
 // StoreEnv is what a provider opens its store with.
@@ -181,7 +187,10 @@ var secretName = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,127}$`)
 
 // SecretMeta is one saved secret as Settings lists it: never a value.
 type SecretMeta struct {
+	// Name is what the agent asked for and uses; ID what the store calls
+	// it, when a name template made that differ.
 	Name  string `json:"name"`
+	ID    string `json:"id,omitempty"`
 	Ref   string `json:"ref"`
 	Store string `json:"store"`
 	// StoreLabel is where the value is ("Keychain", "GCP Secret Manager");
@@ -411,6 +420,10 @@ var errSecretNotFound = errors.New("no such secret")
 type SecretSettings struct {
 	Store      string `json:"store"`
 	GCPProject string `json:"gcp_project,omitempty"`
+	// GCPPrivateProject is one more project the card offers, for what
+	// should stay out of the projects others can reach.
+	GCPPrivateProject string `json:"gcp_private_project,omitempty"`
+	NameTemplate      string `json:"name_template,omitempty"`
 	// Locations are the projects' own choices, by location.
 	Locations map[string]SecretStoreChoice `json:"locations,omitempty"`
 }
@@ -419,22 +432,83 @@ type SecretSettings struct {
 type SecretStoreChoice struct {
 	Store      string `json:"store,omitempty"`
 	GCPProject string `json:"gcp_project,omitempty"`
+	// GCPPrivateProject is the box's alone: see SecretSettings.
+	GCPPrivateProject string `json:"gcp_private_project,omitempty"`
+	// NameTemplate says what a secret is called in a store that shares its
+	// names; Service is what it calls this project, its name by default.
+	NameTemplate string `json:"name_template,omitempty"`
+	Service      string `json:"service,omitempty"`
 }
 
 func (c SecretStoreChoice) validate() error {
 	if c.Store != "" && secretProviderByID(c.Store) == nil {
 		return fmt.Errorf("there is no secret store %q", c.Store)
 	}
-	if c.GCPProject != "" && !gcpProjectID.MatchString(c.GCPProject) {
-		return fmt.Errorf("%q is not a GCP project ID", c.GCPProject)
+	for _, p := range []string{c.GCPProject, c.GCPPrivateProject} {
+		if p != "" && !gcpProjectID.MatchString(p) {
+			return fmt.Errorf("%q is not a GCP project ID", p)
+		}
+	}
+	if c.NameTemplate != "" {
+		if err := validateNameTemplate(c.NameTemplate); err != nil {
+			return err
+		}
+	}
+	if c.Service != "" && !secretService.MatchString(c.Service) {
+		return fmt.Errorf("%q is not a service name: use letters, digits, - and _", c.Service)
 	}
 	return nil
+}
+
+// A name template is a secret's name in a store that shares its names with
+// other things, such as {NAME}_{SERVICE}_{ENV}. Written in capitals, a word
+// comes out in capitals with underscores (SHOPIFY_BULK_EDITOR); in small
+// letters, in small letters with hyphens (shopify-bulk-editor).
+var (
+	templateWord    = regexp.MustCompile(`\{(NAME|SERVICE|ENV|name|service|env)\}`)
+	secretIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,255}$`)
+	secretService   = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$`)
+	notWordChars    = regexp.MustCompile(`[^A-Za-z0-9]+`)
+)
+
+func validateNameTemplate(t string) error {
+	if !strings.Contains(strings.ToLower(t), "{name}") {
+		return fmt.Errorf("the name template %q needs {NAME}", t)
+	}
+	if !secretIDPattern.MatchString(templateWord.ReplaceAllString(t, "X")) {
+		return fmt.Errorf("the name template %q can hold {NAME}, {SERVICE}, {ENV}, letters, digits, - and _", t)
+	}
+	return nil
+}
+
+func templateNeeds(t, word string) bool { return strings.Contains(strings.ToLower(t), "{"+word+"}") }
+
+// secretID is name as template writes it.
+func secretID(template, name, service, env string) string {
+	if template == "" {
+		return name
+	}
+	return templateWord.ReplaceAllStringFunc(template, func(w string) string {
+		v := map[string]string{"name": name, "service": service, "env": env}[strings.ToLower(strings.Trim(w, "{}"))]
+		if w == strings.ToUpper(w) {
+			return strings.ToUpper(notWordChars.ReplaceAllString(v, "_"))
+		}
+		return strings.ToLower(notWordChars.ReplaceAllString(v, "-"))
+	})
 }
 
 // whereFor is the place a store id is opened at, from a choice.
 func (c SecretStoreChoice) whereFor(id string) string {
 	if id == "gcp" {
 		return c.GCPProject
+	}
+	return ""
+}
+
+// privateFor is the place in store id set aside as private.
+func (c SecretStoreChoice) privateFor(id string) string {
+	if id == "gcp" {
+		return c.GCPPrivateProject
 	}
 	return ""
 }

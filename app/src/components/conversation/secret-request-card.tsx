@@ -2,6 +2,7 @@ import { CheckIcon, EyeIcon, EyeOffIcon, KeyRoundIcon, LockIcon, XIcon } from "l
 import { useEffect, useReducer, useRef, useState } from "react";
 
 import { PickOne } from "@/components/pick-one";
+import { SimpleSelect } from "@/components/simple-select";
 import { Tip } from "@/components/tip";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -26,6 +27,8 @@ import {
   isProduction,
   replacedLine,
   sentExpiry,
+  sentWhere,
+  whereChoices,
 } from "@/lib/secret-request";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -53,6 +56,8 @@ export function SecretRequestCard({ box, request, compact }: { box: string; requ
   const [typed, setTyped] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [expiry, setExpiry] = useState<SecretExpiry>(() => initialExpiry(request));
+  const places = whereChoices(request);
+  const [where, setWhere] = useState(request.where ?? "");
   const prod = isProduction(request);
   const options = expiryOptions(request);
   const grant = grantLine(request);
@@ -71,7 +76,7 @@ export function SecretRequestCard({ box, request, compact }: { box: string; requ
     if (!client || !el || !canSave(state, el.value.length)) return;
     dispatch({ type: "save" });
     try {
-      const { ref } = await boxApi.saveSecret(client, box, request.id, el.value, sentExpiry(request, expiry));
+      const { ref } = await boxApi.saveSecret(client, box, request.id, el.value, sentExpiry(request, expiry), sentWhere(request, where));
       el.value = "";
       setTyped(0);
       setRevealed(false);
@@ -146,7 +151,7 @@ export function SecretRequestCard({ box, request, compact }: { box: string; requ
           <dt className="text-muted-foreground">Saved in</dt>
           <dd data-testid="secret-store" className="min-w-0 break-words">
             {request.store_label || request.store}
-            {request.where && (
+            {!places && request.where && (
               <>
                 {" · "}
                 <span data-testid="secret-where" className={cn(warn)}>
@@ -155,6 +160,22 @@ export function SecretRequestCard({ box, request, compact }: { box: string; requ
               </>
             )}
           </dd>
+          {places && (
+            <>
+              <dt className="self-center text-muted-foreground">Project</dt>
+              <dd className="min-w-0">
+                <SimpleSelect size="sm" className={cn("max-w-full", warn)} options={places} value={where} disabled={inFlight} onChange={setWhere} aria-label={`Project for ${request.name}`} />
+              </dd>
+            </>
+          )}
+          {request.secret_id && (
+            <>
+              <dt className="text-muted-foreground">Saved as</dt>
+              <dd data-testid="secret-id" className="min-w-0 break-all font-mono text-mono">
+                {request.secret_id}
+              </dd>
+            </>
+          )}
           {request.environment && (
             <>
               <dt className="text-muted-foreground">Environment</dt>
