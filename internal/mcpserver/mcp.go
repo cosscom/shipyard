@@ -142,6 +142,7 @@ var Tools = []Tool{
 	{Name: "berth_run_start", Description: "Start a durable run from a template (loop, review, handoff, broadcast, attempts, fix-ci, address-review). Returns the run ID." + told, InputSchema: obj(with(map[string]any{"template": str("template name"), "params": map[string]any{"type": "object", "description": "template parameters"}, "idem": str("idempotency key")}), "template", "params"), call: runStart},
 	{Name: "berth_run_get", Description: "A run's status, its open gate, current step and attempts, in brief.", InputSchema: obj(map[string]any{"run": str("run ID")}, "run"), call: runGet},
 	{Name: "berth_run_cancel", Description: "Cancel a run.", InputSchema: obj(map[string]any{"run": str("run ID")}, "run"), call: runCancel},
+	{Name: "berth_secret_request", Description: "Ask the person for a secret (an API key, a token) through a masked card in Shipyard, instead of having it pasted into the chat. Returns at once: a saved one's reference, or a request ID; when they answer you get a <berth-notification> with a reference like box://NAME, never the value. Use it in one command with `berthd secret exec --env VAR=REF -- COMMAND` (or --file VAR=REF for a file); never print it.", InputSchema: obj(map[string]any{"name": str("the secret's name, an environment variable's: ACME_TOKEN"), "reason": str("why you need it; shown to the person verbatim"), "new": map[string]any{"type": "boolean", "description": "ask for a new value even when one is saved (a replacement)"}, "store": str("local or gcp (default: the project's, else the box's)"), "environment": str("staging or production"), "grant": str("gcp: a service account to give read access to this one secret"), "ttl": str("suggest a lifetime: 1h, 24h or 7d (default none)"), "wait": num("seconds to wait for the answer, at most 90 (default 0)")}, "name", "reason"), call: secretRequest},
 	{Name: "berth_attempts", Description: "Try one task N ways: each agent in its own worktree, verified by check, judged, then a person picks. Returns the run ID." + told, InputSchema: obj(with(map[string]any{"location": str("location"), "name": str("worktree name prefix"), "prompt": str("the task"), "agents": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "agent per attempt, e.g. [\"claude\",\"codex\"]"}, "check": str("command that must pass")}), "location", "name", "prompt", "agents"), call: attempts},
 }
 
@@ -197,7 +198,7 @@ func (s *Server) handle(ctx context.Context, req request) (any, *rpcError) {
 			"protocolVersion": v,
 			"capabilities":    map[string]any{"tools": map[string]any{}},
 			"serverInfo":      map[string]any{"name": "berth", "version": version.Version},
-			"instructions":    "Tools for this box's agents, worktrees and durable runs. Never block: wait_turn takes at most 90 s and returns a cursor. Work you start (task_new, send, exec, run_start, attempts) reports back: a <berth-notification> message from Shipyard, not the user, arrives at your next idle when it ends, needs a person or reaches a gate. So end your turn rather than polling.",
+			"instructions":    "Tools for this box's agents, worktrees and durable runs. Never block: wait_turn takes at most 90 s and returns a cursor. Work you start (task_new, send, exec, run_start, attempts, secret_request) reports back: a <berth-notification> message from Shipyard, not the user, arrives at your next idle when it ends, needs a person or reaches a gate. So end your turn rather than polling.",
 		}, nil
 	case "ping":
 		return map[string]any{}, nil
@@ -440,6 +441,38 @@ func runCancel(ctx context.Context, s *Server, a map[string]any) (any, error) {
 		return nil, err
 	}
 	return map[string]bool{"cancelled": true}, nil
+}
+
+func secretRequest(ctx context.Context, s *Server, a map[string]any) (any, error) {
+	if err := need(a, "name", "reason"); err != nil {
+		return nil, err
+	}
+	who := s.caller(ctx)
+	if who == "" {
+		return nil, errors.New("a secret is requested by an agent session on the box, and this one's isn't known (BERTH_SESSION)")
+	}
+	nw, _ := a["new"].(bool)
+	c := s.Box.WithCaller(who)
+	sr, err := c.RequestSecret(ctx, box.SecretRequestBody{Name: arg(a, "name"), Reason: arg(a, "reason"), New: nw, Store: arg(a, "store"), Environment: arg(a, "environment"), Grant: arg(a, "grant"), TTL: arg(a, "ttl")})
+	if err != nil {
+		return nil, err
+	}
+	// The tool's own deadline ending the wait is not an error: the
+	// request stands, and its answer comes as a notification.
+	if now, err := c.AwaitSecretRequest(ctx, sr, seconds(a, "wait", 0, 90)); err == nil || ctx.Err() != nil {
+		sr = now
+	}
+	out := map[string]any{"name": sr.Name, "status": sr.Status}
+	switch sr.Status {
+	case "pending":
+		out["request"], out["notify"] = sr.ID, true
+	case "saved":
+		out["ref"] = sr.Ref
+		if sr.Reused {
+			out["reused"] = true
+		}
+	}
+	return out, nil
 }
 
 func attempts(ctx context.Context, s *Server, a map[string]any) (any, error) {

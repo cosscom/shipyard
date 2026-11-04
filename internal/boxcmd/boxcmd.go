@@ -130,7 +130,8 @@ var usageSections = []struct {
 		{"%[1]s skills%[3]s [list|install|uninstall] [SKILL...] [--agent claude|codex|all]\n         [--target user|project] [--location LOC] [--commit]", "Teach Claude Code and Codex to use berth"},
 	}},
 	{"Secrets", [][2]string{
-		{"%[1]s secret test%[3]s REF", "Check this box can resolve op://vault/item/field or env://NAME\n(prints the value's length, never the value)"},
+		{"%[1]s secret test%[3]s REF", "Check this box can resolve op://vault/item/field, env://NAME or box://NAME\n(prints the value's length, never the value)"},
+		{"%[1]s secret request%[3]s NAME --reason WHY [--new] [--store local|gcp]\n         [--environment staging|production] [--grant SA_EMAIL] [--ttl 1h|24h|7d] [--wait 90s]", "Ask the person for a secret through a card in Shipyard; the agent gets\na reference (box://NAME), never the value"},
 	}},
 	{"Events", [][2]string{
 		{"%[1]s emit%[3]s TYPE [key=value...] [--origin TOOL]", "Announce an event, e.g. agent.finished"},
@@ -251,6 +252,8 @@ func Run(ctx context.Context, c *box.Client, args []string, out io.Writer) error
 			return fmt.Errorf("could not resolve %s: %s", pos[0], res.Error)
 		}
 		return nil
+	case "secret request":
+		return secretRequest(ctx, c, rest, out)
 	case "preview":
 		return preview(ctx, c, rest, out)
 	case "runs":

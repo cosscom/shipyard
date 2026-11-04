@@ -100,7 +100,7 @@ export interface AgentMessage {
 // One piece of work a <berth-notification> reports on
 // (internal/transcript/report.go).
 export interface BerthReport {
-  kind: "task" | "turn" | "run";
+  kind: "task" | "turn" | "run" | "secret";
   session?: string;
   run?: string;
   template?: string;

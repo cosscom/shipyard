@@ -29,6 +29,10 @@ const WORDS: Record<string, [string, Tone]> = {
   waiting_gate: ["waits at a gate", "needs"],
   cancelled: ["was cancelled", "ended"],
   interrupted: ["was interrupted", "ended"],
+  // A secret the agent asked for (berthd secret request).
+  saved: ["saved", "done"],
+  declined: ["declined", "ended"],
+  timed_out: ["timed out", "ended"],
 };
 
 const cap = (w: string) => w.charAt(0).toUpperCase() + w.slice(1);
@@ -37,6 +41,7 @@ const cap = (w: string) => w.charAt(0).toUpperCase() + w.slice(1);
 // else the session, else the run.
 export function reportName(r: BerthReport): string {
   if (r.kind === "run") return r.title || r.template || r.run || "A run";
+  if (r.kind === "secret") return r.title || "A secret";
   const wt = r.worktree?.split("/").pop();
   return wt || r.session || "An agent";
 }
@@ -87,8 +92,8 @@ export function ReportCard({ it }: { it: Extract<TranscriptItem, { kind: "report
       <CardHead
         avatar={<BerthAvatar />}
         name={name}
-        kind={r.kind === "run" ? "Run" : "Agent"}
-        chip={r.status === "waiting_gate" ? { word: "At a gate", Icon: MilestoneIcon, tone: "ask" } : { ...CHIP[tone], word: r.kind === "run" || tone !== "done" ? cap(word) : CHIP[tone].word }}
+        kind={r.kind === "run" ? "Run" : r.kind === "secret" ? "Secret" : "Agent"}
+        chip={r.status === "waiting_gate" ? { word: "At a gate", Icon: MilestoneIcon, tone: "ask" } : { ...CHIP[tone], word: r.kind === "run" || r.kind === "secret" || tone !== "done" ? cap(word) : CHIP[tone].word }}
         extra={
           changed && (
             <>
@@ -100,7 +105,7 @@ export function ReportCard({ it }: { it: Extract<TranscriptItem, { kind: "report
           )
         }
         took={r.duration}
-        tip={`Shipyard reported back on ${about}, which this agent started, and sent it to the agent. You didn't type it.`}
+        tip={r.kind === "secret" ? `Shipyard told this agent what came of the secret ${name} it asked for: a reference when you saved it, never the value. You didn't type it.` : `Shipyard reported back on ${about}, which this agent started, and sent it to the agent. You didn't type it.`}
         open={
           session &&
           box && (

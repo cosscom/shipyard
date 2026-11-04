@@ -116,6 +116,29 @@ then shows `repo_trust.state` as `untrusted` or `changed`. Never trust it
 yourself (`--trust`); tell the user what it wants to run and let them decide
 in the app or with `berth location config BOX/LOC --trust HASH`.
 
+## When you need a secret
+
+Never ask the user to paste a key or a token into the chat. Ask for it by
+name, with why; a masked card shows in Shipyard:
+
+```sh
+berthd secret request ACME_TOKEN --reason "Deploy the acme app to staging"   # or the berth_secret_request tool
+```
+
+It returns at once. End your turn: a `<berth-notification>` brings back a
+reference such as `box://ACME_TOKEN`, never the value (one already saved
+comes back at once). Use it in one command, and never print it:
+
+```sh
+berthd secret exec --env ACME_TOKEN=box://ACME_TOKEN -- ./deploy.sh
+berthd secret exec --file GOOGLE_APPLICATION_CREDENTIALS=box://ACME_SA_KEY -- gcloud …   # a temp file, removed after
+```
+
+`--new` asks for a replacement, `--environment production` marks it so,
+`--store gcp` saves to Secret Manager (`--grant SA_EMAIL` gives one service
+account read access to that secret alone). If the user declines, carry on
+without it or ask what they want.
+
 ## Review links for the PRs you open
 
 When a pull request you open from a berth worktree changes something a

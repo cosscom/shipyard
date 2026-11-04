@@ -69,6 +69,9 @@ type Session struct {
 	// its last message: the reply box answers it, and its screen shows its
 	// prompt, with no question there to read options from.
 	SoftWait bool `json:"soft_wait,omitempty"`
+	// SecretRequest is the secret the agent asked the person for, while
+	// the ask waits (secretrequests.go): never a value.
+	SecretRequest *SecretRequest `json:"secret_request,omitempty"`
 	// Service is set on a worktree service's own terminal (a service with
 	// "terminal": true): the service's name, kept as @berth_service. It is
 	// never an agent, whatever it runs.
