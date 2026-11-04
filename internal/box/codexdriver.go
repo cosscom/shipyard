@@ -272,6 +272,11 @@ func (c *codexConv) reconcile() {
 		c.event(adapters.Started, map[string]any{"signal": "tool"}, nil)
 	case !busy && (st.State == "running" || st.State == "waiting"):
 		c.event(adapters.Finished, nil, nil)
+	case !busy && (st.State == "" || st.State == "exited"):
+		// Started again with no prompt (resumed, or after berthd restarted):
+		// its host said so before the log was read, so nothing did. It sits
+		// at its prompt, and would otherwise list as working.
+		c.event(adapters.Ready, nil, nil)
 	}
 }
 
