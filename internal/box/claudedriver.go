@@ -221,6 +221,7 @@ type claudeConv struct {
 	next      int
 	lastSeq   int64
 	exited    bool
+	atPrompt  bool // ready at its prompt since its host last started
 	changed   chan struct{}
 	following bool
 	// caught is closed once the log as it was is read back: what comes
@@ -421,10 +422,10 @@ func (c *claudeConv) apply(e agenthost.Entry, live bool) {
 		switch e.Event {
 		case "started":
 			// A host started again (resumed, or back from its terminal).
-			c.busy, c.pending, c.since, c.exited = false, nil, time.Time{}, false
+			c.busy, c.pending, c.since, c.exited, c.atPrompt = false, nil, time.Time{}, false, true
 			say = append(say, func() { c.event(adapters.Ready, nil, nil) })
 		case "exited":
-			c.exited, c.busy, c.pending = true, false, nil
+			c.exited, c.busy, c.pending, c.atPrompt = true, false, nil, false
 			say = append(say, func() { c.event(adapters.Exited, nil, nil) })
 		}
 		return
@@ -610,7 +611,7 @@ func (c *claudeConv) drop(id string) bool {
 // it back: a turn the agent ended, or one it still works on or waits in.
 func (c *claudeConv) reconcile() {
 	c.mu.Lock()
-	busy, pending, exited, bypass := c.busy, append([]claudeRequest(nil), c.pending...), c.exited, c.bypass
+	busy, pending, exited, bypass, atPrompt := c.busy, append([]claudeRequest(nil), c.pending...), c.exited, c.bypass, c.atPrompt
 	c.mu.Unlock()
 	if exited {
 		return
@@ -638,6 +639,11 @@ func (c *claudeConv) reconcile() {
 		c.event(adapters.Started, map[string]any{"signal": "tool"}, nil)
 	case !busy && (st.State == "running" || st.State == "waiting"):
 		c.event(adapters.Finished, nil, nil)
+	case !busy && atPrompt && (st.State == "" || st.State == "exited"):
+		// Started again with no prompt (resumed, or after berthd restarted):
+		// it said it was ready before the log was read, so nothing did. It
+		// sits at its prompt, and would otherwise list as working.
+		c.event(adapters.Ready, nil, nil)
 	}
 }
 

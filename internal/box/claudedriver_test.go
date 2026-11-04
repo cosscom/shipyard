@@ -981,3 +981,101 @@ func TestATurnClaudeStartsByItselfShowsAsWorking(t *testing.T) {
 		}
 	}
 }
+
+// A conversation carried on with no prompt (its agent started again on its
+// log, or the conversation resumed in a new session, as after the box
+// restarted) sits at its prompt: idle, not working. Its host said it
+// started before berthd read the log, so only the catch-up can say so.
+func TestAResumedConversationWithNoPromptIsIdle(t *testing.T) {
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("the stand-in Claude needs python3")
+	}
+	bin := t.TempDir()
+	os.WriteFile(filepath.Join(bin, "claude"), []byte(fakeStreamClaude), 0o755)
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+	exe, _ := os.Executable()
+	states := &Turns{}
+	var bx *Box
+	c, bus := servedBox(t, func(b *Box) {
+		bx = b
+		b.Turns = states
+		b.ConversationsDir = conversationsDir(t)
+		b.AgentHost = []string{"env", "BERTH_TEST_AGENT_HOST=1", exe}
+	})
+	states.Attach(bus)
+	repo := gitRepo(t)
+	call(t, c, "POST", "/v1/locations", "", map[string]string{"name": "acme", "path": repo}, nil)
+	var sess Session
+	if status := call(t, c, "POST", "/v1/sessions", "", map[string]any{"location": "acme", "agent": "claude", "driver": "claude", "prompt": "hello"}, &sess); status != 200 {
+		t.Fatalf("start: %d", status)
+	}
+	names := []string{sess.Name}
+	t.Cleanup(func() {
+		for _, n := range names {
+			call(t, c, "DELETE", "/v1/sessions/"+n, "", nil, nil)
+		}
+	})
+	// listed is the session as the app sees it, once ok holds.
+	listed := func(what, name string, ok func(Session) bool) Session {
+		t.Helper()
+		deadline := time.Now().Add(15 * time.Second)
+		for {
+			var list []Session
+			call(t, c, "GET", "/v1/sessions", "", nil, &list)
+			for _, s := range list {
+				if s.Name == name && ok(s) {
+					return s
+				}
+			}
+			if time.Now().After(deadline) {
+				st, _ := states.State(name)
+				t.Fatalf("%s never happened: %+v (turns %+v)", what, list, st)
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+	listed("the first turn's end", sess.Name, func(s Session) bool { return s.AgentState == "finished" })
+
+	// Its agent ends and is started again on its own log: at its prompt.
+	live, err := bx.Sessions.Get(t.Context(), sess.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := agenthost.Stop(t.Context(), live.sock); err != nil {
+		t.Fatal(err)
+	}
+	listed("the session's end", sess.Name, func(s Session) bool { return s.Exited })
+	if status := call(t, c, "POST", "/v1/sessions/"+sess.Name+"/resume", "", nil, nil); status != 200 {
+		t.Fatalf("resume: %d", status)
+	}
+	listed("idle once resumed", sess.Name, func(s Session) bool { return !s.Exited && s.AgentState == "idle" })
+
+	// Its session gone, the conversation carried on in a new one: idle too.
+	if status := call(t, c, "DELETE", "/v1/sessions/"+sess.Name, "", nil, nil); status != 200 {
+		t.Fatalf("delete: %d", status)
+	}
+	var convs []Conversation
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		convs = nil
+		call(t, c, "GET", "/v1/conversations", "", nil, &convs)
+		if len(convs) == 1 && !convs[0].Live {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the conversation is still %+v", convs)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	var again Session
+	if status := call(t, c, "POST", "/v1/conversations/"+convs[0].ID+"/resume", "", nil, &again); status != 200 {
+		t.Fatalf("resume the conversation: %d", status)
+	}
+	names = append(names, again.Name)
+	listed("idle in the new session", again.Name, func(s Session) bool { return s.AgentState == "idle" })
+
+	// And a prompt still starts and ends a turn there.
+	call(t, c, "POST", "/v1/sessions/"+again.Name+"/send", "", map[string]any{"text": "again", "when": "now"}, nil)
+	listed("the new turn's end", again.Name, func(s Session) bool { return s.AgentState == "finished" })
+}

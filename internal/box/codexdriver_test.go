@@ -275,6 +275,12 @@ func TestAStructuredCodexSessionIsDrivenThroughItsAppServer(t *testing.T) {
 	if status := call(t, c, "POST", "/v1/sessions/"+name+"/resume", "", nil, nil); status != 200 {
 		t.Fatalf("resume: %d", status)
 	}
+	// At its prompt, as the app lists it: not working.
+	until("idle once resumed", func() bool {
+		var list []Session
+		call(t, c, "GET", "/v1/sessions", "", nil, &list)
+		return len(list) == 1 && !list[0].Exited && list[0].AgentState == "idle"
+	})
 	call(t, c, "POST", "/v1/sessions/"+name+"/send", "", map[string]any{"text": "again", "when": "now"}, nil)
 	until("a reply once resumed", said("echo: again"))
 	var controls Controls

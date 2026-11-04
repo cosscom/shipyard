@@ -122,6 +122,7 @@ type acpConv struct {
 	next        int
 	lastSeq     int64
 	exited      bool
+	atPrompt    bool // ready at its prompt since its host last started
 	initialized bool
 	changed     chan struct{}
 	following   bool
@@ -252,7 +253,7 @@ func (c *acpConv) follow() {
 
 func (c *acpConv) reconcile() {
 	c.mu.Lock()
-	busy, pending, exited, greeted, lastSeq, bypass := c.busy, append([]acpRequest(nil), c.pending...), c.exited, c.initialized, c.lastSeq, c.bypass
+	busy, pending, exited, greeted, lastSeq, bypass, atPrompt := c.busy, append([]acpRequest(nil), c.pending...), c.exited, c.initialized, c.lastSeq, c.bypass, c.atPrompt
 	c.mu.Unlock()
 	if exited {
 		return
@@ -277,6 +278,11 @@ func (c *acpConv) reconcile() {
 		c.event(adapters.Started, map[string]any{"signal": "tool"}, nil)
 	case !busy && (st.State == "running" || st.State == "waiting"):
 		c.event(adapters.Finished, nil, nil)
+	case !busy && atPrompt && (st.State == "" || st.State == "exited"):
+		// Started again with no prompt (resumed, or after berthd restarted):
+		// it said it was ready before the log was read, so nothing did. It
+		// sits at its prompt, and would otherwise list as working.
+		c.event(adapters.Ready, nil, nil)
 	}
 }
 
@@ -302,13 +308,13 @@ func (c *acpConv) apply(e agenthost.Entry, live bool) {
 	case "host":
 		switch e.Event {
 		case "started":
-			c.busy, c.pending, c.since, c.exited, c.initialized = false, nil, time.Time{}, false, false
+			c.busy, c.pending, c.since, c.exited, c.initialized, c.atPrompt = false, nil, time.Time{}, false, false, false
 			c.prompts = map[string]bool{}
 			if live {
 				say = append(say, func() { go c.handshake() })
 			}
 		case "exited":
-			c.exited, c.busy, c.pending = true, false, nil
+			c.exited, c.busy, c.pending, c.atPrompt = true, false, nil, false
 			say = append(say, func() { c.event(adapters.Exited, nil, nil) })
 		}
 		return
@@ -395,6 +401,9 @@ func (c *acpConv) apply(e agenthost.Entry, live bool) {
 			json.Unmarshal(m.Result, &r)
 			if r.SessionID != "" {
 				c.sessionID = r.SessionID
+			}
+			if m.Error == nil && c.sessionID != "" {
+				c.atPrompt = true
 			}
 			if live && m.Error == nil && c.sessionID != "" {
 				sid, dir := c.sessionID, c.conv
