@@ -359,12 +359,16 @@ func (c *codexConv) apply(e agenthost.Entry, live bool) {
 			}
 			if json.Unmarshal(m.Result, &r) == nil && r.Thread.ID != "" {
 				c.atPrompt = true
-			}
-			if r.Thread.ID != "" && r.Thread.ID != c.threadID {
-				c.threadID = r.Thread.ID
+				if r.Thread.ID != c.threadID {
+					c.threadID = r.Thread.ID
+					if live {
+						tid, dir := r.Thread.ID, c.conv
+						say = append(say, func() { noteConversation(dir, func(x *Conversation) { x.AgentSessionID = tid }) })
+					}
+				}
+				// At its prompt, a new thread or the same one resumed.
 				if live {
-					tid, dir := r.Thread.ID, c.conv
-					say = append(say, func() { noteConversation(dir, func(x *Conversation) { x.AgentSessionID = tid }) }, func() { c.event(adapters.Ready, nil, nil) })
+					say = append(say, func() { c.event(adapters.Ready, nil, nil) })
 				}
 			}
 		}
