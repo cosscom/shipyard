@@ -1007,7 +1007,9 @@ func TestAResumedConversationWithNoPromptIsIdle(t *testing.T) {
 	repo := gitRepo(t)
 	call(t, c, "POST", "/v1/locations", "", map[string]string{"name": "acme", "path": repo}, nil)
 	var sess Session
-	call(t, c, "POST", "/v1/sessions", "", map[string]any{"location": "acme", "agent": "claude", "driver": "claude", "prompt": "hello"}, &sess)
+	if status := call(t, c, "POST", "/v1/sessions", "", map[string]any{"location": "acme", "agent": "claude", "driver": "claude", "prompt": "hello"}, &sess); status != 200 {
+		t.Fatalf("start: %d", status)
+	}
 	names := []string{sess.Name}
 	t.Cleanup(func() {
 		for _, n := range names {
