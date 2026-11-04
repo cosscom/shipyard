@@ -119,6 +119,7 @@ type codexConv struct {
 	next        int
 	lastSeq     int64
 	exited      bool
+	atPrompt    bool // ready at its prompt since its host last started
 	initialized bool
 	changed     chan struct{}
 	following   bool
@@ -253,7 +254,7 @@ func (c *codexConv) follow() {
 // of a host berthd hasn't greeted yet.
 func (c *codexConv) reconcile() {
 	c.mu.Lock()
-	busy, pending, exited, greeted, lastSeq := c.busy, len(c.pending), c.exited, c.initialized, c.lastSeq
+	busy, pending, exited, greeted, lastSeq, atPrompt := c.busy, len(c.pending), c.exited, c.initialized, c.lastSeq, c.atPrompt
 	c.mu.Unlock()
 	if exited {
 		return
@@ -272,10 +273,10 @@ func (c *codexConv) reconcile() {
 		c.event(adapters.Started, map[string]any{"signal": "tool"}, nil)
 	case !busy && (st.State == "running" || st.State == "waiting"):
 		c.event(adapters.Finished, nil, nil)
-	case !busy && (st.State == "" || st.State == "exited"):
+	case !busy && atPrompt && (st.State == "" || st.State == "exited"):
 		// Started again with no prompt (resumed, or after berthd restarted):
-		// its host said so before the log was read, so nothing did. It sits
-		// at its prompt, and would otherwise list as working.
+		// it said it was ready before the log was read, so nothing did. It
+		// sits at its prompt, and would otherwise list as working.
 		c.event(adapters.Ready, nil, nil)
 	}
 }
@@ -312,12 +313,12 @@ func (c *codexConv) apply(e agenthost.Entry, live bool) {
 	case "host":
 		switch e.Event {
 		case "started":
-			c.busy, c.pending, c.since, c.exited, c.initialized, c.turnID = false, nil, time.Time{}, false, false, ""
+			c.busy, c.pending, c.since, c.exited, c.initialized, c.turnID, c.atPrompt = false, nil, time.Time{}, false, false, "", false
 			if live {
 				say = append(say, func() { go c.handshake() })
 			}
 		case "exited":
-			c.exited, c.busy, c.pending = true, false, nil
+			c.exited, c.busy, c.pending, c.atPrompt = true, false, nil, false
 			say = append(say, func() { c.event(adapters.Exited, nil, nil) })
 		}
 		return
@@ -356,7 +357,10 @@ func (c *codexConv) apply(e agenthost.Entry, live bool) {
 					ID string `json:"id"`
 				} `json:"thread"`
 			}
-			if json.Unmarshal(m.Result, &r) == nil && r.Thread.ID != "" && r.Thread.ID != c.threadID {
+			if json.Unmarshal(m.Result, &r) == nil && r.Thread.ID != "" {
+				c.atPrompt = true
+			}
+			if r.Thread.ID != "" && r.Thread.ID != c.threadID {
 				c.threadID = r.Thread.ID
 				if live {
 					tid, dir := r.Thread.ID, c.conv
