@@ -100,6 +100,15 @@ const mockBuilds: Record<string, string> = { devl: SHIPPED_BUILD, gpu: "304337b9
 
 // ?mock=1&fresh=1 is a new account: no boxes yet, so onboarding shows.
 const fresh = new URLSearchParams(location.search).has("fresh");
+// ?mock=1&slowremove=MS: a box takes that long to remove a worktree with no
+// archive script, as one with a big node_modules does, and answers once it
+// is gone.
+const slowRemove = Number(new URLSearchParams(location.search).get("slowremove")) || 0;
+// ?mock=1&slowstop=MS: a box takes that long to answer a session's stop.
+const slowStop = Number(new URLSearchParams(location.search).get("slowstop")) || undefined;
+// ?noruns: every box is one from before runs, so the app does what a box's
+// runs would (a bulk Stop's own loop, lib/stop-job.ts).
+const noRuns = new URLSearchParams(location.search).has("noruns");
 if (fresh) {
   status.boxes = [];
   status.forwards = [];
@@ -370,7 +379,7 @@ if (!fresh && !__BERTH_DEMO__ && !new URLSearchParams(location.search).has("stil
   emit({ type: s.agent_state === "waiting" ? "agent.waiting" : "agent.started", box: "devl", origin: s.agent, data: { path: s.dir } });
 }, 25_000);
 
-const delay = <T,>(v: T) => new Promise<T>((r) => setTimeout(() => r(structuredClone(v)), 120));
+const delay = <T,>(v: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(structuredClone(v)), ms));
 
 // mockOrchestration answers send, wait and exec: a prompted agent works for
 // a moment and finishes, and a worktree's check fails once, then passes, so
@@ -695,7 +704,7 @@ function boxCall(box: string, method: string, path: string, body?: unknown): Pro
   if (team) return team;
   const flows = flowsCall(box, method, path, body, emit, delay);
   if (flows) return flows;
-  const runs = runsCall(box, method, path, body, emit, delay);
+  const runs = runsCall(box, method, path, body, emit, delay, (m, p) => boxCall(box, m, p));
   if (runs) return runs;
   const browser = browserCall(box, method, path);
   if (browser) return delay(browser);
@@ -787,7 +796,7 @@ function boxCall(box: string, method: string, path: string, body?: unknown): Pro
       home: HOME,
       // gpu runs an older berthd (mockBuilds): it can't keep worktree names,
       // and its agent browser has no tabs.
-      capabilities: ["diff", "turns", "queue", "ask", "answer", "journal", "runs", "exec.detach", "browser", "browser.devtools", "titles", "sample", "service.terminal", "session.home", "agents.install", "artifacts", "processes", ...(box === "gpu" ? [] : ["worktree.titles", "agents.paths", "browser.tabs"]), ...(structuredDemo ? ["driver.claude", "conversations", "sessions.past"] : [])],
+      capabilities: ["diff", "turns", "queue", "ask", "answer", "journal", ...(noRuns ? [] : ["runs"]), "exec.detach", "browser", "browser.devtools", "titles", "sample", "service.terminal", "session.home", "agents.install", "artifacts", "processes", ...(box === "gpu" ? [] : ["worktree.titles", "agents.paths", "browser.tabs"]), ...(structuredDemo ? ["driver.claude", "conversations", "sessions.past"] : [])],
       // Claude Code from npm under nvm, as the person's shell finds it;
       // Codex from Shipyard's own installer.
       agent_paths: [
@@ -885,6 +894,7 @@ function boxCall(box: string, method: string, path: string, body?: unknown): Pro
       }, 1500);
       return delay({ removing: wt, archive: l.scripts.archive });
     }
+    if (slowRemove) return delay({ removed: wt }, slowRemove).finally(gone);
     setTimeout(gone, 50);
     return delay({ removed: wt });
   }
@@ -939,7 +949,7 @@ function boxCall(box: string, method: string, path: string, body?: unknown): Pro
     const name = decodeURIComponent(path.slice("sessions/".length));
     sessions[box] = sessions[box].filter((s) => s.name !== name);
     setTimeout(() => emit({ type: "session.stopped", box, data: { name } }), 50);
-    return delay({ removed: name });
+    return delay({ removed: name }, slowStop);
   }
   if (key === "POST locations") {
     const r = body as { name: string; path: string };

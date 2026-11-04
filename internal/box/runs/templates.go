@@ -176,6 +176,16 @@ func derive(name string, p map[string]any) {
 				}
 			}
 		}
+	case "stop":
+		countOf("sessions")
+		// A name is short for {session}.
+		if list, ok := p["sessions"].([]any); ok {
+			for i, v := range list {
+				if s, ok := v.(string); ok {
+					list[i] = map[string]any{"session": s}
+				}
+			}
+		}
 	case "attempts":
 		countOf("attempts")
 		p["auto_pick"] = p["pick"] == "auto"
@@ -230,7 +240,7 @@ func Flatten(p map[string]any) map[string]string {
 var Kinds = map[string]bool{
 	"run": true, "check": true, "prompt": true, "wait": true, "start_agent": true, "notify": true, "webhook": true,
 	"loop": true, "gate": true, "map": true, "join": true, "judge": true, "if": true, "pr": true, "sleep": true,
-	"headless": true, "collect": true, "handoff": true, "cleanup": true,
+	"headless": true, "collect": true, "handoff": true, "cleanup": true, "stop_session": true, "archive_worktree": true,
 }
 
 // ValidateSteps reports the first thing wrong with steps.

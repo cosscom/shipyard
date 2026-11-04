@@ -48,6 +48,7 @@ from any device; every run is in **Automations → Runs**.
 | `fix-ci` | A failed check on a PR: the failing tail of the CI log to the worktree's agent, a local check, up to `max` rounds, then `git push` | About 110 characters plus the failing log lines, at most 3 KB |
 | `address-review` | New review comments (merged while it works) to the worktree's agent, a local check, then `git push` | About 90 characters plus the comments, labelled as others' words, at most 4 KB |
 | `exec` | One command to completion, in the background (`berth exec --detach`) | Nothing |
+| `stop` | Stops `sessions` a few at a time, then archives `worktrees` one at a time where it's safe: never forced, ordinary branches kept (a review worktree's own `review/` branch goes with it, as with every archive), and a worktree with uncommitted changes or an agent still running in it left as it is. A worktree already being archived isn't archived twice, and the box's stop runs archive one worktree at a time between them. The app's bulk Stop, its Worktrees table and the sidebar's Archive… use it on a box that runs it; elsewhere, or for more than 64 sessions or worktrees, the app does it itself | Nothing |
 
 Every prompt a template sends is short on purpose: each byte is the agent's
 to read, every round.

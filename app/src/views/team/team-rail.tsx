@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { RetryLine } from "@/components/workspace/pane-state";
 import { useStore } from "@/lib/store";
-import { type GitHubState, plural, type TeamStatus, type TeamView } from "@/lib/team";
+import { plural } from "@/lib/format";
+import { type GitHubState, type TeamStatus, type TeamView } from "@/lib/team";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/views/team/team-parts";
 

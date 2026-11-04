@@ -549,10 +549,6 @@ export const SOURCE_LABEL: Record<ProjectSource, string> = {
   none: "no setup",
 };
 
-export function plural(n: number, one: string, many = `${one}s`) {
-  return `${n} ${n === 1 ? one : many}`;
-}
-
 // keysLine is the keys step in one line: "5 from 1Password · 1 to enter".
 export function keysLine(v: Pick<TeamView, "keys">, entered = 0, skipOP = false): string {
   const ops = skipOP ? (v.keys.onepassword ?? []).filter((k) => !k.set).length : 0;

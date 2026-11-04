@@ -334,11 +334,12 @@ export const runsApi = (call: BoxCaller) => ({
     // idem_key is the Idempotency-Key, for callers that cannot set headers.
     call<RunSummary>(box, "POST", "runs", idemKey ? { ...req, idem_key: idemKey } : req),
   get: (box: string, id: string) => call<Run>(box, "GET", `runs/${enc(id)}`),
-  list: async (box: string, o: { status?: string; template?: string; flow?: string; limit?: number } = {}) => {
+  list: async (box: string, o: { status?: string; template?: string; flow?: string; group?: string; limit?: number } = {}) => {
     const q = new URLSearchParams();
     if (o.status) q.set("status", o.status);
     if (o.template) q.set("template", o.template);
     if (o.flow) q.set("flow", o.flow);
+    if (o.group) q.set("group", o.group);
     q.set("limit", String(o.limit ?? 50));
     return (await call<RunSummary[] | null>(box, "GET", `runs?${q}`)) ?? [];
   },

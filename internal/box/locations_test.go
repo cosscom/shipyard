@@ -17,6 +17,7 @@ func TestParseWorktrees(t *testing.T) {
 	other := filepath.Join(dir, "tailmux-smoke")
 	for _, d := range []string{repo, billing, other} {
 		os.MkdirAll(d, 0o755)
+		os.WriteFile(filepath.Join(d, ".git"), []byte("gitdir: elsewhere\n"), 0o644)
 	}
 	out := []byte("worktree " + repo + "\nHEAD 5fdc8af8dd0123456789\nbranch refs/heads/main\n\n" +
 		"worktree " + billing + "\nHEAD 62d41c1302abcdef\nbranch refs/heads/billing/4-customer-credit\n\n" +

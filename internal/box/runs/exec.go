@@ -828,7 +828,7 @@ func (x *execution) sleep(ctx context.Context, s Step, id, path string) Result {
 var agentKinds = map[string]bool{"start_agent": true, "headless": true}
 
 // syncKinds have side effects a resume must know were attempted.
-var syncKinds = map[string]bool{"prompt": true, "start_agent": true, "headless": true, "webhook": true, "notify": true, "pr": true}
+var syncKinds = map[string]bool{"prompt": true, "start_agent": true, "headless": true, "webhook": true, "notify": true, "pr": true, "archive_worktree": true}
 
 // leaf runs a leaf step through the host: from the journal when it already
 // finished, by its re-entry rule when it was in flight, else for real.
@@ -847,7 +847,7 @@ func (x *execution) leaf(ctx context.Context, sc *scope, s Step, id, path string
 		}
 		return res, nil
 	}
-	sctx := &StepCtx{Run: x.summary(), Step: s, Path: path, Attempt: 1, Vars: copyVars(sc.vars)}
+	sctx := &StepCtx{Run: x.summary(), Step: s, Path: path, Attempt: 1, Vars: copyVars(sc.vars), Stopping: x.stopping}
 	x.mu.Lock()
 	sctx.Candidates = append([]Candidate(nil), x.run.Candidates...)
 	x.mu.Unlock()

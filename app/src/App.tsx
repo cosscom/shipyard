@@ -11,6 +11,7 @@ import { TreeDockFrame } from "@/components/files/tree-dock";
 import { WorktreePicker } from "@/components/workspace/worktree-picker";
 import { ComposerDialog } from "@/components/conversation/composer-dialog";
 import { NotificationCenter } from "@/components/notifications/notification-center";
+import { JobsTray } from "@/components/jobs-tray";
 import { LoopsPanel } from "@/components/orchestrate/loops-panel";
 import { PluginConsentDialog } from "@/components/plugin-consent-dialog";
 import { PromptDialogs } from "@/components/prompts";
@@ -42,6 +43,8 @@ import { startOutdatedWatch } from "@/lib/outdated";
 import { startBoxDefaultsSync } from "@/lib/box-defaults";
 import { startSkillsNoticeWatch } from "@/lib/skills-notice";
 import { startRunsWatch } from "@/lib/runs";
+import { reattachStopJobs } from "@/lib/stop-job";
+import { stopRuns } from "@/lib/stop-on-box";
 import { watchStillness } from "@/lib/still";
 import { watchKeyboardLayout } from "@/lib/keyboard-layout";
 import { useStore } from "@/lib/store";
@@ -99,6 +102,9 @@ export default function App() {
   // panel, Automations and Review (lib/runs.ts).
   const connectedToAgent = useStore((s) => !!s.client);
   useEffect(() => (connectedToAgent ? startRunsWatch() : undefined), [connectedToAgent]);
+  // Stop jobs the boxes carried on with while the app was closed come back
+  // to the tray (lib/stop-job.ts).
+  useEffect(() => void (connectedToAgent && reattachStopJobs({ runs: stopRuns })), [connectedToAgent]);
   // Which boxes run an older berthd (lib/outdated.ts).
   useEffect(() => (connectedToAgent ? startOutdatedWatch() : undefined), [connectedToAgent]);
   // Agents started without the app (another agent, the CLI, a run) follow
@@ -171,14 +177,15 @@ export default function App() {
   return (
     <TooltipProvider delay={300}>
       {/* Toasts sit bottom-right, as in other desktop tools: above the status
-          bar (26px) and above the loop panel when there is one, which says
-          how tall it is in --berth-loops-h. Top-right covered the headers of
+          bar (26px) and above the loop panel and the background-jobs tray
+          when they're up, which say how tall they are in --berth-loops-h
+          and --berth-jobs-h. Top-right covered the headers of
           pages (Review's, say). A bar floating at a page's bottom (the
           Dashboard's selection, the Worktrees bulk bar) lifts them above
           it through --berth-bar-lift (hooks/lift-toasts.ts). With a dialog
           or sheet open they move to a corner clear of it; see
           components/ui/toast.tsx. The stack is as wide as the loops panel. */}
-      <ToastProvider position="bottom-right" viewportClassName="max-w-88 data-[position=bottom-right]:bottom-[max(calc(var(--berth-status-h,26px)+12px+var(--berth-loops-h,0px)),var(--berth-bar-lift,0px))] data-[position=bottom-right]:right-3 data-[position=bottom-left]:bottom-[calc(var(--berth-status-h,26px)+12px)] data-[position=bottom-left]:left-3 data-[position=top-left]:top-3 data-[position=top-left]:left-3 data-[position=top-right]:top-3 data-[position=top-right]:right-3">
+      <ToastProvider position="bottom-right" viewportClassName="max-w-88 data-[position=bottom-right]:bottom-[max(calc(var(--berth-status-h,26px)+12px+var(--berth-loops-h,0px)+var(--berth-jobs-h,0px)),calc(var(--berth-bar-lift,0px)+var(--berth-jobs-h,0px)))] data-[position=bottom-right]:right-3 data-[position=bottom-left]:bottom-[calc(var(--berth-status-h,26px)+12px)] data-[position=bottom-left]:left-3 data-[position=top-left]:top-3 data-[position=top-left]:left-3 data-[position=top-right]:top-3 data-[position=top-right]:right-3">
         <div className="flex h-svh flex-col overflow-hidden bg-background text-foreground">
           {fakeTrafficLights() && <FakeTrafficLights />}
           <div className="flex min-h-0 flex-1">
@@ -233,9 +240,11 @@ export default function App() {
           <ComposerDialog />
           <AddLocationDialog />
           <PromptDialogs />
-          {/* Loops float over the workspace, not over Settings' page. */}
+          {/* Loops and background jobs float over the workspace, not over
+              Settings' page. */}
           <div className={cn("contents", settings && "hidden")}>
             <LoopsPanel />
+            <JobsTray />
           </div>
           <AddBoxDialog />
           <ConfirmHost />
