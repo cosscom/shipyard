@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/cosscom/shipyard/internal/hooks"
 )
 
 // An agent's ask goes to its session's key, so a second replaces the first;
@@ -120,10 +122,108 @@ func TestAnAgentsAskReplacesItsLastAndItsAnswerComesBackAsAPrompt(t *testing.T) 
 	if len(q) != 2 || !strings.Contains(q[1].Preview, "closed your ask") || !strings.Contains(q[1].Preview, "(resolved)") {
 		t.Fatalf("queue after the close = %+v", q)
 	}
+	// The box went down between saving an answer and holding it for the
+	// agent: the next sweep tells it.
+	call(t, c, "POST", "/v1/sessions/agent/attention", "mcp", map[string]any{"kind": "blocked", "title": "The acme build needs a key"}, nil)
+	if _, err := bx.Attention.update("session:agent", AttentionUpdate{Answer: ptr("It's in the vault")}, "app", "laptop:mac"); err != nil {
+		t.Fatal(err)
+	}
+	if q := queued(); len(q) != 2 {
+		t.Fatalf("told before the sweep: %+v", q)
+	}
+	var all []Session
+	call(t, c, "GET", "/v1/sessions", "", nil, &all)
+	bx.sweepAttention(all, time.Now())
+	if q := queuedN(3); len(q) != 3 || !strings.Contains(q[2].Preview, "It's in the vault") || q[2].Origin != "laptop:mac" {
+		t.Fatalf("queue after the sweep = %+v", q)
+	}
+	for end := time.Now().Add(5 * time.Second); len(bx.Attention.telling()) > 0 && time.Now().Before(end); time.Sleep(20 * time.Millisecond) {
+	}
+	if left := bx.Attention.telling(); len(left) != 0 {
+		t.Fatalf("still to tell after telling: %+v", left)
+	}
+	bx.sweepAttention(all, time.Now())
+	if q := queuedN(4); len(q) != 3 {
+		t.Fatalf("told twice: %+v", q)
+	}
+
 	// A mark about the session is the person's own note: nothing to tell.
 	call(t, c, "PATCH", "/v1/attention/"+url.PathEscape("devbox/agent#1"), "app", map[string]any{"session": "agent", "status": "closed"}, nil)
-	if q := queuedN(3); len(q) != 2 {
+	if q := queuedN(4); len(q) != 3 {
 		t.Fatalf("a mark told the agent: %+v", q)
+	}
+}
+
+// What a person settles stays to be told until the box holds it, across a
+// restart; only a session's own ask is told, and reopening it takes the
+// telling back.
+func TestASettledAskStaysToBeToldUntilTold(t *testing.T) {
+	s, _ := newAttention(t)
+	s.Post(AttentionPost{Session: "agent", Kind: "ready", Title: "PR #12 is ready"}, "mcp")
+	s.Post(AttentionPost{Key: "acme/deploy", Session: "agent", Kind: "action", Title: "Log in"}, "app")
+	it, _ := s.update("session:agent", AttentionUpdate{Answer: ptr("Merge it")}, "app", "laptop:mac")
+	other, _ := s.update("acme/deploy", AttentionUpdate{Status: ptr("closed")}, "app", "laptop:mac")
+	mark, _ := s.update("devl/agent#2", AttentionUpdate{Session: "agent", Status: ptr("closed")}, "app", "laptop:mac")
+	if it.Telling != "laptop:mac" || other.Telling != "" || mark.Telling != "" {
+		t.Fatalf("telling: ask %q, another key %q, a mark %q", it.Telling, other.Telling, mark.Telling)
+	}
+	again := &AttentionStore{Path: s.Path}
+	if left := again.telling(); len(left) != 1 || left[0].Key != "session:agent" {
+		t.Fatalf("after a restart: %+v", left)
+	}
+	again.told("session:agent", it.Revision-1)
+	if len(again.telling()) != 1 {
+		t.Fatal("an older revision's telling cleared a newer one")
+	}
+	again.told("session:agent", it.Revision)
+	if got, _ := getOf(t, &AttentionStore{Path: s.Path}, "session:agent"); got.Telling != "" || got.Revision != it.Revision {
+		t.Fatalf("told = %+v", got)
+	}
+	// Reopened before it was told: nothing to tell any more.
+	s2, _ := newAttention(t)
+	s2.Post(AttentionPost{Session: "agent", Kind: "decision", Title: "t"}, "mcp")
+	s2.update("session:agent", AttentionUpdate{Status: ptr("closed")}, "app", "laptop:mac")
+	if it, _ := s2.update("session:agent", AttentionUpdate{Status: ptr("open")}, "app", "laptop:mac"); it.Telling != "" {
+		t.Fatalf("reopened, still telling %q", it.Telling)
+	}
+}
+
+// Settling a session's ask types into it, so the session's send gate
+// decides; and a session that is gone has no one to tell.
+func TestSettlingAnAskIsASendToItsSession(t *testing.T) {
+	cfg := filepath.Join(t.TempDir(), "hooks.json")
+	os.WriteFile(cfg, []byte(`{"hooks":[{"on":"before:session.send","run":"echo agents are off limits; exit 1"}]}`), 0o600)
+	turns := &Turns{InboxPath: filepath.Join(t.TempDir(), "inbox.json")}
+	var bx *Box
+	c, bus := servedBox(t, func(b *Box) {
+		b.Turns = turns
+		b.Hooks = &hooks.Runner{Path: cfg}
+		b.Attention = &AttentionStore{Path: filepath.Join(t.TempDir(), "attention.json")}
+		bx = b
+	})
+	turns.Attach(bus)
+	repo := gitRepo(t)
+	call(t, c, "POST", "/v1/locations", "", map[string]string{"name": "shop", "path": repo}, nil)
+	call(t, c, "POST", "/v1/sessions", "", map[string]string{"location": "shop", "name": "agent", "command": "cat"}, nil)
+	call(t, c, "POST", "/v1/sessions/agent/attention", "mcp", map[string]any{"kind": "ready", "title": "PR #12 is ready"}, nil)
+	var refused map[string]string
+	if st := call(t, c, "PATCH", "/v1/attention/"+url.PathEscape("session:agent"), "app", map[string]any{"answer": "rm -rf ~"}, &refused); st != 403 || !strings.Contains(refused["error"], "agents are off limits") {
+		t.Fatalf("a gated settle = %d %v", st, refused)
+	}
+	if it, _ := getOf(t, bx.Attention, "session:agent"); it.Status != AttentionOpen || it.Telling != "" {
+		t.Fatalf("a refused settle changed the ask: %+v", it)
+	}
+	// A snooze types nothing, so the gate isn't asked.
+	if st := call(t, c, "PATCH", "/v1/attention/"+url.PathEscape("session:agent"), "app", map[string]any{"snoozed_until": "2026-11-07T09:00:00Z"}, nil); st != 200 {
+		t.Fatalf("a snooze = %d", st)
+	}
+
+	// Its session gone, an untold answer is let go.
+	bx.Attention.Post(AttentionPost{Session: "gone", Kind: "blocked", Title: "t"}, "mcp")
+	bx.Attention.update("session:gone", AttentionUpdate{Answer: ptr("x")}, "app", "laptop:mac")
+	bx.tellAskers()
+	if left := bx.Attention.telling(); len(left) != 0 {
+		t.Fatalf("still telling a gone session: %+v", left)
 	}
 }
 
@@ -141,3 +241,5 @@ func TestAnswerTextNamesTheAsk(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func ptr(s string) *string { return &s }

@@ -869,6 +869,9 @@ export interface AttentionItem {
   // The origin of the last change: "app", "phone", an agent's tool, or
   // "berth" for the box itself.
   by?: string;
+  // Set from when a person settles a session's own ask until the box holds
+  // the answer for its agent: who settled it ("laptop:<name>", "phone", …).
+  telling?: string;
   created: string;
   updated: string;
   settled?: string;

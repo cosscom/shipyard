@@ -229,7 +229,10 @@ The ask goes on the box's [attention items](/reference/plugin-sdk#attention)
 at the session's own key, so a new ask replaces the agent's last one, and it
 closes by itself when the session ends. It returns at once. When the person
 answers or closes it, the box types that into the agent as a prompt, held
-until the agent is idle, and only once per answer.
+until the agent is idle, and only once per answer. It keeps trying until the
+prompt is held, through a restart of the box. Settling an ask is a send to
+the agent's session, so a `before:session.send` [gate](/reference/events#gates)
+can refuse it.
 
 An ask is words and nothing else. The box refuses a kind it doesn't know and
 any field it doesn't name, and only a decision has options: the app gives

@@ -2,6 +2,7 @@ package box
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -168,39 +169,60 @@ func (b *Box) updateAttention(w http.ResponseWriter, r *http.Request) error {
 	if err := b.before(r, "attention.update", gate); err != nil {
 		return err
 	}
-	it, settled, err := b.Attention.update(key, u, origin(r))
+	// Settling a session's own ask types into that session, so it is a
+	// send to it as far as the box's gates go.
+	if was, ok, _ := b.Attention.Get(key); ok && was.Status == AttentionOpen && was.isSessionAsk() && u.settles() {
+		if err := b.before(r, "session.send", map[string]any{"name": was.Session, "attention": key}); err != nil {
+			return err
+		}
+	}
+	it, err := b.Attention.update(key, u, origin(r), gateOrigin(r))
 	if err != nil {
 		return err
 	}
 	b.publish(r, "attention.updated", attentionEventData(it))
-	if settled && it.isSessionAsk() {
+	if it.Telling != "" {
 		// In the background: the change is saved and announced, and the
 		// person needn't wait on the agent's terminal.
-		go b.tellAsker(it, origin(r), gateOrigin(r))
+		go b.tellAskers()
 	}
 	writeJSON(w, it)
 	return nil
 }
 
-// isSessionAsk says it is a session's own ask (an agent's), not a mark.
-func (it AttentionItem) isSessionAsk() bool {
-	return it.Kind != attentionMark && it.Session != "" && it.Key == SessionKey(it.Session)
+// settles says the update answers or closes an item.
+func (u AttentionUpdate) settles() bool {
+	return u.Status != nil && *u.Status != AttentionOpen || u.Answer != nil && *u.Answer != "" || u.ClosedReason != nil && *u.ClosedReason != ""
 }
 
-// tellAsker types the person's answer to an ask into the session that
-// posted it, held until the agent is idle (a held prompt survives a
-// restart). Its idempotency key is the item's revision, so a retry never
-// tells it twice. A session that has gone has no one to tell; the item
-// says what happened either way.
-func (b *Box) tellAsker(it AttentionItem, origin, from string) {
-	if b.Sessions == nil || b.Turns == nil {
+// tellAskers types each settled ask's answer into the session that posted
+// it, held until the agent is idle, and notes it told once the box holds
+// it (a held prompt survives a restart). The PATCH that settles one starts
+// it, and every sweep tries again what didn't go: a restart in between, a
+// full inbox. The idempotency key is the item's revision, so a retry never
+// tells it twice. A session that has ended has no one to tell. One runs at
+// a time; a call while one runs has it go round again.
+func (b *Box) tellAskers() {
+	if b.Attention == nil || b.Sessions == nil || b.Turns == nil {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	req := SendRequest{Text: AnswerText(it), When: "idle", IdemKey: fmt.Sprintf("attention:%s:%d", it.Key, it.Revision)}
-	if _, err := b.sendPrompt(ctx, it.Session, req, origin, from); err != nil {
-		log.Printf("attention %s: telling %s: %v", it.Key, it.Session, err)
+	if !b.tellMu.TryLock() {
+		b.tellAgain.Store(true)
+		return
+	}
+	defer b.tellMu.Unlock()
+	for again := true; again; again = b.tellAgain.Swap(false) {
+		for _, it := range b.Attention.telling() {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			req := SendRequest{Text: AnswerText(it), When: "idle", IdemKey: fmt.Sprintf("attention:%s:%d", it.Key, it.Revision)}
+			_, err := b.sendPrompt(ctx, it.Session, req, it.By, it.Telling)
+			cancel()
+			if err != nil && !errors.Is(err, ErrSessionExited) && !errors.Is(err, ErrUnknownSession) {
+				log.Printf("attention %s: telling %s (again at the next sweep): %v", it.Key, it.Session, err)
+				continue
+			}
+			b.Attention.told(it.Key, it.Revision)
+		}
 	}
 }
 
@@ -231,6 +253,7 @@ func (b *Box) sweepAttention(all []Session, at time.Time) {
 		}
 	}
 	b.publishSettled(b.Attention.Sweep(live, at))
+	go b.tellAskers()
 }
 
 // WatchAttention settles a session's items as soon as it is stopped,

@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cosscom/shipyard/internal/box/runs"
@@ -130,6 +131,9 @@ type Box struct {
 	// Helpers runs the helper programs plugins bring (helpers.go); nil on a
 	// box without them.
 	Helpers *Helpers
+	// tellMu and tellAgain keep tellAskers to one at a time.
+	tellMu    sync.Mutex
+	tellAgain atomic.Bool
 	// Attention keeps what needs a person, for every app paired with the
 	// box (attention.go); nil on a box without it.
 	Attention *AttentionStore
