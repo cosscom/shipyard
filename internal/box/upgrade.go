@@ -229,6 +229,11 @@ func (b *Box) Capabilities() []string {
 		// (/v1/helpers, helpers.go).
 		caps = append(caps, "helpers")
 	}
+	if b.Attention != nil {
+		// attention: GET/POST /v1/attention and GET/PATCH
+		// /v1/attention/{key}, what needs a person (attention.go).
+		caps = append(caps, "attention")
+	}
 	return caps
 }
 
