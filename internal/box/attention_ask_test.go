@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // An agent's ask goes to its session's key, so a second replaces the first;
@@ -68,6 +69,10 @@ func TestAnAgentsAskReplacesItsLastAndItsAnswerComesBackAsAPrompt(t *testing.T) 
 			t.Errorf("%s: %d", name, st)
 		}
 	}
+	var refused map[string]string
+	if st := call(t, c, "POST", "/v1/sessions/agent/attention", "mcp", map[string]any{"kind": "ready", "title": "t", "url": "https://acme.test"}, &refused); st != 400 || refused["error"] != "url isn't something this takes" {
+		t.Fatalf("an unknown field: %d %v", st, refused)
+	}
 	if it, _ := getOf(t, bx.Attention, "session:agent"); it.Revision != 2 {
 		t.Fatalf("a refused ask changed the item: %+v", it)
 	}
@@ -78,35 +83,46 @@ func TestAnAgentsAskReplacesItsLastAndItsAnswerComesBackAsAPrompt(t *testing.T) 
 		call(t, c, "GET", "/v1/sessions/agent/queue", "", nil, &q)
 		return q
 	}
+	// The agent is told in the background, after the PATCH answers.
+	queuedN := func(n int) []QueuedPrompt {
+		t.Helper()
+		var q []QueuedPrompt
+		for end := time.Now().Add(5 * time.Second); time.Now().Before(end); time.Sleep(20 * time.Millisecond) {
+			if q = queued(); len(q) >= n {
+				break
+			}
+		}
+		return q
+	}
 	keyPath := "/v1/attention/" + url.PathEscape("session:agent")
 
 	// A snooze is no answer: the agent hears nothing.
 	call(t, c, "PATCH", keyPath, "app", map[string]any{"snoozed_until": "2026-11-07T09:00:00Z"}, nil)
-	if q := queued(); len(q) != 0 {
+	if q := queuedN(1); len(q) != 0 {
 		t.Fatalf("a snooze told the agent: %+v", q)
 	}
 	// The answer is held for the busy agent, with the ask it answers.
 	var answered AttentionItem
 	call(t, c, "PATCH", keyPath, "app", map[string]any{"answer": "Merge it after the demo"}, &answered)
-	q := queued()
+	q := queuedN(1)
 	if len(q) != 1 || !strings.Contains(q[0].Preview, "answered your ask") || !strings.Contains(q[0].Preview, `"PR #12 is ready to merge"`) || !strings.Contains(q[0].Preview, "Merge it after the demo") {
 		t.Fatalf("queue after the answer = %+v", q)
 	}
 	// A change to a settled ask tells it nothing more.
 	call(t, c, "PATCH", keyPath, "app", map[string]any{"answer": "Merge it now"}, nil)
-	if q := queued(); len(q) != 1 {
+	if q := queuedN(2); len(q) != 1 {
 		t.Fatalf("a second answer told it again: %+v", q)
 	}
 	// Reopened and closed without an answer: it hears that too.
 	call(t, c, "PATCH", keyPath, "app", map[string]any{"status": "open"}, nil)
 	call(t, c, "PATCH", keyPath, "phone", map[string]any{"status": "closed"}, nil)
-	q = queued()
+	q = queuedN(2)
 	if len(q) != 2 || !strings.Contains(q[1].Preview, "closed your ask") || !strings.Contains(q[1].Preview, "(resolved)") {
 		t.Fatalf("queue after the close = %+v", q)
 	}
 	// A mark about the session is the person's own note: nothing to tell.
 	call(t, c, "PATCH", "/v1/attention/"+url.PathEscape("devbox/agent#1"), "app", map[string]any{"session": "agent", "status": "closed"}, nil)
-	if q := queued(); len(q) != 2 {
+	if q := queuedN(3); len(q) != 2 {
 		t.Fatalf("a mark told the agent: %+v", q)
 	}
 }

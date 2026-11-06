@@ -178,19 +178,17 @@ func TestAnAgentWithoutItsEnvironmentIsFoundByItsProcess(t *testing.T) {
 	}
 }
 
-// An ask is posted for the agent's own session and returns at once; a kind
-// the box doesn't know, or anything the tool doesn't name, is refused
-// before it reaches the box.
+// An ask is posted for the agent's own session and returns at once;
+// anything the tool doesn't name is refused before it reaches the box (the
+// box checks the rest).
 func TestAnAskReturnsAtOnceAndRefusesWhatItDoesntName(t *testing.T) {
 	f := &callerBox{}
 	s := &Server{Box: box.NewClient(f), Caller: "lead-claude"}
 	start := time.Now()
 	res := rpc(t, s,
 		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"berth_ask","arguments":{"kind":"decision","title":"Ship acme on Friday?","options":[{"label":"Friday"},{"label":"Monday","description":"after the freeze"}],"recommended":"Friday"}}}`,
-		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"berth_ask","arguments":{"kind":"review","title":"t"}}}`,
-		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"berth_ask","arguments":{"kind":"ready","title":"t","url":"https://acme.test/merge"}}}`,
-		`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"berth_ask","arguments":{"kind":"decision","title":"t","options":[{"label":"Merge","command":"gh pr merge 12"}]}}}`,
-		`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"berth_ask","arguments":{"kind":"ready","title":"t","options":[{"label":"Merge"}]}}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"berth_ask","arguments":{"kind":"ready","title":"t","url":"https://acme.test/merge"}}}`,
+		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"berth_ask","arguments":{"kind":"decision","title":"t","options":[{"label":"Merge","command":"gh pr merge 12"}]}}}`,
 	)
 	if time.Since(start) > 2*time.Second {
 		t.Fatalf("it waited %s", time.Since(start))
@@ -207,7 +205,7 @@ func TestAnAskReturnsAtOnceAndRefusesWhatItDoesntName(t *testing.T) {
 	if !strings.Contains(f.bodies[0], `"recommended":"Friday"`) || !strings.Contains(f.bodies[0], `"description":"after the freeze"`) {
 		t.Fatalf("body = %s", f.bodies[0])
 	}
-	for i, why := range map[int]string{1: "kind is decision", 2: "url isn't", 3: "command isn't", 4: "only a decision"} {
+	for i, why := range map[int]string{1: `unknown field "url"`, 2: `unknown field "command"`} {
 		if res[i]["result"].(map[string]any)["isError"] != true || !strings.Contains(text(res[i]), why) {
 			t.Errorf("call %d: %s", i+1, text(res[i]))
 		}

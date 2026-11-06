@@ -2,9 +2,7 @@ package box
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"slices"
@@ -61,10 +59,9 @@ type AgentAsk struct {
 // AgentAskKinds are the kinds an agent posts.
 var AgentAskKinds = []string{"decision", "action", "ready", "blocked"}
 
-// Check refuses an ask the box wouldn't take.
-func (a AgentAsk) Check() error {
+func (a AgentAsk) check() error {
 	if !slices.Contains(AgentAskKinds, a.Kind) {
-		return badRequest("kind is decision, action, ready or blocked")
+		return badRequest("kind is one of %s", strings.Join(AgentAskKinds, ", "))
 	}
 	if a.Kind != "decision" && (len(a.Options) > 0 || a.Recommended != "") {
 		return badRequest("only a decision offers options; the app gives a %s its own buttons", a.Kind)
@@ -77,19 +74,13 @@ func (b *Box) postAgentAsk(w http.ResponseWriter, r *http.Request) error {
 		return errNoAttention
 	}
 	var a AgentAsk
-	dec := json.NewDecoder(io.LimitReader(r.Body, 4*maxAttentionText))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&a); err != nil {
-		return badRequest("an ask is {kind, title, details?, options?: [{label, description?}], recommended?}: %v", err)
-	}
-	if err := a.Check(); err != nil {
+	if err := decodeStrict(r, &a, 4*maxAttentionText); err != nil {
 		return err
 	}
-	name := r.PathValue("name")
-	if name == "" {
-		return badRequest("an ask needs its session")
+	if err := a.check(); err != nil {
+		return err
 	}
-	return b.post(w, r, AttentionPost{Kind: a.Kind, Title: a.Title, Details: a.Details, Options: a.Options, Recommended: a.Recommended, Session: name})
+	return b.post(w, r, AttentionPost{Kind: a.Kind, Title: a.Title, Details: a.Details, Options: a.Options, Recommended: a.Recommended, Session: r.PathValue("name")})
 }
 
 var errNoAttention = httpError{http.StatusNotImplemented, "this box keeps no attention items"}
@@ -182,36 +173,44 @@ func (b *Box) updateAttention(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	b.publish(r, "attention.updated", attentionEventData(it))
-	if settled && it.Kind != attentionMark && it.Session != "" {
-		b.tellAsker(r, it)
+	if settled && it.isSessionAsk() {
+		// In the background: the change is saved and announced, and the
+		// person needn't wait on the agent's terminal.
+		go b.tellAsker(it, origin(r), gateOrigin(r))
 	}
 	writeJSON(w, it)
 	return nil
 }
 
+// isSessionAsk says it is a session's own ask (an agent's), not a mark.
+func (it AttentionItem) isSessionAsk() bool {
+	return it.Kind != attentionMark && it.Session != "" && it.Key == SessionKey(it.Session)
+}
+
 // tellAsker types the person's answer to an ask into the session that
-// posted it, held until the agent is idle. Its idempotency key is the
-// item's revision, so a retry never tells it twice. A session that has
-// gone has no one to tell; the item says what happened either way.
-func (b *Box) tellAsker(r *http.Request, it AttentionItem) {
+// posted it, held until the agent is idle (a held prompt survives a
+// restart). Its idempotency key is the item's revision, so a retry never
+// tells it twice. A session that has gone has no one to tell; the item
+// says what happened either way.
+func (b *Box) tellAsker(it AttentionItem, origin, from string) {
 	if b.Sessions == nil || b.Turns == nil {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	req := SendRequest{Text: AnswerText(it), When: "idle", IdemKey: fmt.Sprintf("attention:%s:%d", it.Key, it.Revision)}
-	if _, err := b.sendPrompt(ctx, it.Session, req, origin(r), gateOrigin(r)); err != nil {
+	if _, err := b.sendPrompt(ctx, it.Session, req, origin, from); err != nil {
 		log.Printf("attention %s: telling %s: %v", it.Key, it.Session, err)
 	}
 }
 
 // AnswerText is what an agent reads when a person settles its ask.
 func AnswerText(it AttentionItem) string {
-	title := strings.Join(strings.Fields(it.Title), " ")
-	if it.Status == AttentionAnswered && it.Answer == "" {
+	title := flatText(it.Title)
+	switch {
+	case it.Status == AttentionAnswered && it.Answer == "":
 		return fmt.Sprintf("The user marked your ask in Shipyard (%s: %q) as answered, with no words.", it.Kind, title)
-	}
-	if it.Status == AttentionAnswered {
+	case it.Status == AttentionAnswered:
 		return fmt.Sprintf("The user answered your ask in Shipyard (%s: %q): %s", it.Kind, title, it.Answer)
 	}
 	return fmt.Sprintf("The user closed your ask in Shipyard (%s: %q) without answering it (%s). Carry on, or post again if you still need them.", it.Kind, title, it.ClosedReason)

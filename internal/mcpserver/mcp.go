@@ -13,6 +13,7 @@ package mcpserver
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -459,53 +460,23 @@ func runCancel(ctx context.Context, s *Server, a map[string]any) (any, error) {
 }
 
 func ask(ctx context.Context, s *Server, a map[string]any) (any, error) {
-	if err := only(a, askSchema); err != nil {
-		return nil, err
-	}
-	if err := need(a, "kind", "title"); err != nil {
-		return nil, err
-	}
 	who := s.caller(ctx)
 	if who == "" {
 		return nil, errors.New("an ask is posted by an agent session on the box, and this one's isn't known (BERTH_SESSION)")
 	}
-	q := box.AgentAsk{Kind: arg(a, "kind"), Title: arg(a, "title"), Details: arg(a, "details"), Recommended: arg(a, "recommended")}
-	if raw, ok := a["options"]; ok {
-		list, ok := raw.([]any)
-		if !ok {
-			return nil, errors.New("options is a list of {label, description?}")
-		}
-		props := askSchema["properties"].(map[string]any)["options"].(map[string]any)["items"].(map[string]any)
-		for _, o := range list {
-			m, ok := o.(map[string]any)
-			if !ok {
-				return nil, errors.New("each option is {label, description?}")
-			}
-			if err := only(m, props); err != nil {
-				return nil, fmt.Errorf("an option: %w", err)
-			}
-			q.Options = append(q.Options, box.AttentionOption{Label: arg(m, "label"), Description: arg(m, "description")})
-		}
-	}
-	if err := q.Check(); err != nil {
-		return nil, err
+	// The box refuses anything AgentAsk doesn't name, so decode as it will.
+	var q box.AgentAsk
+	b, _ := json.Marshal(a)
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&q); err != nil {
+		return nil, fmt.Errorf("berth_ask takes kind, title, details, options [{label, description}] and recommended: %w", err)
 	}
 	it, err := s.Box.Ask(ctx, who, q)
 	if err != nil {
 		return nil, err
 	}
 	return map[string]any{"key": it.Key, "revision": it.Revision, "status": it.Status, "replaced": it.Revision > 1}, nil
-}
-
-// only refuses an argument the schema doesn't name.
-func only(a map[string]any, schema map[string]any) error {
-	props, _ := schema["properties"].(map[string]any)
-	for k := range a {
-		if _, ok := props[k]; !ok {
-			return fmt.Errorf("%s isn't something this takes", k)
-		}
-	}
-	return nil
 }
 
 func attempts(ctx context.Context, s *Server, a map[string]any) (any, error) {
