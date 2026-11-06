@@ -2,6 +2,7 @@ package box
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/cosscom/shipyard/internal/events"
 )
@@ -33,7 +34,11 @@ func (b *Box) listAttention(w http.ResponseWriter, r *http.Request) error {
 		return errNoAttention
 	}
 	q := r.URL.Query()
-	writeJSON(w, b.Attention.List(AttentionFilter{Session: q.Get("session"), Open: q.Get("open") == "1"}))
+	items, err := b.Attention.List(AttentionFilter{Session: q.Get("session"), Open: q.Get("open") == "1"})
+	if err != nil {
+		return err
+	}
+	writeJSON(w, items)
 	return nil
 }
 
@@ -41,7 +46,10 @@ func (b *Box) getAttention(w http.ResponseWriter, r *http.Request) error {
 	if b.Attention == nil {
 		return errNoAttention
 	}
-	it, ok := b.Attention.Get(r.PathValue("key"))
+	it, ok, err := b.Attention.Get(r.PathValue("key"))
+	if err != nil {
+		return err
+	}
 	if !ok {
 		return httpError{http.StatusNotFound, "no attention item with that key"}
 	}
@@ -60,8 +68,12 @@ func (b *Box) postAttention(w http.ResponseWriter, r *http.Request) error {
 	// An ask about a session settles when it ends, so it must be one that
 	// runs.
 	if p.Session != "" && b.Sessions != nil {
-		if _, err := b.Sessions.Get(r.Context(), p.Session); err != nil {
+		sess, err := b.Sessions.Get(r.Context(), p.Session)
+		if err != nil {
 			return err
+		}
+		if sess.Exited {
+			return ErrSessionExited
 		}
 	}
 	p.Key = p.KeyOrSession()
@@ -106,9 +118,10 @@ func (b *Box) updateAttention(w http.ResponseWriter, r *http.Request) error {
 }
 
 // sweepAttention settles the items of sessions that ended, given the
-// sessions there are, and forgets items past their time. refreshTurns runs
-// it as the backstop for a session whose program ended by itself.
-func (b *Box) sweepAttention(all []Session) {
+// sessions a listing taken at the time at found, and forgets items past
+// their time. refreshTurns runs it as the backstop for a session whose
+// program ended by itself.
+func (b *Box) sweepAttention(all []Session, at time.Time) {
 	if b.Attention == nil {
 		return
 	}
@@ -118,7 +131,7 @@ func (b *Box) sweepAttention(all []Session) {
 			live[s.Name] = true
 		}
 	}
-	b.publishSettled(b.Attention.Sweep(live))
+	b.publishSettled(b.Attention.Sweep(live, at))
 }
 
 // WatchAttention settles a session's items as soon as it is stopped,
