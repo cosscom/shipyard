@@ -125,7 +125,7 @@ func TestAnAgentsAskReplacesItsLastAndItsAnswerComesBackAsAPrompt(t *testing.T) 
 	// The box went down between saving an answer and holding it for the
 	// agent: the next sweep tells it.
 	call(t, c, "POST", "/v1/sessions/agent/attention", "mcp", map[string]any{"kind": "blocked", "title": "The acme build needs a key"}, nil)
-	if _, err := bx.Attention.update("session:agent", AttentionUpdate{Answer: ptr("It's in the vault")}, "app", "laptop:mac"); err != nil {
+	if _, err := bx.Attention.update("session:agent", AttentionUpdate{Answer: textp("It's in the vault")}, "app", "laptop:mac"); err != nil {
 		t.Fatal(err)
 	}
 	if q := queued(); len(q) != 2 {
@@ -161,9 +161,9 @@ func TestASettledAskStaysToBeToldUntilTold(t *testing.T) {
 	s, _ := newAttention(t)
 	s.Post(AttentionPost{Session: "agent", Kind: "ready", Title: "PR #12 is ready"}, "mcp")
 	s.Post(AttentionPost{Key: "acme/deploy", Session: "agent", Kind: "action", Title: "Log in"}, "app")
-	it, _ := s.update("session:agent", AttentionUpdate{Answer: ptr("Merge it")}, "app", "laptop:mac")
-	other, _ := s.update("acme/deploy", AttentionUpdate{Status: ptr("closed")}, "app", "laptop:mac")
-	mark, _ := s.update("devl/agent#2", AttentionUpdate{Session: "agent", Status: ptr("closed")}, "app", "laptop:mac")
+	it, _ := s.update("session:agent", AttentionUpdate{Answer: textp("Merge it")}, "app", "laptop:mac")
+	other, _ := s.update("acme/deploy", AttentionUpdate{Status: textp("closed")}, "app", "laptop:mac")
+	mark, _ := s.update("devl/agent#2", AttentionUpdate{Session: "agent", Status: textp("closed")}, "app", "laptop:mac")
 	if it.Telling != "laptop:mac" || other.Telling != "" || mark.Telling != "" {
 		t.Fatalf("telling: ask %q, another key %q, a mark %q", it.Telling, other.Telling, mark.Telling)
 	}
@@ -172,7 +172,7 @@ func TestASettledAskStaysToBeToldUntilTold(t *testing.T) {
 		t.Fatalf("after a restart: %+v", left)
 	}
 	// A snooze while it is told changes its revision, not what to tell.
-	snoozed, _ := again.update("session:agent", AttentionUpdate{SnoozedUntil: ptr("2026-11-07T09:00:00Z")}, "app", "laptop:mac")
+	snoozed, _ := again.update("session:agent", AttentionUpdate{SnoozedUntil: textp("2026-11-07T09:00:00Z")}, "app", "laptop:mac")
 	if snoozed.Telling != "laptop:mac" {
 		t.Fatalf("a snooze took the telling: %+v", snoozed)
 	}
@@ -187,8 +187,8 @@ func TestASettledAskStaysToBeToldUntilTold(t *testing.T) {
 	// Reopened before it was told: nothing to tell any more.
 	s2, _ := newAttention(t)
 	s2.Post(AttentionPost{Session: "agent", Kind: "decision", Title: "t"}, "mcp")
-	s2.update("session:agent", AttentionUpdate{Status: ptr("closed")}, "app", "laptop:mac")
-	if it, _ := s2.update("session:agent", AttentionUpdate{Status: ptr("open")}, "app", "laptop:mac"); it.Telling != "" {
+	s2.update("session:agent", AttentionUpdate{Status: textp("closed")}, "app", "laptop:mac")
+	if it, _ := s2.update("session:agent", AttentionUpdate{Status: textp("open")}, "app", "laptop:mac"); it.Telling != "" {
 		t.Fatalf("reopened, still telling %q", it.Telling)
 	}
 }
@@ -225,7 +225,7 @@ func TestSettlingAnAskIsASendToItsSession(t *testing.T) {
 
 	// Its session gone, an untold answer is let go.
 	bx.Attention.Post(AttentionPost{Session: "gone", Kind: "blocked", Title: "t"}, "mcp")
-	bx.Attention.update("session:gone", AttentionUpdate{Answer: ptr("x")}, "app", "laptop:mac")
+	bx.Attention.update("session:gone", AttentionUpdate{Answer: textp("x")}, "app", "laptop:mac")
 	bx.tellAskers()
 	if left := bx.Attention.telling(); len(left) != 0 {
 		t.Fatalf("still telling a gone session: %+v", left)
@@ -247,4 +247,4 @@ func TestAnswerTextNamesTheAsk(t *testing.T) {
 	}
 }
 
-func ptr(s string) *string { return &s }
+func textp(s string) *string { return &s }
