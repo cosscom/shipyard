@@ -24,6 +24,7 @@ The maintained list of what a person can do in the app, and how to prove each on
 | The board's cards for agents in chat: what they ask with its answers, their reply's last lines, the prompt they started with; never the host's frames or "stdio" | [chat-board-cards.md](chat-board-cards.md) | `chat-board-cards`; `app/e2e/dashboard-chat-cards.spec.ts` asserts it |
 | Worktrees changed with git outside Shipyard: added, committed in, switched, locked, removed; a new remote; a quiet box runs no git for them | [worktree-git.md](worktree-git.md) | `worktree-git-live` (a real box, `--agent`); `TestListingLocationsAgainRunsNoGitUntilSomethingChanges` |
 | Turn check's "working": an hourglass with why in the sidebar, the tab and the rail's card, not a live turn's spinner; a handoff reads as done | [turn-check-indicator.md](turn-check-indicator.md) | `turn-check-indicator`; `app/e2e/sidebar-turn-check.spec.ts` asserts it, `TestTurnCheckLive` asks the real provider |
+| A worktree's saved tabs: restored on launch; a pane mounts when its tab first shows and stays, so hundreds of saved tabs don't load at once | [workspace-tabs.md](workspace-tabs.md) | `many-tabs-launch`; `app/e2e/many-tabs.spec.ts` asserts it |
 | Upgrading a box: sessions keep running, and nothing the old build started stays a zombie under berthd | [box-upgrade.md](box-upgrade.md) | `../scripts/upgrade-zombies.sh FROM TO` (a real box, Linux); `go test ./internal/childreap` |
 
 ## Proof and skip reporting

@@ -20,8 +20,22 @@ const pct = (n: number) => `${n * 100}%`;
 // hidden, moved to another tab, or its worktree switched away from: React
 // never remounts it. They are sorted by id, so a pane moving between tabs
 // never moves in the DOM either (a moved frame would reload).
+//
+// A pane's content mounts the first time it shows, and stays from then on.
+// A workspace can hold hundreds of tabs (every session started in a
+// worktree gets one, and they outlive the session): mounting them all at
+// launch, each with its terminal and chat, took the window to gigabytes
+// and stalled it for minutes before the first one drew.
 export function PaneLayer({ showing }: { showing: boolean }) {
   const area = useRef<HTMLDivElement>(null);
+  // Panes shown at least once since launch, by id. Only ever grows, so
+  // adding to it while rendering gives the same answer however often React
+  // renders.
+  const woken = useRef(new Set<string>()).current;
+  const wake = (id: string, on: boolean) => {
+    if (on) woken.add(id);
+    return woken.has(id);
+  };
   const current = useWorkspaces((s) => s.current);
   const mounted = useWorkspaces((s) => s.mounted);
   const spaces = useWorkspaces((s) => s.spaces);
@@ -69,17 +83,21 @@ export function PaneLayer({ showing }: { showing: boolean }) {
                 className={cn("absolute overflow-hidden", r && r.x > 0 && "border-l", r && r.y > 0 && "border-t")}
                 style={{ left: pct(r?.x ?? 0), width: pct(r?.w ?? 1), top: `calc(${COMPARE_BAR}px + (100% - ${COMPARE_BAR}px) * ${r?.y ?? 0})`, height: `calc((100% - ${COMPARE_BAR}px) * ${r?.h ?? 1})`, display: on ? "block" : "none" }}
               >
-                <PaneGuard wsKey={key} tab={tab.id} pane={leaf.id}>
-                  <Pane wsKey={key} tab={tab.id} pane={leaf} visible={on} focused={tab.focus === leaf.id} split={false} mixed compare={{ tab: tab.id, pane: leaf.id, side: i as 0 | 1, sync: c.sync }} />
-                </PaneGuard>
+                {wake(leaf.id, on) && (
+                  <PaneGuard wsKey={key} tab={tab.id} pane={leaf.id}>
+                    <Pane wsKey={key} tab={tab.id} pane={leaf} visible={on} focused={tab.focus === leaf.id} split={false} mixed compare={{ tab: tab.id, pane: leaf.id, side: i as 0 | 1, sync: c.sync }} />
+                  </PaneGuard>
+                )}
               </div>
             );
           }),
           ...(c.parked ?? []).map((leaf) => (
             <div key={leaf.id} className="absolute inset-0 overflow-hidden" style={{ display: "none" }}>
-              <PaneGuard wsKey={key} tab={tab.id} pane={leaf.id}>
-                <Pane wsKey={key} tab={tab.id} pane={leaf} visible={false} focused={false} split={false} mixed />
-              </PaneGuard>
+              {wake(leaf.id, false) && (
+                <PaneGuard wsKey={key} tab={tab.id} pane={leaf.id}>
+                  <Pane wsKey={key} tab={tab.id} pane={leaf} visible={false} focused={false} split={false} mixed />
+                </PaneGuard>
+              )}
             </div>
           )),
         ];
@@ -98,9 +116,11 @@ export function PaneLayer({ showing }: { showing: boolean }) {
             className={cn("absolute overflow-hidden", rect.x > 0 && "border-l", rect.y > 0 && "border-t")}
             style={{ left: pct(rect.x), top: pct(rect.y), width: pct(rect.w), height: pct(rect.h), display: visible ? "block" : "none" }}
           >
-            <PaneGuard wsKey={key} tab={tab.id} pane={leaf.id}>
-              <Pane wsKey={key} tab={tab.id} pane={leaf} visible={visible} focused={tab.focus === leaf.id} split={split} mixed={several} />
-            </PaneGuard>
+            {wake(leaf.id, visible) && (
+              <PaneGuard wsKey={key} tab={tab.id} pane={leaf.id}>
+                <Pane wsKey={key} tab={tab.id} pane={leaf} visible={visible} focused={tab.focus === leaf.id} split={split} mixed={several} />
+              </PaneGuard>
+            )}
           </div>
         )),
         ...(visible ? dividers.map((d) => <DividerHandle key={d.id} d={d} area={area} onRatio={(r) => resizeSplit(key, tab.id, d.id, r)} />) : []),
