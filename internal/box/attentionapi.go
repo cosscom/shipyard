@@ -1,8 +1,6 @@
 package box
 
 import (
-	"context"
-	"errors"
 	"net/http"
 
 	"github.com/cosscom/shipyard/internal/events"
@@ -63,17 +61,11 @@ func (b *Box) postAttention(w http.ResponseWriter, r *http.Request) error {
 	// runs.
 	if p.Session != "" && b.Sessions != nil {
 		if _, err := b.Sessions.Get(r.Context(), p.Session); err != nil {
-			if errors.Is(err, ErrUnknownSession) {
-				return httpError{http.StatusNotFound, "no session named " + p.Session + " on this box"}
-			}
 			return err
 		}
 	}
-	key := p.Key
-	if key == "" && p.Session != "" {
-		key = SessionKey(p.Session)
-	}
-	if err := b.before(r, "attention.post", map[string]any{"key": key, "kind": p.Kind, "session": p.Session}); err != nil {
+	p.Key = p.KeyOrSession()
+	if err := b.before(r, "attention.post", map[string]any{"key": p.Key, "kind": p.Kind, "session": p.Session}); err != nil {
 		return err
 	}
 	it, err := b.Attention.Post(p, origin(r))
@@ -104,7 +96,7 @@ func (b *Box) updateAttention(w http.ResponseWriter, r *http.Request) error {
 	if err := b.before(r, "attention.update", gate); err != nil {
 		return err
 	}
-	it, _, err := b.Attention.Update(key, u, origin(r))
+	it, err := b.Attention.Update(key, u, origin(r))
 	if err != nil {
 		return err
 	}
@@ -114,7 +106,8 @@ func (b *Box) updateAttention(w http.ResponseWriter, r *http.Request) error {
 }
 
 // sweepAttention settles the items of sessions that ended, given the
-// sessions there are, and forgets items past their time.
+// sessions there are, and forgets items past their time. refreshTurns runs
+// it as the backstop for a session whose program ended by itself.
 func (b *Box) sweepAttention(all []Session) {
 	if b.Attention == nil {
 		return
@@ -125,19 +118,30 @@ func (b *Box) sweepAttention(all []Session) {
 			live[s.Name] = true
 		}
 	}
-	for _, it := range b.Attention.Sweep(live) {
-		b.Events.Publish(events.Event{Type: "attention.settled", Box: b.Name, Origin: "berth", Data: attentionEventData(it)})
-	}
+	b.publishSettled(b.Attention.Sweep(live))
 }
 
-// attentionSessionsEnded sweeps at once after sessions were stopped, rather
-// than at the next refresh.
-func (b *Box) attentionSessionsEnded(ctx context.Context) {
-	if b.Attention == nil || b.Sessions == nil {
-		return
+// WatchAttention settles a session's items as soon as it is stopped,
+// however it was: every stop ends in a session.stopped event, which is what
+// this listens for. The returned func stops it.
+func (b *Box) WatchAttention() (stop func()) {
+	if b.Attention == nil || b.Events == nil {
+		return func() {}
 	}
-	if all, err := b.Sessions.List(ctx); err == nil {
-		b.sweepAttention(all)
+	return b.Events.Observe(func(e events.Event) {
+		if e.Type != "session.stopped" {
+			return
+		}
+		if name, _ := e.Data["name"].(string); name != "" {
+			// Not here: an observer must be quick and must not publish.
+			go b.publishSettled(b.Attention.SettleSession(name))
+		}
+	})
+}
+
+func (b *Box) publishSettled(settled []AttentionItem) {
+	for _, it := range settled {
+		b.Events.Publish(events.Event{Type: "attention.settled", Box: b.Name, Origin: "berth", Data: attentionEventData(it)})
 	}
 }
 

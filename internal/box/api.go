@@ -672,7 +672,6 @@ func (b *Box) stopSessionsIn(from, dir string) {
 			b.Events.Publish(events.Event{Type: "session.stopped", Box: b.Name, Origin: from, Data: map[string]any{"name": s.Name, "path": s.Dir}})
 		}
 	}
-	b.attentionSessionsEnded(ctx)
 }
 
 func (b *Box) listSessions(w http.ResponseWriter, r *http.Request) error {
@@ -929,7 +928,6 @@ func (b *Box) removeSession(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	b.publish(r, "session.stopped", map[string]any{"name": name})
-	b.attentionSessionsEnded(r.Context())
 	writeJSON(w, map[string]string{"removed": name})
 	return nil
 }
