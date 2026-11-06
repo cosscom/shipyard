@@ -14,12 +14,8 @@ import (
 	"github.com/cosscom/shipyard/internal/hooks"
 )
 
-type attentionClock struct{ t time.Time }
-
-func (c *attentionClock) now() time.Time      { return c.t }
-func (c *attentionClock) add(d time.Duration) { c.t = c.t.Add(d) }
-func newAttention(t *testing.T) (*AttentionStore, *attentionClock) {
-	clock := &attentionClock{time.Date(2026, 11, 6, 9, 0, 0, 0, time.UTC)}
+func newAttention(t *testing.T) (*AttentionStore, *clock) {
+	clock := &clock{time.Date(2026, 11, 6, 9, 0, 0, 0, time.UTC)}
 	return &AttentionStore{Path: filepath.Join(t.TempDir(), "attention.json"), Now: clock.now}, clock
 }
 
@@ -34,10 +30,10 @@ func TestAnAgentReplacesItsOwnAskByKey(t *testing.T) {
 	}
 	// Someone snoozes it, then the agent asks again: the same item, a new
 	// revision, open and no longer snoozed.
-	if _, _, err := s.Update(first.Key, AttentionUpdate{SnoozedUntil: strp("2026-11-06T12:00:00Z")}, "app"); err != nil {
+	if _, err := s.Update(first.Key, AttentionUpdate{SnoozedUntil: strp("2026-11-06T12:00:00Z")}, "app"); err != nil {
 		t.Fatal(err)
 	}
-	clock.add(time.Minute)
+	clock.advance(time.Minute)
 	second, err := s.Post(AttentionPost{Session: "shop-claude", Kind: "decision", Title: "Which queue, now that Redis is out?"}, "claude")
 	if err != nil {
 		t.Fatal(err)
@@ -53,10 +49,10 @@ func TestAnAgentReplacesItsOwnAskByKey(t *testing.T) {
 	if _, err := s.Post(AttentionPost{Session: "shop-claude", Kind: "decision", Title: "stale", Revision: 2}, "claude"); statusFor(err) != http.StatusConflict {
 		t.Fatalf("stale post: %v", err)
 	}
-	if _, _, err := s.Update(second.Key, AttentionUpdate{Revision: 1, Status: strp(AttentionClosed)}, "app"); statusFor(err) != http.StatusConflict {
+	if _, err := s.Update(second.Key, AttentionUpdate{Revision: 1, Status: strp(AttentionClosed)}, "app"); statusFor(err) != http.StatusConflict {
 		t.Fatalf("stale update: %v", err)
 	}
-	answered, _, err := s.Update(second.Key, AttentionUpdate{Revision: 3, Answer: strp("SQS")}, "phone")
+	answered, err := s.Update(second.Key, AttentionUpdate{Revision: 3, Answer: strp("SQS")}, "phone")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,22 +67,22 @@ func TestAnAgentReplacesItsOwnAskByKey(t *testing.T) {
 func TestAMarkOnAnItemTheBoxDoesntHold(t *testing.T) {
 	s, _ := newAttention(t)
 	key := "run/r_12/review" // a plugin's key for a run's gate, slashes and all
-	m, made, err := s.Update(key, AttentionUpdate{SnoozedUntil: strp("2026-11-07T08:00:00+01:00")}, "app")
+	m, err := s.Update(key, AttentionUpdate{SnoozedUntil: strp("2026-11-07T08:00:00+01:00")}, "app")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !made || m.Kind != "mark" || m.Status != AttentionOpen || m.Revision != 1 || !m.SnoozedUntil.Equal(time.Date(2026, 11, 7, 7, 0, 0, 0, time.UTC)) {
-		t.Fatalf("mark = %+v made=%v", m, made)
+	if m.Kind != "mark" || m.Status != AttentionOpen || m.Revision != 1 || !m.SnoozedUntil.Equal(time.Date(2026, 11, 7, 7, 0, 0, 0, time.UTC)) {
+		t.Fatalf("mark = %+v", m)
 	}
-	r, made, err := s.Update(key, AttentionUpdate{Status: strp(AttentionClosed)}, "app")
+	r, err := s.Update(key, AttentionUpdate{Status: strp(AttentionClosed)}, "app")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if made || r.Status != AttentionClosed || r.ClosedReason != "resolved" || r.Revision != 2 {
+	if r.Kind != "mark" || r.Status != AttentionClosed || r.ClosedReason != "resolved" || r.Revision != 2 {
 		t.Fatalf("resolved = %+v", r)
 	}
 	// Reopening clears what settled it; "" ends the snooze.
-	o, _, _ := s.Update(key, AttentionUpdate{Status: strp(AttentionOpen), SnoozedUntil: strp("")}, "app")
+	o, _ := s.Update(key, AttentionUpdate{Status: strp(AttentionOpen), SnoozedUntil: strp("")}, "app")
 	if o.Status != AttentionOpen || o.ClosedReason != "" || !o.Settled.IsZero() || !o.SnoozedUntil.IsZero() {
 		t.Fatalf("reopened = %+v", o)
 	}
@@ -103,7 +99,7 @@ func TestAMarkOnAnItemTheBoxDoesntHold(t *testing.T) {
 			t.Fatalf("%+v: %v", p, err)
 		}
 	}
-	if _, _, err := s.Update(key, AttentionUpdate{SnoozedUntil: strp("tomorrow")}, "app"); statusFor(err) != http.StatusBadRequest {
+	if _, err := s.Update(key, AttentionUpdate{SnoozedUntil: strp("tomorrow")}, "app"); statusFor(err) != http.StatusBadRequest {
 		t.Fatalf("a bad time: %v", err)
 	}
 }
@@ -133,12 +129,12 @@ func TestItemsSettleWhenTheirSessionEndsAndAgeOut(t *testing.T) {
 	}
 	// 14 days on, the settled ones are gone. The snoozed mark stays until
 	// its snooze has run out as well.
-	clock.add(AttentionKeep + time.Hour)
+	clock.advance(AttentionKeep + time.Hour)
 	s.Sweep(nil)
 	if all := s.List(AttentionFilter{}); len(all) != 1 || all[0].Key != "standalone" {
 		t.Fatalf("after 14 days: %+v", all)
 	}
-	clock.add(30 * 24 * time.Hour)
+	clock.advance(30 * 24 * time.Hour)
 	s.Sweep(nil)
 	if all := s.List(AttentionFilter{}); len(all) != 0 {
 		t.Fatalf("an old mark whose snooze ran out: %+v", all)
@@ -161,7 +157,7 @@ func TestAttentionSurvivesARestart(t *testing.T) {
 		t.Fatalf("%d items after restart", n)
 	}
 	// One read 15 days on leaves the settled ones behind.
-	clock.add(15 * 24 * time.Hour)
+	clock.advance(15 * 24 * time.Hour)
 	later := &AttentionStore{Path: s.Path, Now: clock.now}
 	if all := later.List(AttentionFilter{}); len(all) != 1 || all[0].Key != "review/shop#12" {
 		t.Fatalf("read 15 days on: %+v", all)
@@ -254,10 +250,20 @@ func TestAttentionRoutes(t *testing.T) {
 		t.Fatal("a refused update made a mark")
 	}
 
-	// A session that ends settles its items, announced as the box's own.
+	// A session that is stopped settles its items at once, announced as
+	// the box's own; one whose program ended settles at the next sweep.
+	defer bx.WatchAttention()()
 	bx.Attention.Post(AttentionPost{Session: "shop-claude", Kind: "action", Title: "Log in to Fly"}, "claude")
-	bx.sweepAttention([]Session{{Name: "shop-claude", Exited: true}})
+	bx.Attention.Post(AttentionPost{Session: "shop-codex", Kind: "action", Title: "Rotate the acme key"}, "codex")
+	bus.Publish(events.Event{Type: "session.stopped", Data: map[string]any{"name": "shop-claude"}})
 	if e := waitEventType(t, evs, "attention.settled"); e.Data["key"] != "session:shop-claude" || e.Data["closed_reason"] != "session_ended" || e.Origin != "berth" {
 		t.Fatalf("settled event %+v", e)
+	}
+	if it, _ := bx.Attention.Get("session:shop-codex"); it.Status != AttentionOpen {
+		t.Fatalf("another session's ask settled: %+v", it)
+	}
+	bx.sweepAttention([]Session{{Name: "shop-codex", Exited: true}})
+	if e := waitEventType(t, evs, "attention.settled"); e.Data["key"] != "session:shop-codex" {
+		t.Fatalf("swept event %+v", e)
 	}
 }

@@ -410,6 +410,8 @@ func serve(b boxHome, args []string) error {
 	defer bx.Helpers.Watch(bus)()
 	bx.AutoFix = &box.AutoFixStore{Path: filepath.Join(b.dir, "autofix.json")}
 	bx.Attention = &box.AttentionStore{Path: filepath.Join(b.dir, "attention.json")}
+	// A stopped session's asks settle at once, however it was stopped.
+	defer bx.WatchAttention()()
 	// How agents start when what starts them names no driver
 	// (agentdefaults.go): the app keeps it to the person's Labs setting.
 	bx.AgentDefaults = &box.AgentDefaultsStore{Path: filepath.Join(b.dir, "agent-defaults.json")}

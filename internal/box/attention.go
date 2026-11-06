@@ -2,11 +2,11 @@ package box
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -124,8 +124,8 @@ const (
 )
 
 var (
-	errAttentionRevision = errors.New("the item changed since that revision; read it again")
-	errAttentionFull     = fmt.Errorf("the box already holds %d open attention items; settle some first", maxAttentionItems)
+	errAttentionRevision = httpError{http.StatusConflict, "the item changed since that revision; read it again"}
+	errAttentionFull     = httpError{http.StatusTooManyRequests, fmt.Sprintf("the box already holds %d open attention items; settle some first", maxAttentionItems)}
 	attentionWord        = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,31}$`)
 )
 
@@ -240,12 +240,47 @@ func (s *AttentionStore) Get(key string) (AttentionItem, bool) {
 // SessionKey is the key of a session's own ask.
 func SessionKey(session string) string { return "session:" + session }
 
+// KeyOrSession is the post's key: the one it names, or its session's.
+func (p AttentionPost) KeyOrSession() string {
+	if p.Key == "" && p.Session != "" {
+		return SessionKey(p.Session)
+	}
+	return p.Key
+}
+
+// slot finds the item at key for a change, refusing one made from a
+// revision that has gone by, and makes room when there is no item yet. It
+// holds s.mu.
+func (s *AttentionStore) slot(key string, revision int) (*AttentionItem, error) {
+	was := s.items[key]
+	if revision != 0 && (was == nil || was.Revision != revision) {
+		return nil, errAttentionRevision
+	}
+	if was == nil {
+		return nil, s.makeRoom()
+	}
+	return was, nil
+}
+
+// commit puts it at its key and saves, putting back what was there (nil:
+// nothing) when the save fails. It holds s.mu.
+func (s *AttentionStore) commit(it, was *AttentionItem) error {
+	s.items[it.Key] = it
+	if err := s.save(); err != nil {
+		if was != nil {
+			s.items[it.Key] = was
+		} else {
+			delete(s.items, it.Key)
+		}
+		return err
+	}
+	return nil
+}
+
 // Post puts an ask at its key, replacing the one there: it opens again with
 // a new revision, and its answer and snooze are gone.
 func (s *AttentionStore) Post(p AttentionPost, by string) (AttentionItem, error) {
-	if p.Key == "" && p.Session != "" {
-		p.Key = SessionKey(p.Session)
-	}
+	p.Key = p.KeyOrSession()
 	if err := checkAttentionPost(p); err != nil {
 		return AttentionItem{}, err
 	}
@@ -253,76 +288,66 @@ func (s *AttentionStore) Post(p AttentionPost, by string) (AttentionItem, error)
 	defer s.mu.Unlock()
 	s.load()
 	now := s.now()
-	was, ok := s.items[p.Key]
-	if p.Revision != 0 && (!ok || was.Revision != p.Revision) {
-		return AttentionItem{}, httpError{http.StatusConflict, errAttentionRevision.Error()}
-	}
-	if !ok {
-		if err := s.makeRoom(); err != nil {
-			return AttentionItem{}, err
-		}
+	was, err := s.slot(p.Key, p.Revision)
+	if err != nil {
+		return AttentionItem{}, err
 	}
 	it := &AttentionItem{
 		Key: p.Key, Revision: 1, Kind: p.Kind, Title: p.Title, Details: p.Details, Options: p.Options,
 		Recommended: p.Recommended, Status: AttentionOpen, Session: p.Session, By: by, Created: now, Updated: now,
 	}
-	if ok {
+	if was != nil {
 		it.Revision, it.Created = was.Revision+1, was.Created
 	}
-	s.items[p.Key] = it
-	if err := s.save(); err != nil {
-		if ok {
-			s.items[p.Key] = was
-		} else {
-			delete(s.items, p.Key)
-		}
+	if err := s.commit(it, was); err != nil {
 		return AttentionItem{}, err
 	}
 	return cloneAttention(*it), nil
 }
 
 // Update changes the item at key, or makes a mark there when there is
-// none. made says it made one.
-func (s *AttentionStore) Update(key string, u AttentionUpdate, by string) (it AttentionItem, made bool, err error) {
+// none.
+func (s *AttentionStore) Update(key string, u AttentionUpdate, by string) (AttentionItem, error) {
 	if err := checkAttentionKey(key); err != nil {
-		return AttentionItem{}, false, err
+		return AttentionItem{}, err
 	}
 	var until time.Time
 	if u.SnoozedUntil != nil && *u.SnoozedUntil != "" {
 		t, err := time.Parse(time.RFC3339, *u.SnoozedUntil)
 		if err != nil {
-			return AttentionItem{}, false, badRequest("snoozed_until must be an RFC 3339 time, or \"\" to end the snooze")
+			return AttentionItem{}, badRequest("snoozed_until must be an RFC 3339 time, or \"\" to end the snooze")
 		}
 		until = t.UTC()
 	}
 	if u.Status != nil && *u.Status != AttentionOpen && *u.Status != AttentionAnswered && *u.Status != AttentionClosed {
-		return AttentionItem{}, false, badRequest("status must be open, answered or closed")
+		return AttentionItem{}, badRequest("status must be open, answered or closed")
 	}
 	if u.Answer != nil && len(*u.Answer) > maxAttentionText {
-		return AttentionItem{}, false, badRequest("an answer may be %d KB", maxAttentionText>>10)
+		return AttentionItem{}, badRequest("an answer may be %d KB", maxAttentionText>>10)
 	}
 	if u.ClosedReason != nil && *u.ClosedReason != "" && !attentionWord.MatchString(*u.ClosedReason) {
-		return AttentionItem{}, false, badRequest("closed_reason is a short word: lowercase letters, digits, - and _")
+		return AttentionItem{}, badRequest("closed_reason is a short word: lowercase letters, digits, - and _")
 	}
-	if len(u.Session) > maxAttentionSession {
-		return AttentionItem{}, false, badRequest("that isn't a session name")
+	if err := checkAttentionSession(u.Session); err != nil {
+		return AttentionItem{}, err
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.load()
 	now := s.now()
-	was, ok := s.items[key]
-	if u.Revision != 0 && (!ok || was.Revision != u.Revision) {
-		return AttentionItem{}, false, httpError{http.StatusConflict, errAttentionRevision.Error()}
+	was, err := s.slot(key, u.Revision)
+	if err != nil {
+		return AttentionItem{}, err
 	}
-	var next AttentionItem
-	if ok {
+	next := AttentionItem{Key: key, Kind: attentionMark, Status: AttentionOpen, Session: u.Session, Created: now}
+	if was != nil {
 		next = cloneAttention(*was)
-	} else {
-		if err := s.makeRoom(); err != nil {
-			return AttentionItem{}, false, err
-		}
-		next = AttentionItem{Key: key, Kind: attentionMark, Status: AttentionOpen, Session: u.Session, Created: now}
+	}
+	if u.Answer != nil {
+		next.Answer = *u.Answer
+	}
+	if u.ClosedReason != nil {
+		next.ClosedReason = *u.ClosedReason
 	}
 	status := next.Status
 	switch {
@@ -334,21 +359,12 @@ func (s *AttentionStore) Update(key string, u AttentionUpdate, by string) (it At
 		status = AttentionClosed
 	}
 	if status != next.Status {
-		next.Status = status
-		next.Settled = time.Time{}
-		if status != AttentionOpen {
-			next.Settled = now
-		}
+		next.Settled = now
 	}
-	if u.Answer != nil {
-		next.Answer = *u.Answer
-	}
-	if u.ClosedReason != nil {
-		next.ClosedReason = *u.ClosedReason
-	}
-	switch next.Status {
+	next.Status = status
+	switch status {
 	case AttentionOpen:
-		next.Answer, next.ClosedReason = "", ""
+		next.Answer, next.ClosedReason, next.Settled = "", "", time.Time{}
 	case AttentionAnswered:
 		next.ClosedReason = ""
 	case AttentionClosed:
@@ -361,16 +377,10 @@ func (s *AttentionStore) Update(key string, u AttentionUpdate, by string) (it At
 	}
 	next.Revision++
 	next.By, next.Updated = by, now
-	s.items[key] = &next
-	if err := s.save(); err != nil {
-		if ok {
-			s.items[key] = was
-		} else {
-			delete(s.items, key)
-		}
-		return AttentionItem{}, false, err
+	if err := s.commit(&next, was); err != nil {
+		return AttentionItem{}, err
 	}
-	return cloneAttention(next), !ok, nil
+	return cloneAttention(next), nil
 }
 
 // makeRoom keeps the store to maxAttentionItems before a new key: the
@@ -387,15 +397,26 @@ func (s *AttentionStore) makeRoom() error {
 		}
 	}
 	if oldest == nil {
-		return httpError{http.StatusTooManyRequests, errAttentionFull.Error()}
+		return errAttentionFull
 	}
 	delete(s.items, oldest.Key)
 	return nil
 }
 
 // Sweep settles the open items whose session is not in live, and forgets
-// items past their time. It returns the items it settled.
+// items past their time. It returns the items it settled. It is the
+// backstop for sessions that end without saying so (a program that exits);
+// SettleSession is the prompt way for one that was stopped.
 func (s *AttentionStore) Sweep(live map[string]bool) []AttentionItem {
+	return s.settle(func(it *AttentionItem) bool { return !live[it.Session] }, true)
+}
+
+// SettleSession settles the open items about a session that ended.
+func (s *AttentionStore) SettleSession(name string) []AttentionItem {
+	return s.settle(func(it *AttentionItem) bool { return it.Session == name }, false)
+}
+
+func (s *AttentionStore) settle(ended func(*AttentionItem) bool, forget bool) []AttentionItem {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.load()
@@ -403,14 +424,14 @@ func (s *AttentionStore) Sweep(live map[string]bool) []AttentionItem {
 	var settled []AttentionItem
 	changed := false
 	for key, it := range s.items {
-		if it.Status == AttentionOpen && it.Session != "" && !live[it.Session] {
+		if it.Status == AttentionOpen && it.Session != "" && ended(it) {
 			it.Status, it.ClosedReason, it.Settled = AttentionClosed, attentionSessionEnded, now
 			it.Revision++
 			it.By, it.Updated = "berth", now
 			settled = append(settled, cloneAttention(*it))
 			changed = true
 		}
-		if expired(*it, now) {
+		if forget && expired(*it, now) {
 			delete(s.items, key)
 			changed = true
 		}
@@ -423,10 +444,15 @@ func (s *AttentionStore) Sweep(live map[string]bool) []AttentionItem {
 }
 
 func cloneAttention(it AttentionItem) AttentionItem {
-	if it.Options != nil {
-		it.Options = append([]AttentionOption(nil), it.Options...)
-	}
+	it.Options = slices.Clone(it.Options)
 	return it
+}
+
+func checkAttentionSession(name string) error {
+	if len(name) > maxAttentionSession {
+		return badRequest("that isn't a session name")
+	}
+	return nil
 }
 
 func checkAttentionKey(key string) error {
@@ -452,8 +478,8 @@ func checkAttentionPost(p AttentionPost) error {
 	if len(p.Details) > maxAttentionText {
 		return badRequest("details may be %d KB", maxAttentionText>>10)
 	}
-	if len(p.Session) > maxAttentionSession {
-		return badRequest("that isn't a session name")
+	if err := checkAttentionSession(p.Session); err != nil {
+		return err
 	}
 	if len(p.Options) > maxAttentionOptions {
 		return badRequest("an ask offers at most %d options", maxAttentionOptions)

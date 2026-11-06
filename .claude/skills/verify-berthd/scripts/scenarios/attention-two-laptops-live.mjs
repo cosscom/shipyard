@@ -109,6 +109,8 @@ export async function run({ page, shot, step, expect, call, out }) {
   step("laptop B: another browser, its own laptop agent paired with the same box, its own plugin storage");
   const browser = page.context().browser();
   const ctxB = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "dark" });
+  // As drive.mjs readies its own page: the machine's agent refused, the
+  // scenario's plugin served as a built-in.
   await ctxB.route(/^https?:\/\/(?:[^/]*\.)?(?:localhost|127\.0\.0\.1|\[::1\]):(?:1377|1378|1379)(?:\/|$)/, (r) => r.abort());
   const pageB = await ctxB.newPage();
   const errorsB = [];
@@ -123,6 +125,8 @@ export async function run({ page, shot, step, expect, call, out }) {
   const origin = new URL(page.url()).origin;
   await pageB.goto(`${origin}/?${new URLSearchParams({ token: TOKEN_B, agent: AGENT_B, ...params })}`);
   await expect(pageB.getByTestId("nav-home")).toBeVisible({ timeout: 20_000 });
+  // Laptop B's own API, as call() is laptop A's.
+  const callB = (path, init = {}) => fetch(`${AGENT_B}/v1/boxes/${BOX}/api${path}`, { ...init, headers: { Authorization: `Bearer ${TOKEN_B}`, "Content-Type": "application/json" } });
   // B's screenshots go beside the driver's own.
   const shotB = (label) => pageB.screenshot({ path: `${out}/${label}.png` });
   try {
@@ -138,8 +142,8 @@ export async function run({ page, shot, step, expect, call, out }) {
     await expect(row(page, ASK)).toHaveText(`${ASK} · decision · closed (resolved) · snoozed until ${UNTIL} · rev 3 · by app`);
     await shot("4-a-sees-b-resolve");
 
-    step(`a stale write is refused: A snoozes ${ASK} again from revision 2`);
-    const stale = await fetch(`${AGENT_B}/v1/boxes/${BOX}/api/attention/${encodeURIComponent(ASK)}`, { method: "PATCH", headers: { Authorization: `Bearer ${TOKEN_B}`, "Content-Type": "application/json" }, body: JSON.stringify({ revision: 2, snoozed_until: "" }) });
+    step(`a stale write is refused: ending ${ASK}'s snooze from revision 2 answers 409`);
+    const stale = await callB(`/attention/${encodeURIComponent(ASK)}`, { method: "PATCH", body: JSON.stringify({ revision: 2, snoozed_until: "" }) });
     if (stale.status !== 409) throw new Error(`a stale revision answered ${stale.status}, not 409`);
 
     step(`end session ${SESSION}: its open ask ${DEPLOY} settles on both laptops, as the box's own change`);
@@ -149,8 +153,16 @@ export async function run({ page, shot, step, expect, call, out }) {
     await shot("5-a-session-ended");
     await shotB("6-b-session-ended");
 
+    step("start a session whose program ends by itself after 4 s, with an ask: the box's next look at its sessions settles it");
+    await box("/sessions", { method: "POST", body: JSON.stringify({ location: "acme-shop", name: "att-brief", command: "sleep 4" }) });
+    await box("/attention", { method: "POST", body: JSON.stringify({ session: "att-brief", kind: "blocked", title: "The acme build is stuck" }) });
+    await expect(row(page, "session:att-brief")).toHaveText("session:att-brief · blocked · open · not snoozed · rev 1 · by app");
+    await expect(row(pageB, "session:att-brief")).toHaveText("session:att-brief · blocked · closed (session_ended) · not snoozed · rev 2 · by berth", { timeout: 30_000 });
+    await expect(row(page, "session:att-brief")).toHaveText("session:att-brief · blocked · closed (session_ended) · not snoozed · rev 2 · by berth");
+    await box("/sessions/att-brief", { method: "DELETE" }).catch(() => {});
+
     step("second view: the box's API through laptop B says the same");
-    const res = await fetch(`${AGENT_B}/v1/boxes/${BOX}/api/attention`, { headers: { Authorization: `Bearer ${TOKEN_B}` } });
+    const res = await callB("/attention");
     const items = await res.json();
     const ask = items.find((i) => i.key === ASK);
     const deploy = items.find((i) => i.key === DEPLOY);

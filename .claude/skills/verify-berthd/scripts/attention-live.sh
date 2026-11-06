@@ -13,11 +13,14 @@ root=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 dir=${VERIFY_BOX_DIR:-/tmp/vb-attention}
 addr=127.0.0.1:7547
 box_env=(BERTH_HOME="$dir/box-home" BERTH_USER_DIR="$dir/box-user" TMUX_TMPDIR="$dir/tmux")
-lap_env() { echo BERTH_HOME="$dir/lap-$1-home" BERTH_USER_DIR="$dir/lap-$1-user" BERTH_PROXY_ADDR="127.0.0.1:$2" BERTH_UI_ADDR="127.0.0.1:$3"; }
 box() { env "${box_env[@]}" "$root/bin/berthd" "$@"; }
-# shellcheck disable=SC2046
-lap() { local who=$1 p=$2 u=$3; shift 3; env $(lap_env "$who" "$p" "$u") "$root/bin/berth" "$@"; }
-tm() { env TMUX_TMPDIR="$dir/tmux" tmux -L berth "$@"; }
+# lap a|b …: laptop A (proxy 9471, UI 9472) or B (9473, 9474).
+lap() {
+  local who=$1 p=9471
+  shift
+  [[ $who == b ]] && p=9473
+  env BERTH_HOME="$dir/lap-$who-home" BERTH_USER_DIR="$dir/lap-$who-user" BERTH_PROXY_ADDR="127.0.0.1:$p" BERTH_UI_ADDR="127.0.0.1:$((p + 1))" "$root/bin/berth" "$@"
+}
 
 case ${1:-} in
 up)
@@ -34,8 +37,8 @@ up)
     exit 1
   fi
   # Each laptop pairs with a code of its own, as two computers do.
-  lap a 9471 9472 pair "$(box pair --address "$addr" --json | jq -r .link)" --name devq >/dev/null
-  lap b 9473 9474 pair "$(box pair --address "$addr" --json | jq -r .link)" --name devq >/dev/null
+  lap a pair "$(box pair --address "$addr" --json | jq -r .link)" --name devq >/dev/null
+  lap b pair "$(box pair --address "$addr" --json | jq -r .link)" --name devq >/dev/null
   repo=$dir/acme-shop
   if [[ ! -d $repo/.git ]]; then
     git init -q -b main "$repo" && echo "# acme shop" >"$repo/README.md"
@@ -43,7 +46,7 @@ up)
   fi
   box location add acme-shop "$repo" >/dev/null
   # The CLI starts each agent; wait until both answer.
-  lap a 9471 9472 ui-token >/dev/null && lap b 9473 9474 ui-token >/dev/null
+  lap a ui-token >/dev/null && lap b ui-token >/dev/null
   for u in 9472 9474; do
     until ss -ltn | grep -q "127.0.0.1:$u "; do sleep 0.5; done
   done
@@ -51,11 +54,11 @@ up)
   ;;
 env)
   # The tokens are secrets: export them, don't print them anywhere else.
-  echo "export VERIFY_BERTH_TOKEN=$(lap a 9471 9472 ui-token | jq -r .token) VERIFY_BERTH_TOKEN_B=$(lap b 9473 9474 ui-token | jq -r .token) VERIFY_AGENT_B=http://127.0.0.1:9474 TMUX_TMPDIR=$dir/tmux"
+  echo "export VERIFY_BERTH_TOKEN=$(lap a ui-token | jq -r .token) VERIFY_BERTH_TOKEN_B=$(lap b ui-token | jq -r .token) VERIFY_AGENT_B=http://127.0.0.1:9474"
   ;;
 down)
   [[ -f $dir/berthd.pid ]] && kill "$(cat "$dir/berthd.pid")" 2>/dev/null || true
-  tm kill-server 2>/dev/null || true
+  env TMUX_TMPDIR="$dir/tmux" tmux -L berth kill-server 2>/dev/null || true
   # The agents the CLI started: the ones on 9472/9474 with this state, no other.
   for port in 9472 9474; do
     for pid in $(ss -ltnpH "sport = :$port" 2>/dev/null | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u); do
