@@ -10,6 +10,11 @@ upgrades with `berth upgrade BOX`, or by running the
 again.
 
 ## Unreleased
+- **Answers from the chat are announced and gated.** Answering an agent's
+  questions in the chat's form now sends a `session.sent` event with
+  `answer: true` and the turn that asked, as an answer typed at the agent
+  already did, so a hook or plugin can tell the question was answered. A
+  `before:session.send` hook can now refuse it, as it refuses a prompt.
 - **Quiet projects are grayed out.** On the rail and in the two-column
   sidebar, a project with no agent or shell open in it is grayed out, so
   the ones you're using stand out. Switching to one of those opens New

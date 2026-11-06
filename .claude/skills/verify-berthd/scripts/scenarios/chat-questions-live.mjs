@@ -5,8 +5,12 @@
 // VERIFY_SURPRISE (a shell command that puts Claude's form in a state the
 // box doesn't expect), the first submit fails: the card keeps every
 // answer, Copy answers copies them, VERIFY_UNSURPRISE puts the form back,
-// and Retry delivers them. See ../../features/chat-questions.md.
+// and Retry delivers them. The box's journal then holds the answer's
+// session.sent (answer: true, the turn that asked, never the words), once.
+// See ../../features/chat-questions.md.
 import { execSync } from "node:child_process";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 export const live = true;
 // The forced failure's 409, as the browser logs it.
@@ -46,6 +50,16 @@ const QUESTIONS = {
   ],
 };
 
+// The dev box's journal (dev-box.sh's VERIFY_BOX_DIR), read from disk: a
+// second view of what the box announced, apart from the app.
+const JOURNAL = join(process.env.VERIFY_BOX_DIR || "/tmp/verify-berthd-box", "box-home/box/journal");
+const SESSION = process.env.VERIFY_SESSION || "ask";
+function journal() {
+  return readdirSync(JOURNAL).filter((f) => f.endsWith(".jsonl")).sort()
+    .flatMap((f) => readFileSync(join(JOURNAL, f), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)));
+}
+const sentHere = (from) => journal().filter((e) => e.seq > from && e.type === "session.sent" && e.data?.name === SESSION);
+
 const WORDS_1 = "Flag first, but keep the flag on for staff only until the support team has had a full Monday with the new flow. If the error rate on payment confirmation goes above half a percent at any point, turn the flag off and tell the channel before anything else.";
 const WORDS_3 = "The staging database was restored from last week's backup, so some fixtures may be stale. Release notes are drafted in the shared folder; please add a line about the flag and who to ask.";
 
@@ -65,6 +79,7 @@ export async function run({ page, shot, step, expect }) {
     reply = pane.getByTestId("composer").getByRole("textbox", { name: "Reply" });
   }
 
+  const head = Math.max(0, ...journal().map((e) => e.seq));
   step("ask Claude for three questions from the reply box");
   await reply.fill(`Call the AskUserQuestion tool once with exactly this input JSON, copying every question, header and option verbatim (keep the newlines): ${JSON.stringify(QUESTIONS)}. After I answer, repeat each answer back verbatim, one per line, and stop.`);
   await reply.press("Enter");
@@ -124,4 +139,15 @@ export async function run({ page, shot, step, expect }) {
   await shot("4-answered");
   await expect(chat.locator("[data-testid=chat-item][data-kind=text]").last()).toContainText("who to ask", { timeout: 120_000 });
   await shot("5-claude-goes-on");
+
+  step("the box's journal has the answer's session.sent, once, in the turn that asked");
+  const [prompt, ...rest] = sentHere(head);
+  if (!prompt || prompt.data.answer || !prompt.data.turn) throw new Error(`no prompt send in the journal after seq ${head}: ${JSON.stringify(prompt)}`);
+  const answers = rest.filter((e) => e.data.answer === true);
+  if (answers.length !== 1) throw new Error(`the journal has ${answers.length} answers, want 1: ${JSON.stringify(rest)}`);
+  const [answer] = answers;
+  if (answer.data.turn !== prompt.data.turn) throw new Error(`the answer is in turn ${answer.data.turn}, the prompt asked in ${prompt.data.turn}`);
+  const raw = JSON.stringify(answer);
+  if (raw.includes("support team") || raw.includes("staging database") || raw.includes("Sam")) throw new Error(`the event carries the answers: ${raw}`);
+  step(`journal: ${raw}`);
 }

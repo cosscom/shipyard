@@ -51,7 +51,7 @@ and dashes.
 | `session.stopped` | `name` |
 | `session.memory` | `name`, `location`, `memory`, `memory_high`, `near_limit`, `text`: a session came near its [memory limit](/concepts/sessions-and-agents#sessions-clean-up-after-themselves) (`near_limit: true`), or went well below it again |
 | `session.renamed` | `name`: its title changed (a rename, or its first prompt named it); never the title or the prompt |
-| `session.sent` | `name`, `from`, `idem_key?`, `turn?`: a prompt was typed in (never the prompt) |
+| `session.sent` | `name`, `from`, `idem_key?`, `turn?`: a prompt was typed in (never the prompt). With `answer: true` it answered a question the agent asked, by text typed at it or from the chat's question form (never the answer), and `turn` is the turn that asked, which goes on |
 | `session.queued` | `name`, `turn`: a prompt is held until the agent is idle (`when: "idle"`) |
 | `session.open` | `name`, `location`, `path`, `open`, `agent`: asks the app to show a new session |
 | `exec.finished` | `location`, `path`, `command`, `exit_code` |
@@ -198,7 +198,7 @@ exits non-zero refuses it with what it printed. Gates in a laptop's
 | `before:task.create` | `location`, `name`, `branch`, `base`, `agent`, `command` |
 | `before:session.start` | `name`, `location`, `path`, `command` |
 | `before:session.stop` | `name` |
-| `before:session.send` | `name`; from the phone also `from: "phone"`, and `key` for a key press |
+| `before:session.send` | `name`; from the phone also `from: "phone"`, and `key` for a key press; for an answer to the chat's question form, `answer: true` |
 | `before:exec` | `location`, `path`, `command` |
 | `before:run.start` | `template`, `path`, `steps`, or `flow`, `scope` |
 | `before:run.approve` | `run`, `step`, `approve`: deciding a gate, from the app, CLI or phone |
