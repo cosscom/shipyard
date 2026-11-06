@@ -28,6 +28,9 @@ func (f *fakeBox) DoWithHeader(ctx context.Context, method, path string, body io
 	switch {
 	case path == "/v1/sessions":
 		w.WriteString(`[{"name":"shop-a-claude","agent":"claude","agent_state":"running","turn":"shop-a-claude#3","location":"shop/a","dir":"/very/long/path","command":"claude --long flags"}]`)
+	case strings.HasPrefix(path, "/v1/attention?"):
+		w.WriteString(`[{"key":"session:shop-a-claude","revision":2,"kind":"decision","title":"Ship on Friday?","details":"secret plans","options":[{"label":"Ship"},{"label":"Wait"}],"recommended":"Ship","status":"open","session":"shop-a-claude","by":"mcp","created":"2026-11-06T09:00:00Z","updated":"2026-11-06T09:05:00Z"},` +
+			`{"key":"signal:shop-b-claude","revision":1,"kind":"mark","status":"open","snoozed_until":"2026-11-07T09:00:00Z","by":"app","created":"2026-11-06T09:01:00Z","updated":"2026-11-06T09:01:00Z"}]`)
 	case strings.HasPrefix(path, "/v1/turns/"):
 		w.WriteString(`{"turn":{"id":"x#1","state":"running"},"state":"running","timed_out":true}`)
 	case path == "/v1/runs":
@@ -55,6 +58,39 @@ func rpc(t *testing.T, s *Server, lines ...string) []map[string]any {
 		res = append(res, m)
 	}
 	return res
+}
+
+func TestTheAttentionToolReadsTheBoxsOpenItemsWithoutTheirWords(t *testing.T) {
+	f := &fakeBox{}
+	s := &Server{Box: box.NewClient(f)}
+	res := rpc(t, s,
+		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"berth_attention","arguments":{}}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"berth_attention","arguments":{"session":"shop-a-claude"}}}`,
+	)
+	if len(f.calls) != 2 || f.calls[0] != "GET /v1/attention?open=1" || f.calls[1] != "GET /v1/attention?open=1&session=shop-a-claude" {
+		t.Fatalf("calls: %v", f.calls)
+	}
+	text := res[0]["result"].(map[string]any)["content"].([]any)[0].(map[string]any)["text"].(string)
+	var got []box.AttentionBrief
+	if err := json.Unmarshal([]byte(text), &got); err != nil {
+		t.Fatal(err)
+	}
+	// The same list the box holds, as the phone reads it.
+	var items []box.AttentionItem
+	resp, _ := f.Do(context.Background(), "GET", "/v1/attention?open=1", nil)
+	json.NewDecoder(resp.Body).Decode(&items)
+	want, _ := json.Marshal(box.AttentionBriefs(items))
+	if text != string(want) {
+		t.Fatalf("attention: %s, want %s", text, want)
+	}
+	if len(got) != 2 || got[0].Title != "Ship on Friday?" || got[0].Recommended != "Ship" || got[1].Kind != "mark" || got[1].SnoozedUntil.IsZero() {
+		t.Fatalf("attention: %s", text)
+	}
+	for _, secret := range []string{"secret plans", `"details"`, `"by"`} {
+		if strings.Contains(text, secret) {
+			t.Fatalf("the tool read %q: %s", secret, text)
+		}
+	}
 }
 
 func TestToolsAreShortAndNonBlocking(t *testing.T) {

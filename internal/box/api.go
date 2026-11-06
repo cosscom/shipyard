@@ -130,6 +130,9 @@ type Box struct {
 	// Helpers runs the helper programs plugins bring (helpers.go); nil on a
 	// box without them.
 	Helpers *Helpers
+	// Attention keeps what needs a person, for every app paired with the
+	// box (attention.go); nil on a box without it.
+	Attention *AttentionStore
 }
 
 func (b *Box) own(path string) {
@@ -279,6 +282,7 @@ func (b *Box) Mount(s *wire.Server) {
 	b.mountBrowser(route)
 	b.mountNotify(route)
 	b.mountArtifacts(route)
+	b.mountAttention(route)
 	b.mountHelpers(s, route)
 	b.mountPairing(s, route)
 }

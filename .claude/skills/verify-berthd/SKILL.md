@@ -52,7 +52,7 @@ export const plugins = [{ id: "counts", name: "Counts", source: `export default 
 export const allowErrors = [/count boom/];
 export const init = (layout) => { /* runs in the page before the app, with initArg */ };
 export const initArg = { BracketLeft: "å" };
-export async function run({ page, shot, step, expect }) { … }
+export async function run({ page, shot, step, expect, call, out }) { … }
 ```
 
 `init`, when there is one, runs in the page before the app's own scripts, with `initArg` (Playwright's `addInitScript`): it stands in for what the browser would say, such as a keyboard layout (`keyboard-layout`). `expect` is Playwright's, so assertions wait as they do in the e2e suite. Use stable hooks: `data-testid` (`nav-<id>`, `nav-more`, `nav-badge`, `home-grid`, the list at the top of `app/e2e/fixtures.ts`), roles and accessible names. Never coordinates.

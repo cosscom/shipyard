@@ -68,6 +68,20 @@ again.
   branch, and asks git again only when the repository changes (or after a
   minute).
 
+- **A plugin's snooze can follow you between computers.** Each box now keeps
+  a small list of what needs you: asks an agent posts, and marks such as
+  "snoozed until 9" or "resolved" on items a plugin builds. Every app paired
+  with the box reads the same list, so snoozing on one laptop holds on the
+  other. An item settles by itself when its session ends, and is forgotten
+  two weeks after it settles. Plugins reach it as `berth.attention`.
+
+- **Phones and agents can read what needs you.** A paired phone reads a
+  box's open attention items through the phone API
+  (`GET /phone/v1/attention`), and agents through `berthd mcp`'s
+  `berth_attention` tool: each item's kind, title, options, status, session
+  and snooze, never its details or answer. Both only read; answering,
+  closing and snoozing stay in the app.
+
 ## v0.3.31
 
 - **Worktrees with submodules can be removed.** git refuses to remove any

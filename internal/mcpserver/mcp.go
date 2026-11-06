@@ -135,6 +135,7 @@ const told = " Shipyard tells you when it ends, needs a person or hits a gate: a
 var Tools = []Tool{
 	{Name: "berth_sessions", Description: "List agent sessions on this box: name, agent, state, current turn.", InputSchema: obj(map[string]any{}), call: sessions},
 	{Name: "berth_screen", Description: "Read the last lines of a session's screen. Use only when an agent waits for someone.", InputSchema: obj(map[string]any{"session": str("session name"), "lines": num("lines of history, at most 60 (default 20)")}, "session"), call: screen},
+	{Name: "berth_attention", Description: "List what needs a person on this box: its open attention items (asks agents posted, and a person's marks such as a snooze), the most recently changed first, without their details or answers.", InputSchema: obj(map[string]any{"session": str("only the items about this session (optional)")}), call: attention},
 	{Name: "berth_task_new", Description: "Make a worktree with an agent in it, working on prompt. Returns the session, worktree path and branch." + told, InputSchema: obj(with(map[string]any{"location": str("repository (location) name"), "name": str("new worktree name"), "agent": str("agent preset, e.g. claude or codex"), "prompt": str("its first prompt"), "base": str("base branch (optional)")}), "location", "name", "agent"), call: taskNew},
 	{Name: "berth_send", Description: "Send a prompt to a session (held until it is idle by default). Returns its turn." + told, InputSchema: obj(with(map[string]any{"session": str("session name"), "text": str("the prompt"), "when": str("idle (default) or now"), "idem": str("a key that makes a retry return the same turn")}), "session", "text"), call: send},
 	{Name: "berth_wait_turn", Description: "Wait up to timeout seconds (at most 90) for a turn to end. For short waits: work you start reports back by itself (a <berth-notification>), so rather than calling this in a loop, end your turn. If ended is false, call again with the cursor.", InputSchema: obj(map[string]any{"turn": str("turn ID, or the cursor from a previous call"), "timeout": num("seconds, at most 90 (default 60)")}, "turn"), call: waitTurn},
@@ -278,6 +279,14 @@ func sessions(ctx context.Context, s *Server, a map[string]any) (any, error) {
 		out = append(out, row{x.Name, x.Agent, x.AgentState, x.Turn, x.Location})
 	}
 	return out, nil
+}
+
+func attention(ctx context.Context, s *Server, a map[string]any) (any, error) {
+	items, err := s.Box.Attention(ctx, box.AttentionFilter{Session: arg(a, "session"), Open: true})
+	if err != nil {
+		return nil, err
+	}
+	return box.AttentionBriefs(items), nil
 }
 
 func screen(ctx context.Context, s *Server, a map[string]any) (any, error) {

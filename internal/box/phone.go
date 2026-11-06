@@ -288,7 +288,7 @@ func (p *Phone) Handler(b *Box, listenAddr string) http.Handler {
 
 	api := http.NewServeMux()
 	api.HandleFunc("GET /phone/v1/info", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, map[string]any{"box": b.Name, "version": 2, "capabilities": phoneCapabilities})
+		writeJSON(w, map[string]any{"box": b.Name, "version": 2, "capabilities": b.phoneCaps()})
 	})
 	api.HandleFunc("GET /phone/v1/sessions", func(w http.ResponseWriter, r *http.Request) {
 		all, err := b.Sessions.List(r.Context())

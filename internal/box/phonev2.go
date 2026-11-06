@@ -35,8 +35,16 @@ import (
 // the repository).
 const DefaultPushRelay = "https://push.berthd.app"
 
-// phoneCapabilities are what this box's phone API offers past version 1.
+// phoneCapabilities are what this box's phone API offers past version 1:
+// these, and attention on a box that keeps attention items.
 var phoneCapabilities = []string{"transcript", "events", "push", "interrupt"}
+
+func (b *Box) phoneCaps() []string {
+	if b.Attention == nil {
+		return phoneCapabilities
+	}
+	return append(slices.Clip(phoneCapabilities), "attention")
+}
 
 // PhonePush is a phone app that asked for notifications.
 type PhonePush struct {
@@ -117,6 +125,21 @@ func (p *Phone) mountV2(api *http.ServeMux, b *Box) {
 			b.Events.Publish(events.Event{Type: "phone.push.removed", Box: b.Name, Origin: "phone", Data: map[string]any{"name": gone.Name, "platform": gone.Platform}})
 		}
 		writeJSON(w, map[string]bool{"removed": gone != nil})
+	})
+	// The box's open attention items (attention.go), to read: answering,
+	// closing and snoozing them is not here.
+	api.HandleFunc("GET /phone/v1/attention", func(w http.ResponseWriter, r *http.Request) {
+		if b.Attention == nil {
+			writeError(w, statusFor(errNoAttention), errNoAttention.Error())
+			return
+		}
+		items, err := b.Attention.List(AttentionFilter{Session: r.URL.Query().Get("session"), Open: true})
+		if err != nil {
+			// The box can't read its own file: not the phone's mistake.
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, AttentionBriefs(items))
 	})
 	api.HandleFunc("POST /phone/v1/sessions/{name}/interrupt", func(w http.ResponseWriter, r *http.Request) {
 		stopped, err := b.interrupt(r, r.PathValue("name"), "phone")
