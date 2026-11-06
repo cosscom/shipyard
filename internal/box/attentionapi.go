@@ -199,8 +199,8 @@ func (u AttentionUpdate) settles() bool {
 // it, held until the agent is idle, and notes it told once the box holds
 // it (a held prompt survives a restart). The PATCH that settles one starts
 // it, and every sweep tries again what didn't go: a restart in between, a
-// full inbox. The idempotency key is the item's revision, so a retry never
-// tells it twice. A session that has ended has no one to tell. One runs at
+// full inbox. The idempotency key is when the ask settled, so a retry, or a
+// snooze in between, never tells it twice. A session that has ended has no one to tell. One runs at
 // a time; a call while one runs has it go round again.
 func (b *Box) tellAskers() {
 	if b.Attention == nil || b.Sessions == nil || b.Turns == nil {
@@ -214,14 +214,14 @@ func (b *Box) tellAskers() {
 	for again := true; again; again = b.tellAgain.Swap(false) {
 		for _, it := range b.Attention.telling() {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			req := SendRequest{Text: AnswerText(it), When: "idle", IdemKey: fmt.Sprintf("attention:%s:%d", it.Key, it.Revision)}
+			req := SendRequest{Text: AnswerText(it), When: "idle", IdemKey: fmt.Sprintf("attention:%s@%s", it.Key, it.Settled.Format(time.RFC3339Nano))}
 			_, err := b.sendPrompt(ctx, it.Session, req, it.By, it.Telling)
 			cancel()
 			if err != nil && !errors.Is(err, ErrSessionExited) && !errors.Is(err, ErrUnknownSession) {
 				log.Printf("attention %s: telling %s (again at the next sweep): %v", it.Key, it.Session, err)
 				continue
 			}
-			b.Attention.told(it.Key, it.Revision)
+			b.Attention.told(it.Key, it.Settled)
 		}
 	}
 }

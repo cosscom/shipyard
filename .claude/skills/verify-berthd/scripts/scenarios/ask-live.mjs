@@ -159,7 +159,7 @@ export async function run({ page, shot, step, expect, call, out }) {
   step("second view: each session's turns, where the last was prompted by the person's laptop, under the ask's idempotency key");
   for (const [session, item] of [["asker", mcpItem], ["ask", cliItem]]) {
     const turns = await box(`/sessions/${session}/turns?limit=5`);
-    const told = turns.find((t) => t.idem_key === `attention:${item.key}:${item.revision + 1}`);
+    const told = turns.find((t) => t.idem_key?.startsWith(`attention:${item.key}@`));
     if (!told || !told.origin?.startsWith("laptop:")) throw new Error(`${session}'s turns: ${JSON.stringify(turns)}`);
     step(`${session}: turn ${told.id}, origin ${told.origin}, idem_key ${told.idem_key}, ${told.state}`);
   }

@@ -171,12 +171,17 @@ func TestASettledAskStaysToBeToldUntilTold(t *testing.T) {
 	if left := again.telling(); len(left) != 1 || left[0].Key != "session:agent" {
 		t.Fatalf("after a restart: %+v", left)
 	}
-	again.told("session:agent", it.Revision-1)
-	if len(again.telling()) != 1 {
-		t.Fatal("an older revision's telling cleared a newer one")
+	// A snooze while it is told changes its revision, not what to tell.
+	snoozed, _ := again.update("session:agent", AttentionUpdate{SnoozedUntil: ptr("2026-11-07T09:00:00Z")}, "app", "laptop:mac")
+	if snoozed.Telling != "laptop:mac" {
+		t.Fatalf("a snooze took the telling: %+v", snoozed)
 	}
-	again.told("session:agent", it.Revision)
-	if got, _ := getOf(t, &AttentionStore{Path: s.Path}, "session:agent"); got.Telling != "" || got.Revision != it.Revision {
+	again.told("session:agent", it.Settled.Add(-time.Second))
+	if len(again.telling()) != 1 {
+		t.Fatal("another settle's telling cleared this one")
+	}
+	again.told("session:agent", it.Settled)
+	if got, _ := getOf(t, &AttentionStore{Path: s.Path}, "session:agent"); got.Telling != "" || got.Revision != snoozed.Revision {
 		t.Fatalf("told = %+v", got)
 	}
 	// Reopened before it was told: nothing to tell any more.

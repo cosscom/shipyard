@@ -441,15 +441,17 @@ func (s *AttentionStore) telling() []AttentionItem {
 	return out
 }
 
-// told notes that the agent of the ask at key, as it was at revision, has
-// been told. It is the box's own bookkeeping: no new revision.
-func (s *AttentionStore) told(key string, revision int) {
+// told notes that the agent of the ask at key, settled at settled, has
+// been told. It goes by when the ask settled, not its revision: a snooze
+// while the agent is told changes the one but not the other. It is the
+// box's own bookkeeping: no new revision.
+func (s *AttentionStore) told(key string, settled time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.load() != nil {
 		return
 	}
-	if was := s.items[key]; was != nil && was.Revision == revision && was.Telling != "" {
+	if was := s.items[key]; was != nil && was.Settled.Equal(settled) && was.Telling != "" {
 		c := cloneAttention(*was)
 		c.Telling = ""
 		s.commit(&c, was)
