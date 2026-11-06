@@ -214,7 +214,7 @@ func (s *Server) handle(ctx context.Context, req request) (any, *rpcError) {
 			"protocolVersion": v,
 			"capabilities":    map[string]any{"tools": map[string]any{}},
 			"serverInfo":      map[string]any{"name": "berth", "version": version.Version},
-			"instructions":    "Tools for this box's agents, worktrees and durable runs. Never block: wait_turn takes at most 90 s and returns a cursor. Work you start (task_new, send, exec, run_start, attempts) reports back: a <berth-notification> message from Shipyard, not the user, arrives at your next idle when it ends, needs a person or reaches a gate. So end your turn rather than polling. When you need the person but can go on meanwhile, berth_ask tells them without stopping you.",
+			"instructions":    "Tools for this box's agents, worktrees and durable runs. Never block: wait_turn takes at most 90 s and returns a cursor. Work you start (task_new, send, exec, run_start, attempts) reports back: a <berth-notification> message from Shipyard, not the user, arrives at your next idle when it ends, needs a person or reaches a gate. So end your turn rather than polling.",
 		}, nil
 	case "ping":
 		return map[string]any{}, nil
