@@ -64,6 +64,40 @@ type AttentionItem struct {
 	Settled time.Time `json:"settled,omitzero"`
 }
 
+// AttentionBrief is an item as the phone API and `berthd mcp` read it: what
+// it is and where it stands, without its details, answer or closing words,
+// which stay on the box's own API like an event leaves them out.
+type AttentionBrief struct {
+	Key          string            `json:"key"`
+	Revision     int               `json:"revision"`
+	Kind         string            `json:"kind"`
+	Title        string            `json:"title,omitempty"`
+	Options      []AttentionOption `json:"options,omitempty"`
+	Recommended  string            `json:"recommended,omitempty"`
+	Status       string            `json:"status"`
+	SnoozedUntil time.Time         `json:"snoozed_until,omitzero"`
+	Session      string            `json:"session,omitempty"`
+	Created      time.Time         `json:"created"`
+	Updated      time.Time         `json:"updated"`
+}
+
+// Brief is the item without its words.
+func (it AttentionItem) Brief() AttentionBrief {
+	return AttentionBrief{
+		Key: it.Key, Revision: it.Revision, Kind: it.Kind, Title: it.Title, Options: slices.Clone(it.Options), Recommended: it.Recommended,
+		Status: it.Status, SnoozedUntil: it.SnoozedUntil, Session: it.Session, Created: it.Created, Updated: it.Updated,
+	}
+}
+
+// AttentionBriefs is items without their words.
+func AttentionBriefs(items []AttentionItem) []AttentionBrief {
+	out := make([]AttentionBrief, 0, len(items))
+	for _, it := range items {
+		out = append(out, it.Brief())
+	}
+	return out
+}
+
 // AttentionOption is one of the answers an ask offers.
 type AttentionOption struct {
 	Label       string `json:"label"`

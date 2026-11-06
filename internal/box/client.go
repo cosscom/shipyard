@@ -196,6 +196,23 @@ func (c *Client) AddSession(ctx context.Context, name, location, command string)
 	return out, c.call(ctx, http.MethodPost, "/v1/sessions", req, &out)
 }
 
+// Attention lists the box's attention items, the most recently changed
+// first.
+func (c *Client) Attention(ctx context.Context, f AttentionFilter) (out []AttentionItem, err error) {
+	q := url.Values{}
+	if f.Session != "" {
+		q.Set("session", f.Session)
+	}
+	if f.Open {
+		q.Set("open", "1")
+	}
+	path := "/v1/attention"
+	if len(q) > 0 {
+		path += "?" + q.Encode()
+	}
+	return out, c.call(ctx, http.MethodGet, path, nil, &out)
+}
+
 func (c *Client) Screen(ctx context.Context, name string, history int) (string, error) {
 	var out struct{ Screen string }
 	err := c.call(ctx, http.MethodGet, "/v1/sessions/"+url.PathEscape(name)+"/screen?history="+strconv.Itoa(history), nil, &out)

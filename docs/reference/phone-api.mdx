@@ -39,7 +39,8 @@ Sends and key presses go through `before:session.send` with `from: "phone"`.
 ## Version 2
 
 A box whose `info` answers `version: 2` adds these, and lists them in
-`capabilities`: `transcript`, `events`, `push` and `interrupt`. The phone app
+`capabilities`: `transcript`, `events`, `push`, `interrupt` and, on a box
+that keeps attention items, `attention`. The phone app
 reads every box at version 1 the way the web phone app does.
 
 ### `GET /phone/v1/sessions/{name}/transcript?since=N&gen=G`
@@ -109,6 +110,20 @@ here.
 ### `DELETE /phone/v1/push/{id}`
 
 Stops notifying the phone with that install id: `{ removed }`.
+
+### `GET /phone/v1/attention?session=S`
+
+The box's open [attention items](/reference/plugin-sdk#attention), what needs
+a person, the most recently changed first. A box that keeps them lists
+`attention` in `capabilities`. `session` keeps only the items about that
+session. Each item is
+
+`{ key, revision, kind, title?, options?: [{ label, description? }], recommended?, status, snoozed_until?, session?, created, updated }`
+
+with no `details` or `answer`: those stay on the box, as the events leave
+them out. A `kind` of `mark` is a person's mark on an item built from the
+box's signals, such as a snooze on a waiting agent, keyed as the plugin that
+made it keyed it. Answering, closing and snoozing are not offered here.
 
 ### `POST /phone/v1/sessions/{name}/interrupt`
 
