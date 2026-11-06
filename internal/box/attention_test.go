@@ -19,6 +19,24 @@ func newAttention(t *testing.T) (*AttentionStore, *clock) {
 	return &AttentionStore{Path: filepath.Join(t.TempDir(), "attention.json"), Now: clock.now}, clock
 }
 
+func listOf(t *testing.T, s *AttentionStore, f AttentionFilter) []AttentionItem {
+	t.Helper()
+	all, err := s.List(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return all
+}
+
+func getOf(t *testing.T, s *AttentionStore, key string) (AttentionItem, bool) {
+	t.Helper()
+	it, ok, err := s.Get(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return it, ok
+}
+
 func TestAnAgentReplacesItsOwnAskByKey(t *testing.T) {
 	s, clock := newAttention(t)
 	first, err := s.Post(AttentionPost{Session: "shop-claude", Kind: "decision", Title: "Which queue?", Options: []AttentionOption{{Label: "SQS"}, {Label: "Redis"}}, Recommended: "SQS"}, "claude")
@@ -41,7 +59,7 @@ func TestAnAgentReplacesItsOwnAskByKey(t *testing.T) {
 	if second.Revision != 3 || second.Title != "Which queue, now that Redis is out?" || !second.SnoozedUntil.IsZero() || len(second.Options) != 0 || !second.Created.Equal(first.Created) || !second.Updated.After(first.Updated) {
 		t.Fatalf("replaced = %+v", second)
 	}
-	if all := s.List(AttentionFilter{}); len(all) != 1 {
+	if all := listOf(t, s, AttentionFilter{}); len(all) != 1 {
 		t.Fatalf("a replaced ask is still one item: %+v", all)
 	}
 	// A post or an update naming a revision that has gone by is refused,
@@ -59,7 +77,7 @@ func TestAnAgentReplacesItsOwnAskByKey(t *testing.T) {
 	if answered.Status != AttentionAnswered || answered.Answer != "SQS" || answered.Revision != 4 || !answered.Settled.Equal(clock.t) || answered.By != "phone" {
 		t.Fatalf("answered = %+v", answered)
 	}
-	if open := s.List(AttentionFilter{Open: true}); len(open) != 0 {
+	if open := listOf(t, s, AttentionFilter{Open: true}); len(open) != 0 {
 		t.Fatalf("an answered ask is settled: %+v", open)
 	}
 }
@@ -110,34 +128,137 @@ func TestItemsSettleWhenTheirSessionEndsAndAgeOut(t *testing.T) {
 	s.Post(AttentionPost{Session: "b", Kind: "action", Title: "Run the migration"}, "claude")
 	s.Update("standalone", AttentionUpdate{SnoozedUntil: strp("2026-11-30T00:00:00Z")}, "app")
 	s.Update("session:b-done", AttentionUpdate{Session: "b", Status: strp(AttentionClosed)}, "app")
+	// Each sweep's listing is taken a second after everything above.
+	sweep := func(live map[string]bool) []AttentionItem { return s.Sweep(live, clock.t.Add(time.Second)) }
 
-	// a ends; b still runs.
-	settled := s.Sweep(map[string]bool{"b": true})
+	// a ends; b still runs. One listing without a is not enough: the next
+	// one settles it.
+	if settled := sweep(map[string]bool{"b": true}); len(settled) != 0 {
+		t.Fatalf("one listing settled %+v", settled)
+	}
+	settled := sweep(map[string]bool{"b": true})
 	if len(settled) != 1 || settled[0].Key != "session:a" || settled[0].Status != AttentionClosed || settled[0].ClosedReason != "session_ended" || settled[0].By != "berth" || settled[0].Revision != 2 {
 		t.Fatalf("settled = %+v", settled)
 	}
-	// Sweeping again settles nothing new; an item settled already isn't
-	// settled twice.
-	if again := s.Sweep(map[string]bool{}); len(again) != 1 || again[0].Key != "session:b" {
-		t.Fatalf("second sweep = %+v", again)
+	// Then b; an item settled already isn't settled twice.
+	sweep(map[string]bool{})
+	if again := sweep(map[string]bool{}); len(again) != 1 || again[0].Key != "session:b" {
+		t.Fatalf("b's sweep = %+v", again)
 	}
-	if again := s.Sweep(map[string]bool{}); len(again) != 0 {
-		t.Fatalf("third sweep = %+v", again)
+	if again := sweep(map[string]bool{}); len(again) != 0 {
+		t.Fatalf("a further sweep = %+v", again)
 	}
-	if n := len(s.List(AttentionFilter{})); n != 4 {
+	if n := len(listOf(t, s, AttentionFilter{})); n != 4 {
 		t.Fatalf("settled items are kept for a while: %d", n)
 	}
 	// 14 days on, the settled ones are gone. The snoozed mark stays until
 	// its snooze has run out as well.
 	clock.advance(AttentionKeep + time.Hour)
-	s.Sweep(nil)
-	if all := s.List(AttentionFilter{}); len(all) != 1 || all[0].Key != "standalone" {
+	sweep(nil)
+	if all := listOf(t, s, AttentionFilter{}); len(all) != 1 || all[0].Key != "standalone" {
 		t.Fatalf("after 14 days: %+v", all)
 	}
 	clock.advance(30 * 24 * time.Hour)
-	s.Sweep(nil)
-	if all := s.List(AttentionFilter{}); len(all) != 0 {
+	sweep(nil)
+	if all := listOf(t, s, AttentionFilter{}); len(all) != 0 {
 		t.Fatalf("an old mark whose snooze ran out: %+v", all)
+	}
+}
+
+// A sweep compares items with a listing of sessions taken a moment
+// before: it settles nothing that listing couldn't have seen, and nothing
+// on one listing that came back short.
+func TestASweepSettlesOnlyWhatItsListingCouldHaveSeen(t *testing.T) {
+	s, clock := newAttention(t)
+	s.Post(AttentionPost{Session: "flaky", Kind: "decision", Title: "Still there?"}, "claude")
+	listed := clock.t.Add(time.Second)
+	s.Sweep(map[string]bool{}, listed) // a listing that missed flaky once
+	if settled := s.Sweep(map[string]bool{"flaky": true}, listed); len(settled) != 0 {
+		t.Fatalf("flaky is back: %+v", settled)
+	}
+	if settled := s.Sweep(map[string]bool{}, listed); len(settled) != 0 {
+		t.Fatalf("missed once again, after it was back: %+v", settled)
+	}
+
+	// A session starts and posts after the listing was taken.
+	s.Sweep(map[string]bool{"flaky": true}, listed)
+	clock.advance(time.Minute)
+	listed = clock.t
+	clock.advance(time.Second)
+	s.Post(AttentionPost{Session: "new", Kind: "decision", Title: "Which port?"}, "claude")
+	s.Sweep(map[string]bool{"flaky": true}, listed)
+	if settled := s.Sweep(map[string]bool{"flaky": true}, listed); len(settled) != 0 {
+		t.Fatalf("an ask posted after the listing settled: %+v", settled)
+	}
+	// A listing taken after it, that misses it twice, settles it.
+	s.Sweep(map[string]bool{"flaky": true}, clock.t.Add(time.Second))
+	if settled := s.Sweep(map[string]bool{"flaky": true}, clock.t.Add(time.Second)); len(settled) != 1 || settled[0].Key != "session:new" {
+		t.Fatalf("settled = %+v", settled)
+	}
+}
+
+// The store never takes a file it couldn't read for an empty one: the
+// next change would write over every item.
+func TestAttentionNeverLosesItemsItCouldntRead(t *testing.T) {
+	s, _ := newAttention(t)
+	// Unreadable for now: the path is a folder.
+	if err := os.Mkdir(s.Path, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.List(AttentionFilter{}); err == nil {
+		t.Fatal("a list read nothing and said nothing")
+	}
+	if _, err := s.Post(AttentionPost{Key: "k", Kind: "decision", Title: "t"}, "x"); err == nil {
+		t.Fatal("a post went ahead on a store that couldn't be read")
+	}
+	// Readable again: the same store reads it then.
+	os.Remove(s.Path)
+	os.WriteFile(s.Path, []byte(`[{"key":"kept","revision":4,"kind":"review","title":"PR #3","status":"open","created":"2026-11-06T08:00:00Z","updated":"2026-11-06T08:00:00Z"}]`), 0o600)
+	if it, ok := getOf(t, s, "kept"); !ok || it.Revision != 4 {
+		t.Fatalf("after the file came back: %+v %v", it, ok)
+	}
+
+	// A file that isn't JSON is set aside for someone to look at.
+	c, _ := newAttention(t)
+	os.WriteFile(c.Path, []byte("{half a file"), 0o600)
+	if all := listOf(t, c, AttentionFilter{}); len(all) != 0 {
+		t.Fatalf("corrupt file read as %+v", all)
+	}
+	aside, _ := filepath.Glob(c.Path + ".corrupt-*")
+	if len(aside) != 1 {
+		t.Fatalf("set aside: %v", aside)
+	}
+	if b, _ := os.ReadFile(aside[0]); string(b) != "{half a file" {
+		t.Fatalf("set aside as %q", b)
+	}
+}
+
+// Settling is all or nothing: an item closes only once the file says so,
+// so nothing is announced that a restart would undo.
+func TestASettleThatCantBeSavedChangesNothing(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root writes into a read-only folder")
+	}
+	s, clock := newAttention(t)
+	s.Post(AttentionPost{Session: "gone", Kind: "action", Title: "Rotate the acme key"}, "claude")
+	dir := filepath.Dir(s.Path)
+	os.Chmod(dir, 0o500)
+	t.Cleanup(func() { os.Chmod(dir, 0o700) })
+	if settled := s.SettleSession("gone"); len(settled) != 0 {
+		t.Fatalf("settled without saving: %+v", settled)
+	}
+	if it, _ := getOf(t, s, "session:gone"); it.Status != AttentionOpen || it.Revision != 1 {
+		t.Fatalf("after a failed save: %+v", it)
+	}
+	// Once the disk takes it, the next try settles it, and a restart reads
+	// it closed.
+	os.Chmod(dir, 0o700)
+	if settled := s.SettleSession("gone"); len(settled) != 1 || settled[0].Revision != 2 {
+		t.Fatalf("retry = %+v", settled)
+	}
+	again := &AttentionStore{Path: s.Path, Now: clock.now}
+	if it, _ := getOf(t, again, "session:gone"); it.Status != AttentionClosed || it.Revision != 2 {
+		t.Fatalf("after restart: %+v", it)
 	}
 }
 
@@ -149,17 +270,17 @@ func TestAttentionSurvivesARestart(t *testing.T) {
 
 	// A new store on the same file, as berthd has after a restart.
 	again := &AttentionStore{Path: s.Path, Now: clock.now}
-	it, ok := again.Get("review/shop#12")
+	it, ok := getOf(t, again, "review/shop#12")
 	if !ok || it.Title != "PR #12 is green" || it.Details != "Ready to merge." || it.Options[0].Description != "squash" || it.Revision != 1 {
 		t.Fatalf("after restart: %+v %v", it, ok)
 	}
-	if n := len(again.List(AttentionFilter{})); n != 3 {
+	if n := len(listOf(t, again, AttentionFilter{})); n != 3 {
 		t.Fatalf("%d items after restart", n)
 	}
 	// One read 15 days on leaves the settled ones behind.
 	clock.advance(15 * 24 * time.Hour)
 	later := &AttentionStore{Path: s.Path, Now: clock.now}
-	if all := later.List(AttentionFilter{}); len(all) != 1 || all[0].Key != "review/shop#12" {
+	if all := listOf(t, later, AttentionFilter{}); len(all) != 1 || all[0].Key != "review/shop#12" {
 		t.Fatalf("read 15 days on: %+v", all)
 	}
 }
@@ -174,7 +295,7 @@ func TestAttentionKeepsToItsSize(t *testing.T) {
 	if _, err := s.Post(AttentionPost{Key: "new", Kind: "decision", Title: "t"}, "x"); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := s.Get("settled"); ok {
+	if _, ok := getOf(t, s, "settled"); ok {
 		t.Fatal("the settled item should have made room")
 	}
 	if _, err := s.Post(AttentionPost{Key: "one-more", Kind: "decision", Title: "t"}, "x"); statusFor(err) != http.StatusTooManyRequests {
@@ -246,7 +367,7 @@ func TestAttentionRoutes(t *testing.T) {
 	if err := c.Call(ctx, "PATCH", "/v1/attention/never-snooze", map[string]any{"snoozed_until": "2026-11-07T09:00:00Z"}, nil); err == nil || !strings.Contains(err.Error(), "no snoozing that") {
 		t.Fatalf("gate: %v", err)
 	}
-	if _, ok := bx.Attention.Get("never-snooze"); ok {
+	if _, ok := getOf(t, bx.Attention, "never-snooze"); ok {
 		t.Fatal("a refused update made a mark")
 	}
 
@@ -259,10 +380,11 @@ func TestAttentionRoutes(t *testing.T) {
 	if e := waitEventType(t, evs, "attention.settled"); e.Data["key"] != "session:shop-claude" || e.Data["closed_reason"] != "session_ended" || e.Origin != "berth" {
 		t.Fatalf("settled event %+v", e)
 	}
-	if it, _ := bx.Attention.Get("session:shop-codex"); it.Status != AttentionOpen {
+	if it, _ := getOf(t, bx.Attention, "session:shop-codex"); it.Status != AttentionOpen {
 		t.Fatalf("another session's ask settled: %+v", it)
 	}
-	bx.sweepAttention([]Session{{Name: "shop-codex", Exited: true}})
+	bx.sweepAttention([]Session{{Name: "shop-codex", Exited: true}}, time.Now())
+	bx.sweepAttention([]Session{{Name: "shop-codex", Exited: true}}, time.Now())
 	if e := waitEventType(t, evs, "attention.settled"); e.Data["key"] != "session:shop-codex" {
 		t.Fatalf("swept event %+v", e)
 	}

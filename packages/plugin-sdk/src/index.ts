@@ -533,8 +533,8 @@ export interface BerthAttention {
   // One item, or undefined when there is none at that key.
   get(box: string, key: string): Promise<AttentionItem | undefined>;
   // Posts an ask, replacing the one at its key: it opens again with a new
-  // revision, its answer and snooze gone. A session named must be running
-  // (404 otherwise).
+  // revision, its answer and snooze gone. A session named must be on the
+  // box (404 otherwise) with its program running (409 "session_exited").
   post(box: string, item: AttentionPost): Promise<AttentionItem>;
   // Answers, closes, reopens or snoozes an item; at a key with no item it
   // makes a mark. Rejects with status 409 when revision is given and the

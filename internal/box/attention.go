@@ -2,6 +2,7 @@ package box
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -138,6 +139,10 @@ type AttentionStore struct {
 	mu     sync.Mutex
 	items  map[string]*AttentionItem
 	loaded bool
+	// missing names the sessions of open items that the last sweep didn't
+	// find. A session is taken to have ended only when two sweeps in a row
+	// miss it, so one listing that came back short settles nothing.
+	missing map[string]bool
 }
 
 func (s *AttentionStore) now() time.Time {
@@ -147,30 +152,41 @@ func (s *AttentionStore) now() time.Time {
 	return time.Now().UTC()
 }
 
-// load reads the file once. It holds s.mu. An item kept past its time is
-// left behind as it is read.
-func (s *AttentionStore) load() {
+// load reads the file once. It holds s.mu. A file it can't read now fails
+// the call, and the next call tries again: starting empty would have the
+// next change write over every item. A file that isn't JSON is set aside
+// as attention.json.corrupt-<time>, for someone to look at, and the store
+// starts empty. An item kept past its time is left behind as it is read.
+func (s *AttentionStore) load() error {
 	if s.loaded {
-		return
+		return nil
 	}
-	s.loaded = true
-	s.items = map[string]*AttentionItem{}
+	items := map[string]*AttentionItem{}
 	b, err := os.ReadFile(s.Path)
-	if err != nil {
-		return
-	}
-	var all []AttentionItem
-	if json.Unmarshal(b, &all) != nil {
-		return
-	}
-	now := s.now()
-	for i := range all {
-		it := all[i]
-		if it.Key == "" || expired(it, now) {
-			continue
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+	case err != nil:
+		return fmt.Errorf("the box can't read its attention items: %w", err)
+	default:
+		var all []AttentionItem
+		if err := json.Unmarshal(b, &all); err != nil {
+			aside := fmt.Sprintf("%s.corrupt-%d", s.Path, s.now().Unix())
+			if err := os.Rename(s.Path, aside); err != nil {
+				return fmt.Errorf("the box's attention items aren't JSON, and couldn't be set aside: %w", err)
+			}
+			break
 		}
-		s.items[it.Key] = &it
+		now := s.now()
+		for i := range all {
+			it := all[i]
+			if it.Key == "" || expired(it, now) {
+				continue
+			}
+			items[it.Key] = &it
+		}
 	}
+	s.items, s.loaded = items, true
+	return nil
 }
 
 func (s *AttentionStore) save() error {
@@ -205,10 +221,12 @@ type AttentionFilter struct {
 }
 
 // List returns the items, the most recently changed first.
-func (s *AttentionStore) List(f AttentionFilter) []AttentionItem {
+func (s *AttentionStore) List(f AttentionFilter) ([]AttentionItem, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.load()
+	if err := s.load(); err != nil {
+		return nil, err
+	}
 	out := []AttentionItem{}
 	for _, it := range s.items {
 		if f.Session != "" && it.Session != f.Session || f.Open && it.Status != AttentionOpen {
@@ -222,19 +240,21 @@ func (s *AttentionStore) List(f AttentionFilter) []AttentionItem {
 		}
 		return out[i].Key < out[j].Key
 	})
-	return out
+	return out, nil
 }
 
-// Get returns one item.
-func (s *AttentionStore) Get(key string) (AttentionItem, bool) {
+// Get returns one item; ok is false when there is none at key.
+func (s *AttentionStore) Get(key string) (it AttentionItem, ok bool, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.load()
-	it, ok := s.items[key]
-	if !ok {
-		return AttentionItem{}, false
+	if err := s.load(); err != nil {
+		return AttentionItem{}, false, err
 	}
-	return cloneAttention(*it), true
+	p, ok := s.items[key]
+	if !ok {
+		return AttentionItem{}, false, nil
+	}
+	return cloneAttention(*p), true, nil
 }
 
 // SessionKey is the key of a session's own ask.
@@ -286,7 +306,9 @@ func (s *AttentionStore) Post(p AttentionPost, by string) (AttentionItem, error)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.load()
+	if err := s.load(); err != nil {
+		return AttentionItem{}, err
+	}
 	now := s.now()
 	was, err := s.slot(p.Key, p.Revision)
 	if err != nil {
@@ -333,7 +355,9 @@ func (s *AttentionStore) Update(key string, u AttentionUpdate, by string) (Atten
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.load()
+	if err := s.load(); err != nil {
+		return AttentionItem{}, err
+	}
 	now := s.now()
 	was, err := s.slot(key, u.Revision)
 	if err != nil {
@@ -403,41 +427,74 @@ func (s *AttentionStore) makeRoom() error {
 	return nil
 }
 
-// Sweep settles the open items whose session is not in live, and forgets
-// items past their time. It returns the items it settled. It is the
-// backstop for sessions that end without saying so (a program that exits);
-// SettleSession is the prompt way for one that was stopped.
-func (s *AttentionStore) Sweep(live map[string]bool) []AttentionItem {
-	return s.settle(func(it *AttentionItem) bool { return !live[it.Session] }, true)
+// Sweep settles the open items whose session has ended, given live, the
+// sessions a listing taken at the time at found, and forgets items past
+// their time. It returns the items it settled. It is the backstop for a
+// session that ends without saying so (its program exits); SettleSession
+// is the prompt way for one that was stopped.
+//
+// A session counts as ended when this sweep and the last both missed it,
+// each with a listing taken after the item last changed: one posted after
+// a listing may be about a session it never saw.
+func (s *AttentionStore) Sweep(live map[string]bool, at time.Time) []AttentionItem {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	missing := map[string]bool{}
+	settled := s.settle(func(it *AttentionItem) bool {
+		// A listing from before the item's last change says nothing of it.
+		if live[it.Session] || !it.Updated.Before(at) {
+			return false
+		}
+		missing[it.Session] = true
+		return s.missing[it.Session]
+	}, true)
+	s.missing = missing
+	return settled
 }
 
-// SettleSession settles the open items about a session that ended.
+// SettleSession settles the open items about a session that was stopped.
 func (s *AttentionStore) SettleSession(name string) []AttentionItem {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.settle(func(it *AttentionItem) bool { return it.Session == name }, false)
 }
 
+// settle closes the open items with a session that ended says has ended,
+// and with forget drops items past their time. It is all or nothing: the
+// items change only once the file holds the change, so nothing is
+// announced that a restart would undo, and a failed write is tried again
+// by the next sweep. It holds s.mu.
 func (s *AttentionStore) settle(ended func(*AttentionItem) bool, forget bool) []AttentionItem {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.load()
+	if s.load() != nil {
+		return nil
+	}
 	now := s.now()
+	next := make(map[string]*AttentionItem, len(s.items))
 	var settled []AttentionItem
 	changed := false
 	for key, it := range s.items {
 		if it.Status == AttentionOpen && it.Session != "" && ended(it) {
-			it.Status, it.ClosedReason, it.Settled = AttentionClosed, attentionSessionEnded, now
-			it.Revision++
-			it.By, it.Updated = "berth", now
-			settled = append(settled, cloneAttention(*it))
-			changed = true
+			c := cloneAttention(*it)
+			c.Status, c.ClosedReason, c.Settled = AttentionClosed, attentionSessionEnded, now
+			c.Revision++
+			c.By, c.Updated = "berth", now
+			settled = append(settled, cloneAttention(c))
+			it, changed = &c, true
 		}
 		if forget && expired(*it, now) {
-			delete(s.items, key)
 			changed = true
+			continue
 		}
+		next[key] = it
 	}
-	if changed {
-		_ = s.save()
+	if !changed {
+		return nil
+	}
+	was := s.items
+	s.items = next
+	if err := s.save(); err != nil {
+		s.items = was
+		return nil
 	}
 	sort.Slice(settled, func(i, j int) bool { return settled[i].Key < settled[j].Key })
 	return settled
