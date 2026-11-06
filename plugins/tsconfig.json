@@ -19,5 +19,5 @@
     }
   },
   "include": ["*/src/**/*"],
-  "exclude": ["hello-ports"]
+  "exclude": ["hello-ports", "inbox/src/*.test.ts"]
 }

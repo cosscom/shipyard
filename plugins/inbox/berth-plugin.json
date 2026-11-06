@@ -1,0 +1,10 @@
+{
+  "id": "inbox",
+  "name": "Inbox",
+  "version": "0.1.2",
+  "description": "One inbox across all your agents, grouped by what they need from you. Answer on the card and it goes straight back to the session that asked.",
+  "main": "dist/index.js",
+  "author": "Stener1",
+  "homepage": "https://github.com/cosscom/shipyard/tree/main/plugins/inbox",
+  "marketplace": true
+}
