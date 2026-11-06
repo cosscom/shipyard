@@ -63,7 +63,7 @@ const sentHere = (from) => journal().filter((e) => e.seq > from && e.type === "s
 const WORDS_1 = "Flag first, but keep the flag on for staff only until the support team has had a full Monday with the new flow. If the error rate on payment confirmation goes above half a percent at any point, turn the flag off and tell the channel before anything else.";
 const WORDS_3 = "The staging database was restored from last week's backup, so some fixtures may be stale. Release notes are drafted in the shared folder; please add a line about the flag and who to ask.";
 
-export async function run({ page, shot, step, expect }) {
+export async function run({ page, shot, step, expect, call }) {
   const worktree = process.env.VERIFY_WORKTREE;
   if (!worktree) throw new Error("set VERIFY_WORKTREE to the worktree row's box/name");
   step(`open ${worktree}'s agent in chat`);
@@ -142,12 +142,16 @@ export async function run({ page, shot, step, expect }) {
 
   step("the box's journal has the answer's session.sent, once, in the turn that asked");
   const [prompt, ...rest] = sentHere(head);
-  if (!prompt || prompt.data.answer || !prompt.data.turn) throw new Error(`no prompt send in the journal after seq ${head}: ${JSON.stringify(prompt)}`);
+  if (!prompt || prompt.data.answer) throw new Error(`no prompt send in the journal after seq ${head}: ${JSON.stringify(prompt)}`);
   const answers = rest.filter((e) => e.data.answer === true);
   if (answers.length !== 1) throw new Error(`the journal has ${answers.length} answers, want 1: ${JSON.stringify(rest)}`);
   const [answer] = answers;
-  if (answer.data.turn !== prompt.data.turn) throw new Error(`the answer is in turn ${answer.data.turn}, the prompt asked in ${prompt.data.turn}`);
   const raw = JSON.stringify(answer);
   if (raw.includes("support team") || raw.includes("staging database") || raw.includes("Sam")) throw new Error(`the event carries the answers: ${raw}`);
+  // The box's turns say which send opened the answer's turn: the prompt.
+  if (!answer.data.turn) throw new Error(`the answer names no turn: ${raw}`);
+  const box = process.env.VERIFY_WORKTREE.split("/")[0];
+  const turn = await call(`/v1/boxes/${box}/api/turns/${encodeURIComponent(answer.data.turn)}`);
+  if (turn.sent_seq !== prompt.seq) throw new Error(`the answer's turn ${answer.data.turn} was opened by seq ${turn.sent_seq}, the prompt is seq ${prompt.seq}`);
   step(`journal: ${raw}`);
 }

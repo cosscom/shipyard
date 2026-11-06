@@ -8,6 +8,7 @@ When an agent asks with a form of its own (Claude Code's AskUserQuestion: up to 
 - `questions-deliver`: on a real box, long own words (wrapped by Claude Code), questions with lists in them, on an agent nobody has open (its pane at tmux's 80x24): every answer arrives word for word and the agent goes on. The box makes the pane tall enough while it answers and puts it back.
 - `questions-kept`: when the box can't fill the form in, the card keeps every answer and says why, with **Retry** and **Copy answers** (each answer on a line under its question's name), and the agent's own screen opens under it to finish there. A retry that goes closes both.
 - `questions-log`: every answer that doesn't go is in the box's log with why, and the screen it stopped at.
+- `questions-announced`: an answer that goes publishes one `session.sent` with `answer: true`, `from` and the turn that asked (never the answers); one that doesn't go publishes nothing. A `before:session.send` hook refuses an answer as it refuses a prompt (403 with the hook's words), before the box looks at the form.
 
 ## How to get to it (user POV)
 
@@ -29,6 +30,19 @@ VERIFY_SURPRISE="tmux -L berth send-keys -t ask Down Down Down && sleep 0.6 && t
 VERIFY_UNSURPRISE="tmux -L berth send-keys -t ask -N 21 BSpace && sleep 0.8" \
 node .claude/skills/verify-berthd/scripts/drive.mjs chat-questions-live --port $PORT --agent http://127.0.0.1:9378
 .claude/skills/verify-berthd/scripts/dev-box.sh down
+```
+
+The scenario ends by reading the dev box's journal from disk (`$VERIFY_BOX_DIR/box-home/box/journal/*.jsonl`, so pass the same `VERIFY_BOX_DIR` as `dev-box.sh`): exactly one answer `session.sent` after its prompt, none of the answers' words in it, and its `turn` opened by the prompt's send (`GET /v1/boxes/<box>/api/turns/<turn>`, `sent_seq`). With `VERIFY_SURPRISE` the failed first submit adds none.
+
+The gate, on the same dev box (the box's hooks are `$VERIFY_BOX_DIR/box-user/hooks.json`; remove it after):
+
+```sh
+ans='{"tool":"toolu_none","answers":[{"picks":["Tea"]}]}'
+api=http://127.0.0.1:9378/v1/boxes/devq/api/sessions/ask/answer
+curl -s -w ' %{http_code}\n' -X POST -H "Authorization: Bearer $VERIFY_BERTH_TOKEN" -H 'content-type: application/json' $api -d "$ans"   # 409: not waiting (past the gate)
+echo '{"hooks":[{"on":"before:session.send","run":"echo answers wait; exit 1"}]}' > "$VERIFY_BOX_DIR/box-user/hooks.json"
+curl -s -w ' %{http_code}\n' -X POST -H "Authorization: Bearer $VERIFY_BERTH_TOKEN" -H 'content-type: application/json' $api -d "$ans"   # 403 with "answers wait", nothing in the journal
+rm "$VERIFY_BOX_DIR/box-user/hooks.json"
 ```
 
 The preview must be opened as `http://localhost:<1420-1439>`: the agent's API only takes those origins. Second view: Claude's own record (`~/.claude/projects/*acme-shop*/*.jsonl`) has the tool result with every answer, and the dev box's log (`/tmp/verify-berthd-box/berthd.log`) has `answer ask: answered 3 questions`, or why not with the screen.
