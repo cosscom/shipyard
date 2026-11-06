@@ -61,8 +61,13 @@ await context.route(/^https?:\/\/(?:[^/]*\.)?(?:localhost|127\.0\.0\.1|\[::1\]):
 if (scenario.init) await context.addInitScript(scenario.init, scenario.initArg);
 const page = await context.newPage();
 page.on("console", (m) => {
-  log.push(redact(`[${m.type()}] ${m.text()}`));
-  if (m.type() === "error" && !allow.some((re) => re.test(m.text()))) failures.push(redact(`console error: ${m.text()}`));
+  // "Failed to load resource" doesn't say which: its address is the
+  // message's location, so it goes with the text, and allowErrors can name
+  // one request.
+  const where = m.text().startsWith("Failed to load resource") ? m.location().url : "";
+  const text = where ? `${m.text()} (${where})` : m.text();
+  log.push(redact(`[${m.type()}] ${text}`));
+  if (m.type() === "error" && !allow.some((re) => re.test(text))) failures.push(redact(`console error: ${text}`));
 });
 page.on("pageerror", (e) => {
   log.push(redact(`[pageerror] ${e.message}`));

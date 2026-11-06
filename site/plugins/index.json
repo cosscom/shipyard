@@ -45,6 +45,28 @@
       ]
     },
     {
+      "id": "inbox",
+      "name": "Inbox",
+      "description": "One inbox across all your agents, grouped by what they need from you. Answer on the card and it goes straight back to the session that asked.",
+      "version": "0.1.2",
+      "author": "Stener1",
+      "homepage": "https://github.com/cosscom/shipyard/tree/main/plugins/inbox",
+      "files": [
+        {
+          "path": "berth-plugin.json",
+          "url": "inbox/0.1.2/berth-plugin.json",
+          "sha256": "470a51df9a0eb7b96ce929673aa026d9a9503e36833e2132e21869ef3854914f",
+          "size": 350
+        },
+        {
+          "path": "dist/index.js",
+          "url": "inbox/0.1.2/dist/index.js",
+          "sha256": "a733b026a5e6d50abc215f52563272890499ad14344dcaae2c4d77bd3f39d793",
+          "size": 49876
+        }
+      ]
+    },
+    {
       "id": "leadline",
       "name": "Leadline",
       "description": "What your code did in development, as tabs on a worktree: database queries with their N+1s, request traces, logs and endpoints. Installs berth-leadline on the boxes you turn it on for.",
