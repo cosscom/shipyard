@@ -68,6 +68,21 @@ again.
   branch, and asks git again only when the repository changes (or after a
   minute).
 
+- **A plugin's snooze can follow you between computers.** Each box now keeps
+  a small list of what needs you: asks an agent posts, and marks such as
+  "snoozed until 9" or "resolved" on items a plugin builds. Every app paired
+  with the box reads the same list, so snoozing on one laptop holds on the
+  other. An item settles by itself when its session ends, and is forgotten
+  two weeks after it settles. Plugins reach it as `berth.attention`.
+
+- **An agent can tell you something needs you, and keep working.** A question
+  form stops the agent until you answer. Now it can post an ask instead with
+  `berthd ask` or the `berth_ask` tool: a decision, an action only you can
+  take, work ready to merge, or that it's blocked. Its next ask replaces the
+  last one. When you answer or close it, the agent gets your answer as its
+  next prompt. An ask is plain words: no links or commands for a button to
+  run.
+
 ## v0.3.31
 
 - **Worktrees with submodules can be removed.** git refuses to remove any

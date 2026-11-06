@@ -203,6 +203,43 @@ berth emit agent.finished path="$PWD" --origin=mytool     # on a laptop
 berthd emit deploy.done url=https://… --origin mytool      # on a box
 ```
 
+## Asking without stopping
+
+A question form stops an agent until someone answers it. For what needs a
+person but can wait (a pull request ready to merge, a key only they can
+rotate), an agent posts an **ask** and carries on:
+
+```sh
+berthd ask --kind ready --title "PR #12 is ready to merge" --details "Tests and the acme checks pass."
+berthd ask --kind decision --title "Ship acme on Friday?" \
+  --option "Friday" --option "Monday: after the freeze" --recommended Friday
+```
+
+or calls the `berth_ask` tool of `berthd mcp` with the same fields. `kind` is
+one of:
+
+| Kind | For |
+| --- | --- |
+| `decision` | a choice: `options` to pick from (up to 12, each a label and what it means) and the one it `recommended`; the person may write their own answer too |
+| `action` | something only the person can do |
+| `ready` | work ready for them to review or merge |
+| `blocked` | the agent can't go on without them |
+
+The ask goes on the box's [attention items](/reference/plugin-sdk#attention)
+at the session's own key, so a new ask replaces the agent's last one, and it
+closes by itself when the session ends. It returns at once. When the person
+answers or closes it, the box types that into the agent as a prompt, held
+until the agent is idle, and only once per answer. It keeps trying until the
+prompt is held, through a restart of the box. Settling an ask is a send to
+the agent's session, so a `before:session.send` [gate](/reference/events#gates)
+can refuse it.
+
+An ask is words and nothing else. The box refuses a kind it doesn't know and
+any field it doesn't name, and only a decision has options: the app gives
+every other kind its own buttons. There is no link or command for a button
+to follow, so a plugin that shows asks draws the title, details and option
+labels as text.
+
 ## Worktrees from any tool
 
 berthd watches its locations. A worktree created by another app, an agent,

@@ -102,7 +102,7 @@ try {
   step(agent ? `open http://localhost:${port}/ on the agent at ${agent}` : `open http://localhost:${port}/?${params}`);
   await page.goto(`http://localhost:${port}/?${params}`);
   await expect(page.getByTestId("nav-home")).toBeVisible({ timeout: 20_000 });
-  await scenario.run({ page, shot, step, expect, call });
+  await scenario.run({ page, shot, step, expect, call, out });
 } catch (err) {
   ok = false;
   failures.push(redact(`scenario failed: ${err.message?.split("\n").slice(0, 6).join("\n")}`));

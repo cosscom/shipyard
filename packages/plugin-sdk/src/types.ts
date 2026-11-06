@@ -833,3 +833,73 @@ export interface RunRequest {
   group?: string;
   budget?: Run["budget"];
 }
+
+// What needs a person, kept on the box (GET /v1/attention): an ask an agent
+// posted, or a person's mark (kind "mark") on an item a plugin builds from
+// the box's own signals. Every app paired with the box reads the same
+// items, so a snooze on one computer holds on the others.
+export type AttentionStatus = "open" | "answered" | "closed";
+
+export interface AttentionOption {
+  label: string;
+  description?: string;
+}
+
+export interface AttentionItem {
+  key: string;
+  // Counts every change from 1.
+  revision: number;
+  // The poster's word for it ("decision", "action", "review", "blocked"),
+  // or "mark".
+  kind: string;
+  title?: string;
+  details?: string;
+  options?: AttentionOption[];
+  // The label of the option the poster recommends.
+  recommended?: string;
+  // answered and closed are settled.
+  status: AttentionStatus;
+  answer?: string;
+  // Why it closed: "resolved" unless someone said, "session_ended" when its
+  // session ended while it was open.
+  closed_reason?: string;
+  snoozed_until?: string;
+  // The session it is about: it settles when that session ends.
+  session?: string;
+  // The origin of the last change: "app", "phone", an agent's tool, or
+  // "berth" for the box itself.
+  by?: string;
+  // Set from when a person settles a session's own ask until the box holds
+  // the answer for its agent: who settled it ("laptop:<name>", "phone", …).
+  telling?: string;
+  created: string;
+  updated: string;
+  settled?: string;
+}
+
+// A new ask, or one that replaces the ask at its key. Without a key it is
+// the session's own ("session:<name>").
+export interface AttentionPost {
+  key?: string;
+  kind: string;
+  title: string;
+  details?: string;
+  options?: AttentionOption[];
+  recommended?: string;
+  session?: string;
+  // The revision last read: refused (409) if the item changed since.
+  revision?: number;
+}
+
+// A change to an item; what it leaves out stays. snoozed_until is an ISO
+// time, or "" to end a snooze. An answer alone makes it answered, a
+// closed_reason alone closes it, and status "open" reopens it.
+export interface AttentionUpdate {
+  revision?: number;
+  status?: AttentionStatus;
+  answer?: string;
+  closed_reason?: string;
+  snoozed_until?: string;
+  // The session a new mark is about.
+  session?: string;
+}

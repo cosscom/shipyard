@@ -82,6 +82,23 @@ Session names are printed when they start and listed by `sessions`. Do not run
 `berthd session attach` or `berth attach` yourself: they are interactive and
 meant for humans.
 
+## Need the user but can go on? Ask without stopping
+
+A question form stops you until they answer. When something needs them but
+you can keep working (a PR ready to merge, a key only they can rotate, a
+choice you can make later), post an ask and carry on:
+
+```sh
+berthd ask --kind ready --title "PR #12 is ready to merge"
+berthd ask --kind decision --title "Ship on Friday?" --option Friday --option "Monday: after the freeze" --recommended Friday
+```
+
+`--kind` is decision, action, ready or blocked; only a decision has options.
+It goes on Shipyard's list of what needs them and returns at once; a new ask replaces your
+last one. Their answer arrives as a prompt at your next idle. Plain words
+only: links and commands in it are shown as text, never run. The
+`berth_ask` MCP tool does the same.
+
 ## A repository's config
 
 `.berth/config.json` in a repository (and the box's own config for that

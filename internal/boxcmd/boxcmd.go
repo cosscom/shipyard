@@ -63,6 +63,7 @@ var usageSections = []struct {
 		{"%[1]s exec %[2]sLOC[/WORKTREE] [--timeout 10m] [--detach [--no-notify]] -- COMMAND...", "Run a command there and print its output (--detach: as a run)"},
 		{"%[1]s loop %[2]sSESSION --check CMD [--prompt TEXT] [--max 5] [--turn-timeout 30m]\n         [--cancel-on-exit] [--detach]", "Prompt, wait, check, and feed failures back: a durable\nrun on the box (Ctrl-C detaches)"},
 		{"%[1]s session kill %[2]sNAME", "Stop a session"},
+		{"%[1]s ask%[3]s --kind decision|action|ready|blocked --title T [--details D]\n         [--option \"LABEL[: what it means]\"]... [--recommended LABEL] [--session NAME] [--json]", "From an agent: tell the person something needs them, without\nstopping (a new ask replaces the last); the answer comes back\nas a prompt"},
 	}},
 	{"Artifacts (what agents make for you to look at)", [][2]string{
 		{"%[1]s artifact add FILE --title T [--kind chart|table|diagram|page|notes] [--id ID] [--note N]\n         [--by HELPER] [--in LOC/WT]", "Show a berth.chart JSON, CSV, Mermaid, Markdown or one HTML file in\nthe Shipyard app; rewriting the file updates it live"},
@@ -191,6 +192,7 @@ var Commands = map[string]int{
 	"runs":   1, "run": 2, "flow": 2, "browser": 2, "shots": 2,
 	"artifact": 2,
 	"reviews":  1, "review-button": 1, "login": 2,
+	"ask": 1,
 }
 
 // Run executes args, which start with the command words, against c.
@@ -264,6 +266,8 @@ func Run(ctx context.Context, c *box.Client, args []string, out io.Writer) error
 		return shotsCmd(ctx, c, strings.TrimPrefix(cmd, "shots "), rest, out)
 	case "reviews":
 		return reviewsCmd(ctx, c, rest, out)
+	case "ask":
+		return ask(ctx, c, rest, out)
 	case "review-button":
 		return reviewButtonCmd(ctx, c, rest, out)
 	case "login users":

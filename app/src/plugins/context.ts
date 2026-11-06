@@ -3,6 +3,7 @@ import { createContext } from "react";
 
 import { boxApi, type Client } from "@/lib/api";
 import { attachApi, localPaths } from "@/lib/attachments";
+import { makeAttentionApi } from "@/lib/attention";
 import { makeHelperApi } from "@/lib/helper";
 import { makeLinearApi } from "@/lib/linear";
 import { notify } from "@/lib/notify";
@@ -101,6 +102,7 @@ export function makeContext(id: string, client: Client): BerthPluginContext {
     prompts: makePromptsApi(),
     linear: makeLinearApi(client),
     helper: makeHelperApi(client, id),
+    attention: makeAttentionApi(client),
     orchestrate: {
       send: orchestrate.send,
       wait: orchestrate.wait,
