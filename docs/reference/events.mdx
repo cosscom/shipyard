@@ -116,6 +116,8 @@ events.
 | `run.gate_decided` | the same, with `step`, `approve`, `by` |
 | `browser.opened`, `browser.closed` | `location`, `name`, `path`; `closed` has `reason` (`idle`, `closed`, the guard, another worktree needing one, its worktree removed) |
 | `artifact.added`, `artifact.updated`, `artifact.removed` | `id`, `title`, `kind`, `location`, `name`, `path`, `version`, and `session` when an agent made it; `problem` when a rewrite of its file wasn't taken. A rewrite the box noticed has origin `watch`; a visual diff from `berthd shots compare` has origin `shots` and its `summary`. See [artifacts](/guides/artifacts) |
+| `attention.posted`, `attention.updated` | `key`, `revision`, `kind`, `status`, and `session`, `closed_reason` and `snoozed_until` when set: an [attention item](/reference/plugin-sdk#attention) was posted or replaced, or answered, closed, reopened or snoozed. Never its title, details or answer: read the item for those |
+| `attention.settled` | the same, with `status: "closed"` and `closed_reason: "session_ended"`, origin `berth`: an open item's session ended |
 | `browser.failed` | `location`, `name`, `path`, `reason`: `sandbox` (Chromium's sandbox can't start; see [agent browser](/guides/agent-browser#when-ubuntu-blocks-it)) or `error` |
 | `browser.navigated` | `location`, `name`, `path`, `tab`, `url`: the [agent browser](/guides/agent-browser) loaded a page (`tab` is `""` for the main tab) |
 | `browser.shot` | `location`, `name`, `path`, `tab`, `file`, `url` |
@@ -208,6 +210,8 @@ exits non-zero refuses it with what it printed. Gates in a laptop's
 | `before:run.pr` | `run`, `path`, `branch`: a run about to push and open a pull request |
 | `before:artifact.add` | `location`, `name`, `path`, `title`, `kind`, `id` (when updating one) |
 | `before:artifact.remove` | `location`, `name`, `path`, `id` |
+| `before:attention.post` | `key`, `kind`, `session`: posting an [attention item](/reference/plugin-sdk#attention) |
+| `before:attention.update` | `key`, and `status` and `snoozed_until` when the change sets them |
 | `before:browser.open` | `location`, `name`, `path`, `tab`, `url`: an agent browser opening a page |
 | `before:browser.eval`, `before:browser.watch` | `location`, `name`, `path`, `tab`: running JavaScript in it, watching it live |
 | `before:browser.allow` | `origin`: letting agents' browsers load a public origin |

@@ -29,6 +29,7 @@ that gives `activate` its types.
 | `prompts` | [`BerthPrompts`](#prompts): the saved prompt library |
 | `linear` | [`BerthLinear`](#linear): the person's Linear issues, once they added a key |
 | `helper` | [`BerthHelper`](#helper): the plugin's own program on a box, for a plugin whose manifest carries one |
+| `attention` | [`BerthAttention`](#attention): what needs a person, kept on each box so every computer reads the same |
 | `storage` | `get<T>(key, fallback)`, `set(key, value)`: small JSON values kept on this computer, apart from other plugins' |
 
 ### Adding things
@@ -303,6 +304,52 @@ about again.
 helper writes there once it is listening. A request goes through the box
 as JSON, one answer for one request, so a helper's event stream can't be
 followed this way: read again on a timer while your view is on screen.
+
+## attention
+
+What needs a person, kept on each box: an ask an agent posts (a decision,
+an action, something to review), and a person's marks on items a plugin
+builds from the box's own signals, such as a snooze or "resolved". The
+plugin's `storage` is this computer's alone, so a snooze kept there is news
+to the person's other laptop; kept here, every app paired with the box
+reads it. ("Attention" is a working name: a box's inbox is already the
+prompts it holds for an agent.)
+
+An item is named by its `key`. Posting to a key replaces the item there and
+counts its `revision` on, so an agent replaces its own ask rather than
+adding another; a post with a `session` and no key is that session's own,
+`session:<name>`. An item is `open`, `answered` or `closed`; the last two are
+settled. An open item about a session closes by itself, with
+`closed_reason: "session_ended"`, when the session ends: at once when it is
+stopped, and within about 20 seconds when its program ends by itself. A
+settled item is forgotten 14 days later.
+
+| Call | What it does |
+| --- | --- |
+| `list(box, { session?, open? })` | `AttentionItem[]`, the most recently changed first: `{ key, revision, kind, title?, details?, options?, recommended?, status, answer?, closed_reason?, snoozed_until?, session?, by, created, updated, settled? }`. `by` is where the last change came from (`app`, `phone`, an agent's tool, `berth`) |
+| `get(box, key)` | One item, or `undefined` when there is none at that key |
+| `post(box, { key?, kind, title, details?, options?, recommended?, session?, revision? })` | Posts an ask, or replaces the one at its key: it opens again, its answer and snooze gone. `kind` is a short lowercase word of the poster's (`mark` is the box's own), `options` up to 12 `{ label, description? }` and `recommended` one of their labels. A `session` must be on the box (404 otherwise) with its program running (409 `session_exited` otherwise) |
+| `update(box, key, { revision?, status?, answer?, closed_reason?, snoozed_until?, session? })` | Answers, closes, reopens or snoozes an item; what it leaves out stays. An `answer` alone makes it `answered`, a `closed_reason` alone closes it (closed without one is `resolved`), and `status: "open"` reopens it. `snoozed_until` is an ISO time, or `""` to end a snooze. At a key with no item it makes a mark (`kind: "mark"`), about `session` when given one |
+
+With `revision`, a post or update is refused (409) if the item has changed
+since that revision, so you never overwrite a change you haven't seen. A
+`before:attention.post` or `before:attention.update` [gate](/reference/events#gates)
+can refuse one (403 `refused`). Each change is announced as
+`attention.posted`, `attention.updated` or `attention.settled`, with the
+key, revision and status and never the item's words: listen with
+`berth.on("attention.*", …)` and read the item again.
+
+A box keeps up to 1000 items, the longest-settled going first to make
+room. On a box whose `berthd` is from before this, every call rejects
+(501 or 404): check that `info(box).capabilities` has `"attention"`. An
+older Shipyard has no `berth.attention`: check before calling. The box
+API is `GET /v1/attention?session=&open=1`, `POST /v1/attention`, and
+`GET` and `PATCH /v1/attention/{key}` with the key path-escaped.
+
+```ts
+// A snooze that follows the person between computers.
+await berth.attention.update("devl", "devl/shop-claude/wait", { snoozed_until: new Date(Date.now() + 3_600_000).toISOString() });
+```
 
 ## React hooks
 
