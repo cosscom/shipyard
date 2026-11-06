@@ -10,6 +10,11 @@ upgrades with `berth upgrade BOX`, or by running the
 again.
 
 ## Unreleased
+- **A worktree with hundreds of tabs opens at once.** Every session started
+  in a worktree leaves a tab, and the app drew every one of them, with its
+  terminal and chat, as it started: the Mac app's window could reach
+  gigabytes and stop answering. A tab's pane is now drawn the first time you
+  open it, and stays as it was when you go back.
 - **Quiet projects are grayed out.** On the rail and in the two-column
   sidebar, a project with no agent or shell open in it is grayed out, so
   the ones you're using stand out. Switching to one of those opens New

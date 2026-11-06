@@ -52,6 +52,8 @@ const drawn = (app: App) => app.page.locator('[data-testid="pane"]:has(> *)');
 test.beforeEach(() => mockOnly("seeds a save of the mock's worktrees"));
 
 test("a worktree with many saved tabs mounts only the one showing, and a tab once shown stays mounted", async ({ app }) => {
+  // 150 tabs in the strip: 12–36 s on a loaded runner, past the default 30.
+  test.slow();
   await openWith(app, saved);
   await expect(app.page.getByRole("region", { name: "Claude Code, checkout-fix" })).toBeVisible();
   // Every tab is in the strip, but only the active one has its pane drawn.
