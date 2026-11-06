@@ -120,6 +120,9 @@ type Box struct {
 	// Artifacts keeps what agents made for the person to look at
 	// (artifacts.go); nil on a box without them.
 	Artifacts *ArtifactStore
+	// Attention keeps what needs a person, for every app paired with the
+	// box (attention.go); nil on a box without it.
+	Attention *AttentionStore
 	// Reviews keeps the box's review settings (prreview.go); nil uses the
 	// defaults.
 	Reviews *ReviewStore
@@ -130,9 +133,6 @@ type Box struct {
 	// Helpers runs the helper programs plugins bring (helpers.go); nil on a
 	// box without them.
 	Helpers *Helpers
-	// Attention keeps what needs a person, for every app paired with the
-	// box (attention.go); nil on a box without it.
-	Attention *AttentionStore
 }
 
 func (b *Box) own(path string) {
