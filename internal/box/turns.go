@@ -1707,6 +1707,7 @@ func (b *Box) refreshTurns(ctx context.Context) {
 	b.enrich(ctx, all)
 	b.Turns.Prune(all)
 	b.Turns.Expire(time.Now())
+	b.sweepAttention(all)
 }
 
 // PendingExpiry is how long a sent prompt may stay pending, its agent idle,

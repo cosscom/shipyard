@@ -130,6 +130,9 @@ type Box struct {
 	// Helpers runs the helper programs plugins bring (helpers.go); nil on a
 	// box without them.
 	Helpers *Helpers
+	// Attention keeps what needs a person, for every app paired with the
+	// box (attention.go); nil on a box without it.
+	Attention *AttentionStore
 }
 
 func (b *Box) own(path string) {
@@ -279,6 +282,7 @@ func (b *Box) Mount(s *wire.Server) {
 	b.mountBrowser(route)
 	b.mountNotify(route)
 	b.mountArtifacts(route)
+	b.mountAttention(route)
 	b.mountHelpers(s, route)
 	b.mountPairing(s, route)
 }
@@ -668,6 +672,7 @@ func (b *Box) stopSessionsIn(from, dir string) {
 			b.Events.Publish(events.Event{Type: "session.stopped", Box: b.Name, Origin: from, Data: map[string]any{"name": s.Name, "path": s.Dir}})
 		}
 	}
+	b.attentionSessionsEnded(ctx)
 }
 
 func (b *Box) listSessions(w http.ResponseWriter, r *http.Request) error {
@@ -924,6 +929,7 @@ func (b *Box) removeSession(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	b.publish(r, "session.stopped", map[string]any{"name": name})
+	b.attentionSessionsEnded(r.Context())
 	writeJSON(w, map[string]string{"removed": name})
 	return nil
 }

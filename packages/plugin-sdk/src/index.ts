@@ -1,6 +1,9 @@
 import type { ComponentType } from "react";
 
 import type {
+  AttentionItem,
+  AttentionPost,
+  AttentionUpdate,
   BerthEvent,
   BoxInfo,
   BoxStatus,
@@ -517,6 +520,29 @@ export interface BerthHelper {
   attachEnv<A = Record<string, unknown>>(box: string, where: { location: string; worktree: string; env?: Record<string, string> }): Promise<HelperEnvLook<A>>;
 }
 
+// What needs a person on a box (see AttentionItem), the same for every app
+// paired with it. A plugin that shows asks and snoozes them keeps them here
+// rather than in its storage, which is this computer's alone. Every call
+// rejects with code "unsupported" (status 501) or "not_found" (404) on a
+// box whose berthd is from before this: check that info().capabilities has
+// "attention". Absent in a Shipyard from before it: check before calling.
+export interface BerthAttention {
+  // The items, the most recently changed first: one session's, or only the
+  // open ones. Settled items are kept for 14 days.
+  list(box: string, opts?: { session?: string; open?: boolean }): Promise<AttentionItem[]>;
+  // One item, or undefined when there is none at that key.
+  get(box: string, key: string): Promise<AttentionItem | undefined>;
+  // Posts an ask, replacing the one at its key: it opens again with a new
+  // revision, its answer and snooze gone. A session named must be running
+  // (404 otherwise).
+  post(box: string, item: AttentionPost): Promise<AttentionItem>;
+  // Answers, closes, reopens or snoozes an item; at a key with no item it
+  // makes a mark. Rejects with status 409 when revision is given and the
+  // item has changed since, and 403 "refused" when a before:attention.update
+  // hook says no.
+  update(box: string, key: string, change: AttentionUpdate): Promise<AttentionItem>;
+}
+
 // What a box found in a worktree's .env files for a helper (attachEnv).
 export interface HelperEnvLook<A = Record<string, unknown>> {
   plugin: string;
@@ -556,6 +582,8 @@ export interface BerthPluginContext {
   // plugin's own id; one without "box.helper" in its manifest has none to
   // install.
   readonly helper: BerthHelper;
+  // What needs a person, kept on each box (see BerthAttention).
+  readonly attention: BerthAttention;
   addSidebarItem(item: SidebarItem): Dispose;
   addScreen(screen: Screen): Dispose;
   addWorktreePanel(panel: WorktreePanel): Dispose;
