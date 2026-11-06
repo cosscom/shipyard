@@ -91,6 +91,7 @@ asks the app to open the page as a browser tab beside the agent; the
 | `berthd flow secret FLOW [--scope S]` | Make a webhook flow's signing secret |
 | `berthd session rename NAME [TITLE]` | Name a session's work; no TITLE clears it |
 | `berthd session kill NAME` | Stop a session |
+| `berthd ask --kind decision\|action\|ready\|blocked --title T [--details D] [--option "LABEL[: what it means]"]... [--recommended LABEL] [--session NAME] [--json]` | From an agent: tell the person something needs them, without stopping. A new ask replaces the session's last one, and the answer comes back as a prompt ([asking without stopping](/guides/agent-integrations#asking-without-stopping)) |
 
 ## Ports and sharing
 

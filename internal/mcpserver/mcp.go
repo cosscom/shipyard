@@ -143,7 +143,23 @@ var Tools = []Tool{
 	{Name: "berth_run_get", Description: "A run's status, its open gate, current step and attempts, in brief.", InputSchema: obj(map[string]any{"run": str("run ID")}, "run"), call: runGet},
 	{Name: "berth_run_cancel", Description: "Cancel a run.", InputSchema: obj(map[string]any{"run": str("run ID")}, "run"), call: runCancel},
 	{Name: "berth_attempts", Description: "Try one task N ways: each agent in its own worktree, verified by check, judged, then a person picks. Returns the run ID." + told, InputSchema: obj(with(map[string]any{"location": str("location"), "name": str("worktree name prefix"), "prompt": str("the task"), "agents": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "agent per attempt, e.g. [\"claude\",\"codex\"]"}, "check": str("command that must pass")}), "location", "name", "prompt", "agents"), call: attempts},
+	{Name: "berth_ask", Description: "Tell the person something needs them, without stopping: a decision, an action only they can take, work ready for them (a PR to merge), or that you're blocked. It shows in Shipyard and returns at once, so carry on with what you can. When they answer or close it, you get it as a prompt at your next idle. A new ask replaces your last one. Write plain words: they are shown as text, and links or commands in them are not followed.", InputSchema: askSchema, call: ask},
 }
+
+// askSchema is berth_ask's input; ask refuses anything it doesn't name.
+var askSchema = func() map[string]any {
+	s := obj(map[string]any{
+		"kind":    map[string]any{"type": "string", "enum": box.AgentAskKinds, "description": "decision (pick or say), action (they must do something), ready (for review or merge), blocked"},
+		"title":   str("what you need, in one line"),
+		"details": str("what they need to know to answer (optional)"),
+		"options": map[string]any{"type": "array", "description": "a decision's answers to pick from (optional; they may also write their own)", "items": map[string]any{
+			"type": "object", "properties": map[string]any{"label": str("the answer"), "description": str("what it means (optional)")}, "required": []string{"label"}, "additionalProperties": false,
+		}},
+		"recommended": str("the label of the option you'd pick (optional)"),
+	}, "kind", "title")
+	s["additionalProperties"] = false
+	return s
+}()
 
 // Serve reads requests from in and writes answers to out until in ends.
 func Serve(ctx context.Context, socket string, in io.Reader, out io.Writer) error {
@@ -197,7 +213,7 @@ func (s *Server) handle(ctx context.Context, req request) (any, *rpcError) {
 			"protocolVersion": v,
 			"capabilities":    map[string]any{"tools": map[string]any{}},
 			"serverInfo":      map[string]any{"name": "berth", "version": version.Version},
-			"instructions":    "Tools for this box's agents, worktrees and durable runs. Never block: wait_turn takes at most 90 s and returns a cursor. Work you start (task_new, send, exec, run_start, attempts) reports back: a <berth-notification> message from Shipyard, not the user, arrives at your next idle when it ends, needs a person or reaches a gate. So end your turn rather than polling.",
+			"instructions":    "Tools for this box's agents, worktrees and durable runs. Never block: wait_turn takes at most 90 s and returns a cursor. Work you start (task_new, send, exec, run_start, attempts) reports back: a <berth-notification> message from Shipyard, not the user, arrives at your next idle when it ends, needs a person or reaches a gate. So end your turn rather than polling. When you need the person but can go on meanwhile, berth_ask tells them without stopping you.",
 		}, nil
 	case "ping":
 		return map[string]any{}, nil
@@ -440,6 +456,56 @@ func runCancel(ctx context.Context, s *Server, a map[string]any) (any, error) {
 		return nil, err
 	}
 	return map[string]bool{"cancelled": true}, nil
+}
+
+func ask(ctx context.Context, s *Server, a map[string]any) (any, error) {
+	if err := only(a, askSchema); err != nil {
+		return nil, err
+	}
+	if err := need(a, "kind", "title"); err != nil {
+		return nil, err
+	}
+	who := s.caller(ctx)
+	if who == "" {
+		return nil, errors.New("an ask is posted by an agent session on the box, and this one's isn't known (BERTH_SESSION)")
+	}
+	q := box.AgentAsk{Kind: arg(a, "kind"), Title: arg(a, "title"), Details: arg(a, "details"), Recommended: arg(a, "recommended")}
+	if raw, ok := a["options"]; ok {
+		list, ok := raw.([]any)
+		if !ok {
+			return nil, errors.New("options is a list of {label, description?}")
+		}
+		props := askSchema["properties"].(map[string]any)["options"].(map[string]any)["items"].(map[string]any)
+		for _, o := range list {
+			m, ok := o.(map[string]any)
+			if !ok {
+				return nil, errors.New("each option is {label, description?}")
+			}
+			if err := only(m, props); err != nil {
+				return nil, fmt.Errorf("an option: %w", err)
+			}
+			q.Options = append(q.Options, box.AttentionOption{Label: arg(m, "label"), Description: arg(m, "description")})
+		}
+	}
+	if err := q.Check(); err != nil {
+		return nil, err
+	}
+	it, err := s.Box.Ask(ctx, who, q)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"key": it.Key, "revision": it.Revision, "status": it.Status, "replaced": it.Revision > 1}, nil
+}
+
+// only refuses an argument the schema doesn't name.
+func only(a map[string]any, schema map[string]any) error {
+	props, _ := schema["properties"].(map[string]any)
+	for k := range a {
+		if _, ok := props[k]; !ok {
+			return fmt.Errorf("%s isn't something this takes", k)
+		}
+	}
+	return nil
 }
 
 func attempts(ctx context.Context, s *Server, a map[string]any) (any, error) {

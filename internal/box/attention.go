@@ -330,38 +330,45 @@ func (s *AttentionStore) Post(p AttentionPost, by string) (AttentionItem, error)
 // Update changes the item at key, or makes a mark there when there is
 // none.
 func (s *AttentionStore) Update(key string, u AttentionUpdate, by string) (AttentionItem, error) {
+	it, _, err := s.update(key, u, by)
+	return it, err
+}
+
+// update is Update, and says whether this change settled an item that was
+// open: the moment its poster is told (updateAttention).
+func (s *AttentionStore) update(key string, u AttentionUpdate, by string) (_ AttentionItem, settled bool, _ error) {
 	if err := checkAttentionKey(key); err != nil {
-		return AttentionItem{}, err
+		return AttentionItem{}, false, err
 	}
 	var until time.Time
 	if u.SnoozedUntil != nil && *u.SnoozedUntil != "" {
 		t, err := time.Parse(time.RFC3339, *u.SnoozedUntil)
 		if err != nil {
-			return AttentionItem{}, badRequest("snoozed_until must be an RFC 3339 time, or \"\" to end the snooze")
+			return AttentionItem{}, false, badRequest("snoozed_until must be an RFC 3339 time, or \"\" to end the snooze")
 		}
 		until = t.UTC()
 	}
 	if u.Status != nil && *u.Status != AttentionOpen && *u.Status != AttentionAnswered && *u.Status != AttentionClosed {
-		return AttentionItem{}, badRequest("status must be open, answered or closed")
+		return AttentionItem{}, false, badRequest("status must be open, answered or closed")
 	}
 	if u.Answer != nil && len(*u.Answer) > maxAttentionText {
-		return AttentionItem{}, badRequest("an answer may be %d KB", maxAttentionText>>10)
+		return AttentionItem{}, false, badRequest("an answer may be %d KB", maxAttentionText>>10)
 	}
 	if u.ClosedReason != nil && *u.ClosedReason != "" && !attentionWord.MatchString(*u.ClosedReason) {
-		return AttentionItem{}, badRequest("closed_reason is a short word: lowercase letters, digits, - and _")
+		return AttentionItem{}, false, badRequest("closed_reason is a short word: lowercase letters, digits, - and _")
 	}
 	if err := checkAttentionSession(u.Session); err != nil {
-		return AttentionItem{}, err
+		return AttentionItem{}, false, err
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.load(); err != nil {
-		return AttentionItem{}, err
+		return AttentionItem{}, false, err
 	}
 	now := s.now()
 	was, err := s.slot(key, u.Revision)
 	if err != nil {
-		return AttentionItem{}, err
+		return AttentionItem{}, false, err
 	}
 	next := AttentionItem{Key: key, Kind: attentionMark, Status: AttentionOpen, Session: u.Session, Created: now}
 	if was != nil {
@@ -402,9 +409,9 @@ func (s *AttentionStore) Update(key string, u AttentionUpdate, by string) (Atten
 	next.Revision++
 	next.By, next.Updated = by, now
 	if err := s.commit(&next, was); err != nil {
-		return AttentionItem{}, err
+		return AttentionItem{}, false, err
 	}
-	return cloneAttention(next), nil
+	return cloneAttention(next), was != nil && was.Status == AttentionOpen && next.Status != AttentionOpen, nil
 }
 
 // makeRoom keeps the store to maxAttentionItems before a new key: the

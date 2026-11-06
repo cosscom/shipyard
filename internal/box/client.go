@@ -112,6 +112,12 @@ func (c *Client) Send(ctx context.Context, session string, req SendRequest) (out
 	return out, c.call(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(session)+"/send", req, &out)
 }
 
+// Ask posts a session's own ask (AgentAsk), replacing its last one, and
+// returns at once: the answer comes to the session as a prompt.
+func (c *Client) Ask(ctx context.Context, session string, a AgentAsk) (out AttentionItem, err error) {
+	return out, c.call(ctx, http.MethodPost, "/v1/sessions/"+url.PathEscape(session)+"/attention", a, &out)
+}
+
 // WaitTurn blocks until the turn ends, or also until it waits for someone
 // when untilWaiting, for at most timeout.
 func (c *Client) WaitTurn(ctx context.Context, id string, untilWaiting bool, timeout time.Duration) (out TurnWait, err error) {

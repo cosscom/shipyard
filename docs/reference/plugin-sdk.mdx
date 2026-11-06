@@ -331,6 +331,14 @@ settled item is forgotten 14 days later.
 | `post(box, { key?, kind, title, details?, options?, recommended?, session?, revision? })` | Posts an ask, or replaces the one at its key: it opens again, its answer and snooze gone. `kind` is a short lowercase word of the poster's (`mark` is the box's own), `options` up to 12 `{ label, description? }` and `recommended` one of their labels. A `session` must be on the box (404 otherwise) with its program running (409 `session_exited` otherwise) |
 | `update(box, key, { revision?, status?, answer?, closed_reason?, snoozed_until?, session? })` | Answers, closes, reopens or snoozes an item; what it leaves out stays. An `answer` alone makes it `answered`, a `closed_reason` alone closes it (closed without one is `resolved`), and `status: "open"` reopens it. `snoozed_until` is an ISO time, or `""` to end a snooze. At a key with no item it makes a mark (`kind: "mark"`), about `session` when given one |
 
+An agent posts its own ask with `berthd ask` or the `berth_ask` tool
+([asking without stopping](/guides/agent-integrations#asking-without-stopping)):
+`kind` is `decision`, `action`, `ready` or `blocked`, at its session's key.
+When an `update` answers or closes one, the box tells the agent with a
+prompt, so an `answer` is what the agent reads. Draw an agent's words as
+text, never as a link or markup, and give every kind but a decision your own
+buttons.
+
 With `revision`, a post or update is refused (409) if the item has changed
 since that revision, so you never overwrite a change you haven't seen. A
 `before:attention.post` or `before:attention.update` [gate](/reference/events#gates)

@@ -68,6 +68,14 @@ again.
   other. An item settles by itself when its session ends, and is forgotten
   two weeks after it settles. Plugins reach it as `berth.attention`.
 
+- **An agent can tell you something needs you, and keep working.** A question
+  form stops the agent until you answer. Now it can post an ask instead with
+  `berthd ask` or the `berth_ask` tool: a decision, an action only you can
+  take, work ready to merge, or that it's blocked. Its next ask replaces the
+  last one. When you answer or close it, the agent gets your answer as its
+  next prompt. An ask is plain words: no links or commands for a button to
+  run.
+
 ## v0.3.31
 
 - **Worktrees with submodules can be removed.** git refuses to remove any

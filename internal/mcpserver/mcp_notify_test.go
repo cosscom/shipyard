@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cosscom/shipyard/internal/box"
 )
@@ -16,18 +17,26 @@ import (
 type callerBox struct {
 	calls   []string
 	callers []string
+	bodies  []string
 	ended   bool
 }
 
 func (f *callerBox) DoWithHeader(ctx context.Context, method, path string, body io.Reader, h http.Header) (*http.Response, error) {
 	f.calls = append(f.calls, method+" "+path)
 	f.callers = append(f.callers, h.Get(box.CallerHeader))
+	var in []byte
+	if body != nil {
+		in, _ = io.ReadAll(body)
+	}
+	f.bodies = append(f.bodies, string(in))
 	w := httptest.NewRecorder()
 	switch {
 	case path == "/v1/tasks":
 		w.WriteString(`{"worktree":{"name":"fix","path":"/w/fix","branch":"fix"},"session":{"name":"shop-fix-claude"}}`)
 	case strings.HasSuffix(path, "/send"):
 		w.WriteString(`{"sent":true,"turn":"shop-fix-claude#2"}`)
+	case strings.HasSuffix(path, "/attention"):
+		w.WriteString(`{"key":"session:lead-claude","revision":1,"kind":"decision","title":"Ship acme on Friday?","status":"open","session":"lead-claude"}`)
 	case path == "/v1/exec":
 		w.WriteHeader(202)
 		w.WriteString(`{"run":"r_x","status":"running","detached":true}`)
@@ -166,5 +175,46 @@ func TestAnAgentWithoutItsEnvironmentIsFoundByItsProcess(t *testing.T) {
 	rpc(t, s, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"berth_send","arguments":{"session":"shop-fix-claude","text":"go"}}}`)
 	if who, _ := f.callerOf("POST /v1/sessions/"); who != "" {
 		t.Fatalf("named %q outside a session", who)
+	}
+}
+
+// An ask is posted for the agent's own session and returns at once; a kind
+// the box doesn't know, or anything the tool doesn't name, is refused
+// before it reaches the box.
+func TestAnAskReturnsAtOnceAndRefusesWhatItDoesntName(t *testing.T) {
+	f := &callerBox{}
+	s := &Server{Box: box.NewClient(f), Caller: "lead-claude"}
+	start := time.Now()
+	res := rpc(t, s,
+		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"berth_ask","arguments":{"kind":"decision","title":"Ship acme on Friday?","options":[{"label":"Friday"},{"label":"Monday","description":"after the freeze"}],"recommended":"Friday"}}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"berth_ask","arguments":{"kind":"review","title":"t"}}}`,
+		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"berth_ask","arguments":{"kind":"ready","title":"t","url":"https://acme.test/merge"}}}`,
+		`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"berth_ask","arguments":{"kind":"decision","title":"t","options":[{"label":"Merge","command":"gh pr merge 12"}]}}}`,
+		`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"berth_ask","arguments":{"kind":"ready","title":"t","options":[{"label":"Merge"}]}}}`,
+	)
+	if time.Since(start) > 2*time.Second {
+		t.Fatalf("it waited %s", time.Since(start))
+	}
+	text := func(r map[string]any) string {
+		return r["result"].(map[string]any)["content"].([]any)[0].(map[string]any)["text"].(string)
+	}
+	if got := text(res[0]); res[0]["result"].(map[string]any)["isError"] == true || !strings.Contains(got, `"key":"session:lead-claude"`) || !strings.Contains(got, `"status":"open"`) {
+		t.Fatalf("ask = %s", got)
+	}
+	if len(f.calls) != 1 || f.calls[0] != "POST /v1/sessions/lead-claude/attention" {
+		t.Fatalf("calls = %v", f.calls)
+	}
+	if !strings.Contains(f.bodies[0], `"recommended":"Friday"`) || !strings.Contains(f.bodies[0], `"description":"after the freeze"`) {
+		t.Fatalf("body = %s", f.bodies[0])
+	}
+	for i, why := range map[int]string{1: "kind is decision", 2: "url isn't", 3: "command isn't", 4: "only a decision"} {
+		if res[i]["result"].(map[string]any)["isError"] != true || !strings.Contains(text(res[i]), why) {
+			t.Errorf("call %d: %s", i+1, text(res[i]))
+		}
+	}
+	// Without a session there is no one to ask for.
+	res = rpc(t, &Server{Box: box.NewClient(&callerBox{})}, `{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"berth_ask","arguments":{"kind":"blocked","title":"t"}}}`)
+	if res[0]["result"].(map[string]any)["isError"] != true {
+		t.Fatalf("an ask with no session: %v", res[0])
 	}
 }
