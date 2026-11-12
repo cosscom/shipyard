@@ -356,6 +356,7 @@ func (b *Box) carryOn(r *http.Request, sess Session, sid string) error {
 	noteConversation(dir, func(c *Conversation) {
 		c.Agent, c.Location, c.Dir, c.Session = firstNonEmpty(meta.Agent, agentFor(sess)), sess.Location, sess.Dir, sess.Name
 		c.AgentSessionID, c.Mode, c.Title, c.Created = sid, mode, title, time.Now().UTC()
+		c.Model, c.Effort = meta.Model, meta.Effort
 	})
 	l, err := b.relaunch(ctx, sess.Location, dir, sock, sid, mode)
 	if err != nil {

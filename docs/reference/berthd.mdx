@@ -90,6 +90,7 @@ asks the app to open the page as a browser tab beside the agent; the
 | `berthd shots accept [LOC/WT] ID` | Keep a visual diff's after-shots as the worktree's `accepted` baseline (the app's **Accept as baseline**) |
 | `berthd flow secret FLOW [--scope S]` | Make a webhook flow's signing secret |
 | `berthd session rename NAME [TITLE]` | Name a session's work; no TITLE clears it |
+| `berthd session restart NAME [--reason TEXT] [--timeout 10m] [--json]` | Start a chat (structured Claude) session's agent again once its turn ends, carrying its conversation on: for a newer Claude Code, a changed MCP config or a new login. Prompts held meanwhile go to the new one; past `--timeout` it is left running |
 | `berthd session kill NAME` | Stop a session |
 
 ## Ports and sharing

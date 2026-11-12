@@ -213,6 +213,21 @@ func (c *Client) RenameSession(ctx context.Context, name, title string) (out Ses
 	return out, c.call(ctx, http.MethodPatch, "/v1/sessions/"+url.PathEscape(name), map[string]string{"title": title}, &out)
 }
 
+// RestartSession starts a structured Claude session's agent again once its
+// turn ends, waiting up to timeout for that (0: the box's default), with
+// its conversation carried on.
+func (c *Client) RestartSession(ctx context.Context, name, reason string, timeout time.Duration) (out RestartResult, err error) {
+	path := "/v1/sessions/" + url.PathEscape(name) + "/restart"
+	if timeout > 0 {
+		path += "?timeout=" + url.QueryEscape(timeout.String())
+	}
+	var in any
+	if reason != "" {
+		in = RestartRequest{Reason: reason}
+	}
+	return out, c.call(ctx, http.MethodPost, path, in, &out)
+}
+
 func (c *Client) KillSession(ctx context.Context, name string) error {
 	return c.call(ctx, http.MethodDelete, "/v1/sessions/"+url.PathEscape(name), nil, nil)
 }

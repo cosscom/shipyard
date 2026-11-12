@@ -254,7 +254,16 @@ its own session's host answering, never another agent in the same folder.
 again if it ended) or a new one, answering the `Session`; `POST
 sessions/{name}/resume` starts an ended structured session again on its own
 record. Either starts the agent from what the box keeps of the conversation,
-with `--resume`. One that exits as it starts answers 409 `agent_failed`, and
+with `--resume` and the model and effort it was started with. `POST
+sessions/{name}/restart` (body `{ reason? }`, `?timeout=10m`, up to `1h`)
+waits for a running structured Claude session's turn to end, holding what
+is sent for when it is idle, then starts its agent again in place on the
+same log and socket, with `--resume` (`--session-id` before its first
+prompt) and its model, effort and mode, answering `{ name,
+agent_session_id?, waited_ms, reason? }`; its log reads the host's
+`exited`, a `restart` entry with the reason, then `started`. A turn that
+doesn't end in time is 504 and the agent runs on; a session that isn't a
+structured Claude one is 409. Boxes that take it list `sessions.restart`. One that exits as it starts answers 409 `agent_failed`, and
 the conversation (and the session it ended in) gets `failed: { at, code,
 error? }` until a start comes up. Boxes that take them list `conversations`. `GET
 sessions/{name}/past` lists the agent's own past conversations in a

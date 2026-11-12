@@ -56,6 +56,7 @@ func (b *Box) mountConversations(route func(string, func(http.ResponseWriter, *h
 	route("GET /v1/conversations", b.listConversations)
 	route("POST /v1/conversations/{id}/resume", b.resumeConversation)
 	route("POST /v1/sessions/{name}/resume", b.resumeSession)
+	route("POST /v1/sessions/{name}/restart", b.restartSession)
 	route("GET /v1/sessions/{name}/past", b.listPast)
 }
 
@@ -213,7 +214,6 @@ func (b *Box) resumeSession(w http.ResponseWriter, r *http.Request) error {
 // resumeInPlace starts a structured session's host again in its own pane,
 // on its log and socket, with --resume (sid, or the one its log names).
 func (b *Box) resumeInPlace(r *http.Request, sess Session, sid string) error {
-	ctx := r.Context()
 	if sid == "" {
 		sid = conversationSession(sess.conv)
 	}
@@ -222,7 +222,14 @@ func (b *Box) resumeInPlace(r *http.Request, sess Session, sid string) error {
 		// needs its conversation named.
 		return httpError{http.StatusConflict, "berthd doesn't know which Claude conversation this is"}
 	}
-	l, err := b.relaunch(ctx, sess.Location, sess.conv, sess.sock, sid, modeFor(sess))
+	return b.startInPlace(r, sess, sid, modeFor(sess))
+}
+
+// startInPlace starts a structured session's agent in its own pane, on its
+// log and socket, in mode, carrying on sid ("": a new conversation).
+func (b *Box) startInPlace(r *http.Request, sess Session, sid, mode string) error {
+	ctx := r.Context()
+	l, err := b.relaunch(ctx, sess.Location, sess.conv, sess.sock, sid, mode)
 	if err != nil {
 		return err
 	}
@@ -246,8 +253,9 @@ func (b *Box) resumeInPlace(r *http.Request, sess Session, sid string) error {
 }
 
 // relaunch is what starts a structured conversation's agent again, in its
-// folder and on sock: Claude Code with --resume sid, or Codex's app
-// server, which opens its thread again itself.
+// folder and on sock: Claude Code with --resume sid, and the model and
+// effort it was started with, or Codex's app server, which opens its
+// thread again itself. mode "" is the one its meta.json keeps.
 func (b *Box) relaunch(ctx context.Context, location, dir, sock, sid, mode string) (structuredLaunch, error) {
 	meta, _ := readConversation(dir)
 	if meta.Agent != "claude" && meta.Agent != "codex" && meta.Agent != "" {
@@ -264,7 +272,7 @@ func (b *Box) relaunch(ctx context.Context, location, dir, sock, sid, mode strin
 		}
 		return b.launchCodexIn(p, firstNonEmpty(mode, meta.Mode), dir, sock)
 	}
-	return b.launchClaudeIn(b.claudePreset(ctx, Session{Location: location}), "", "", mode, sid, dir, sock)
+	return b.launchClaudeIn(b.claudePreset(ctx, Session{Location: location}), meta.Model, meta.Effort, firstNonEmpty(mode, meta.Mode), sid, dir, sock)
 }
 
 // presetAt is an agent preset as a location has it.

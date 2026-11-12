@@ -10,6 +10,13 @@ upgrades with `berth upgrade BOX`, or by running the
 again.
 
 ## Unreleased
+- **A chat agent can be restarted without losing its conversation.**
+  `berthd session restart NAME` (or `POST /v1/sessions/{name}/restart`)
+  waits for the agent's turn to end, then starts Claude again where it
+  was, so a newer Claude Code, a changed MCP config or a new login takes
+  effect. Prompts sent meanwhile wait for it. Resuming a chat agent now
+  also keeps the model and effort it was started with, which it used to
+  drop.
 - **Boxes are ready for the Shipyard phone app.** With phone access on, a
   box now also lets a paired phone read an agent's recent conversation
   (never tool output or files), follow which agents and runs change as it

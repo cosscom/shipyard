@@ -278,6 +278,20 @@ func (c *claudeConv) speak() {
 	}
 }
 
+// later says f after everything the log has said so far.
+func (c *claudeConv) later(f func()) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.gone {
+		return
+	}
+	c.queue = append(c.queue, f)
+	select {
+	case c.kick <- struct{}{}:
+	default:
+	}
+}
+
 // conv is the session's, followed from its log from the first time it is
 // asked for.
 func (d *claudeDriver) conv(sess Session) (*claudeConv, error) {
@@ -317,8 +331,13 @@ func (c *claudeConv) follow() {
 	var noHost time.Time
 	for {
 		c.mu.Lock()
-		from, done := c.lastSeq, c.exited
+		from, done, gone := c.lastSeq, c.exited, c.gone
 		c.mu.Unlock()
+		if gone {
+			// Let go (forget): a host started again on its socket is the
+			// next one's to follow, and to answer for.
+			return
+		}
 		if done && !hostAlive(c.sock) {
 			// Its last word was its end, and no host has started since. (A
 			// host started again listens a moment before it says so.) Let
@@ -512,7 +531,7 @@ func (c *claudeConv) apply(e agenthost.Entry, live bool) {
 			return
 		}
 		r.ID = l.RequestID
-		if live && c.bypass && !interactiveTools[r.Tool] {
+		if live && c.bypass && !c.gone && !interactiveTools[r.Tool] {
 			go c.answer(r, true, false, "")
 			return
 		}

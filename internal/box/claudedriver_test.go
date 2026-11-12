@@ -200,6 +200,13 @@ for line in sys.stdin:
         out({"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": t, "content": "Your questions have been answered: \"Tea or coffee?\"=\"%s\"." % a}]}, "parent_tool_use_id": None, "uuid": uid()})
         say("You chose " + a + ".")
         result()
+    elif text == "take your time":
+        # A turn that ends by itself, a while after it starts.
+        import time
+        out({"type": "stream_event", "event": {"type": "message_start"}, "parent_tool_use_id": None})
+        time.sleep(1.5)
+        say("Took my time.")
+        result()
     elif text == "work":
         out({"type": "stream_event", "event": {"type": "message_start"}, "parent_tool_use_id": None})
         out({"type": "stream_event", "event": {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "Working through it"}}, "parent_tool_use_id": None})
@@ -675,7 +682,9 @@ func TestAStructuredSessionNeverPromptedGoesToItsTerminalAndBack(t *testing.T) {
 	until("the move to its terminal", func() bool {
 		return call(t, c, "POST", "/v1/sessions/"+name+"/switch", "", map[string]string{"to": "terminal"}, &moved) == 200
 	})
-	until("Claude Code's own screen", func() bool { return strings.Contains(screen(), "Claude Code, new 00000000-0000-4000-8000-0000000000c1") })
+	until("Claude Code's own screen", func() bool {
+		return strings.Contains(screen(), "Claude Code, new 00000000-0000-4000-8000-0000000000c1")
+	})
 	if s := screen(); strings.Contains(s, "No conversation found") {
 		t.Fatalf("the terminal couldn't open the conversation:\n%s", s)
 	}

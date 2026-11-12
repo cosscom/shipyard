@@ -1407,6 +1407,22 @@ func (t *Turns) Ready(name string) bool {
 	return s.State == "" || s.idle()
 }
 
+// turnOpen says whether a turn of the session's is pending, running or
+// waiting: a prompt sent that its agent hasn't finished.
+func (t *Turns) turnOpen(name string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.init()
+	if s := t.sess[name]; s != nil {
+		for _, tr := range s.Turns {
+			if tr.open() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // idle says whether the agent can take a prompt: idle or finished (or
 // waiting only by turn check's reading), with no turn open.
 func (s *sessTrack) idle() bool {
@@ -1749,6 +1765,12 @@ func (b *Box) deliverInbox(ctx context.Context) {
 		if b.startupHeld(ctx, it.Session) {
 			// Still starting, or at its startup question: typed now, it
 			// would be lost. The watch kicks the inbox once it is ready.
+			b.Turns.putBack(it)
+			continue
+		}
+		if b.restarting(it.Session) {
+			// Its agent starts again at this turn's end: it goes to the new
+			// one, which the restart kicks the inbox for.
 			b.Turns.putBack(it)
 			continue
 		}

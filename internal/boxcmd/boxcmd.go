@@ -62,6 +62,7 @@ var usageSections = []struct {
 		{"%[1]s session turns %[2]sNAME [--limit 10] [--json]", "List a session's turns"},
 		{"%[1]s exec %[2]sLOC[/WORKTREE] [--timeout 10m] [--detach [--no-notify]] -- COMMAND...", "Run a command there and print its output (--detach: as a run)"},
 		{"%[1]s loop %[2]sSESSION --check CMD [--prompt TEXT] [--max 5] [--turn-timeout 30m]\n         [--cancel-on-exit] [--detach]", "Prompt, wait, check, and feed failures back: a durable\nrun on the box (Ctrl-C detaches)"},
+		{"%[1]s session restart %[2]sNAME [--reason TEXT] [--timeout 10m] [--json]", "Start a chat (structured Claude) session's agent again once its\nturn ends, carrying its conversation on (a newer CLI, MCP config\nor login); gives up, leaving it running, after --timeout"},
 		{"%[1]s session kill %[2]sNAME", "Stop a session"},
 	}},
 	{"Artifacts (what agents make for you to look at)", [][2]string{
@@ -591,6 +592,21 @@ func Run(ctx context.Context, c *box.Client, args []string, out io.Writer) error
 			} else {
 				fmt.Fprintf(out, "Renamed %s to %q\n", sess.Name, sess.Title)
 			}
+		})
+	case "session restart":
+		fs, asJSON := flags(rest)
+		reason := fs.String("reason", "", "why, kept in the conversation's log")
+		timeout := fs.Duration("timeout", 10*time.Minute, "how long to wait for the agent's turn to end")
+		pos, err := parse(fs, rest)
+		if err != nil || len(pos) != 1 {
+			return usageErr("session restart NAME [--reason TEXT] [--timeout 10m] [--json]")
+		}
+		res, err := c.RestartSession(ctx, pos[0], *reason, *timeout)
+		if err != nil {
+			return err
+		}
+		return show(out, *asJSON, res, func() {
+			fmt.Fprintf(out, "Restarted %s after waiting %s for its turn to end; it carries on %s\n", res.Name, (time.Duration(res.WaitedMS) * time.Millisecond).Round(100*time.Millisecond), firstNonEmpty(res.AgentSessionID, "a new conversation"))
 		})
 	case "session kill":
 		if len(rest) != 1 {
