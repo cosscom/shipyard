@@ -230,7 +230,13 @@ agent that [turn check](/concepts/sessions-and-agents#agent-state) read as
 unfinished carries `unfinished: true` (something still runs; shown as
 Working) or `parked: true` (it waits on a reply or a later time; shown as
 Idle); a `waiting` one it read as asking in its last message carries
-`soft_wait: true` (no `ask`: the reply box answers it). `driver`
+`soft_wait: true` (no `ask`: the reply box answers it). A Claude Code or
+Codex agent carries `account`, `{ agent, name, dir, count }`: the account
+folder it runs on (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`) as of its last start,
+`name` (`default`, the folder's name for one in `~/.berth/accounts/<agent>/`,
+else the folder with `~` for home), and `count`, how many accounts the box
+has for the agent. It is missing when the box can't tell (the folder is a
+secret reference) and on older boxes. `driver`
 says how the box reaches the agent: `terminal` (its own screen in tmux) for
 every agent but a structured one, or `claude` (Claude Code driven through
 its stream); boxes that say it list `driver` in `capabilities`. `POST

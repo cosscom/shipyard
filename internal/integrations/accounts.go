@@ -109,6 +109,48 @@ func defaultAccount(home, agent string) Account {
 	return Account{Agent: agent, Dir: dir, Default: true, own: true}
 }
 
+// AccountDir is the account folder agent runs on in home when its variable
+// (CLAUDE_CONFIG_DIR, CODEX_HOME) is v in its environment: the folder v
+// names, or the default with v empty. It is "" when v names no folder (a
+// secret reference, a path with another variable in it) and for an agent
+// without accounts.
+func AccountDir(home, agent, v string) string {
+	if _, ok := standardDirs[agent]; !ok {
+		return ""
+	}
+	if strings.TrimSpace(v) == "" {
+		return defaultAccount(home, agent).Dir
+	}
+	return ExpandAccountDir(home, v)
+}
+
+// AccountName is what an account folder of agent in home is called, as the
+// Usage plugin calls it: "default" for the default one, its folder's name
+// for one in ~/.berth/accounts/<agent>/, else the folder with home as ~.
+func AccountName(home, agent, dir string) string {
+	dir = filepath.Clean(dir)
+	if sameDir(dir, defaultAccount(home, agent).Dir) {
+		return "default"
+	}
+	if filepath.Dir(dir) == AccountsDir(home, agent) {
+		return filepath.Base(dir)
+	}
+	return tilde(home, dir)
+}
+
+// AccountCount is how many accounts agent has in home, as Accounts lists
+// them, without the backups of one (work.bak-20260101T120000) that a
+// folder's move leaves beside it.
+func AccountCount(home, agent string) int {
+	n := 0
+	for _, a := range Accounts(home, agent) {
+		if !strings.Contains(filepath.Base(a.Dir), ".bak-") {
+			n++
+		}
+	}
+	return n
+}
+
 // ExpandAccountDir is the folder a CLAUDE_CONFIG_DIR or CODEX_HOME value
 // names, with ~ and $HOME expanded, or "" when it is not an absolute path
 // once they are (one naming another variable, say a worktree's).

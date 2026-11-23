@@ -89,6 +89,9 @@ type Session struct {
 	// started again, exited as it started: how, and what it wrote to its
 	// stderr (relaunch.go).
 	Failed *LaunchFailure `json:"failed,omitempty"`
+	// Account is the agent account (Claude Code's config folder, Codex's
+	// home) its agent runs on, for an agent that has them.
+	Account *SessionAccount `json:"account,omitempty"`
 
 	// commandFile is where the session's command is kept, when it is;
 	// panePID the process its pane runs.
@@ -99,6 +102,21 @@ type Session struct {
 	// answers its permissions (@berth_bypass).
 	conv, sock string
 	bypass     bool
+	// account is the account variable's value its agent was last started
+	// with, after an "=" (@berth_account, accountLabel); "" when berthd
+	// started it with none.
+	account string
+}
+
+// SessionAccount is the account a session's agent runs on: its folder, what
+// it is called (default, the folder's name for one the Usage plugin made)
+// and how many accounts the box has for the agent, which says whether it is
+// worth showing.
+type SessionAccount struct {
+	Agent string `json:"agent"`
+	Name  string `json:"name"`
+	Dir   string `json:"dir"`
+	Count int    `json:"count"`
 }
 
 var (
@@ -161,9 +179,16 @@ type Sessions struct {
 // started ("" when it had none), as its agent sees it: the account folder
 // a session was started on (CLAUDE_CONFIG_DIR, CODEX_HOME), say.
 func (s *Sessions) EnvVar(ctx context.Context, sess Session, key string) string {
+	v, _ := s.envVar(ctx, sess, key)
+	return v
+}
+
+// envVar is EnvVar that says when tmux couldn't answer (the session is
+// gone, or tmux failed), as against a session without key.
+func (s *Sessions) envVar(ctx context.Context, sess Session, key string) (string, error) {
 	cacheKey := sess.Name + "\x00" + sess.Created.Format(time.RFC3339Nano) + "\x00" + key
 	if v, ok := s.envs.Load(cacheKey); ok {
-		return v.(string)
+		return v.(string), nil
 	}
 	out, err := s.tmux(ctx, "show-environment", "-t", "="+sess.Name, key)
 	if err != nil {
@@ -173,15 +198,16 @@ func (s *Sessions) EnvVar(ctx context.Context, sess Session, key string) string 
 		// that failed, leaves nothing to remember.
 		if strings.Contains(string(out), "unknown variable") {
 			s.envs.Store(cacheKey, "")
+			return "", nil
 		}
-		return ""
+		return "", tmuxError("show-environment", out, err)
 	}
 	v, ok := strings.CutPrefix(strings.TrimSpace(string(out)), key+"=")
 	if !ok {
 		v = "" // "-KEY": removed from the session's environment
 	}
 	s.envs.Store(cacheKey, v)
-	return v
+	return v, nil
 }
 
 const tmuxSocket = "berth"
@@ -254,7 +280,7 @@ func (s *Sessions) tmux(ctx context.Context, args ...string) ([]byte, error) {
 //
 // Sessions started since keep their command in a file (@berth_command_file)
 // and only its start in @berth_command, for older builds to show.
-const listFormat = "#{session_name}\t#{session_created}\t#{session_attached}\t#{@berth_location}\t#{?@berth_command64,,#{@berth_command}}\t#{pane_dead}\t#{pane_start_path}\t#{@berth_command64}\t#{@berth_agent}\t#{@berth_title}\t#{@berth_service}\t#{@berth_command_file}\t#{@berth_scope}\t#{pane_pid}\t#{@berth_driver}\t#{@berth_conv}\t#{@berth_sock}\t#{@berth_bypass}"
+const listFormat = "#{session_name}\t#{session_created}\t#{session_attached}\t#{@berth_location}\t#{?@berth_command64,,#{@berth_command}}\t#{pane_dead}\t#{pane_start_path}\t#{@berth_command64}\t#{@berth_agent}\t#{@berth_title}\t#{@berth_service}\t#{@berth_command_file}\t#{@berth_scope}\t#{pane_pid}\t#{@berth_driver}\t#{@berth_conv}\t#{@berth_sock}\t#{@berth_bypass}\t#{@berth_account}"
 
 // plainCommandMax is how much of a command the plain @berth_command keeps.
 const plainCommandMax = 1024
@@ -311,10 +337,10 @@ func parseSessions(out []byte) []Session {
 	sessions := []Session{}
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		f := strings.Split(line, "\t")
-		for len(f) >= 7 && len(f) < 18 {
+		for len(f) >= 7 && len(f) < 19 {
 			f = append(f, "")
 		}
-		if len(f) != 18 {
+		if len(f) != 19 {
 			continue
 		}
 		command := f[4]
@@ -345,6 +371,7 @@ func parseSessions(out []byte) []Session {
 			conv:        f[15],
 			sock:        f[16],
 			bypass:      f[17] == "1",
+			account:     f[18],
 		})
 	}
 	return sessions
@@ -433,6 +460,11 @@ func (s *Sessions) create(ctx context.Context, name, location, dir, command, age
 	}
 	if agent != "" {
 		set("@berth_agent", agent)
+	}
+	if a := agentFor(Session{Preset: agent, Command: command}); a != "" {
+		if v, ok := accountVar(a, env); ok {
+			set(labelAccount, accountLabel(v))
+		}
 	}
 	if scope != "" {
 		set("@berth_scope", scope)

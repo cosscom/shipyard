@@ -10,6 +10,7 @@ import (
 
 	"github.com/cosscom/shipyard/internal/doctor"
 	"github.com/cosscom/shipyard/internal/integrations"
+	"github.com/cosscom/shipyard/internal/wire"
 )
 
 // accountsHome is an empty home with a fake claude on PATH, and none of
@@ -176,5 +177,160 @@ func TestUserSkillsGoToEveryClaudeAccount(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(dir, "skills", "berth-preview")); !os.IsNotExist(err) {
 			t.Fatalf("%s still has it: %v", dir, err)
 		}
+	}
+}
+
+// listedAccount is the account the box's session list gives session name.
+func listedAccount(t *testing.T, c *wire.Client, name string) *SessionAccount {
+	t.Helper()
+	var all []Session
+	if status := call(t, c, "GET", "/v1/sessions", "", nil, &all); status != 200 {
+		t.Fatalf("sessions: %d", status)
+	}
+	for _, s := range all {
+		if s.Name == name {
+			return s.Account
+		}
+	}
+	t.Fatalf("no session %s in %+v", name, all)
+	return nil
+}
+
+func TestTheSessionListSaysWhichAccountEachAgentRunsOn(t *testing.T) {
+	home := accountsHome(t)
+	work := filepath.Join(home, ".berth", "accounts", "claude", "work")
+	personal := filepath.Join(home, ".berth", "accounts", "claude", "personal")
+	os.MkdirAll(work, 0o700)
+	os.MkdirAll(personal, 0o700)
+	// A backup of a moved account folder is no account of its own.
+	os.MkdirAll(work+".bak-20260101T120000", 0o700)
+	envFile := filepath.Join(t.TempDir(), "env.json")
+	var bx *Box
+	c, _ := servedBox(t, func(b *Box) {
+		b.EnvFile = envFile
+		bx = b
+	})
+	repo := gitRepo(t)
+	call(t, c, "POST", "/v1/locations", "", map[string]string{"name": "shop", "path": repo}, nil)
+	call(t, c, "POST", "/v1/locations/shop/worktrees", "", WorktreeRequest{Name: "fix"}, nil)
+	start := func(name string) Session {
+		t.Helper()
+		var sess Session
+		if status := call(t, c, "POST", "/v1/sessions", "", map[string]string{"location": "shop/fix", "name": name, "command": "claude"}, &sess); status != 200 {
+			t.Fatalf("session: %d", status)
+		}
+		return sess
+	}
+
+	// Nothing picks an account: the default.
+	plain := start("plain")
+	if a := listedAccount(t, c, plain.Name); a == nil || a.Name != "default" || a.Dir != filepath.Join(home, ".claude") || a.Agent != "claude" || a.Count != 3 {
+		t.Fatalf("default: %+v", a)
+	}
+
+	// The box's environment picks the work account.
+	saveBoxEnv(envFile, BoxEnv{Env: map[string]string{"CLAUDE_CONFIG_DIR": "$HOME/.berth/accounts/claude/work"}})
+	sess := start("picked")
+	if a := listedAccount(t, c, sess.Name); a == nil || a.Name != "work" || a.Dir != work {
+		t.Fatalf("work: %+v", a)
+	}
+
+	// Then personal, and the agent is started again in its pane (a switch,
+	// a resume): it runs on personal now, though its tmux environment
+	// still says work.
+	saveBoxEnv(envFile, BoxEnv{Env: map[string]string{"CLAUDE_CONFIG_DIR": personal}})
+	live, err := bx.Sessions.Get(context.Background(), sess.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := bx.respawnAgent(context.Background(), live, "claude", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := bx.Sessions.EnvVar(context.Background(), live, "CLAUDE_CONFIG_DIR"); got != work {
+		t.Fatalf("tmux environment = %q", got)
+	}
+	if a := listedAccount(t, c, sess.Name); a == nil || a.Name != "personal" || a.Dir != personal {
+		t.Fatalf("after starting again: %+v", a)
+	}
+	// The first session, untouched, is still on the default.
+	if a := listedAccount(t, c, plain.Name); a == nil || a.Name != "default" {
+		t.Fatalf("the other session: %+v", a)
+	}
+
+	// The box stops picking one, and the agent starts again: it inherits
+	// work from its tmux environment, and personal is forgotten.
+	saveBoxEnv(envFile, BoxEnv{})
+	if err := bx.respawnAgent(context.Background(), live, "claude", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if a := listedAccount(t, c, sess.Name); a == nil || a.Name != "work" {
+		t.Fatalf("after the box stopped picking one: %+v", a)
+	}
+	// Started with the variable set empty, it runs on the default, though
+	// its tmux environment says work.
+	if err := bx.respawnAgent(context.Background(), live, "claude", []string{"CLAUDE_CONFIG_DIR="}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if a := listedAccount(t, c, sess.Name); a == nil || a.Name != "default" {
+		t.Fatalf("started with it empty: %+v", a)
+	}
+	// A value tmux would read as the end of a command still starts it.
+	if err := bx.respawnAgent(context.Background(), live, "claude", []string{"CLAUDE_CONFIG_DIR=;"}, nil); err != nil {
+		t.Fatalf("a value of ;: %v", err)
+	}
+	if got, _ := bx.Sessions.Get(context.Background(), sess.Name); got.account != "=;" {
+		t.Fatalf("a value of ; kept as %q", got.account)
+	}
+
+	// A shell runs no agent, and has no account.
+	var shell Session
+	call(t, c, "POST", "/v1/sessions", "", map[string]string{"location": "shop/fix", "name": "shell", "command": ""}, &shell)
+	if a := listedAccount(t, c, shell.Name); a != nil {
+		t.Fatalf("shell: %+v", a)
+	}
+}
+
+func TestASessionFromAnOlderBerthdHasTheAccountItsEnvironmentPicks(t *testing.T) {
+	home := accountsHome(t)
+	work := filepath.Join(home, ".berth", "accounts", "claude", "work")
+	os.MkdirAll(work, 0o700)
+	var bx *Box
+	c, _ := servedBox(t, func(b *Box) { bx = b })
+	ctx := context.Background()
+	dir := t.TempDir()
+	for name, env := range map[string][]string{"old-work": {"CLAUDE_CONFIG_DIR=" + work}, "old-default": nil, "old-secret": {"CLAUDE_CONFIG_DIR=op://vault/claude/dir"}} {
+		if _, err := bx.Sessions.Create(ctx, name, "", dir, "claude", env); err != nil {
+			t.Fatal(err)
+		}
+		// Started before berthd kept the account.
+		if out, err := bx.Sessions.tmux(ctx, "set-option", "-u", "-t", "="+name+":", labelAccount); err != nil {
+			t.Fatalf("unset: %v %s", err, out)
+		}
+	}
+	if a := listedAccount(t, c, "old-work"); a == nil || a.Name != "work" || a.Dir != work {
+		t.Fatalf("old-work: %+v", a)
+	}
+	if a := listedAccount(t, c, "old-default"); a == nil || a.Name != "default" {
+		t.Fatalf("old-default: %+v", a)
+	}
+	// A secret reference names no folder: no account, rather than a guess.
+	if a := listedAccount(t, c, "old-secret"); a != nil {
+		t.Fatalf("old-secret: %+v", a)
+	}
+	// Nor when tmux can't say: a session gone since it was listed.
+	if a := bx.sessionAccount(ctx, Session{Name: "gone", Agent: "claude", Created: time.Now()}); a != nil {
+		t.Fatalf("tmux failed: %+v", a)
+	}
+}
+
+func TestASessionStartedOnASecretAccountSaysNone(t *testing.T) {
+	accountsHome(t)
+	var bx *Box
+	c, _ := servedBox(t, func(b *Box) { bx = b })
+	if _, err := bx.Sessions.Create(context.Background(), "secret", "", t.TempDir(), "claude", []string{"CLAUDE_CONFIG_DIR=op://vault/claude/dir"}); err != nil {
+		t.Fatal(err)
+	}
+	if a := listedAccount(t, c, "secret"); a != nil {
+		t.Fatalf("secret: %+v", a)
 	}
 }

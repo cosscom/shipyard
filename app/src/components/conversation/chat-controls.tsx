@@ -11,6 +11,7 @@ import {
   SparklesIcon,
   SquareIcon,
   TerminalIcon,
+  UserRoundIcon,
 } from "lucide-react";
 import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
@@ -54,6 +55,7 @@ import { usePrefs } from "@/lib/prefs";
 import { useStore } from "@/lib/store";
 import type { ToolDetail, TranscriptItem } from "@/lib/transcript";
 import { memoryNote } from "@/lib/processes";
+import { accountChip } from "@/lib/session-account";
 import { cn } from "@/lib/utils";
 
 // ChatControls is everything around the reply box that lets the chat stand
@@ -149,6 +151,7 @@ export function ChatControls({ box, session, agent, state, asking, stateSince, d
             <>
               <ModeChip box={box} session={session} agent={agent} sig={sig} screenMode={controls?.mode} onSwitched={refresh} waiting={asking} supported={supported} who={who} />
               <ModelChip box={box} session={session} agent={agent} sig={sig} screenEffort={controls?.effort} busy={working || asking} items={items} />
+              <AccountChip box={box} session={session} />
               <ContextChip box={box} session={session} sig={sig} busy={working || asking} />
               <BackgroundChip box={box} session={session} jobs={sig?.background} who={who} />
             </>
@@ -405,6 +408,23 @@ function ModelChip({ box, session, agent, sig, screenEffort, busy, items }: { bo
         </MenuItem>
       </MenuPopup>
     </Menu>
+  );
+}
+
+// AccountChip names the account the agent runs on (its Claude Code config
+// folder, its Codex home) when the box has more than one. It only says:
+// a session's account is picked when it starts.
+function AccountChip({ box, session }: { box: string; session: string }) {
+  const account = useStore((s) => s.boxes[box]?.sessions?.find((x) => x.name === session)?.account);
+  const it = accountChip(account);
+  if (!it) return null;
+  return (
+    <Tip label={it.tip}>
+      <span tabIndex={0} className={cn(chip, "cursor-default hover:bg-transparent")} aria-label={`Account: ${it.label}`} data-testid="chat-account">
+        <UserRoundIcon className="size-3.5" />
+        <span className="truncate">{it.label}</span>
+      </span>
+    </Tip>
   );
 }
 

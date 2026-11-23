@@ -18,6 +18,20 @@ test("a worktree's agent opens as its chat", async ({ app }) => {
   await expect(app.page.locator("[data-tab-strip] [data-group]")).toHaveCount(0);
 });
 
+test("the chat's foot names the account its agent runs on, when the box has more than one", async ({ app }) => {
+  mockOnly();
+  // devl has two Claude Code accounts; checkout-fix's agent runs on work.
+  const foot = app.page.locator("[data-testid=pane]:visible [data-chat-controls]");
+  await app.openWorktree("devl/checkout-fix");
+  const account = foot.getByTestId("chat-account");
+  await expect(account).toHaveText("work");
+  await expect(account).toHaveAccessibleName("Account: work");
+  // gpu has one, so its chat names none.
+  await app.openWorktree("gpu/shop");
+  await expect(foot.getByRole("button", { name: /^Model: / })).toBeVisible();
+  await expect(foot.getByTestId("chat-account")).toHaveCount(0);
+});
+
 test("a reply's Markdown draws, with its code highlighted", async ({ app }) => {
   mockOnly();
   await app.openWorktree("gpu/shop");

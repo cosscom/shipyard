@@ -242,6 +242,19 @@ export interface Session {
   // Set on a structured session that ended because its agent, started
   // again, exited as it started.
   failed?: LaunchFailure;
+  // The account its agent runs on, for Claude Code and Codex: its folder
+  // (CLAUDE_CONFIG_DIR, CODEX_HOME), its name ("default", or the folder's
+  // name for one in ~/.berth/accounts/<agent>/) and how many accounts the
+  // box has for the agent. Missing when the box can't tell, and on a box
+  // older than it.
+  account?: SessionAccount;
+}
+
+export interface SessionAccount {
+  agent: string;
+  name: string;
+  dir: string;
+  count: number;
 }
 
 // An agent started again that exited as it started: when, its exit code,

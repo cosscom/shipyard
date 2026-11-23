@@ -130,6 +130,8 @@ type Box struct {
 	// Helpers runs the helper programs plugins bring (helpers.go); nil on a
 	// box without them.
 	Helpers *Helpers
+
+	accountCounts accountCounts
 }
 
 func (b *Box) own(path string) {
