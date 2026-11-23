@@ -329,3 +329,61 @@ func TestAnAccountsSymlinksAreNeverFollowed(t *testing.T) {
 		t.Fatalf("wrote through the link: %s", b)
 	}
 }
+
+func TestAnAccountFolderIsNamedAsTheUsagePluginNamesIt(t *testing.T) {
+	home, personal, client, codexWork := accountsMachine(t)
+	for _, c := range []struct{ agent, dir, want string }{
+		{"claude", filepath.Join(home, ".claude"), "default"},
+		{"claude", filepath.Join(home, ".claude") + "/", "default"},
+		{"claude", personal, "personal"},
+		{"claude", client, "~/logins/client-claude"},
+		{"claude", "/srv/claude/shared", "/srv/claude/shared"},
+		{"codex", filepath.Join(home, ".codex"), "default"},
+		{"codex", codexWork, "work"},
+		// Claude's accounts folder is no Codex account's.
+		{"codex", personal, "~/.berth/accounts/claude/personal"},
+	} {
+		if got := AccountName(home, c.agent, c.dir); got != c.want {
+			t.Errorf("AccountName(%s, %s) = %q, want %q", c.agent, c.dir, got, c.want)
+		}
+	}
+}
+
+func TestASessionsAccountFolderComesFromItsVariable(t *testing.T) {
+	home, personal, _, _ := accountsMachine(t)
+	for _, c := range []struct{ agent, v, want string }{
+		{"claude", "", filepath.Join(home, ".claude")},
+		{"claude", personal, personal},
+		{"claude", "$HOME/.berth/accounts/claude/personal", personal},
+		{"claude", "~/.berth/accounts/claude/personal", personal},
+		{"codex", "", filepath.Join(home, ".codex")},
+		// No folder: a secret reference, another variable, a relative path.
+		{"claude", "op://vault/item/field", ""},
+		{"claude", "$WORK/claude", ""},
+		{"claude", "claude", ""},
+		// An agent without accounts.
+		{"opencode", "", ""},
+	} {
+		if got := AccountDir(home, c.agent, c.v); got != c.want {
+			t.Errorf("AccountDir(%s, %q) = %q, want %q", c.agent, c.v, got, c.want)
+		}
+	}
+}
+
+func TestABackedUpAccountIsNotCounted(t *testing.T) {
+	home, personal, _, _ := accountsMachine(t)
+	// ~/.claude (the default), personal and the client's the config picks.
+	if n := AccountCount(home, "claude"); n != 3 {
+		t.Fatalf("claude accounts = %d, want 3", n)
+	}
+	os.MkdirAll(personal+".bak-20260101T120000", 0o700)
+	if n := AccountCount(home, "claude"); n != 3 {
+		t.Fatalf("with a backup: %d, want 3", n)
+	}
+	if n := AccountCount(home, "codex"); n != 2 {
+		t.Fatalf("codex accounts = %d, want 2", n)
+	}
+	if n := AccountCount(home, "opencode"); n != 0 {
+		t.Fatalf("opencode accounts = %d, want 0", n)
+	}
+}

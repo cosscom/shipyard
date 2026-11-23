@@ -197,6 +197,18 @@ const sessions: Record<string, Session[]> = {
   ],
 };
 
+// The accounts the agents run on (Session.account): devl has two Claude
+// Code accounts, the default and work, which checkout-fix's agent runs on;
+// every other box has one per agent, so its chat names none.
+for (const [box, list] of Object.entries(sessions)) {
+  for (const s of list) {
+    if (s.agent !== "claude" && s.agent !== "codex") continue;
+    const count = box === "devl" && s.agent === "claude" ? 2 : 1;
+    const [name, dir] = s.name === "checkout-fix-claude" ? ["work", "/home/me/.berth/accounts/claude/work"] : ["default", `/home/me/.${s.agent}`];
+    s.account = { agent: s.agent, name, dir, count };
+  }
+}
+
 const stats: Record<string, Stats> = {
   devl: {
     hostname: "dev-box",

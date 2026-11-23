@@ -411,6 +411,7 @@ func (b *Box) enrich(ctx context.Context, all []Session) []Session {
 		if s.Agent == "" {
 			continue
 		}
+		s.Account = b.sessionAccount(ctx, *s)
 		s.Driver = b.driverFor(*s).Kind()
 		switch {
 		case s.Driver == DriverClaude:
