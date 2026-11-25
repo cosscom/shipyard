@@ -629,11 +629,12 @@ func (b *Box) startFlowRun(ctx context.Context, sf ScopedFlow, e events.Event, o
 		// One run at a time per flow and worktree; more wait their turn.
 		req.Key = key + "@" + wt.Path
 	}
-	s, _, err := eng.Start(req)
+	s, dup, err := eng.Start(req)
 	switch {
 	case slot.IsZero():
-	case err != nil:
-		// Not started (a full queue, most often): it doesn't count.
+	case err != nil || dup:
+		// Not started (a full queue, most often), or a delivery already
+		// admitted: it doesn't count.
 		b.Flows.releaseRate(key, slot)
 	default:
 		b.Flows.started(key)
@@ -829,13 +830,13 @@ func (b *Box) listFlows(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	k := &rateChecker{ctx: r.Context(), b: b}
 	for i, sf := range all {
 		if sf.Overridden {
 			continue
 		}
-		key := sf.key()
-		all[i].RefusedLastHour, all[i].LastRefusedAt = b.Flows.refusals(key)
-		if rc := b.flowRateCheck(r.Context(), sf); rc.fires > 0 {
+		all[i].RefusedLastHour, all[i].LastRefusedAt = b.Flows.refusals(sf.key())
+		if rc := k.check(sf); rc.fires > 0 {
 			all[i].FiresPerHour, all[i].Warning = rc.fires, rc.warning()
 		}
 	}

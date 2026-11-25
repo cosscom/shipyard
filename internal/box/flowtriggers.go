@@ -38,13 +38,21 @@ func (b *Box) flowTargets(ctx context.Context, sf ScopedFlow, withMain bool) []s
 	Loc Location
 	Wt  Worktree
 } {
-	var out []struct {
-		Loc Location
-		Wt  Worktree
-	}
 	locs, err := b.Locations.List(ctx)
 	if err != nil {
 		return nil
+	}
+	return flowTargetsIn(locs, sf, withMain)
+}
+
+// flowTargetsIn is flowTargets among locs, read once for many flows.
+func flowTargetsIn(locs []Location, sf ScopedFlow, withMain bool) []struct {
+	Loc Location
+	Wt  Worktree
+} {
+	var out []struct {
+		Loc Location
+		Wt  Worktree
 	}
 	want := sf.Flow.Trigger.Where.Location
 	if name, ok := strings.CutPrefix(sf.Scope, "repo:"); ok {

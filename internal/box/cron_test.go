@@ -70,3 +70,36 @@ func TestCronCountsItsBusiestHour(t *testing.T) {
 		t.Errorf("*/10 9 in IST = %d, want 6", c.FiresPerHour(from.In(india)))
 	}
 }
+
+func TestCronFindsItsNextRunAcrossASkippedHour(t *testing.T) {
+	ny, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		t.Skip(err)
+	}
+	santiago, err := time.LoadLocation("America/Santiago")
+	if err != nil {
+		t.Skip(err)
+	}
+	for _, tc := range []struct {
+		expr       string
+		from, want time.Time
+	}{
+		// 02:00 doesn't exist on 8 March in New York.
+		{"0 9 * * *", time.Date(2026, 3, 8, 0, 30, 0, 0, ny), time.Date(2026, 3, 8, 9, 0, 0, 0, ny)},
+		{"30 2 * * *", time.Date(2026, 3, 8, 0, 30, 0, 0, ny), time.Date(2026, 3, 9, 2, 30, 0, 0, ny)},
+		// Nor midnight on 6 September in Santiago.
+		{"0 12 * * 1", time.Date(2026, 8, 31, 22, 0, 0, 0, santiago), time.Date(2026, 9, 7, 12, 0, 0, 0, santiago)},
+	} {
+		c, _ := ParseCron(tc.expr)
+		done := make(chan time.Time, 1)
+		go func() { done <- c.Next(tc.from) }()
+		select {
+		case got := <-done:
+			if !got.Equal(tc.want) {
+				t.Errorf("%s from %v: %v, want %v", tc.expr, tc.from, got, tc.want)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("%s from %v: Next never returned", tc.expr, tc.from)
+		}
+	}
+}

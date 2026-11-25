@@ -298,8 +298,8 @@ in so that it is always just text, never part of a command:
   first reaches its limit and, once a start is allowed again, how many were
   refused and between when; the flow list and the editor show **Limit
   reached · N refused in the last hour**; and `POST /v1/runs` or a webhook
-  answers `429`. The count is kept in memory, like the limit's own hour, so a
-  restart of berthd clears both.
+  answers `429`. The count is to the minute and kept in memory, like the
+  limit's own hour, so a restart of berthd clears both.
 - A schedule that fires more often than its limit (an every-minute schedule
   with the default 20, say) still saves and runs, but the editor warns next
   to **At most N runs an hour** how many starts an hour will be refused, and

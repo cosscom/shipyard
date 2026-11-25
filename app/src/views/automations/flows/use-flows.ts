@@ -39,6 +39,15 @@ export function useFlows() {
     for (const b of key.split(",").filter(Boolean)) void load(b);
   }, [key, load]);
 
+  // What the runs-per-hour limit refused comes with no event, and drops out
+  // of its hour: read it again each minute.
+  useEffect(() => {
+    const id = setInterval(() => {
+      for (const b of key.split(",").filter(Boolean)) void load(b);
+    }, 60_000);
+    return () => clearInterval(id);
+  }, [key, load]);
+
   // Another window, a box's CLI, or a flow's run changes what's there.
   const latest = useEventLog((s) => s.events.find((e) => e.type === "flows.changed" || e.type === "config.changed" || e.type === "flow.finished"));
   useEffect(() => {

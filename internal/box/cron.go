@@ -115,17 +115,24 @@ func (c Cron) Next(t time.Time) time.Time {
 	t = t.Truncate(time.Minute).Add(time.Minute)
 	loc := t.Location()
 	for end := t.AddDate(4, 0, 0); t.Before(end); {
+		prev := t
 		switch {
 		case c.month&(1<<uint(t.Month())) == 0:
 			t = time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, loc)
 		case !c.dayMatches(t):
 			t = time.Date(t.Year(), t.Month(), t.Day()+1, 0, 0, 0, 0, loc)
 		case c.hour&(1<<uint(t.Hour())) == 0:
-			t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour()+1, 0, 0, 0, loc)
+			t = t.Add(time.Duration(60-t.Minute()) * time.Minute)
 		case c.min&(1<<uint(t.Minute())) == 0:
 			t = t.Add(time.Minute)
 		default:
 			return t
+		}
+		// time.Date of a time the clock skips (02:00, or in some zones
+		// midnight, when summer time starts) can give back an earlier one;
+		// step past the gap a minute at a time rather than search forever.
+		if !t.After(prev) {
+			t = prev.Add(time.Minute)
 		}
 	}
 	return time.Time{}

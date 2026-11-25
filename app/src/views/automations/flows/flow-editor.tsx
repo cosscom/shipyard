@@ -66,9 +66,14 @@ export function FlowEditor({
   const agents = useStore((s) => s.boxes[where.box]?.info?.agents) ?? NONE;
   const dirty = JSON.stringify(flow) !== JSON.stringify(target.flow) || where.scope !== target.scope || where.box !== target.box;
   // How often the saved schedule fires is the box's count; against the
-  // limit as typed, so changing it shows what it does. A changed schedule
-  // is counted once it is saved.
-  const sameSchedule = flow.trigger.schedule === target.flow.trigger.schedule && !!flow.trigger.each_worktree === !!target.flow.trigger.each_worktree;
+  // limit as typed, so changing it shows what it does. A changed schedule,
+  // or a change to the worktrees it runs in, is counted once it is saved.
+  const sameSchedule =
+    flow.trigger.schedule === target.flow.trigger.schedule &&
+    !!flow.trigger.each_worktree === !!target.flow.trigger.each_worktree &&
+    JSON.stringify(flow.trigger.where ?? {}) === JSON.stringify(target.flow.trigger.where ?? {}) &&
+    where.box === target.box &&
+    where.scope === target.scope;
   const warning = sameSchedule && flow.trigger.schedule && target.rate?.fires_per_hour ? rateWarning(target.rate.fires_per_hour, maxRunsPerHour(flow), flow.trigger.each_worktree) : undefined;
 
   const setStep = (i: number, s: Step) => setFlow((f) => ({ ...f, steps: f.steps.map((x, j) => (j === i ? s : x)) }));
