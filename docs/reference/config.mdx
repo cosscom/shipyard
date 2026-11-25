@@ -70,7 +70,7 @@ plugin's manifest. See [hooks](/guides/hooks).
 | `enabled` | boolean | Default `false`: a flow runs only when it is `true`. |
 | `trigger` | object | Exactly one of `event`, `schedule`, `github` or `webhook`; see below. |
 | `steps` | array | At least one; see below. |
-| `max_runs_per_hour` | number | Default 20 when empty or `0`. |
+| `max_runs_per_hour` | number | Starts in any hour, default 20 when empty or `0`; test runs don't count. A start past it is refused: logged once when the flow reaches it and summed up once starts are allowed again, counted in `GET /v1/flows` as `refused_last_hour` and `last_refused_at` (in memory, cleared by a restart), and answered `429` by `POST /v1/runs` and webhooks. A schedule that fires more often still loads; `GET /v1/flows` gives its `fires_per_hour` and a `warning`, and berthd logs it. With `each_worktree` the worktrees share the one limit. |
 | `queue` | number | Triggers that may wait behind the flow's run in the same worktree (default 5, at most 50); past it, a trigger is refused and a GitHub item tried again on the next look. |
 | `coalesce` | boolean | New GitHub items merge into the run already waiting, as `{{event.items}}`, instead of queueing their own. |
 

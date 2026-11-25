@@ -131,6 +131,27 @@ func (c Cron) Next(t time.Time) time.Time {
 	return time.Time{}
 }
 
+// FiresPerHour is how many times the schedule fires in its busiest hour
+// from t on, a rolling hour as a flow's runs-per-hour limit counts it: 0 if
+// it never fires again. The minute field is the same in every hour it
+// fires, and any 60 minutes in a row take each minute of the hour once, so
+// the busiest hour is one of its hours counted through: the first, from
+// Next.
+func (c Cron) FiresPerHour(t time.Time) int {
+	first := c.Next(t)
+	if first.IsZero() {
+		return 0
+	}
+	// The local hour (Truncate would cut half-hour zones at UTC's).
+	hour := time.Date(first.Year(), first.Month(), first.Day(), first.Hour(), 0, 0, 0, first.Location())
+	n := 0
+	for at := hour.Add(-time.Minute); ; n++ {
+		if at = c.Next(at); at.IsZero() || !at.Before(hour.Add(time.Hour)) {
+			return n
+		}
+	}
+}
+
 // dayMatches applies cron's rule for the two day fields: when both are
 // restricted, either may match.
 func (c Cron) dayMatches(t time.Time) bool {

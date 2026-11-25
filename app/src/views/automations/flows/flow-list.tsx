@@ -11,6 +11,7 @@ import { ago } from "@/lib/format";
 import type { Project } from "@/lib/project-groups";
 import { cn } from "@/lib/utils";
 import { STARTERS, type Starter, summary, kindMeta } from "@/views/automations/flows/model";
+import { LimitBadge } from "@/views/automations/flows/limit-badge";
 import { ProjectLabel } from "@/views/automations/flows/project-label";
 import { RunStatus } from "@/views/automations/flows/run-status";
 import type { BoxFlows } from "@/views/automations/flows/use-flows";
@@ -225,6 +226,7 @@ function FlowRow({ f, run, onEdit, onToggle, overridden }: { f: ScopedFlow; run?
             </Tip>
           )}
           {overridden && <span className="shrink-0 rounded-md border border-ring/30 px-1.5 py-px text-tag text-muted-foreground">Overridden here</span>}
+          <LimitBadge refused={f.refused_last_hour} last={f.last_refused_at} />
         </div>
         <p className="mt-0.5 truncate text-desc text-muted-foreground">{summary(flow)}</p>
       </div>

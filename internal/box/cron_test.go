@@ -40,3 +40,33 @@ func TestCronParsesAndFindsTheNextRun(t *testing.T) {
 		}
 	}
 }
+
+func TestCronCountsItsBusiestHour(t *testing.T) {
+	from := time.Date(2026, 11, 24, 10, 17, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		expr string
+		want int
+	}{
+		{"* * * * *", 60},
+		{"*/5 * * * *", 12},
+		{"0 9 * * 1-5", 1},
+		{"@hourly", 1},
+		{"@daily", 1},
+		{"0,30 9-17 * * *", 2},
+		{"*/15 2 * * 0", 4},
+		{"0 0 30 2 *", 0},
+	} {
+		c, err := ParseCron(tc.expr)
+		if err != nil {
+			t.Fatalf("%s: %v", tc.expr, err)
+		}
+		if got := c.FiresPerHour(from); got != tc.want {
+			t.Errorf("%s fires %d times in its busiest hour, want %d", tc.expr, got, tc.want)
+		}
+	}
+	// A zone half an hour off UTC still counts its own hours.
+	india := time.FixedZone("IST", 5*3600+1800)
+	if c, _ := ParseCron("*/10 9 * * *"); c.FiresPerHour(from.In(india)) != 6 {
+		t.Errorf("*/10 9 in IST = %d, want 6", c.FiresPerHour(from.In(india)))
+	}
+}

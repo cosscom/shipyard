@@ -68,6 +68,47 @@ func TestScheduledFlowsRunPerWorktreeOrAtTheRepoOnce(t *testing.T) {
 	}
 }
 
+func TestAScheduledStartTheLimitRefusesIsCountedAndLogged(t *testing.T) {
+	ctx := context.Background()
+	at := time.Date(2026, 11, 24, 10, 0, 0, 0, time.Local)
+	clock, logs := &testClock{t: at}, &testLog{}
+	b, _, _ := flowBox(t, []Flow{{
+		ID: "every-minute", Name: "Every minute", Enabled: true, MaxRunsPerHour: 2,
+		Trigger: Trigger{Schedule: "* * * * *"},
+		Steps:   []Step{{Kind: "run", Command: "true"}},
+	}}, clocked(clock, logs))
+	started := 0
+	for i := range 4 {
+		started += b.fireScheduled(ctx, at.Add(time.Duration(i)*time.Minute))
+		clock.add(time.Minute)
+	}
+	if started != 2 {
+		t.Fatalf("started %d of 4, want the limit of 2", started)
+	}
+	waitRuns(t, b, "every-minute", 2)
+	if n, last := b.Flows.refusals("repo:cal/every-minute"); n != 2 || !last.Equal(at.Add(3*time.Minute)) {
+		t.Fatalf("refused %d, last at %v", n, last)
+	}
+	if got := logs.with("reached its limit"); len(got) != 1 || !strings.Contains(got[0], "(first from cron)") {
+		t.Fatalf("limit lines = %q", got)
+	}
+	// Loading the flows said, once, that this schedule can't fit.
+	if got := logs.with("fires up to 60 times an hour; the limit is 2, so about 58"); len(got) != 1 {
+		t.Fatalf("rate warnings = %q", got)
+	}
+	clock.add(time.Hour)
+	if n := b.fireScheduled(ctx, at.Add(65*time.Minute)); n != 1 {
+		t.Fatalf("an hour on, started %d", n)
+	}
+	if got := logs.with("2 starts refused 10:02–10:03"); len(got) != 1 {
+		t.Fatalf("summary lines = %q (all: %q)", got, logs.with("flows:"))
+	}
+	settleRuns(b)
+	if runs := b.Flows.Runs("every-minute", 10); len(runs) != 3 {
+		t.Fatalf("%d runs, want 3", len(runs))
+	}
+}
+
 // fakeGH puts a gh on PATH that serves canned JSON from dir/pr.json and
 // dir/lines.json.
 func fakeGH(t *testing.T) string {

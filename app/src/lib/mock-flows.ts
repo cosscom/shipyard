@@ -2,7 +2,7 @@ import { mockTerminalService, mockWorktreePath } from "@/lib/mock-services";
 import type { BerthEvent } from "@/lib/api";
 import type { Flow, FlowRun, LocationConfig, RepoConfig, ScopedFlow, ServiceStatus, Step, StepKind, StepRun } from "@/lib/flows";
 import type { GuardStatus } from "@/components/guard-dialog";
-import { triggerType } from "@/lib/flows";
+import { maxRunsPerHour, rateWarning, triggerType } from "@/lib/flows";
 import { mergeConfig } from "@/lib/kits";
 import { kitOn } from "@/lib/mock-kits";
 
@@ -81,9 +81,40 @@ const boxFlows: Record<string, Flow[]> = {
       trigger: { event: "agent.finished", where: { agent: "claude", branch: "me/*" } },
       steps: [{ kind: "start_agent", agent: "codex", text: "Review the uncommitted changes in {{worktree.path}}. Don't edit; list bugs and risks." }],
     },
+    {
+      // Fires 60 times an hour with the default limit of 20: the limit
+      // refuses the rest, and the list and editor say so.
+      id: "every-minute",
+      name: "Sweep stale previews every minute",
+      enabled: true,
+      trigger: { schedule: "* * * * *" },
+      steps: [{ kind: "run", command: "./scripts/sweep-previews.sh" }],
+    },
   ],
   gpu: [],
 };
+
+// What the box's limit refused in the last hour, by box/scope/flow, as
+// GET flows says it.
+const refused: Record<string, { n: number; last: string }> = { "devl/box/every-minute": { n: 7, last: minutesAgo(1) } };
+
+// firesPerHour is a schedule's starts in its busiest hour, enough like the
+// box's Cron.FiresPerHour for mock flows: the minute field's values.
+function firesPerHour(schedule?: string): number | undefined {
+  if (!schedule) return undefined;
+  const minute = schedule.startsWith("@") ? "0" : schedule.trim().split(/\s+/)[0];
+  const step = minute.match(/^\*\/(\d+)$/);
+  return minute === "*" ? 60 : step ? Math.ceil(60 / Number(step[1])) : minute.split(",").length;
+}
+
+// withRate adds what the box says of a flow's limit.
+function withRate(box: string, f: ScopedFlow): ScopedFlow {
+  if (f.overridden) return f;
+  const r = refused[`${box}/${f.scope}/${f.flow.id}`];
+  const fires = firesPerHour(f.flow.trigger.schedule);
+  const limit = maxRunsPerHour(f.flow);
+  return { ...f, ...(r && { refused_last_hour: r.n, last_refused_at: r.last }), ...(fires && { fires_per_hour: fires, warning: rateWarning(fires, limit) }) };
+}
 
 const runs: Record<string, FlowRun[]> = {
   devl: [
@@ -160,7 +191,7 @@ function listFlows(box: string): ScopedFlow[] {
     for (const [source, flows] of layers) for (const flow of flows ?? []) out.push({ scope, source, editable: source === "local", flow });
   }
   // Like the box: a more local layer's flow replaces one below it by id.
-  return out.map((f) => (out.some((o, j) => j > out.indexOf(f) && o.scope === f.scope && o.flow.id === f.flow.id) ? { ...f, overridden: true } : f));
+  return out.map((f) => (out.some((o, j) => j > out.indexOf(f) && o.scope === f.scope && o.flow.id === f.flow.id) ? { ...f, overridden: true } : f)).map((f) => withRate(box, f));
 }
 
 function validate(flows: Flow[]): string | undefined {

@@ -253,14 +253,18 @@ type Flows struct {
 	// AllowOutbound adds to the outbound allowlist in network.json beside
 	// Path (see netguard.go); tests use it for their local servers.
 	AllowOutbound []string
+	// Logf is berthd's log: a flow reaching its runs-per-hour limit, and a
+	// schedule that fires more often than its limit allows, are said there.
+	Logf func(format string, args ...any)
 
 	mu        sync.Mutex
 	box       *Box
-	recent    map[string][]time.Time // flow scope/id → start times this hour
-	lastFired map[string]time.Time   // scheduled flow → minute it last fired
-	lastPoll  map[string]time.Time   // GitHub flow → when it last looked
-	cursor    map[string]int         // GitHub flow → the target its next look starts at
-	gh        map[string]*ghState    // GitHub flow + PR → what it has seen
+	rate      map[string]*flowRate // flow scope/id → its starts and refusals this hour
+	warned    map[string]string    // scheduled flow → the schedule and limit its rate was last checked for
+	lastFired map[string]time.Time // scheduled flow → minute it last fired
+	lastPoll  map[string]time.Time // GitHub flow → when it last looked
+	cursor    map[string]int       // GitHub flow → the target its next look starts at
+	gh        map[string]*ghState  // GitHub flow + PR → what it has seen
 }
 
 // ScopedFlow is a flow with where it comes from.
@@ -274,6 +278,18 @@ type ScopedFlow struct {
 	// the same id. It is listed so the app can show it, but never runs.
 	Overridden bool `json:"overridden,omitempty"`
 	Flow       Flow `json:"flow"`
+
+	// RefusedLastHour is how many starts the runs-per-hour limit refused in
+	// the last hour, the limit's own window; LastRefusedAt is the latest.
+	// Both are kept in memory, like the window, so a restart clears them.
+	RefusedLastHour int       `json:"refused_last_hour,omitempty"`
+	LastRefusedAt   time.Time `json:"last_refused_at,omitzero"`
+	// FiresPerHour is, for a scheduled flow, how often its schedule fires in
+	// its busiest hour: times its worktrees for each_worktree, which share
+	// the one limit. Warning says so when that is over the limit. Neither
+	// stops the flow from saving or running.
+	FiresPerHour int    `json:"fires_per_hour,omitempty"`
+	Warning      string `json:"warning,omitempty"`
 
 	// autofix is a worktree's "Auto-fix this PR" toggle acting as a flow:
 	// the template it starts, for that worktree only.
@@ -407,7 +423,7 @@ func (f *Flows) Run(ctx context.Context, b *Box) {
 		}
 		for _, sf := range cached {
 			if sf.Flow.Enabled && b.flowMatches(ctx, sf, e) {
-				if _, err := b.startFlowRun(ctx, sf, e, flowStart{}); err != nil && b.Runs != nil {
+				if _, err := b.startFlowRun(ctx, sf, e, flowStart{via: "event"}); err != nil && b.Runs != nil {
 					b.Runs.Host.Publish("flow.skipped", map[string]any{"flow": sf.Flow.ID, "scope": sf.Scope, "error": err.Error(), "run": ""})
 				}
 			}
@@ -541,36 +557,11 @@ func (b *Box) flowMatches(ctx context.Context, sf ScopedFlow, e events.Event) bo
 	return true
 }
 
-// errRateLimited refuses a run past its flow's hourly limit.
-var errRateLimited = errors.New("the flow reached its runs-per-hour limit")
-
-// allowRate counts a start against a flow's hourly limit.
-func (f *Flows) allowRate(key string, limit int) bool {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if f.recent == nil {
-		f.recent = map[string][]time.Time{}
-	}
-	if limit <= 0 {
-		limit = DefaultMaxRunsPerHour
-	}
-	cut := time.Now().Add(-time.Hour)
-	kept := f.recent[key][:0]
-	for _, t := range f.recent[key] {
-		if t.After(cut) {
-			kept = append(kept, t)
-		}
-	}
-	if len(kept) >= limit {
-		f.recent[key] = kept
-		return false
-	}
-	f.recent[key] = append(kept, time.Now())
-	return true
-}
-
 // flowStart says how a flow's run is admitted.
 type flowStart struct {
+	// via is what started it, for the log: event, cron, github, webhook or
+	// api.
+	via  string
 	test bool
 	// idem dedupes a trigger delivered twice (github:<flow>:<pr>:<item>).
 	idem string
@@ -595,8 +586,12 @@ func (b *Box) startFlowRun(ctx context.Context, sf ScopedFlow, e events.Event, o
 			}
 		}
 	}
-	if !opt.test && !b.Flows.allowRate(key, sf.Flow.MaxRunsPerHour) {
-		return runs.Summary{}, errRateLimited
+	var slot time.Time
+	if !opt.test {
+		var ok bool
+		if slot, ok = b.Flows.allowRate(key, maxRunsPerHour(sf.Flow), opt.via); !ok {
+			return runs.Summary{}, errRateLimited
+		}
 	}
 	if e.Time.IsZero() {
 		e.Time = time.Now()
@@ -624,6 +619,10 @@ func (b *Box) startFlowRun(ctx context.Context, sf ScopedFlow, e events.Event, o
 		req.Key = key + "@" + wt.Path
 	}
 	s, _, err := eng.Start(req)
+	if err != nil && !slot.IsZero() {
+		// Not started (a full queue, most often): it doesn't count.
+		b.Flows.releaseRate(key, slot)
+	}
 	return s, err
 }
 
@@ -814,6 +813,16 @@ func (b *Box) listFlows(w http.ResponseWriter, r *http.Request) error {
 	all, err := b.AllFlows(r.Context())
 	if err != nil {
 		return err
+	}
+	for i, sf := range all {
+		if sf.Overridden {
+			continue
+		}
+		key := sf.Scope + "/" + sf.Flow.ID
+		all[i].RefusedLastHour, all[i].LastRefusedAt = b.Flows.refusals(key)
+		if rc := b.flowRateCheck(r.Context(), sf); rc.fires > 0 {
+			all[i].FiresPerHour, all[i].Warning = rc.fires, rc.warning()
+		}
 	}
 	writeJSON(w, all)
 	return nil

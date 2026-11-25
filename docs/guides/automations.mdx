@@ -36,7 +36,9 @@ editor:
   agent and branch.
 - **Steps**: added from **Add a step**, each running **On success**, **On
   failure** or **Always**. Text fields offer the variables that fit.
-- **At most N runs an hour**: empty means the box's default, 20.
+- **At most N runs an hour**: empty means the box's default, 20. A schedule
+  that fires more often than that is warned about here (see
+  [Safety](#safety)).
 - **Test run**: runs the saved flow now, for real, in a worktree you pick, and
   shows each step's result and output.
 
@@ -289,9 +291,20 @@ in so that it is always just text, never part of a command:
   it runs: the new trigger waits for it (at most `queue`, default 5), or,
   with `coalesce: true`, its GitHub item merges into the run already
   waiting.
-- Each flow runs at most `max_runs_per_hour` times (default 20); test runs
-  count too. A flow that prompts the agent whose finishing started it would
-  otherwise run forever.
+- Each flow starts at most `max_runs_per_hour` times in any hour (default
+  20); test runs don't count. A flow that prompts the agent whose finishing
+  started it would otherwise run forever. A start past the limit is refused
+  whatever triggered it, and leaves a trace: berthd's log says when the flow
+  first reaches its limit and, once a start is allowed again, how many were
+  refused and between when; the flow list and the editor show **Limit
+  reached · N refused in the last hour**; and `POST /v1/runs` or a webhook
+  answers `429`. The count is kept in memory, like the limit's own hour, so a
+  restart of berthd clears both.
+- A schedule that fires more often than its limit (an every-minute schedule
+  with the default 20, say) still saves and runs, but the editor warns next
+  to **At most N runs an hour** how many starts an hour will be refused, and
+  berthd logs it when it loads the flow. With `each_worktree`, all the
+  worktrees share the one limit, so the warning counts them all.
 - Events a flow causes carry `origin: "flow:<id>"`, and `flow.started` and
   `flow.finished` never start flows.
 - Webhooks only reach public addresses (below).

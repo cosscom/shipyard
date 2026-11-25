@@ -84,6 +84,32 @@ export interface ScopedFlow {
   // A more local layer has a flow with this id, and only that one runs.
   overridden?: boolean;
   flow: Flow;
+  // Starts the runs-per-hour limit refused in the last hour (its own
+  // window), and the latest one. The box keeps them in memory: a restart
+  // clears them.
+  refused_last_hour?: number;
+  last_refused_at?: string;
+  // A scheduled flow's starts in its busiest hour (times its worktrees for
+  // each_worktree, which share the limit), and the box's warning when that
+  // is over the limit. Older boxes send neither.
+  fires_per_hour?: number;
+  warning?: string;
+}
+
+// maxRunsPerHour is a flow's limit, its own or the default.
+export const maxRunsPerHour = (f: Flow) => (f.max_runs_per_hour && f.max_runs_per_hour > 0 ? f.max_runs_per_hour : DEFAULT_MAX_RUNS_PER_HOUR);
+
+// refusedLabel is the badge a flow shows while its limit refuses starts.
+export const refusedLabel = (n: number) => `Limit reached · ${n} refused in the last hour`;
+
+// rateWarning says how many starts an hour a schedule's limit will refuse,
+// in the box's words (rateCheck.warning in internal/box/flowrate.go, which
+// also names how many worktrees share it), or
+// nothing when it fits.
+export function rateWarning(fires: number, limit: number, eachWorktree?: boolean): string | undefined {
+  if (fires <= limit) return undefined;
+  const share = eachWorktree ? " across its worktrees, which share the limit" : "";
+  return `This schedule fires up to ${fires} times an hour${share}; the limit is ${limit}, so about ${fires - limit} starts an hour will be refused.`;
 }
 
 const layer: Record<FlowSource, number> = { box: 0, repo: 0, kit: 1, local: 2 };

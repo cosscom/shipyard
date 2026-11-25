@@ -42,7 +42,8 @@ export function AutomationsView() {
 
   const lastRun = (box: string, scope: string, id: string) => lastRunOn(box, scope, id);
 
-  const open = (box: string, f: ScopedFlow) => setEditing({ box, scope: f.scope, flow: f.flow, savedId: f.flow.id, readOnly: !f.editable, source: f.source });
+  const open = (box: string, f: ScopedFlow) =>
+    setEditing({ box, scope: f.scope, flow: f.flow, savedId: f.flow.id, readOnly: !f.editable, source: f.source, rate: { refused_last_hour: f.refused_last_hour, last_refused_at: f.last_refused_at, fires_per_hour: f.fires_per_hour } });
   const create = (box: string, scope: Scope, starter?: Starter) => setEditing({ box, scope, flow: structuredClone(starter?.flow ?? blankFlow()) });
   // A new flow starts on the project open in the sidebar; "Runs for" in the
   // editor changes it.

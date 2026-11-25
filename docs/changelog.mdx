@@ -10,6 +10,15 @@ upgrades with `berth upgrade BOX`, or by running the
 again.
 
 ## Unreleased
+- **A flow held back by its hourly limit says so.** When a flow reaches
+  its runs-per-hour limit, berthd's log says so once, and again with how
+  many starts it refused once one is allowed. The flow list and the editor
+  show "Limit reached" with how many were refused in the last hour, and an
+  API or webhook start answers 429 (it was 400 through `POST /v1/runs`). A
+  schedule that fires more often than its limit, such as every minute with
+  the default of 20, is warned about next to the limit, without stopping it.
+  A start refused because the queue was full no longer uses up one of the
+  hour's runs.
 - **Quiet projects are grayed out.** On the rail and in the two-column
   sidebar, a project with no agent or shell open in it is grayed out, so
   the ones you're using stand out. Switching to one of those opens New

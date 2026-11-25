@@ -400,6 +400,7 @@ func serve(b boxHome, args []string) error {
 	if n := bx.SettleAgentStates(); n > 0 {
 		logger.Printf("settled %d agent states left from before berthd started", n)
 	}
+	bx.Flows.Logf = logger.Printf
 	bx.Helpers = &box.Helpers{Dir: filepath.Join(b.dir, "helpers"), Box: hostname, Logf: logger.Printf}
 	// Terminals' tmux clients end and are waited for before the exec: the
 	// new build couldn't wait for them (the sessions keep running).

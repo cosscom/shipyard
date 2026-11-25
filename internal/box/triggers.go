@@ -199,7 +199,7 @@ func (b *Box) handleTrigger(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	e := events.Event{Type: "webhook.received", Box: b.Name, Origin: "webhook", Time: time.Now(), Data: data}
-	s, err := b.startFlowRun(r.Context(), sf, e, flowStart{idem: idem})
+	s, err := b.startFlowRun(r.Context(), sf, e, flowStart{via: "webhook", idem: idem})
 	if err != nil {
 		fail(http.StatusTooManyRequests, err.Error())
 		return

@@ -3,6 +3,7 @@ package box
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -75,12 +76,15 @@ func (b *Box) flowTargets(ctx context.Context, sf ScopedFlow, withMain bool) []s
 	return out
 }
 
-// fireScheduled starts the scheduled flows due in minute t.
+// fireScheduled starts the scheduled flows due in minute t, and returns
+// how many runs it started. A start refused is logged: a flow over its
+// runs-per-hour limit once per streak (allowRate), anything else each time.
 func (b *Box) fireScheduled(ctx context.Context, t time.Time) int {
 	all, err := b.ActiveFlows(ctx)
 	if err != nil {
 		return 0
 	}
+	b.warnRates(ctx, all)
 	t = t.Truncate(time.Minute)
 	fired := 0
 	for _, sf := range all {
@@ -116,8 +120,13 @@ func (b *Box) fireScheduled(ctx context.Context, t time.Time) int {
 			for k, v := range base {
 				data[k] = v
 			}
-			fired++
-			b.startFlowRun(context.WithoutCancel(ctx), sf, events.Event{Type: "schedule.fired", Box: b.Name, Origin: "schedule", Time: t, Data: data}, flowStart{idem: fmt.Sprintf("schedule:%s/%s:%s:%v", sf.Scope, sf.Flow.ID, t.Format(time.RFC3339), data["path"])})
+			_, err := b.startFlowRun(context.WithoutCancel(ctx), sf, events.Event{Type: "schedule.fired", Box: b.Name, Origin: "schedule", Time: t, Data: data}, flowStart{via: "cron", idem: fmt.Sprintf("schedule:%s/%s:%s:%v", sf.Scope, sf.Flow.ID, t.Format(time.RFC3339), data["path"])})
+			switch {
+			case err == nil:
+				fired++
+			case !errors.Is(err, errRateLimited):
+				b.Flows.logf("flows: %s/%s: the %s start was refused: %v", sf.Scope, sf.Flow.ID, t.Format("15:04"), err)
+			}
 		}
 	}
 	return fired
@@ -413,7 +422,7 @@ func (b *Box) admitGitHub(ctx context.Context, sf ScopedFlow, e events.Event, id
 	if sf.autofix != nil && !b.autofixAllowed(sf) {
 		return false, true
 	}
-	_, err := b.startFlowRun(ctx, sf, e, flowStart{idem: idem, item: item})
+	_, err := b.startFlowRun(ctx, sf, e, flowStart{via: "github", idem: idem, item: item})
 	return err == nil, err == nil
 }
 

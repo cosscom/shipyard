@@ -3,12 +3,14 @@ package box
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -38,7 +40,8 @@ func TestFlowsAreValidated(t *testing.T) {
 
 // flowBox is a box with one repository, a stand-in agent session in a
 // worktree of it, and flows running.
-func flowBox(t *testing.T, flows []Flow) (*Box, Session, Worktree) {
+// Each opt changes the box before its flows start.
+func flowBox(t *testing.T, flows []Flow, opts ...func(*Box)) (*Box, Session, Worktree) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -60,6 +63,9 @@ func flowBox(t *testing.T, flows []Flow) (*Box, Session, Worktree) {
 		t.Fatal(err)
 	}
 	b.Turns.Attach(b.Events)
+	for _, o := range opts {
+		o(b)
+	}
 	go b.Flows.Run(ctx, b)
 	// Runs finish in the background, saving their records into the temp
 	// dirs; let them settle before those dirs are removed (cleanups run
@@ -271,5 +277,185 @@ func TestADisabledOverrideStopsTheFlowItReplaces(t *testing.T) {
 		if runs := b.Flows.Runs(id, 10); len(runs) != 0 {
 			t.Errorf("%s ran %d times though this box switched it off", id, len(runs))
 		}
+	}
+}
+
+// testClock is a clock for Flows.Now that a test moves on.
+type testClock struct {
+	mu sync.Mutex
+	t  time.Time
+}
+
+func (c *testClock) now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.t
+}
+
+func (c *testClock) add(d time.Duration) {
+	c.mu.Lock()
+	c.t = c.t.Add(d)
+	c.mu.Unlock()
+}
+
+// testLog keeps what Flows.Logf is given.
+type testLog struct {
+	mu    sync.Mutex
+	lines []string
+}
+
+func (l *testLog) logf(format string, args ...any) {
+	l.mu.Lock()
+	l.lines = append(l.lines, fmt.Sprintf(format, args...))
+	l.mu.Unlock()
+}
+
+// with is the lines that contain s.
+func (l *testLog) with(s string) []string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	var out []string
+	for _, line := range l.lines {
+		if strings.Contains(line, s) {
+			out = append(out, line)
+		}
+	}
+	return out
+}
+
+// clocked gives a flow box the test clock and log.
+func clocked(c *testClock, l *testLog) func(*Box) {
+	return func(b *Box) { b.Flows.Now, b.Flows.Logf = c.now, l.logf }
+}
+
+func waitRuns(t *testing.T, b *Box, flow string, n int) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for len(b.Flows.Runs(flow, 50)) < n {
+		if time.Now().After(deadline) {
+			t.Fatalf("%d runs of %s, want %d", len(b.Flows.Runs(flow, 50)), flow, n)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+func TestAStartTheLimitRefusesIsCountedAndLoggedOncePerStreak(t *testing.T) {
+	clock, logs := &testClock{t: time.Date(2026, 11, 24, 10, 0, 0, 0, time.Local)}, &testLog{}
+	b, _, wt := flowBox(t, []Flow{{
+		ID: "count", Name: "Count", Enabled: true, MaxRunsPerHour: 2,
+		Trigger: Trigger{Event: "worktree.changed"},
+		Steps:   []Step{{Kind: "run", Command: "true"}},
+	}}, clocked(clock, logs))
+	for range 4 {
+		b.Events.Publish(events.Event{Type: "worktree.changed", Data: map[string]any{"path": wt.Path}})
+		time.Sleep(300 * time.Millisecond)
+		clock.add(time.Minute)
+	}
+	settleRuns(b)
+	if runs := b.Flows.Runs("count", 10); len(runs) != 2 {
+		t.Fatalf("%d runs, want the hourly limit of 2", len(runs))
+	}
+	n, last := b.Flows.refusals("repo:cal/count")
+	if n != 2 || !last.Equal(time.Date(2026, 11, 24, 10, 3, 0, 0, time.Local)) {
+		t.Fatalf("refused %d, last at %v; want 2, the last at 10:03", n, last)
+	}
+	reached := logs.with("reached its limit")
+	if len(reached) != 1 || !strings.Contains(reached[0], "repo:cal/count") || !strings.Contains(reached[0], "limit of 2 runs an hour") || !strings.Contains(reached[0], "event") {
+		t.Fatalf("limit lines = %q", reached)
+	}
+	if got := logs.with("refused 10:"); len(got) != 0 {
+		t.Fatalf("summed up while still refusing: %q", got)
+	}
+
+	// An hour on, the window has room again: the start is allowed, and the
+	// streak it ends is summed up in one line.
+	clock.add(time.Hour)
+	b.Events.Publish(events.Event{Type: "worktree.changed", Data: map[string]any{"path": wt.Path}})
+	waitRuns(t, b, "count", 3)
+	if got := logs.with("starts refused"); len(got) != 1 || !strings.Contains(got[0], "repo:cal/count: 2 starts refused 10:02–10:03") {
+		t.Fatalf("summary lines = %q", got)
+	}
+	if n, _ := b.Flows.refusals("repo:cal/count"); n != 0 {
+		t.Fatalf("%d refusals in the last hour, an hour after the last", n)
+	}
+}
+
+func TestTheFlowListSaysWhatTheLimitRefusedAndWarnsOfASchedule(t *testing.T) {
+	ctx := context.Background()
+	b, _, _ := flowBox(t, []Flow{
+		{ID: "every-minute", Name: "Every minute", Trigger: Trigger{Schedule: "* * * * *"}, Steps: []Step{{Kind: "run", Command: "true"}}},
+		{ID: "five", Name: "Every five", Trigger: Trigger{Schedule: "*/5 * * * *"}, Steps: []Step{{Kind: "run", Command: "true"}}},
+		{ID: "each", Name: "Each worktree", Trigger: Trigger{Schedule: "*/5 * * * *", EachWorktree: true}, Steps: []Step{{Kind: "run", Command: "true"}}},
+		{ID: "event", Name: "Event", MaxRunsPerHour: 1, Trigger: Trigger{Event: "agent.finished"}, Steps: []Step{{Kind: "run", Command: "true"}}},
+	})
+	b.Locations.CreateWorktree(ctx, "cal", "two", "", "")
+	b.Locations.CreateWorktree(ctx, "cal", "three", "", "")
+	b.Flows.allowRate("repo:cal/event", 1, "api")
+	b.Flows.allowRate("repo:cal/event", 1, "api")
+
+	rec := httptest.NewRecorder()
+	if err := b.listFlows(rec, httptest.NewRequest("GET", "/v1/flows", nil)); err != nil {
+		t.Fatal(err)
+	}
+	var got []ScopedFlow
+	json.Unmarshal(rec.Body.Bytes(), &got)
+	by := map[string]ScopedFlow{}
+	for _, sf := range got {
+		by[sf.Flow.ID] = sf
+	}
+	if f := by["every-minute"]; f.FiresPerHour != 60 || f.Warning != "This schedule fires up to 60 times an hour; the limit is 20, so about 40 starts an hour will be refused." {
+		t.Errorf("every minute: %d %q", f.FiresPerHour, f.Warning)
+	}
+	if f := by["five"]; f.FiresPerHour != 12 || f.Warning != "" {
+		t.Errorf("every five minutes: %d %q", f.FiresPerHour, f.Warning)
+	}
+	// Three worktrees, one limit.
+	if f := by["each"]; f.FiresPerHour != 36 || !strings.Contains(f.Warning, "up to 36 times an hour across 3 worktrees") {
+		t.Errorf("each worktree: %d %q", f.FiresPerHour, f.Warning)
+	}
+	if f := by["event"]; f.RefusedLastHour != 1 || f.LastRefusedAt.IsZero() || f.FiresPerHour != 0 || f.Warning != "" {
+		t.Errorf("event flow: %+v", f)
+	}
+	if !strings.Contains(rec.Body.String(), `"refused_last_hour":1`) || !strings.Contains(rec.Body.String(), `"last_refused_at":`) {
+		t.Errorf("GET /v1/flows = %s", rec.Body.String())
+	}
+}
+
+func TestARateLimitedRunIs429AndAFullQueueKeepsItsSlot(t *testing.T) {
+	b, do := runsBox(t)
+	steps := []Step{{Kind: "run", Command: "sleep 30"}}
+	if st := do("PUT", "/v1/flows", map[string]any{"flows": []Flow{
+		{ID: "once", Name: "Once", MaxRunsPerHour: 1, Trigger: Trigger{Event: "agent.finished"}, Steps: []Step{{Kind: "run", Command: "true"}}},
+		{ID: "queued", Name: "Queued", MaxRunsPerHour: 3, Queue: 1, Trigger: Trigger{Event: "agent.finished"}, Steps: steps},
+	}}, nil); st != 200 {
+		t.Fatalf("PUT /v1/flows: %d", st)
+	}
+	var s runs.Summary
+	if st := do("POST", "/v1/runs", RunRequest{FlowID: "once"}, &s); st != 202 {
+		t.Fatalf("first start: %d", st)
+	}
+	var e struct {
+		Error string `json:"error"`
+	}
+	if st := do("POST", "/v1/runs", RunRequest{FlowID: "once"}, &e); st != 429 {
+		t.Fatalf("a start past the limit: %d %q, want 429", st, e.Error)
+	}
+
+	// One runs, one waits, and the third finds the queue full: that one
+	// takes none of the three starts an hour.
+	var first, second runs.Summary
+	do("POST", "/v1/runs", RunRequest{FlowID: "queued"}, &first)
+	do("POST", "/v1/runs", RunRequest{FlowID: "queued"}, &second)
+	if st := do("POST", "/v1/runs", RunRequest{FlowID: "queued"}, nil); st != 409 {
+		t.Fatalf("a start with the queue full: %d, want 409", st)
+	}
+	b.Runs.Cancel(first.ID)
+	waitRunStatus(t, b, second.ID, runs.Running)
+	var fourth runs.Summary
+	if st := do("POST", "/v1/runs", RunRequest{FlowID: "queued"}, &fourth); st != 202 {
+		t.Fatalf("a start once the queue has room: %d, want 202 (the full queue used a slot)", st)
+	}
+	for _, id := range []string{second.ID, fourth.ID} {
+		b.Runs.Cancel(id)
 	}
 }

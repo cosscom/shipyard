@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, ChevronsUpDownIcon, ClockIcon, GitPullRequestIcon, FlaskConicalIcon, LayersIcon, LockIcon, PlusIcon, ServerIcon, Trash2Icon, ZapIcon } from "lucide-react";
+import { ArrowLeftIcon, ChevronsUpDownIcon, ClockIcon, GitPullRequestIcon, FlaskConicalIcon, LayersIcon, LockIcon, PlusIcon, ServerIcon, Trash2Icon, AlertTriangleIcon, ZapIcon } from "lucide-react";
 
 import { confirm } from "@/components/sidebar/confirm";
 import { Fragment, useMemo, useState } from "react";
@@ -11,11 +11,12 @@ import { Input } from "@/components/ui/input";
 import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { Switch } from "@/components/ui/switch";
 import { sortedWorktrees } from "@/lib/derive";
-import { DEFAULT_MAX_RUNS_PER_HOUR, type Flow, type FlowRun, type FlowSource, flowsApi, type GitHubOn, type Scope, type Step, type StepKind, scopeLocation, slug, type TriggerKind, triggerKind, triggerType } from "@/lib/flows";
+import { DEFAULT_MAX_RUNS_PER_HOUR, type Flow, type FlowRun, type FlowSource, flowsApi, type GitHubOn, maxRunsPerHour, rateWarning, type Scope, type ScopedFlow, type Step, type StepKind, scopeLocation, slug, type TriggerKind, triggerKind, triggerType } from "@/lib/flows";
 import { plainError } from "@/lib/errors";
 import { NONE, useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { isEditableKind, blankStep, describeCron, GITHUB_ONS, KIND_ORDER, SCHEDULE_PRESETS, STEP_KINDS, summary, TRIGGERS, variablesAt } from "@/views/automations/flows/model";
+import { LimitBadge } from "@/views/automations/flows/limit-badge";
 import { ProjectLabel, savedWhere } from "@/views/automations/flows/project-label";
 import { StepCard } from "@/views/automations/flows/step-card";
 import { ErrorText } from "@/components/error-note";
@@ -30,6 +31,8 @@ export interface EditTarget {
   // Where it comes from; a read-only flow is committed ("repo") or the
   // project's kit's ("kit").
   source?: FlowSource;
+  // What the box last said of the saved flow's limit (GET flows).
+  rate?: Pick<ScopedFlow, "refused_last_hour" | "last_refused_at" | "fires_per_hour">;
 }
 
 // FlowEditor is a flow as a vertical canvas: the trigger, then each step
@@ -62,6 +65,11 @@ export function FlowEditor({
   const isNew = !target.savedId;
   const agents = useStore((s) => s.boxes[where.box]?.info?.agents) ?? NONE;
   const dirty = JSON.stringify(flow) !== JSON.stringify(target.flow) || where.scope !== target.scope || where.box !== target.box;
+  // How often the saved schedule fires is the box's count; against the
+  // limit as typed, so changing it shows what it does. A changed schedule
+  // is counted once it is saved.
+  const sameSchedule = flow.trigger.schedule === target.flow.trigger.schedule && !!flow.trigger.each_worktree === !!target.flow.trigger.each_worktree;
+  const warning = sameSchedule && flow.trigger.schedule && target.rate?.fires_per_hour ? rateWarning(target.rate.fires_per_hour, maxRunsPerHour(flow), flow.trigger.each_worktree) : undefined;
 
   const setStep = (i: number, s: Step) => setFlow((f) => ({ ...f, steps: f.steps.map((x, j) => (j === i ? s : x)) }));
   const insertStep = (at: number, kind: StepKind) => setFlow((f) => ({ ...f, steps: [...f.steps.slice(0, at), blankStep(kind), ...f.steps.slice(at)] }));
@@ -123,6 +131,7 @@ export function FlowEditor({
           className="min-w-0 flex-1 text-heading"
           aria-label="Flow name"
         />
+        <LimitBadge refused={target.rate?.refused_last_hour} last={target.rate?.last_refused_at} />
         <label className="flex items-center gap-2 text-muted-foreground text-meta">
           <Switch checked={flow.enabled} disabled={readOnly} onCheckedChange={(enabled) => setFlow({ ...flow, enabled })} />
           {flow.enabled ? "On" : "Off"}
@@ -205,10 +214,16 @@ export function FlowEditor({
             </div>
           )}
 
-          <section className="mt-10 flex items-center gap-4 rounded-xl border bg-card/40 px-4 py-3">
+          <section className={cn("mt-10 flex items-center gap-4 rounded-xl border bg-card/40 px-4 py-3", warning && "border-warning/40")}>
             <div className="min-w-0 flex-1">
               <div className="text-row">At most</div>
               <div className="text-desc text-muted-foreground">Stops a flow that triggers itself, or a busy repo, from running away. Empty means {DEFAULT_MAX_RUNS_PER_HOUR}, the default.</div>
+              {warning && (
+                <p role="status" data-testid="flow-rate-warning" className="mt-1.5 flex items-start gap-1.5 text-desc text-warning-foreground">
+                  <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0" />
+                  {warning}
+                </p>
+              )}
             </div>
             <Input
               type="number"
