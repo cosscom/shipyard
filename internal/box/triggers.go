@@ -132,7 +132,7 @@ func (b *Box) flowSecret(w http.ResponseWriter, r *http.Request) error {
 	if err := b.before(r, "config.change", map[string]any{"flow": sf.Flow.ID, "secret": true}); err != nil {
 		return err
 	}
-	s, err := b.Triggers.Rotate(sf.Scope + "/" + sf.Flow.ID)
+	s, err := b.Triggers.Rotate(sf.key())
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func (b *Box) handleTrigger(w http.ResponseWriter, r *http.Request) {
 	sf, ok := b.webhookFlow(r.Context(), r.PathValue("flow"), r.URL.Query().Get("scope"))
 	secret := ""
 	if ok {
-		secret = b.Triggers.Get(sf.Scope + "/" + sf.Flow.ID)
+		secret = b.Triggers.Get(sf.key())
 	}
 	ts, _ := strconv.ParseInt(r.Header.Get("X-Berth-Timestamp"), 10, 64)
 	// The same answer for a flow that is not there and a bad signature.
@@ -166,7 +166,7 @@ func (b *Box) handleTrigger(w http.ResponseWriter, r *http.Request) {
 	}
 	idem := ""
 	if d := r.Header.Get("X-Berth-Delivery"); d != "" {
-		idem = "webhook:" + sf.Scope + "/" + sf.Flow.ID + ":" + d
+		idem = "webhook:" + sf.key() + ":" + d
 	} else if !b.Triggers.fresh(r.Header.Get("X-Berth-Signature"), time.Now()) {
 		fail(http.StatusConflict, "this signed request was already used")
 		return

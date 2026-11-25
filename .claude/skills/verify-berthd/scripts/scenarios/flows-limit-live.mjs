@@ -50,8 +50,8 @@ export async function run({ page, shot, step, expect, call }) {
 
     step("the app's flow list shows the badge");
     await page.getByTestId("nav-automations").click();
-  // Off the sidebar, so no row's tooltip covers the shots.
-  await page.mouse.move(1200, 880);
+    // Off the sidebar, so no row's tooltip covers the shots.
+    await page.mouse.move(1200, 880);
     const row = page.getByRole("button").filter({ hasText: "Every minute" });
     await expect(row.getByTestId("flow-limit-badge")).toHaveText("Limit reached · 1 refused in the last hour", { timeout: 15_000 });
     await shot("1-flow-list-badge");

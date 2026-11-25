@@ -52,8 +52,7 @@ func maxRunsPerHour(f Flow) int {
 
 // allowRate counts a start of the flow key against its hourly limit, and
 // returns the slot it took (for releaseRate). A refusal is counted and, the
-// first of a streak, logged; the start that ends a streak logs how many
-// were refused.
+// first of a streak, logged; started ends the streak once a run starts.
 func (f *Flows) allowRate(key string, limit int, via string) (time.Time, bool) {
 	now := f.now()
 	f.mu.Lock()
@@ -78,12 +77,21 @@ func (f *Flows) allowRate(key string, limit int, via string) (time.Time, bool) {
 		r.streakTo = now
 		return time.Time{}, false
 	}
-	if r.streak > 0 {
-		f.logf("flows: %s: %d start%s refused %s–%s", key, r.streak, plural(r.streak), r.streakFrom.Format("15:04"), r.streakTo.Format("15:04"))
-		r.streak = 0
-	}
 	r.starts = append(r.starts, now)
 	return now, true
+}
+
+// started ends the flow key's streak of refusals, if it had one, now that a
+// start went through: one line says how many were refused, and when.
+func (f *Flows) started(key string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	r := f.rate[key]
+	if r == nil || r.streak == 0 {
+		return
+	}
+	f.logf("flows: %s: %d start%s refused %s–%s", key, r.streak, plural(r.streak), r.streakFrom.Format("15:04"), r.streakTo.Format("15:04"))
+	r.streak = 0
 }
 
 // releaseRate gives back the slot a start took and did not use.
@@ -113,6 +121,9 @@ func (f *Flows) refusals(key string) (int, time.Time) {
 		return 0, time.Time{}
 	}
 	r.prune(now)
+	if len(r.refused) == 0 {
+		return 0, time.Time{}
+	}
 	return len(r.refused), r.lastRefused
 }
 
@@ -142,7 +153,8 @@ func (c rateCheck) warning() string {
 	}
 	share := ""
 	if c.worktrees > 1 {
-		share = fmt.Sprintf(" across %d worktrees, which share the limit", c.worktrees)
+		// The app words it so too, without the count it can't know.
+		share = " across its worktrees, which share the limit"
 	}
 	return fmt.Sprintf("This schedule fires up to %d times an hour%s; the limit is %d, so about %d starts an hour will be refused.", c.fires, share, c.limit, c.fires-c.limit)
 }
@@ -175,7 +187,7 @@ func (b *Box) warnRates(ctx context.Context, all []ScopedFlow) {
 		if !sf.Flow.Enabled || sf.Flow.Trigger.Schedule == "" {
 			continue
 		}
-		key := sf.Scope + "/" + sf.Flow.ID
+		key := sf.key()
 		seen := fmt.Sprintf("%s|%v|%d", sf.Flow.Trigger.Schedule, sf.Flow.Trigger.EachWorktree, maxRunsPerHour(sf.Flow))
 		f.mu.Lock()
 		if f.warned == nil {

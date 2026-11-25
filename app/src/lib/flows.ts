@@ -103,8 +103,7 @@ export const maxRunsPerHour = (f: Flow) => (f.max_runs_per_hour && f.max_runs_pe
 export const refusedLabel = (n: number) => `Limit reached · ${n} refused in the last hour`;
 
 // rateWarning says how many starts an hour a schedule's limit will refuse,
-// in the box's words (rateCheck.warning in internal/box/flowrate.go, which
-// also names how many worktrees share it), or
+// in the box's words (rateCheck.warning in internal/box/flowrate.go), or
 // nothing when it fits.
 export function rateWarning(fires: number, limit: number, eachWorktree?: boolean): string | undefined {
   if (fires <= limit) return undefined;

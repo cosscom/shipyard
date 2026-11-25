@@ -77,8 +77,9 @@ func (b *Box) flowTargets(ctx context.Context, sf ScopedFlow, withMain bool) []s
 }
 
 // fireScheduled starts the scheduled flows due in minute t, and returns
-// how many runs it started. A start refused is logged: a flow over its
-// runs-per-hour limit once per streak (allowRate), anything else each time.
+// how many runs it started. A start the runs-per-hour limit refused is
+// logged once per streak (allowRate); any other refusal is a flow.skipped
+// event, as the event bus's are.
 func (b *Box) fireScheduled(ctx context.Context, t time.Time) int {
 	all, err := b.ActiveFlows(ctx)
 	if err != nil {
@@ -93,7 +94,7 @@ func (b *Box) fireScheduled(ctx context.Context, t time.Time) int {
 			continue
 		}
 		c, err := ParseCron(tr.Schedule)
-		if err != nil || !c.Matches(t) || !b.Flows.firstFiring(sf.Scope+"/"+sf.Flow.ID, t) {
+		if err != nil || !c.Matches(t) || !b.Flows.firstFiring(sf.key(), t) {
 			continue
 		}
 		base := map[string]any{"schedule": tr.Schedule, "time": t.Format(time.RFC3339)}
@@ -125,7 +126,7 @@ func (b *Box) fireScheduled(ctx context.Context, t time.Time) int {
 			case err == nil:
 				fired++
 			case !errors.Is(err, errRateLimited):
-				b.Flows.logf("flows: %s/%s: the %s start was refused: %v", sf.Scope, sf.Flow.ID, t.Format("15:04"), err)
+				b.flowSkipped(sf, err)
 			}
 		}
 	}
@@ -310,7 +311,7 @@ func (b *Box) pollGitHub(ctx context.Context, now time.Time) int {
 		if !sf.Flow.Enabled || gt == nil {
 			continue
 		}
-		key := sf.Scope + "/" + sf.Flow.ID
+		key := sf.key()
 		every := 2 * time.Minute
 		if d, err := time.ParseDuration(gt.Poll); err == nil && d >= time.Minute {
 			every = d
@@ -432,7 +433,7 @@ func (b *Box) admitGitHub(ctx context.Context, sf ScopedFlow, e events.Event, id
 // that; where.author narrows it further by the issue's author.
 func (b *Box) pollIssues(ctx context.Context, sf ScopedFlow, now time.Time, budget int) (started, calls int) {
 	gt := sf.Flow.Trigger.GitHub
-	key := sf.Scope + "/" + sf.Flow.ID
+	key := sf.key()
 	sel := sf
 	sel.Flow.Trigger.Where.Branch = ""
 	for _, tg := range b.flowTargets(ctx, sel, true) {

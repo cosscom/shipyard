@@ -296,6 +296,17 @@ type ScopedFlow struct {
 	autofix *autoFlow
 }
 
+// key names a flow in its scope, as its rate window and run keys do:
+// "box/<id>" or "repo:<location>/<id>".
+func (sf ScopedFlow) key() string { return sf.Scope + "/" + sf.Flow.ID }
+
+// flowSkipped tells the box's subscribers a start of sf was refused.
+func (b *Box) flowSkipped(sf ScopedFlow, err error) {
+	if b.Runs != nil {
+		b.Runs.Host.Publish("flow.skipped", map[string]any{"flow": sf.Flow.ID, "scope": sf.Scope, "error": err.Error(), "run": ""})
+	}
+}
+
 func (f *Flows) loadBox() ([]Flow, error) {
 	var doc struct {
 		Flows []Flow `json:"flows"`
@@ -423,8 +434,8 @@ func (f *Flows) Run(ctx context.Context, b *Box) {
 		}
 		for _, sf := range cached {
 			if sf.Flow.Enabled && b.flowMatches(ctx, sf, e) {
-				if _, err := b.startFlowRun(ctx, sf, e, flowStart{via: "event"}); err != nil && b.Runs != nil {
-					b.Runs.Host.Publish("flow.skipped", map[string]any{"flow": sf.Flow.ID, "scope": sf.Scope, "error": err.Error(), "run": ""})
+				if _, err := b.startFlowRun(ctx, sf, e, flowStart{via: "event"}); err != nil {
+					b.flowSkipped(sf, err)
 				}
 			}
 		}
@@ -576,7 +587,7 @@ type flowStart struct {
 // skipped silently: a refusal is returned.
 func (b *Box) startFlowRun(ctx context.Context, sf ScopedFlow, e events.Event, opt flowStart) (runs.Summary, error) {
 	eng := b.runsEngine(context.Background())
-	key := sf.Scope + "/" + sf.Flow.ID
+	key := sf.key()
 	loc, wt, scoped := b.eventScope(ctx, e.Data)
 	if opt.idem != "" {
 		// A delivery already admitted: not a new run, and not counted.
@@ -619,9 +630,13 @@ func (b *Box) startFlowRun(ctx context.Context, sf ScopedFlow, e events.Event, o
 		req.Key = key + "@" + wt.Path
 	}
 	s, _, err := eng.Start(req)
-	if err != nil && !slot.IsZero() {
+	switch {
+	case slot.IsZero():
+	case err != nil:
 		// Not started (a full queue, most often): it doesn't count.
 		b.Flows.releaseRate(key, slot)
+	default:
+		b.Flows.started(key)
 	}
 	return s, err
 }
@@ -818,7 +833,7 @@ func (b *Box) listFlows(w http.ResponseWriter, r *http.Request) error {
 		if sf.Overridden {
 			continue
 		}
-		key := sf.Scope + "/" + sf.Flow.ID
+		key := sf.key()
 		all[i].RefusedLastHour, all[i].LastRefusedAt = b.Flows.refusals(key)
 		if rc := b.flowRateCheck(r.Context(), sf); rc.fires > 0 {
 			all[i].FiresPerHour, all[i].Warning = rc.fires, rc.warning()

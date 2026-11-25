@@ -323,6 +323,16 @@ func (l *testLog) with(s string) []string {
 	return out
 }
 
+// await is with, once a line has it or five seconds have gone by.
+func (l *testLog) await(s string) []string {
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
+		if got := l.with(s); len(got) > 0 {
+			return got
+		}
+	}
+	return l.with(s)
+}
+
 // clocked gives a flow box the test clock and log.
 func clocked(c *testClock, l *testLog) func(*Box) {
 	return func(b *Box) { b.Flows.Now, b.Flows.Logf = c.now, l.logf }
@@ -372,11 +382,11 @@ func TestAStartTheLimitRefusesIsCountedAndLoggedOncePerStreak(t *testing.T) {
 	clock.add(time.Hour)
 	b.Events.Publish(events.Event{Type: "worktree.changed", Data: map[string]any{"path": wt.Path}})
 	waitRuns(t, b, "count", 3)
-	if got := logs.with("starts refused"); len(got) != 1 || !strings.Contains(got[0], "repo:cal/count: 2 starts refused 10:02–10:03") {
+	if got := logs.await("starts refused"); len(got) != 1 || !strings.Contains(got[0], "repo:cal/count: 2 starts refused 10:02–10:03") {
 		t.Fatalf("summary lines = %q", got)
 	}
-	if n, _ := b.Flows.refusals("repo:cal/count"); n != 0 {
-		t.Fatalf("%d refusals in the last hour, an hour after the last", n)
+	if n, last := b.Flows.refusals("repo:cal/count"); n != 0 || !last.IsZero() {
+		t.Fatalf("%d refusals in the last hour, the last at %v, an hour after the last", n, last)
 	}
 }
 
@@ -410,7 +420,7 @@ func TestTheFlowListSaysWhatTheLimitRefusedAndWarnsOfASchedule(t *testing.T) {
 		t.Errorf("every five minutes: %d %q", f.FiresPerHour, f.Warning)
 	}
 	// Three worktrees, one limit.
-	if f := by["each"]; f.FiresPerHour != 36 || !strings.Contains(f.Warning, "up to 36 times an hour across 3 worktrees") {
+	if f := by["each"]; f.FiresPerHour != 36 || !strings.Contains(f.Warning, "up to 36 times an hour across its worktrees, which share the limit") {
 		t.Errorf("each worktree: %d %q", f.FiresPerHour, f.Warning)
 	}
 	if f := by["event"]; f.RefusedLastHour != 1 || f.LastRefusedAt.IsZero() || f.FiresPerHour != 0 || f.Warning != "" {
